@@ -111,6 +111,8 @@ pub struct Pipeline {
     mic_resampler: FrameResampler,
     spk_resampler: FrameResampler,
     vad: Option<Box<dyn VoiceActivityDetector>>,
+    aec: Option<crate::aec::AEC>,
+    last_spk_frame: Option<Vec<f32>>,
     accumulated_mic: Vec<f32>,
     accumulated_spk: Vec<f32>,
     mic_smoothed: f32,
@@ -127,6 +129,7 @@ impl Pipeline {
         mic_sample_rate: u32,
         spk_sample_rate: u32,
         vad: Option<Box<dyn VoiceActivityDetector>>,
+        aec: Option<crate::aec::AEC>,
         mode: ChannelMode,
     ) -> Self {
         Self {
@@ -143,6 +146,8 @@ impl Pipeline {
                 Duration::from_millis(30),
             ),
             vad,
+            aec,
+            last_spk_frame: None,
             accumulated_mic: Vec::new(),
             accumulated_spk: Vec::new(),
             mic_smoothed: 0.0,
@@ -173,9 +178,44 @@ impl Pipeline {
         pairs
     }
 
+    fn is_silent(frame: &[f32]) -> bool {
+        if frame.is_empty() {
+            return true;
+        }
+        let sum_sq: f32 = frame.iter().map(|&x| x * x).sum();
+        let rms = (sum_sq / frame.len() as f32).sqrt();
+        rms < 1e-6
+    }
+
     pub fn process_pairs(&mut self, pairs: Vec<AudioPair>) {
         for (mic, spk) in pairs {
-            let processed_mic = self.apply_vad(mic);
+            let cleaned_mic = if let Some(ref mut aec) = self.aec {
+                let spk_silent = Self::is_silent(&spk);
+
+                if !spk_silent {
+                    self.last_spk_frame = Some(spk.clone());
+                }
+
+                let aec_ref = if spk_silent {
+                    match self.last_spk_frame {
+                        Some(ref prev) => prev.as_slice(),
+                        None => &spk,
+                    }
+                } else {
+                    &spk
+                };
+
+                match aec.process_streaming(&mic, aec_ref) {
+                    Ok(cleaned) => cleaned,
+                    Err(e) => {
+                        log::warn!("AEC failed: {}", e);
+                        mic
+                    }
+                }
+            } else {
+                mic
+            };
+            let processed_mic = self.apply_vad(cleaned_mic);
             self.accumulated_mic.extend_from_slice(&processed_mic);
             self.accumulated_spk.extend_from_slice(&spk);
 
@@ -216,6 +256,10 @@ impl Pipeline {
         })
     }
 
+    pub fn accumulated_mic_len(&self) -> usize {
+        self.accumulated_mic.len()
+    }
+
     pub fn take_accumulated(&mut self, min_samples: usize) -> Option<(Vec<f32>, Vec<f32>)> {
         if self.accumulated_mic.len() >= min_samples {
             let mic = std::mem::take(&mut self.accumulated_mic);
@@ -234,6 +278,7 @@ impl Pipeline {
 
     pub fn reset(&mut self) {
         self.joiner.reset();
+        self.last_spk_frame = None;
         self.accumulated_mic.clear();
         self.accumulated_spk.clear();
         self.mic_smoothed = 0.0;

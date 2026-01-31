@@ -544,6 +544,7 @@ const SILENCE_FLUSH_POLLS: u32 = 4; // 4 polls of silence (~2s) → flush pendin
 const WHISPER_RATE: usize = 16000;
 
 pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) {
+    use crate::audio_toolkit::pipeline::{ChannelMode, Pipeline};
     use crate::managers::session::{SessionAmplitudeEvent, SessionManager};
     use tokio::time::{interval, Duration};
 
@@ -551,46 +552,79 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
     let rm = app.state::<Arc<AudioRecordingManager>>();
     let tm = app.state::<Arc<TranscriptionManager>>();
 
+    let aec = match crate::aec::AEC::new() {
+        Ok(a) => {
+            log::info!("AEC initialized successfully");
+            Some(a)
+        }
+        Err(e) => {
+            log::warn!("AEC init failed, running without echo cancellation: {}", e);
+            None
+        }
+    };
+
+    // Both mic and speaker streams are already resampled to 16kHz,
+    // so Pipeline resamplers act as identity (16k→16k).
+    let mut pipeline = Pipeline::new(
+        WHISPER_RATE as u32,
+        WHISPER_RATE as u32,
+        None, // VAD handled separately or inside pipeline if needed
+        aec,
+        ChannelMode::MicAndSpeaker,
+    );
+
+    let session_start = Instant::now();
     let mut tick = interval(Duration::from_millis(POLL_INTERVAL_MS));
-    let mut mic_elapsed_ms: i64 = 0;
-    let mut spk_elapsed_ms: i64 = 0;
-    let mut pending_mic_samples: Vec<f32> = Vec::new();
     let mut pending_spk_samples: Vec<f32> = Vec::new();
     let mut mic_silent_polls: u32 = 0;
     let mut spk_silent_polls: u32 = 0;
+    let mut mic_chunk_start: Instant = session_start;
+    let mut spk_chunk_start: Instant = session_start;
+    // Track whether we have any mic samples accumulated in the pipeline
+    let mut mic_has_samples = false;
 
     loop {
         tick.tick().await;
 
         if sm.get_active_session_id().as_deref() != Some(&session_id) {
+            let now = session_start.elapsed().as_millis() as i64;
+
             // Session ended — flush remaining mic audio
             if rm.is_recording() {
                 let final_chunk = rm.take_session_chunk();
-                pending_mic_samples.extend_from_slice(&final_chunk);
+                if !final_chunk.is_empty() {
+                    pipeline.push_mic_samples(&final_chunk);
+                }
             }
 
             // Flush remaining speaker audio
             let final_spk = sm.take_speaker_samples();
-            pending_spk_samples.extend_from_slice(&final_spk);
+            if !final_spk.is_empty() {
+                pipeline.push_spk_samples(&final_spk);
+                pending_spk_samples.extend_from_slice(&final_spk);
+            }
 
-            // Transcribe remaining mic
-            if !pending_mic_samples.is_empty() {
-                let start_ms = mic_elapsed_ms;
-                let dur_ms = pending_mic_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
-                if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_mic_samples)) {
+            // Process remaining pairs through AEC
+            let pairs = pipeline.flush();
+            pipeline.process_pairs(pairs);
+
+            // Transcribe remaining mic (AEC-cleaned via pipeline)
+            let (remaining_mic, _remaining_spk) = pipeline.take_all_accumulated();
+            if !remaining_mic.is_empty() {
+                let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64;
+                if let Ok(text) = tm.transcribe_chunk(remaining_mic) {
                     if !text.is_empty() {
-                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, start_ms + dur_ms);
+                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, now);
                     }
                 }
             }
 
             // Transcribe remaining speaker
             if !pending_spk_samples.is_empty() {
-                let start_ms = spk_elapsed_ms;
-                let dur_ms = pending_spk_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
+                let start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64;
                 if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples)) {
                     if !text.is_empty() {
-                        let _ = sm.add_segment(&session_id, text, "speaker", start_ms, start_ms + dur_ms);
+                        let _ = sm.add_segment(&session_id, text, "speaker", start_ms, now);
                     }
                 }
             }
@@ -599,51 +633,71 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             break;
         }
 
-        // Poll mic samples
+        // Poll mic samples and push into pipeline
         let new_mic = rm.take_session_chunk();
         if new_mic.is_empty() {
             mic_silent_polls += 1;
         } else {
+            if !mic_has_samples {
+                mic_chunk_start = Instant::now();
+            }
             mic_silent_polls = 0;
-            pending_mic_samples.extend_from_slice(&new_mic);
+            mic_has_samples = true;
+            pipeline.push_mic_samples(&new_mic);
         }
 
-        // Poll speaker samples
+        // Poll speaker samples and push into pipeline
         let new_spk = sm.take_speaker_samples();
-        if new_spk.is_empty() {
-            spk_silent_polls += 1;
-        } else {
-            spk_silent_polls = 0;
+        if !new_spk.is_empty() {
+            if pending_spk_samples.is_empty() {
+                spk_chunk_start = Instant::now();
+            }
+            pipeline.push_spk_samples(&new_spk);
             pending_spk_samples.extend_from_slice(&new_spk);
+
+            if is_silence(&new_spk) {
+                spk_silent_polls += 1;
+            } else {
+                spk_silent_polls = 0;
+            }
+        } else {
+            spk_silent_polls += 1;
         }
+
+        // Flush joiner and process pairs (AEC applied per-pair inside pipeline)
+        let pairs = pipeline.flush();
+        pipeline.process_pairs(pairs);
 
         // Emit amplitude event for UI visualization
-        {
-            let mic_amp = compute_amplitude(&pending_mic_samples);
-            let spk_amp = compute_amplitude(&pending_spk_samples);
+        if let Some(amp) = pipeline.get_amplitude() {
             let _ = app.emit(
                 "session-amplitude",
                 SessionAmplitudeEvent {
                     session_id: session_id.clone(),
-                    mic: mic_amp,
-                    speaker: spk_amp,
+                    mic: (amp.mic_level * 1000.0) as u16,
+                    speaker: (amp.spk_level * 1000.0) as u16,
                 },
             );
         }
 
-        // Transcribe mic if ready
-        let mic_should_transcribe = pending_mic_samples.len() >= MAX_CHUNK_SAMPLES
-            || (pending_mic_samples.len() >= MIN_CHUNK_SAMPLES && mic_silent_polls >= SILENCE_FLUSH_POLLS);
+        let now = session_start.elapsed().as_millis() as i64;
+
+        // Check if mic audio is ready to transcribe
+        let mic_should_transcribe = mic_has_samples
+            && (pipeline.accumulated_mic_len() >= MAX_CHUNK_SAMPLES
+                || (pipeline.accumulated_mic_len() >= MIN_CHUNK_SAMPLES
+                    && mic_silent_polls >= SILENCE_FLUSH_POLLS));
 
         if mic_should_transcribe {
-            let start_ms = mic_elapsed_ms;
-            let dur_ms = pending_mic_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
-            mic_elapsed_ms += dur_ms;
+            let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64;
 
-            match tm.transcribe_chunk(std::mem::take(&mut pending_mic_samples)) {
+            // Take only mic from pipeline; speaker is tracked separately
+            let (mic_audio, _spk_audio) = pipeline.take_all_accumulated();
+
+            match tm.transcribe_chunk(mic_audio) {
                 Ok(text) => {
                     if !text.is_empty() {
-                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, mic_elapsed_ms);
+                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, now);
                     }
                 }
                 Err(e) => {
@@ -651,6 +705,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
                 }
             }
             mic_silent_polls = 0;
+            mic_has_samples = false;
         }
 
         // Transcribe speaker if ready
@@ -658,14 +713,12 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             || (pending_spk_samples.len() >= MIN_CHUNK_SAMPLES && spk_silent_polls >= SILENCE_FLUSH_POLLS);
 
         if spk_should_transcribe {
-            let start_ms = spk_elapsed_ms;
-            let dur_ms = pending_spk_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
-            spk_elapsed_ms += dur_ms;
+            let start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64;
 
             match tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples)) {
                 Ok(text) => {
                     if !text.is_empty() {
-                        let _ = sm.add_segment(&session_id, text, "speaker", start_ms, spk_elapsed_ms);
+                        let _ = sm.add_segment(&session_id, text, "speaker", start_ms, now);
                     }
                 }
                 Err(e) => {
@@ -677,22 +730,14 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
     }
 }
 
-fn compute_amplitude(samples: &[f32]) -> u16 {
+/// Returns true if the chunk's RMS energy is below a quiet threshold (~-40 dB).
+fn is_silence(samples: &[f32]) -> bool {
     if samples.is_empty() {
-        return 0;
+        return true;
     }
-    // Use the last 4800 samples (~300ms at 16kHz) for responsiveness
-    let window = if samples.len() > 4800 {
-        &samples[samples.len() - 4800..]
-    } else {
-        samples
-    };
-    let sum_sq: f32 = window.iter().map(|&x| x * x).sum();
-    let rms = (sum_sq / window.len() as f32).sqrt();
-    // Map to 0..1000 range for UI
-    let db = if rms > 0.0 { 20.0 * rms.log10() } else { -60.0 };
-    let normalized = ((db + 60.0) / 60.0).clamp(0.0, 1.0);
-    (normalized * 1000.0) as u16
+    let sum_sq: f32 = samples.iter().map(|&x| x * x).sum();
+    let rms = (sum_sq / samples.len() as f32).sqrt();
+    rms < 0.01 // roughly -40 dB
 }
 
 // Static Action Map
