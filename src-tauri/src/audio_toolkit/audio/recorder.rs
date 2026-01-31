@@ -139,6 +139,8 @@ impl AudioRecorder {
         let (resp_tx, resp_rx) = mpsc::channel();
         if let Some(tx) = &self.cmd_tx {
             tx.send(Cmd::Stop(resp_tx))?;
+        } else {
+            return Ok(Vec::new()); // already closed
         }
         Ok(resp_rx.recv()?) // wait for the samples
     }

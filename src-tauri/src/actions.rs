@@ -549,8 +549,10 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
 
         if sm.get_active_session_id().as_deref() != Some(&session_id) {
             // Session ended — flush remaining audio
-            let final_chunk = rm.take_session_chunk();
-            pending_samples.extend_from_slice(&final_chunk);
+            if rm.is_recording() {
+                let final_chunk = rm.take_session_chunk();
+                pending_samples.extend_from_slice(&final_chunk);
+            }
 
             if !pending_samples.is_empty() {
                 let start_ms = elapsed_ms;
