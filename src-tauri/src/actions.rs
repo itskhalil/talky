@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::AppHandle;
+use tauri::Emitter;
 use tauri::Manager;
 
 // Shortcut Action Trait
@@ -483,6 +484,7 @@ impl ShortcutAction for SessionAction {
             let sm = Arc::clone(&sm);
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
+                sm.stop_speaker_capture();
                 if let Err(e) = sm.end_session() {
                     error!("Failed to end session: {}", e);
                 }
@@ -492,6 +494,8 @@ impl ShortcutAction for SessionAction {
             });
         } else {
             // Start new session
+            sm.reset_speaker_state();
+
             let tm = app.state::<Arc<TranscriptionManager>>();
             tm.initiate_model_load();
 
@@ -504,6 +508,14 @@ impl ShortcutAction for SessionAction {
             match sm.start_session(None) {
                 Ok(session) => {
                     change_tray_icon(app, TrayIconState::Recording);
+
+                    // Spawn speaker capture task (macOS only)
+                    #[cfg(target_os = "macos")]
+                    {
+                        let speaker_buf = sm.speaker_buffer_handle();
+                        let shutdown = sm.speaker_shutdown_handle();
+                        crate::commands::session::spawn_speaker_capture(speaker_buf, shutdown);
+                    }
 
                     // Spawn chunked transcription loop
                     let app = app.clone();
@@ -532,7 +544,7 @@ const SILENCE_FLUSH_POLLS: u32 = 4; // 4 polls of silence (~2s) → flush pendin
 const WHISPER_RATE: usize = 16000;
 
 pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) {
-    use crate::managers::session::SessionManager;
+    use crate::managers::session::{SessionAmplitudeEvent, SessionManager};
     use tokio::time::{interval, Duration};
 
     let sm = app.state::<Arc<SessionManager>>();
@@ -540,66 +552,147 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
     let tm = app.state::<Arc<TranscriptionManager>>();
 
     let mut tick = interval(Duration::from_millis(POLL_INTERVAL_MS));
-    let mut elapsed_ms: i64 = 0;
-    let mut pending_samples: Vec<f32> = Vec::new();
-    let mut silent_polls: u32 = 0;
+    let mut mic_elapsed_ms: i64 = 0;
+    let mut spk_elapsed_ms: i64 = 0;
+    let mut pending_mic_samples: Vec<f32> = Vec::new();
+    let mut pending_spk_samples: Vec<f32> = Vec::new();
+    let mut mic_silent_polls: u32 = 0;
+    let mut spk_silent_polls: u32 = 0;
 
     loop {
         tick.tick().await;
 
         if sm.get_active_session_id().as_deref() != Some(&session_id) {
-            // Session ended — flush remaining audio
+            // Session ended — flush remaining mic audio
             if rm.is_recording() {
                 let final_chunk = rm.take_session_chunk();
-                pending_samples.extend_from_slice(&final_chunk);
+                pending_mic_samples.extend_from_slice(&final_chunk);
             }
 
-            if !pending_samples.is_empty() {
-                let start_ms = elapsed_ms;
-                let dur_ms = pending_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
-                if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_samples)) {
+            // Flush remaining speaker audio
+            let final_spk = sm.take_speaker_samples();
+            pending_spk_samples.extend_from_slice(&final_spk);
+
+            // Transcribe remaining mic
+            if !pending_mic_samples.is_empty() {
+                let start_ms = mic_elapsed_ms;
+                let dur_ms = pending_mic_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
+                if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_mic_samples)) {
                     if !text.is_empty() {
                         let _ = sm.add_segment(&session_id, text, "mic", start_ms, start_ms + dur_ms);
                     }
                 }
             }
+
+            // Transcribe remaining speaker
+            if !pending_spk_samples.is_empty() {
+                let start_ms = spk_elapsed_ms;
+                let dur_ms = pending_spk_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
+                if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples)) {
+                    if !text.is_empty() {
+                        let _ = sm.add_segment(&session_id, text, "speaker", start_ms, start_ms + dur_ms);
+                    }
+                }
+            }
+
             debug!("Session transcription loop ended for {}", session_id);
             break;
         }
 
-        let new_samples = rm.take_session_chunk();
-
-        if new_samples.is_empty() {
-            silent_polls += 1;
+        // Poll mic samples
+        let new_mic = rm.take_session_chunk();
+        if new_mic.is_empty() {
+            mic_silent_polls += 1;
         } else {
-            silent_polls = 0;
-            pending_samples.extend_from_slice(&new_samples);
+            mic_silent_polls = 0;
+            pending_mic_samples.extend_from_slice(&new_mic);
         }
 
-        let should_transcribe = pending_samples.len() >= MAX_CHUNK_SAMPLES
-            || (pending_samples.len() >= MIN_CHUNK_SAMPLES && silent_polls >= SILENCE_FLUSH_POLLS);
-
-        if !should_transcribe {
-            continue;
+        // Poll speaker samples
+        let new_spk = sm.take_speaker_samples();
+        if new_spk.is_empty() {
+            spk_silent_polls += 1;
+        } else {
+            spk_silent_polls = 0;
+            pending_spk_samples.extend_from_slice(&new_spk);
         }
 
-        let start_ms = elapsed_ms;
-        let dur_ms = pending_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
-        elapsed_ms += dur_ms;
+        // Emit amplitude event for UI visualization
+        {
+            let mic_amp = compute_amplitude(&pending_mic_samples);
+            let spk_amp = compute_amplitude(&pending_spk_samples);
+            let _ = app.emit(
+                "session-amplitude",
+                SessionAmplitudeEvent {
+                    session_id: session_id.clone(),
+                    mic: mic_amp,
+                    speaker: spk_amp,
+                },
+            );
+        }
 
-        match tm.transcribe_chunk(std::mem::take(&mut pending_samples)) {
-            Ok(text) => {
-                if !text.is_empty() {
-                    let _ = sm.add_segment(&session_id, text, "mic", start_ms, elapsed_ms);
+        // Transcribe mic if ready
+        let mic_should_transcribe = pending_mic_samples.len() >= MAX_CHUNK_SAMPLES
+            || (pending_mic_samples.len() >= MIN_CHUNK_SAMPLES && mic_silent_polls >= SILENCE_FLUSH_POLLS);
+
+        if mic_should_transcribe {
+            let start_ms = mic_elapsed_ms;
+            let dur_ms = pending_mic_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
+            mic_elapsed_ms += dur_ms;
+
+            match tm.transcribe_chunk(std::mem::take(&mut pending_mic_samples)) {
+                Ok(text) => {
+                    if !text.is_empty() {
+                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, mic_elapsed_ms);
+                    }
+                }
+                Err(e) => {
+                    error!("Mic chunk transcription error: {}", e);
                 }
             }
-            Err(e) => {
-                error!("Session chunk transcription error: {}", e);
-            }
+            mic_silent_polls = 0;
         }
 
-        silent_polls = 0;
+        // Transcribe speaker if ready
+        let spk_should_transcribe = pending_spk_samples.len() >= MAX_CHUNK_SAMPLES
+            || (pending_spk_samples.len() >= MIN_CHUNK_SAMPLES && spk_silent_polls >= SILENCE_FLUSH_POLLS);
+
+        if spk_should_transcribe {
+            let start_ms = spk_elapsed_ms;
+            let dur_ms = pending_spk_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
+            spk_elapsed_ms += dur_ms;
+
+            match tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples)) {
+                Ok(text) => {
+                    if !text.is_empty() {
+                        let _ = sm.add_segment(&session_id, text, "speaker", start_ms, spk_elapsed_ms);
+                    }
+                }
+                Err(e) => {
+                    error!("Speaker chunk transcription error: {}", e);
+                }
+            }
+            spk_silent_polls = 0;
+        }
     }
+}
+
+fn compute_amplitude(samples: &[f32]) -> u16 {
+    if samples.is_empty() {
+        return 0;
+    }
+    // Use the last 4800 samples (~300ms at 16kHz) for responsiveness
+    let window = if samples.len() > 4800 {
+        &samples[samples.len() - 4800..]
+    } else {
+        samples
+    };
+    let sum_sq: f32 = window.iter().map(|&x| x * x).sum();
+    let rms = (sum_sq / window.len() as f32).sqrt();
+    // Map to 0..1000 range for UI
+    let db = if rms > 0.0 { 20.0 * rms.log10() } else { -60.0 };
+    let normalized = ((db + 60.0) / 60.0).clamp(0.0, 1.0);
+    (normalized * 1000.0) as u16
 }
 
 // Static Action Map

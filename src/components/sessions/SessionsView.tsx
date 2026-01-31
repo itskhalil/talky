@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Play, Square, Trash2, ChevronLeft } from "lucide-react";
+import { Play, Square, Trash2, ChevronLeft, Mic, Volume2 } from "lucide-react";
 
 interface Session {
   id: string;
@@ -42,6 +42,12 @@ function formatMs(ms: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+interface AmplitudeEvent {
+  session_id: string;
+  mic: number;
+  speaker: number;
+}
+
 export function SessionsView() {
   const { t } = useTranslation();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -50,6 +56,10 @@ export function SessionsView() {
     null,
   );
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
+  const [amplitude, setAmplitude] = useState<{
+    mic: number;
+    speaker: number;
+  }>({ mic: 0, speaker: 0 });
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const loadSessions = useCallback(async () => {
@@ -120,6 +130,7 @@ export function SessionsView() {
 
     const unlistenEnd = listen<Session>("session-ended", () => {
       setActiveSession(null);
+      setAmplitude({ mic: 0, speaker: 0 });
       loadSessions();
     });
 
@@ -128,6 +139,24 @@ export function SessionsView() {
       unlistenEnd.then((fn) => fn());
     };
   }, [loadSessions]);
+
+  useEffect(() => {
+    const unlisten = listen<AmplitudeEvent>(
+      "session-amplitude",
+      (event) => {
+        if (event.payload.session_id === activeSession?.id) {
+          setAmplitude({
+            mic: event.payload.mic,
+            speaker: event.payload.speaker,
+          });
+        }
+      },
+    );
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [activeSession?.id]);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -202,13 +231,37 @@ export function SessionsView() {
         )}
 
         {isActive && (
-          <button
-            onClick={handleEndSession}
-            className="flex items-center gap-2 px-4 py-2 mb-4 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
-          >
-            <Square size={16} />
-            {t("sessions.endSession")}
-          </button>
+          <>
+            <button
+              onClick={handleEndSession}
+              className="flex items-center gap-2 px-4 py-2 mb-4 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+            >
+              <Square size={16} />
+              {t("sessions.endSession")}
+            </button>
+            <div className="flex gap-4 mb-4">
+              <div className="flex items-center gap-2 flex-1">
+                <Mic size={14} className="text-blue-400 shrink-0" />
+                <div className="flex-1 h-2 bg-mid-gray/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-400 rounded-full transition-all duration-100"
+                    style={{ width: `${Math.min(amplitude.mic / 10, 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <Volume2 size={14} className="text-green-400 shrink-0" />
+                <div className="flex-1 h-2 bg-mid-gray/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-400 rounded-full transition-all duration-100"
+                    style={{
+                      width: `${Math.min(amplitude.speaker / 10, 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
         <h3 className="text-sm font-medium mb-2">

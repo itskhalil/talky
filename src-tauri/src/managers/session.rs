@@ -111,6 +111,10 @@ pub struct SessionManager {
     recordings_dir: PathBuf,
     active_session: Arc<Mutex<Option<String>>>,
     session_start_time: Arc<Mutex<Option<std::time::Instant>>>,
+    /// Shared buffer where the speaker capture task accumulates samples
+    speaker_buffer: Arc<Mutex<Vec<f32>>>,
+    /// Signal to stop the speaker capture task
+    speaker_shutdown: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl SessionManager {
@@ -129,6 +133,8 @@ impl SessionManager {
             recordings_dir,
             active_session: Arc::new(Mutex::new(None)),
             session_start_time: Arc::new(Mutex::new(None)),
+            speaker_buffer: Arc::new(Mutex::new(Vec::new())),
+            speaker_shutdown: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         };
 
         manager.init_database()?;
@@ -439,6 +445,34 @@ impl SessionManager {
             )
             .optional()?;
         Ok(notes)
+    }
+
+    /// Take accumulated speaker samples and clear the buffer
+    pub fn take_speaker_samples(&self) -> Vec<f32> {
+        std::mem::take(&mut *self.speaker_buffer.lock().unwrap())
+    }
+
+    /// Get a clone of the speaker buffer Arc for the capture task
+    pub fn speaker_buffer_handle(&self) -> Arc<Mutex<Vec<f32>>> {
+        self.speaker_buffer.clone()
+    }
+
+    /// Get the speaker shutdown signal
+    pub fn speaker_shutdown_handle(&self) -> Arc<std::sync::atomic::AtomicBool> {
+        self.speaker_shutdown.clone()
+    }
+
+    /// Reset speaker state for a new session
+    pub fn reset_speaker_state(&self) {
+        self.speaker_shutdown
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+        self.speaker_buffer.lock().unwrap().clear();
+    }
+
+    /// Signal the speaker capture task to stop
+    pub fn stop_speaker_capture(&self) {
+        self.speaker_shutdown
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     fn format_session_title(&self, timestamp: i64) -> String {
