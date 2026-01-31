@@ -525,7 +525,10 @@ impl ShortcutAction for SessionAction {
     }
 }
 
-const CHUNK_DURATION_SECS: usize = 15;
+const POLL_INTERVAL_MS: u64 = 500;
+const MIN_CHUNK_SAMPLES: usize = 16000; // 1s at 16kHz — don't transcribe less
+const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe
+const SILENCE_FLUSH_POLLS: u32 = 4; // 4 polls of silence (~2s) → flush pending audio
 const WHISPER_RATE: usize = 16000;
 
 pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) {
@@ -536,22 +539,25 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
     let rm = app.state::<Arc<AudioRecordingManager>>();
     let tm = app.state::<Arc<TranscriptionManager>>();
 
-    let mut tick = interval(Duration::from_secs(CHUNK_DURATION_SECS as u64));
+    let mut tick = interval(Duration::from_millis(POLL_INTERVAL_MS));
     let mut elapsed_ms: i64 = 0;
+    let mut pending_samples: Vec<f32> = Vec::new();
+    let mut silent_polls: u32 = 0;
 
     loop {
         tick.tick().await;
 
-        // Check if session is still active
         if sm.get_active_session_id().as_deref() != Some(&session_id) {
-            // Session ended — transcribe any remaining audio
-            let final_samples = rm.stop_session_recording();
-            if !final_samples.is_empty() {
+            // Session ended — flush remaining audio
+            let final_chunk = rm.take_session_chunk();
+            pending_samples.extend_from_slice(&final_chunk);
+
+            if !pending_samples.is_empty() {
                 let start_ms = elapsed_ms;
-                let end_ms = elapsed_ms + (final_samples.len() as i64 * 1000 / WHISPER_RATE as i64);
-                if let Ok(text) = tm.transcribe_chunk(final_samples) {
+                let dur_ms = pending_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
+                if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_samples)) {
                     if !text.is_empty() {
-                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, end_ms);
+                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, start_ms + dur_ms);
                     }
                 }
             }
@@ -559,17 +565,27 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             break;
         }
 
-        let chunk = rm.take_session_chunk();
-        if chunk.is_empty() {
-            elapsed_ms += (CHUNK_DURATION_SECS * 1000) as i64;
+        let new_samples = rm.take_session_chunk();
+
+        if new_samples.is_empty() {
+            silent_polls += 1;
+        } else {
+            silent_polls = 0;
+            pending_samples.extend_from_slice(&new_samples);
+        }
+
+        let should_transcribe = pending_samples.len() >= MAX_CHUNK_SAMPLES
+            || (pending_samples.len() >= MIN_CHUNK_SAMPLES && silent_polls >= SILENCE_FLUSH_POLLS);
+
+        if !should_transcribe {
             continue;
         }
 
         let start_ms = elapsed_ms;
-        let chunk_duration_ms = chunk.len() as i64 * 1000 / WHISPER_RATE as i64;
-        elapsed_ms += chunk_duration_ms;
+        let dur_ms = pending_samples.len() as i64 * 1000 / WHISPER_RATE as i64;
+        elapsed_ms += dur_ms;
 
-        match tm.transcribe_chunk(chunk) {
+        match tm.transcribe_chunk(std::mem::take(&mut pending_samples)) {
             Ok(text) => {
                 if !text.is_empty() {
                     let _ = sm.add_segment(&session_id, text, "mic", start_ms, elapsed_ms);
@@ -579,6 +595,8 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
                 error!("Session chunk transcription error: {}", e);
             }
         }
+
+        silent_polls = 0;
     }
 }
 
