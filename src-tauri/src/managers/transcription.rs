@@ -341,136 +341,6 @@ impl TranscriptionManager {
         current_model.clone()
     }
 
-    pub fn transcribe(&self, audio: Vec<f32>) -> Result<String> {
-        // Update last activity timestamp
-        self.last_activity.store(
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
-            Ordering::Relaxed,
-        );
-
-        let st = std::time::Instant::now();
-
-        debug!("Audio vector length: {}", audio.len());
-
-        if audio.is_empty() {
-            debug!("Empty audio vector");
-            self.maybe_unload_immediately("empty audio");
-            return Ok(String::new());
-        }
-
-        // Check if model is loaded, if not try to load it
-        {
-            // If the model is loading, wait for it to complete.
-            let mut is_loading = self.is_loading.lock().unwrap();
-            while *is_loading {
-                is_loading = self.loading_condvar.wait(is_loading).unwrap();
-            }
-
-            let engine_guard = self.engine.lock().unwrap();
-            if engine_guard.is_none() {
-                return Err(anyhow::anyhow!("Model is not loaded for transcription."));
-            }
-        }
-
-        // Get current settings for configuration
-        let settings = get_settings(&self.app_handle);
-
-        // Perform transcription with the appropriate engine
-        let result = {
-            let mut engine_guard = self.engine.lock().unwrap();
-            let engine = engine_guard.as_mut().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Model failed to load after auto-load attempt. Please check your model settings."
-                )
-            })?;
-
-            match engine {
-                LoadedEngine::Whisper(whisper_engine) => {
-                    // Normalize language code for Whisper
-                    // Convert zh-Hans and zh-Hant to zh since Whisper uses ISO 639-1 codes
-                    let whisper_language = if settings.selected_language == "auto" {
-                        None
-                    } else {
-                        let normalized = if settings.selected_language == "zh-Hans"
-                            || settings.selected_language == "zh-Hant"
-                        {
-                            "zh".to_string()
-                        } else {
-                            settings.selected_language.clone()
-                        };
-                        Some(normalized)
-                    };
-
-                    let params = WhisperInferenceParams {
-                        language: whisper_language,
-                        translate: settings.translate_to_english,
-                        ..Default::default()
-                    };
-
-                    whisper_engine
-                        .transcribe_samples(audio, Some(params))
-                        .map_err(|e| anyhow::anyhow!("Whisper transcription failed: {}", e))?
-                }
-                LoadedEngine::Parakeet(parakeet_engine) => {
-                    let params = ParakeetInferenceParams {
-                        timestamp_granularity: TimestampGranularity::Segment,
-                        ..Default::default()
-                    };
-                    parakeet_engine
-                        .transcribe_samples(audio, Some(params))
-                        .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))?
-                }
-                LoadedEngine::Moonshine(moonshine_engine) => moonshine_engine
-                    .transcribe_samples(audio, None)
-                    .map_err(|e| anyhow::anyhow!("Moonshine transcription failed: {}", e))?,
-            }
-        };
-
-        // Apply word correction if custom words are configured
-        let corrected_result = if !settings.custom_words.is_empty() {
-            apply_custom_words(
-                &result.text,
-                &settings.custom_words,
-                settings.word_correction_threshold,
-            )
-        } else {
-            result.text
-        };
-
-        // Filter out filler words and hallucinations
-        let filtered_result = filter_transcription_output(&corrected_result);
-
-        let et = std::time::Instant::now();
-        let translation_note = if settings.translate_to_english {
-            " (translated)"
-        } else {
-            ""
-        };
-        info!(
-            "Transcription completed in {}ms{}",
-            (et - st).as_millis(),
-            translation_note
-        );
-
-        let final_result = filtered_result;
-
-        if final_result.is_empty() {
-            info!("Transcription result is empty");
-        } else {
-            info!("Transcription result: {}", final_result);
-        }
-
-        self.maybe_unload_immediately("transcription");
-
-        Ok(final_result)
-    }
-
-    /// Transcribe a chunk of audio for session mode.
-    /// Unlike `transcribe()`, this does NOT unload the model afterward and
-    /// skips post-processing (custom words, filler filtering) for speed.
     pub fn transcribe_chunk(&self, audio: Vec<f32>) -> Result<String> {
         self.last_activity.store(
             SystemTime::now()
@@ -544,7 +414,18 @@ impl TranscriptionManager {
             }
         };
 
-        let text = filter_transcription_output(&result.text);
+        // Apply word correction if custom words are configured
+        let corrected = if !settings.custom_words.is_empty() {
+            apply_custom_words(
+                &result.text,
+                &settings.custom_words,
+                settings.word_correction_threshold,
+            )
+        } else {
+            result.text
+        };
+
+        let text = filter_transcription_output(&corrected);
         if !text.is_empty() {
             debug!("Chunk transcribed: {}", text);
         }

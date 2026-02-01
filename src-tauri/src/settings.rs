@@ -313,7 +313,7 @@ fn default_log_level() -> LogLevel {
 }
 
 fn default_word_correction_threshold() -> f64 {
-    0.18
+    0.21
 }
 
 fn default_history_limit() -> usize {

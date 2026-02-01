@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../LanguageSelector";
+import { CustomWords } from "../CustomWords";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
@@ -19,6 +20,7 @@ export const GeneralSettings: React.FC = () => {
         {showLanguageSelector && (
           <LanguageSelector descriptionMode="tooltip" grouped={true} />
         )}
+        <CustomWords descriptionMode="tooltip" grouped />
       </SettingsGroup>
       <SettingsGroup title={t("modelSelector.summarisationModel")}>
         <PostProcessingSettingsApi />
