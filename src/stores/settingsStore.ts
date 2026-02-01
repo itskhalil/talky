@@ -59,7 +59,6 @@ interface SettingsStore {
 }
 
 // Note: Default settings are now fetched from Rust via commands.getDefaultSettings()
-// This ensures platform-specific defaults (like overlay_position, shortcuts, paste_method) work correctly
 
 const DEFAULT_AUDIO_DEVICE: AudioDevice = {
   index: "default",
@@ -105,15 +104,10 @@ const settingUpdaters: {
     commands.changeTranslateToEnglishSetting(value as boolean),
   selected_language: (value) =>
     commands.changeSelectedLanguageSetting(value as string),
-  overlay_position: (value) =>
-    commands.changeOverlayPositionSetting(value as string),
   debug_mode: (value) => commands.changeDebugModeSetting(value as boolean),
   custom_words: (value) => commands.updateCustomWords(value as string[]),
   word_correction_threshold: (value) =>
     commands.changeWordCorrectionThresholdSetting(value as number),
-  paste_method: (value) => commands.changePasteMethodSetting(value as string),
-  clipboard_handling: (value) =>
-    commands.changeClipboardHandlingSetting(value as string),
   history_limit: (value) => commands.updateHistoryLimit(value as number),
   post_process_enabled: (value) =>
     commands.changePostProcessEnabledSetting(value as boolean),

@@ -4,13 +4,10 @@ mod actions;
 mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
-mod clipboard;
 mod commands;
 mod helpers;
-mod input;
 mod llm_client;
 mod managers;
-mod overlay;
 mod settings;
 mod shortcut;
 mod signal_handle;
@@ -112,11 +109,6 @@ fn show_main_window(app: &AppHandle) {
 }
 
 fn initialize_core_logic(app_handle: &AppHandle) {
-    // Note: Enigo (keyboard/mouse simulation) is NOT initialized here.
-    // The frontend is responsible for calling the `initialize_enigo` command
-    // after onboarding completes. This avoids triggering permission dialogs
-    // on macOS before the user is ready.
-
     // Initialize the managers
     let recording_manager = Arc::new(
         AudioRecordingManager::new(app_handle).expect("Failed to initialize recording manager"),
@@ -185,9 +177,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     let _ = app.emit("check-for-updates", ());
                 }
             }
-            "copy_last_transcript" => {
-                tray::copy_last_transcript(app);
-            }
             "cancel" => {
                 use crate::utils::cancel_current_operation;
 
@@ -218,8 +207,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         let _ = autostart_manager.disable();
     }
 
-    // Create the recording overlay window (hidden by default)
-    utils::create_recording_overlay(app_handle);
 }
 
 #[tauri::command]
@@ -251,11 +238,8 @@ pub fn run() {
         shortcut::change_autostart_setting,
         shortcut::change_translate_to_english_setting,
         shortcut::change_selected_language_setting,
-        shortcut::change_overlay_position_setting,
         shortcut::change_debug_mode_setting,
         shortcut::change_word_correction_threshold_setting,
-        shortcut::change_paste_method_setting,
-        shortcut::change_clipboard_handling_setting,
         shortcut::change_post_process_enabled_setting,
         shortcut::change_experimental_enabled_setting,
         shortcut::change_post_process_base_url_setting,
@@ -289,7 +273,6 @@ pub fn run() {
         commands::open_log_dir,
         commands::open_app_data_dir,
         commands::check_apple_intelligence_available,
-        commands::initialize_enigo,
         commands::models::get_available_models,
         commands::models::get_model_info,
         commands::models::download_model,
@@ -326,6 +309,8 @@ pub fn run() {
         commands::history::update_recording_retention_period,
         helpers::clamshell::is_laptop,
         commands::session::start_session,
+        commands::session::start_session_recording,
+        commands::session::stop_session_recording,
         commands::session::end_session,
         commands::session::get_sessions,
         commands::session::get_session,
@@ -335,6 +320,8 @@ pub fn run() {
         commands::session::update_session_title,
         commands::session::get_meeting_notes,
         commands::session::save_meeting_notes,
+        commands::session::save_user_notes,
+        commands::session::get_user_notes,
     ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -345,7 +332,7 @@ pub fn run() {
         )
         .expect("Failed to export typescript bindings");
 
-    let mut builder = tauri::Builder::default().plugin(
+    let builder = tauri::Builder::default().plugin(
         LogBuilder::new()
             .level(log::LevelFilter::Trace) // Set to most verbose level globally
             .max_file_size(500_000)
@@ -369,11 +356,6 @@ pub fn run() {
             .build(),
     );
 
-    #[cfg(target_os = "macos")]
-    {
-        builder = builder.plugin(tauri_nspanel::init());
-    }
-
     builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_main_window(app);
@@ -382,7 +364,6 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())

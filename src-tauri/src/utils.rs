@@ -6,11 +6,13 @@ use log::{info, warn};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
-// Re-export all utility modules for easy access
-// pub use crate::audio_feedback::*;
-pub use crate::clipboard::*;
-pub use crate::overlay::*;
+use tauri::Emitter;
+
 pub use crate::tray::*;
+
+pub fn emit_levels(app_handle: &AppHandle, levels: &Vec<f32>) {
+    let _ = app_handle.emit("mic-level", levels);
+}
 
 /// Centralized cancellation function that can be called from anywhere in the app.
 /// Handles cancelling both recording and transcription operations and updates UI state.
@@ -33,9 +35,8 @@ pub fn cancel_current_operation(app: &AppHandle) {
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
     audio_manager.cancel_recording();
 
-    // Update tray icon and hide overlay
+    // Update tray icon
     change_tray_icon(app, crate::tray::TrayIconState::Idle);
-    hide_recording_overlay(app);
 
     // Unload model if immediate unload is enabled
     let tm = app.state::<Arc<TranscriptionManager>>();

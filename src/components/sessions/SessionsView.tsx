@@ -2,7 +2,15 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Play, Square, Trash2, ChevronLeft, Mic, Volume2 } from "lucide-react";
+import {
+  Plus,
+  Square,
+  Trash2,
+  ChevronLeft,
+  Mic,
+  Volume2,
+  Circle,
+} from "lucide-react";
 
 interface Session {
   id: string;
@@ -48,6 +56,8 @@ interface AmplitudeEvent {
   speaker: number;
 }
 
+type DetailTab = "notes" | "transcript";
+
 export function SessionsView() {
   const { t } = useTranslation();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -60,7 +70,12 @@ export function SessionsView() {
     mic: number;
     speaker: number;
   }>({ mic: 0, speaker: 0 });
+  const [userNotes, setUserNotes] = useState("");
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [activeTab, setActiveTab] = useState<DetailTab>("notes");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -95,6 +110,48 @@ export function SessionsView() {
     }
   }, []);
 
+  const loadUserNotes = useCallback(async (sessionId: string) => {
+    try {
+      const result = await invoke<string | null>("get_user_notes", {
+        sessionId,
+      });
+      setUserNotes(result ?? "");
+      setNotesLoaded(true);
+    } catch (e) {
+      console.error("Failed to load user notes:", e);
+      setUserNotes("");
+      setNotesLoaded(true);
+    }
+  }, []);
+
+  const saveUserNotes = useCallback(
+    async (sessionId: string, notes: string) => {
+      try {
+        await invoke("save_user_notes", { sessionId, notes });
+      } catch (e) {
+        console.error("Failed to save user notes:", e);
+      }
+    },
+    [],
+  );
+
+  const handleNotesChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newNotes = e.target.value;
+      setUserNotes(newNotes);
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+      if (selectedSessionId) {
+        saveTimerRef.current = setTimeout(() => {
+          saveUserNotes(selectedSessionId, newNotes);
+        }, 500);
+      }
+    },
+    [selectedSessionId, saveUserNotes],
+  );
+
   useEffect(() => {
     loadSessions();
     loadActiveSession();
@@ -103,8 +160,18 @@ export function SessionsView() {
   useEffect(() => {
     if (selectedSessionId) {
       loadTranscript(selectedSessionId);
+      setNotesLoaded(false);
+      loadUserNotes(selectedSessionId);
     }
-  }, [selectedSessionId, loadTranscript]);
+  }, [selectedSessionId, loadTranscript, loadUserNotes]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [selectedSessionId]);
 
   useEffect(() => {
     const unlisten = listen<{ session_id: string; segment: TranscriptSegment }>(
@@ -130,6 +197,7 @@ export function SessionsView() {
 
     const unlistenEnd = listen<Session>("session-ended", () => {
       setActiveSession(null);
+      setIsRecording(false);
       setAmplitude({ mic: 0, speaker: 0 });
       loadSessions();
     });
@@ -162,24 +230,74 @@ export function SessionsView() {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
 
-  const handleStartSession = async () => {
+  // Check recording state on mount / when active session changes
+  useEffect(() => {
+    const checkRecording = async () => {
+      try {
+        const recording = await invoke<boolean>("is_recording");
+        setIsRecording(recording && activeSession != null);
+      } catch {
+        setIsRecording(false);
+      }
+    };
+    checkRecording();
+  }, [activeSession]);
+
+  const handleNewNote = async () => {
     try {
       const result = await invoke<Session>("start_session", { title: null });
       setActiveSession(result);
       setSelectedSessionId(result.id);
       setTranscript([]);
+      setUserNotes("");
+      setNotesLoaded(true);
+      setActiveTab("notes");
+      setIsRecording(false);
+      loadSessions();
     } catch (e) {
-      console.error("Failed to start session:", e);
+      console.error("Failed to create note:", e);
     }
   };
 
-  const handleEndSession = async () => {
+  const handleEndNote = async () => {
     try {
+      // Flush any pending notes save
+      if (saveTimerRef.current && selectedSessionId) {
+        clearTimeout(saveTimerRef.current);
+        await saveUserNotes(selectedSessionId, userNotes);
+      }
       await invoke("end_session");
       setActiveSession(null);
+      setIsRecording(false);
+      setAmplitude({ mic: 0, speaker: 0 });
       loadSessions();
     } catch (e) {
-      console.error("Failed to end session:", e);
+      console.error("Failed to end note:", e);
+    }
+  };
+
+  const handleStartRecording = async () => {
+    if (!selectedSessionId) return;
+    try {
+      await invoke("start_session_recording", {
+        sessionId: selectedSessionId,
+      });
+      setIsRecording(true);
+    } catch (e) {
+      console.error("Failed to start recording:", e);
+    }
+  };
+
+  const handleStopRecording = async () => {
+    if (!selectedSessionId) return;
+    try {
+      await invoke("stop_session_recording", {
+        sessionId: selectedSessionId,
+      });
+      setIsRecording(false);
+      setAmplitude({ mic: 0, speaker: 0 });
+    } catch (e) {
+      console.error("Failed to stop recording:", e);
     }
   };
 
@@ -189,13 +307,38 @@ export function SessionsView() {
       if (selectedSessionId === sessionId) {
         setSelectedSessionId(null);
         setTranscript([]);
+        setUserNotes("");
       }
       loadSessions();
     } catch (e) {
-      console.error("Failed to delete session:", e);
+      console.error("Failed to delete note:", e);
     }
   };
 
+  const handleBack = async () => {
+    // Flush pending save
+    if (saveTimerRef.current && selectedSessionId) {
+      clearTimeout(saveTimerRef.current);
+      await saveUserNotes(selectedSessionId, userNotes);
+    }
+    // If this is the active session, stop recording and end it
+    if (activeSession?.id === selectedSessionId) {
+      try {
+        await invoke("end_session");
+        setActiveSession(null);
+        setIsRecording(false);
+        setAmplitude({ mic: 0, speaker: 0 });
+        loadSessions();
+      } catch (e) {
+        console.error("Failed to end note on back:", e);
+      }
+    }
+    setSelectedSessionId(null);
+    setTranscript([]);
+    setUserNotes("");
+  };
+
+  // ── Detail view ──
   if (selectedSessionId) {
     const session =
       sessions.find((s) => s.id === selectedSessionId) ?? activeSession;
@@ -203,12 +346,10 @@ export function SessionsView() {
 
     return (
       <div className="w-full max-w-2xl">
+        {/* Header */}
         <div className="flex items-center gap-2 mb-4">
           <button
-            onClick={() => {
-              setSelectedSessionId(null);
-              setTranscript([]);
-            }}
+            onClick={handleBack}
             className="p-1 rounded hover:bg-mid-gray/20"
           >
             <ChevronLeft size={20} />
@@ -216,10 +357,23 @@ export function SessionsView() {
           <h2 className="text-lg font-semibold flex-1 truncate">
             {session?.title ?? t("sessions.title")}
           </h2>
-          {isActive && (
-            <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full animate-pulse">
-              {t("sessions.active")}
-            </span>
+          {isActive && isRecording && (
+            <button
+              onClick={handleStopRecording}
+              className="flex items-center gap-1.5 text-xs bg-red-500/20 text-red-400 px-2.5 py-1 rounded-full hover:bg-red-500/30 transition-colors animate-pulse"
+            >
+              <Square size={12} />
+              {t("sessions.stopRecording")}
+            </button>
+          )}
+          {isActive && !isRecording && (
+            <button
+              onClick={handleStartRecording}
+              className="flex items-center gap-1.5 text-xs bg-logo-primary/80 px-2.5 py-1 rounded-full hover:bg-logo-primary transition-colors"
+            >
+              <Circle size={12} />
+              {t("sessions.startRecording")}
+            </button>
           )}
         </div>
 
@@ -230,99 +384,127 @@ export function SessionsView() {
           </div>
         )}
 
-        {isActive && (
-          <>
-            <button
-              onClick={handleEndSession}
-              className="flex items-center gap-2 px-4 py-2 mb-4 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
-            >
-              <Square size={16} />
-              {t("sessions.endSession")}
-            </button>
-            <div className="flex gap-4 mb-4">
-              <div className="flex items-center gap-2 flex-1">
-                <Mic size={14} className="text-blue-400 shrink-0" />
-                <div className="flex-1 h-2 bg-mid-gray/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-400 rounded-full transition-all duration-100"
-                    style={{ width: `${Math.min(amplitude.mic / 10, 100)}%` }}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-1">
-                <Volume2 size={14} className="text-green-400 shrink-0" />
-                <div className="flex-1 h-2 bg-mid-gray/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-400 rounded-full transition-all duration-100"
-                    style={{
-                      width: `${Math.min(amplitude.speaker / 10, 100)}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </>
+        {/* Tabs */}
+        <div className="flex border-b border-mid-gray/20 mb-4">
+          <button
+            onClick={() => setActiveTab("notes")}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "notes"
+                ? "border-b-2 border-logo-primary text-logo-primary"
+                : "text-mid-gray hover:text-foreground"
+            }`}
+          >
+            {t("sessions.notesTab")}
+          </button>
+          <button
+            onClick={() => setActiveTab("transcript")}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "transcript"
+                ? "border-b-2 border-logo-primary text-logo-primary"
+                : "text-mid-gray hover:text-foreground"
+            }`}
+          >
+            {t("sessions.transcriptTab")}
+          </button>
+        </div>
+
+        {/* Notes tab */}
+        {activeTab === "notes" && (
+          <div>
+            <textarea
+              className="w-full border border-mid-gray/20 rounded-lg p-3 bg-background text-sm resize-none focus:outline-none focus:border-logo-primary/60 transition-colors"
+              rows={14}
+              placeholder={t("sessions.notesPlaceholder")}
+              value={notesLoaded ? userNotes : ""}
+              onChange={handleNotesChange}
+              disabled={!notesLoaded}
+            />
+          </div>
         )}
 
-        <h3 className="text-sm font-medium mb-2">
-          {isActive ? t("sessions.liveTranscript") : t("sessions.transcript")}
-        </h3>
-
-        <div className="border border-mid-gray/20 rounded-lg p-3 max-h-96 overflow-y-auto bg-background">
-          {transcript.length === 0 ? (
-            <p className="text-sm text-mid-gray">
-              {t("sessions.noTranscript")}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {transcript.map((seg) => (
-                <div key={seg.id} className="flex gap-2 text-sm">
-                  <span className="text-xs text-mid-gray shrink-0 pt-0.5 w-10 text-right">
-                    {formatMs(seg.start_ms)}
-                  </span>
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
-                      seg.source === "mic"
-                        ? "bg-blue-500/20 text-blue-400"
-                        : "bg-green-500/20 text-green-400"
-                    }`}
-                  >
-                    {seg.source === "mic"
-                      ? t("sessions.mic")
-                      : t("sessions.speaker")}
-                  </span>
-                  <span>{seg.text}</span>
+        {/* Transcript tab */}
+        {activeTab === "transcript" && (
+          <div className="flex flex-col gap-4">
+            {/* Amplitude viz when recording */}
+            {isActive && isRecording && (
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2 flex-1">
+                  <Mic size={14} className="text-blue-400 shrink-0" />
+                  <div className="flex-1 h-2 bg-mid-gray/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-400 rounded-full transition-all duration-100"
+                      style={{
+                        width: `${Math.min(amplitude.mic / 10, 100)}%`,
+                      }}
+                    />
+                  </div>
                 </div>
-              ))}
-              <div ref={transcriptEndRef} />
+                <div className="flex items-center gap-2 flex-1">
+                  <Volume2
+                    size={14}
+                    className="text-green-400 shrink-0"
+                  />
+                  <div className="flex-1 h-2 bg-mid-gray/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-400 rounded-full transition-all duration-100"
+                      style={{
+                        width: `${Math.min(amplitude.speaker / 10, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Transcript list */}
+            <div className="border border-mid-gray/20 rounded-lg p-3 max-h-80 overflow-y-auto bg-background">
+              {transcript.length === 0 ? (
+                <p className="text-sm text-mid-gray">
+                  {t("sessions.noTranscript")}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {transcript.map((seg) => (
+                    <div key={seg.id} className="flex gap-2 text-sm">
+                      <span className="text-xs text-mid-gray shrink-0 pt-0.5 w-10 text-right">
+                        {formatMs(seg.start_ms)}
+                      </span>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                          seg.source === "mic"
+                            ? "bg-blue-500/20 text-blue-400"
+                            : "bg-green-500/20 text-green-400"
+                        }`}
+                      >
+                        {seg.source === "mic"
+                          ? t("sessions.mic")
+                          : t("sessions.speaker")}
+                      </span>
+                      <span>{seg.text}</span>
+                    </div>
+                  ))}
+                  <div ref={transcriptEndRef} />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
 
+  // ── List view ──
   return (
     <div className="w-full max-w-2xl">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">{t("sessions.title")}</h2>
-        {activeSession ? (
-          <button
-            onClick={handleEndSession}
-            className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
-          >
-            <Square size={14} />
-            {t("sessions.endSession")}
-          </button>
-        ) : (
-          <button
-            onClick={handleStartSession}
-            className="flex items-center gap-2 px-3 py-1.5 bg-logo-primary/80 rounded-lg hover:bg-logo-primary transition-colors text-sm"
-          >
-            <Play size={14} />
-            {t("sessions.startSession")}
-          </button>
-        )}
+        <button
+          onClick={handleNewNote}
+          className="flex items-center gap-2 px-3 py-1.5 bg-logo-primary/80 rounded-lg hover:bg-logo-primary transition-colors text-sm"
+        >
+          <Plus size={14} />
+          {t("sessions.newNote")}
+        </button>
       </div>
 
       {sessions.length === 0 ? (
@@ -343,7 +525,7 @@ export function SessionsView() {
                       {session.title}
                     </span>
                     {isActive && (
-                      <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full animate-pulse shrink-0">
+                      <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full shrink-0">
                         {t("sessions.active")}
                       </span>
                     )}

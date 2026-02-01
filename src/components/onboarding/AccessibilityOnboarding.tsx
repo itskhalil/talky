@@ -68,15 +68,6 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
           checkMicrophonePermission(),
         ]);
 
-        // If accessibility is granted, initialize Enigo
-        if (accessibilityGranted) {
-          try {
-            await commands.initializeEnigo();
-          } catch (e) {
-            console.warn("Failed to initialize Enigo:", e);
-          }
-        }
-
         const newState: PermissionsState = {
           accessibility: accessibilityGranted ? "granted" : "needed",
           microphone: microphoneGranted ? "granted" : "needed",
@@ -118,10 +109,6 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
 
           if (accessibilityGranted && prev.accessibility !== "granted") {
             newState.accessibility = "granted";
-            // Initialize Enigo when accessibility is granted
-            commands.initializeEnigo().catch((e) => {
-              console.warn("Failed to initialize Enigo:", e);
-            });
           }
 
           if (microphoneGranted && prev.microphone !== "granted") {

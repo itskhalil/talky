@@ -8,7 +8,7 @@
   },
   "sidebar": {
     "general": "General",
-    "sessions": "Sessions",
+    "sessions": "Notes",
     "advanced": "Advanced",
     "postProcessing": "Post Process",
     "history": "History",
@@ -408,19 +408,26 @@
     }
   },
   "sessions": {
-    "title": "Meeting Sessions",
-    "startSession": "Start Session",
-    "endSession": "End Session",
-    "noSessions": "No sessions yet. Start a session to capture meeting audio and transcripts.",
+    "title": "Notes",
+    "newNote": "New Note",
+    "endNote": "Close Note",
+    "noSessions": "No notes yet. Create a note to start writing or recording.",
     "active": "Active",
     "completed": "Completed",
     "liveTranscript": "Live Transcript",
     "transcript": "Transcript",
-    "noTranscript": "No transcript segments yet.",
-    "deleteSession": "Delete Session",
-    "deleteConfirm": "Are you sure you want to delete this session?",
+    "noTranscript": "No transcript segments yet. Start recording to capture audio.",
+    "deleteSession": "Delete Note",
+    "deleteConfirm": "Are you sure you want to delete this note?",
     "mic": "You",
-    "speaker": "Others"
+    "speaker": "Others",
+    "notes": "Notes",
+    "notesPlaceholder": "Type your notes here...",
+    "notesTab": "Notes",
+    "transcriptTab": "Transcript",
+    "startRecording": "Start Recording",
+    "stopRecording": "Stop Recording",
+    "recording": "Recording"
   },
   "footer": {
     "downloadingModel": "Downloading {{model}}...",

@@ -5,18 +5,30 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
+/// Create a new session (Note) without starting recording.
 #[tauri::command]
 #[specta::specta]
 pub fn start_session(app: AppHandle, title: Option<String>) -> Result<Session, String> {
     let sm = app.state::<Arc<SessionManager>>();
+    sm.reset_speaker_state();
+    let session = sm.start_session(title).map_err(|e| e.to_string())?;
+    Ok(session)
+}
 
-    // Reset speaker state for the new session
+/// Start recording within an existing session.
+#[tauri::command]
+#[specta::specta]
+pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+
+    // Verify this session is the active one
+    if sm.get_active_session_id().as_deref() != Some(&session_id) {
+        return Err("Session is not active".to_string());
+    }
+
+    // Reset speaker state for each recording pass
     sm.reset_speaker_state();
 
-    // Start session in the manager
-    let session = sm.start_session(title).map_err(|e| e.to_string())?;
-
-    // Start recording and transcription loop
     let rm = app.state::<Arc<crate::managers::audio::AudioRecordingManager>>();
     let tm = app.state::<Arc<crate::managers::transcription::TranscriptionManager>>();
 
@@ -33,15 +45,35 @@ pub fn start_session(app: AppHandle, title: Option<String>) -> Result<Session, S
         spawn_speaker_capture(speaker_buf, shutdown);
     }
 
-    let session_id = session.id.clone();
     let app_clone = app.clone();
+    let sid = session_id.clone();
     tauri::async_runtime::spawn(async move {
-        crate::actions::run_session_transcription_loop(app_clone, session_id).await;
+        crate::actions::run_session_transcription_loop(app_clone, sid).await;
     });
 
     crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Recording);
 
-    Ok(session)
+    Ok(())
+}
+
+/// Stop recording but keep the session open.
+#[tauri::command]
+#[specta::specta]
+pub fn stop_session_recording(app: AppHandle, session_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let rm = app.state::<Arc<crate::managers::audio::AudioRecordingManager>>();
+
+    // Verify this session is the active one
+    if sm.get_active_session_id().as_deref() != Some(&session_id) {
+        return Err("Session is not active".to_string());
+    }
+
+    sm.stop_speaker_capture();
+    rm.stop_session_recording();
+
+    crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Idle);
+
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
@@ -107,11 +139,13 @@ pub fn end_session(app: AppHandle) -> Result<Option<Session>, String> {
     let sm = app.state::<Arc<SessionManager>>();
     let rm = app.state::<Arc<crate::managers::audio::AudioRecordingManager>>();
 
-    // Signal speaker capture to stop
+    // Stop recording if active
     sm.stop_speaker_capture();
+    if rm.is_recording() {
+        rm.stop_session_recording();
+    }
 
     let session = sm.end_session().map_err(|e| e.to_string())?;
-    rm.stop_session_recording();
 
     crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Idle);
 
@@ -197,4 +231,27 @@ pub fn save_meeting_notes(
     let sm = app.state::<Arc<SessionManager>>();
     sm.save_meeting_notes(&session_id, summary, action_items, decisions, user_notes)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn save_user_notes(
+    app: AppHandle,
+    session_id: String,
+    notes: String,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.save_meeting_notes(&session_id, None, None, None, Some(notes))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_user_notes(
+    app: AppHandle,
+    session_id: String,
+) -> Result<Option<String>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let notes = sm.get_meeting_notes(&session_id).map_err(|e| e.to_string())?;
+    Ok(notes.and_then(|n| n.user_notes))
 }

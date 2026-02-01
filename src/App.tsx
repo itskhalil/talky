@@ -13,7 +13,7 @@ type OnboardingStep = "accessibility" | "model" | "done";
 
 const renderSettingsContent = (section: SidebarSection) => {
   const ActiveComponent =
-    SECTIONS_CONFIG[section]?.component || SECTIONS_CONFIG.general.component;
+    SECTIONS_CONFIG[section]?.component || SECTIONS_CONFIG.sessions.component;
   return <ActiveComponent />;
 };
 
@@ -22,7 +22,7 @@ function App() {
     null,
   );
   const [currentSection, setCurrentSection] =
-    useState<SidebarSection>("general");
+    useState<SidebarSection>("sessions");
   const { settings, updateSetting } = useSettings();
   const refreshAudioDevices = useSettingsStore(
     (state) => state.refreshAudioDevices,
@@ -36,13 +36,10 @@ function App() {
     checkOnboardingStatus();
   }, []);
 
-  // Initialize Enigo and refresh audio devices when main app loads
+  // Refresh audio devices when main app loads
   useEffect(() => {
     if (onboardingStep === "done" && !hasCompletedPostOnboardingInit.current) {
       hasCompletedPostOnboardingInit.current = true;
-      commands.initializeEnigo().catch((e) => {
-        console.warn("Failed to initialize Enigo:", e);
-      });
       refreshAudioDevices();
       refreshOutputDevices();
     }

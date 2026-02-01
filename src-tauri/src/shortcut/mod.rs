@@ -20,8 +20,8 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::settings::{
-    self, get_settings, ClipboardHandling, KeyboardImplementation, LLMPrompt, OverlayPosition,
-    PasteMethod, ShortcutBinding, SoundTheme, APPLE_INTELLIGENCE_DEFAULT_MODEL_ID,
+    self, get_settings, KeyboardImplementation, LLMPrompt,
+    ShortcutBinding, SoundTheme, APPLE_INTELLIGENCE_DEFAULT_MODEL_ID,
     APPLE_INTELLIGENCE_PROVIDER_ID,
 };
 use crate::tray;
@@ -511,28 +511,6 @@ pub fn change_selected_language_setting(app: AppHandle, language: String) -> Res
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_overlay_position_setting(app: AppHandle, position: String) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    let parsed = match position.as_str() {
-        "none" => OverlayPosition::None,
-        "top" => OverlayPosition::Top,
-        "bottom" => OverlayPosition::Bottom,
-        other => {
-            warn!("Invalid overlay position '{}', defaulting to bottom", other);
-            OverlayPosition::Bottom
-        }
-    };
-    settings.overlay_position = parsed;
-    settings::write_settings(&app, settings);
-
-    // Update overlay position without recreating window
-    crate::utils::update_overlay_position(&app);
-
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn change_debug_mode_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.debug_mode = enabled;
@@ -631,46 +609,6 @@ pub fn change_word_correction_threshold_setting(
 ) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.word_correction_threshold = threshold;
-    settings::write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_paste_method_setting(app: AppHandle, method: String) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    let parsed = match method.as_str() {
-        "ctrl_v" => PasteMethod::CtrlV,
-        "direct" => PasteMethod::Direct,
-        "none" => PasteMethod::None,
-        "shift_insert" => PasteMethod::ShiftInsert,
-        "ctrl_shift_v" => PasteMethod::CtrlShiftV,
-        other => {
-            warn!("Invalid paste method '{}', defaulting to ctrl_v", other);
-            PasteMethod::CtrlV
-        }
-    };
-    settings.paste_method = parsed;
-    settings::write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_clipboard_handling_setting(app: AppHandle, handling: String) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    let parsed = match handling.as_str() {
-        "dont_modify" => ClipboardHandling::DontModify,
-        "copy_to_clipboard" => ClipboardHandling::CopyToClipboard,
-        other => {
-            warn!(
-                "Invalid clipboard handling '{}', defaulting to dont_modify",
-                other
-            );
-            ClipboardHandling::DontModify
-        }
-    };
-    settings.clipboard_handling = parsed;
     settings::write_settings(&app, settings);
     Ok(())
 }

@@ -1,16 +1,13 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Cog, FlaskConical, History, Info, Sparkles, Mic } from "lucide-react";
+import { FlaskConical, Info, StickyNote } from "lucide-react";
 import HandyTextLogo from "./icons/HandyTextLogo";
 import HandyHand from "./icons/HandyHand";
 import { useSettings } from "../hooks/useSettings";
 import {
   GeneralSettings,
-  AdvancedSettings,
-  HistorySettings,
   DebugSettings,
   AboutSettings,
-  PostProcessingSettings,
 } from "./settings";
 import { SessionsView } from "./sessions/SessionsView";
 
@@ -32,34 +29,16 @@ interface SectionConfig {
 }
 
 export const SECTIONS_CONFIG = {
+  sessions: {
+    labelKey: "sidebar.sessions",
+    icon: StickyNote,
+    component: SessionsView,
+    enabled: () => true,
+  },
   general: {
     labelKey: "sidebar.general",
     icon: HandyHand,
     component: GeneralSettings,
-    enabled: () => true,
-  },
-  sessions: {
-    labelKey: "sidebar.sessions",
-    icon: Mic,
-    component: SessionsView,
-    enabled: () => true,
-  },
-  advanced: {
-    labelKey: "sidebar.advanced",
-    icon: Cog,
-    component: AdvancedSettings,
-    enabled: () => true,
-  },
-  postprocessing: {
-    labelKey: "sidebar.postProcessing",
-    icon: Sparkles,
-    component: PostProcessingSettings,
-    enabled: (settings) => settings?.post_process_enabled ?? false,
-  },
-  history: {
-    labelKey: "sidebar.history",
-    icon: History,
-    component: HistorySettings,
     enabled: () => true,
   },
   debug: {
