@@ -48,6 +48,14 @@ interface SettingsStore {
   fetchPostProcessModels: (providerId: string) => Promise<string[]>;
   setPostProcessModelOptions: (providerId: string, models: string[]) => void;
 
+  // Chat settings
+  chatModelOptions: Record<string, string[]>;
+  setChatProvider: (providerId: string) => Promise<void>;
+  updateChatApiKey: (providerId: string, apiKey: string) => Promise<void>;
+  updateChatModel: (providerId: string, model: string) => Promise<void>;
+  fetchChatModels: (providerId: string) => Promise<string[]>;
+  setChatModelOptions: (providerId: string, models: string[]) => void;
+
   // Internal state setters
   setSettings: (settings: Settings | null) => void;
   setDefaultSettings: (defaultSettings: Settings | null) => void;
@@ -133,6 +141,7 @@ export const useSettingsStore = create<SettingsStore>()(
     outputDevices: [],
     customSounds: { start: false, stop: false },
     postProcessModelOptions: {},
+    chatModelOptions: {},
 
     // Internal setters
     setSettings: (settings) => set({ settings }),
@@ -469,6 +478,89 @@ export const useSettingsStore = create<SettingsStore>()(
       set((state) => ({
         postProcessModelOptions: {
           ...state.postProcessModelOptions,
+          [providerId]: models,
+        },
+      })),
+
+    // Chat settings
+    setChatProvider: async (providerId) => {
+      const { settings, setUpdating, refreshSettings } = get();
+      const updateKey = "chat_provider_id";
+      setUpdating(updateKey, true);
+      if (settings) {
+        set((state) => ({
+          settings: state.settings
+            ? { ...state.settings, chat_provider_id: providerId }
+            : null,
+        }));
+      }
+      try {
+        await commands.setChatProvider(providerId);
+        await refreshSettings();
+      } catch (error) {
+        console.error("Failed to set chat provider:", error);
+      } finally {
+        setUpdating(updateKey, false);
+      }
+    },
+
+    updateChatApiKey: async (providerId, apiKey) => {
+      const { setUpdating, refreshSettings } = get();
+      const updateKey = `chat_api_key:${providerId}`;
+      setUpdating(updateKey, true);
+      set((state) => ({
+        chatModelOptions: {
+          ...state.chatModelOptions,
+          [providerId]: [],
+        },
+      }));
+      try {
+        await commands.changeChatApiKeySetting(providerId, apiKey);
+        await refreshSettings();
+      } catch (error) {
+        console.error("Failed to update chat API key:", error);
+      } finally {
+        setUpdating(updateKey, false);
+      }
+    },
+
+    updateChatModel: async (providerId, model) => {
+      const { setUpdating, refreshSettings } = get();
+      const updateKey = `chat_model:${providerId}`;
+      setUpdating(updateKey, true);
+      try {
+        await commands.changeChatModelSetting(providerId, model);
+        await refreshSettings();
+      } catch (error) {
+        console.error("Failed to update chat model:", error);
+      } finally {
+        setUpdating(updateKey, false);
+      }
+    },
+
+    fetchChatModels: async (providerId) => {
+      const updateKey = `chat_models_fetch:${providerId}`;
+      const { setUpdating, setChatModelOptions } = get();
+      setUpdating(updateKey, true);
+      try {
+        const result = await commands.fetchChatModels(providerId);
+        if (result.status === "ok") {
+          setChatModelOptions(providerId, result.data);
+          return result.data;
+        }
+        return [];
+      } catch (error) {
+        console.error("Failed to fetch chat models:", error);
+        return [];
+      } finally {
+        setUpdating(updateKey, false);
+      }
+    },
+
+    setChatModelOptions: (providerId, models) =>
+      set((state) => ({
+        chatModelOptions: {
+          ...state.chatModelOptions,
           [providerId]: models,
         },
       })),

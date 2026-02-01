@@ -5,6 +5,7 @@ import { SettingsGroup } from "../../ui/SettingsGroup";
 import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
 import { PostProcessingSettingsApi } from "../PostProcessingSettingsApi";
+import { ChatSettings } from "../ChatSettings";
 
 export const GeneralSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -21,6 +22,9 @@ export const GeneralSettings: React.FC = () => {
       </SettingsGroup>
       <SettingsGroup title={t("modelSelector.summarisationModel")}>
         <PostProcessingSettingsApi />
+      </SettingsGroup>
+      <SettingsGroup title={t("settings.chat.title")}>
+        <ChatSettings />
       </SettingsGroup>
     </div>
   );

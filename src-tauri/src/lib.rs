@@ -327,6 +327,11 @@ pub fn run() {
         commands::session::get_user_notes,
         commands::session::generate_session_summary,
         commands::session::get_session_summary,
+        commands::session::flush_pending_audio,
+        shortcut::set_chat_provider,
+        shortcut::change_chat_api_key_setting,
+        shortcut::change_chat_model_setting,
+        shortcut::fetch_chat_models,
     ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
