@@ -49,7 +49,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
     >
       <div className="flex flex-col items-ce">
         <div className="flex items-center gap-4">
-          <h3 className="text-lg font-semibold text-text group-hover:text-logo-primary transition-colors">
+          <h3 className="text-base font-semibold text-text group-hover:text-logo-primary transition-colors">
             {displayName}
           </h3>
           <DownloadSize sizeMb={Number(model.size_mb)} />

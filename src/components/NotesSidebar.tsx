@@ -73,7 +73,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         <button
           onClick={onNewNote}
           data-ui
-          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-accent-soft text-accent hover:bg-accent/10 border border-border"
+          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-base font-medium transition-colors bg-accent-soft text-accent hover:bg-accent/10 border border-border"
         >
           <Plus size={15} strokeWidth={1.5} />
           {t("sessions.newNote")}
@@ -104,11 +104,10 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           return (
             <div
               key={session.id}
-              className={`group flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                isSelected
-                  ? "bg-accent-soft"
-                  : "hover:bg-accent-soft"
-              }`}
+              className={`group flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${isSelected
+                ? "bg-accent-soft"
+                : "hover:bg-accent-soft"
+                }`}
               onClick={() => onSelect(session.id)}
             >
               <div className="flex-1 min-w-0">
@@ -118,9 +117,8 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   )}
                   <span
                     data-ui
-                    className={`text-sm truncate ${
-                      isSelected ? "font-medium text-text" : "text-text"
-                    }`}
+                    className={`text-sm truncate ${isSelected ? "font-medium text-text" : "text-text"
+                      }`}
                   >
                     {session.title}
                   </span>

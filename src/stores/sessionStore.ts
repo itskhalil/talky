@@ -263,6 +263,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           set((s) => {
             const existing = s.cache[session_id];
             if (!existing) return s;
+            // Avoid duplicates — the segment may already exist from a fetch
+            if (existing.transcript.some((t) => t.id === segment.id)) return s;
             return {
               cache: {
                 ...s.cache,
