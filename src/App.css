@@ -4,7 +4,7 @@
   --color-text: #000000;
   --color-text-secondary: #7c7c78;
   --color-text-ai: #555550;
-  --color-background: #f5f3ed;
+  --color-background: #f8f6f3;
   --color-background-sidebar: #edeae3;
   --color-background-ui: #8b8b73;
   --color-accent: #6b6b56;
@@ -13,7 +13,7 @@
   --color-border-strong: rgba(0, 0, 0, 0.1);
   --color-logo-primary: #8b8b73;
   --color-logo-stroke: #2c2c2c;
-  --color-text-stroke: #f5f3ed;
+  --color-text-stroke: #f8f6f3;
   --color-mid-gray: #9c9c94;
 }
 

@@ -58,11 +58,15 @@ function formatMs(ms: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-function renderBoldSegments(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+function renderInlineMarkdown(text: string) {
+  // Match **bold** or *italic* (but not ** inside bold)
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return <em key={i}>{part.slice(1, -1)}</em>;
     }
     return <span key={i}>{part}</span>;
   });
@@ -91,42 +95,68 @@ function EnhancedNotesPanel({ content, loading, error }: { content: string | nul
 
   if (!content) return null;
 
-  const lines = content.split("\n");
+  console.log("[EnhancedNotesPanel] raw content:\n", content);
+
+  // Pre-process lines: strip tags, detect source, parse structure
+  const rawLines = content.split("\n");
+  const parsed = rawLines.map((line) => {
+    const isAi = /\[ai\]/.test(line);
+    const isUser = /\[user\]/.test(line);
+    // Strip tags including surrounding bold markers: **[user]**, **[ai]**
+    const cleaned = line
+      .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2}\s*/g, "")
+      .replace(/\*{4}/g, ""); // clean up any leftover empty bold markers
+    const trimmed = cleaned.trimStart();
+    const headerMatch = trimmed.match(/^(#{1,4})\s+(.*)/);
+    const bulletMatch = trimmed.match(/^-\s+(.*)/);
+    return { cleaned, trimmed, isAi, isUser, hasTag: isAi || isUser, headerMatch, bulletMatch };
+  });
+
+  // For lines without a tag (typically headers), inherit from the next tagged line
+  for (let i = 0; i < parsed.length; i++) {
+    if (!parsed[i].hasTag && parsed[i].headerMatch) {
+      for (let j = i + 1; j < parsed.length; j++) {
+        if (parsed[j].hasTag) {
+          parsed[i].isAi = parsed[j].isAi;
+          break;
+        }
+        if (parsed[j].trimmed === "") break;
+      }
+    }
+  }
 
   return (
-    <div className="text-base leading-[1.7] space-y-0.5 pt-2">
-      {lines.map((line, i) => {
-        const trimmed = line.trimStart();
+    <div className="text-base leading-[1.7] cursor-text select-text">
+      {parsed.map((line, i) => {
+        const colorClass = line.isAi ? "text-text-ai" : "text-text";
 
-        // Detect which source tag is present anywhere in the line
-        const isAiLine = /\[ai\]/.test(trimmed);
-
-        // Strip ALL occurrences of [user] and [ai] from the line
-        let displayLine = line.replace(/\[(?:user|ai)\]\s*/g, "");
-
-        // Check for headers (### style)
-        const headerMatch = displayLine.trimStart().match(/^(#{1,4})\s+(.*)/);
-
-        const colorClass = isAiLine ? "text-text-ai" : "text-text";
-
-        if (headerMatch) {
-          const level = headerMatch[1].length;
+        if (line.headerMatch) {
+          const level = line.headerMatch[1].length;
           const headerSize =
             level === 1 ? "text-xl" : level === 2 ? "text-lg" : "text-base";
           return (
             <div key={i} className={colorClass}>
-              <p className={`${headerSize} font-semibold mt-3 mb-1`}>{renderBoldSegments(headerMatch[2])}</p>
+              <p className={`${headerSize} font-semibold mt-3 mb-1`}>{renderInlineMarkdown(line.headerMatch[2])}</p>
             </div>
           );
         }
 
-        if (trimmed === "") {
-          return <div key={i} className="h-2" />;
+        if (line.trimmed === "") {
+          return <div key={i} className="h-1" />;
+        }
+
+        if (line.bulletMatch) {
+          return (
+            <div key={i} className={`${colorClass} flex gap-2 ml-1`}>
+              <span className="shrink-0 select-none">•</span>
+              <p className="whitespace-pre-wrap">{renderInlineMarkdown(line.bulletMatch[1])}</p>
+            </div>
+          );
         }
 
         return (
           <div key={i} className={colorClass}>
-            <p className="whitespace-pre-wrap">{renderBoldSegments(displayLine)}</p>
+            <p className="whitespace-pre-wrap">{renderInlineMarkdown(line.cleaned)}</p>
           </div>
         );
       })}
@@ -138,6 +168,7 @@ export function NoteView({
   session,
   isActive,
   isRecording,
+  amplitude,
   transcript,
   userNotes,
   notesLoaded,
@@ -192,7 +223,7 @@ export function NoteView({
   return (
     <div className="flex flex-col h-full relative">
       {/* Title + editor area */}
-      <div className="flex-1 overflow-y-auto px-12 pt-8 pb-32 w-full">
+      <div className="flex-1 overflow-y-auto px-12 pt-4 pb-32 w-full cursor-text select-text">
         {/* Editable title */}
         <div className="max-w-3xl mx-auto">
           <input
@@ -311,8 +342,8 @@ export function NoteView({
               {/* Left: audio icon + chevron + stop */}
               <div className="flex items-center gap-0.5">
                 {isRecording && (() => {
-                  const amp = Math.max(amplitude.mic, amplitude.speaker);
-                  const clamped = Math.min(Math.max(amp, 0), 1);
+                  const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
+                  const clamped = Math.min(Math.max(amp * 3, 0), 1);
                   const minH = 4;
                   const maxH = 16;
                   const h1 = minH + clamped * (maxH - minH) * 0.7;
