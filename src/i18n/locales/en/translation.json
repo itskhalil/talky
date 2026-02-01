@@ -85,6 +85,8 @@
     "availableModels": "Available Models",
     "downloadModels": "Download Models",
     "chooseModel": "Choose a Model",
+    "chooseTranscriptionModel": "Transcription Model",
+    "summarisationModel": "Summarisation Model",
     "active": "Active",
     "download": "Download",
     "downloadSize": "Download size",
