@@ -8,10 +8,13 @@ import {
   Loader2,
   Copy,
   Check,
+  Send,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
-import { ChatDrawer } from "./ChatDrawer";
+import { useNoteChat, type ChatMessage } from "@/hooks/useNoteChat";
 import { JSONContent, Editor } from "@tiptap/core";
 
 interface Session {
@@ -261,9 +264,12 @@ export function NoteView({
 }: NoteViewProps) {
   const { t } = useTranslation();
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<"transcript" | "chat">("transcript");
   const [titleValue, setTitleValue] = useState(session?.title ?? "");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const [enhancedJSON, setEnhancedJSON] = useState<JSONContent | null>(null);
   const [notesCopied, setNotesCopied] = useState(false);
   const [transcriptCopied, setTranscriptCopied] = useState(false);
@@ -302,11 +308,16 @@ export function NoteView({
     setTitleValue(session?.title ?? "");
   }, [session?.id, session?.title]);
 
+  const panelWasOpen = useRef(panelOpen);
   useEffect(() => {
-    if (panelOpen) {
-      transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (panelOpen && panelMode === "transcript") {
+      const justOpened = !panelWasOpen.current;
+      transcriptEndRef.current?.scrollIntoView({
+        behavior: justOpened ? "instant" : "smooth",
+      });
     }
-  }, [transcript, panelOpen]);
+    panelWasOpen.current = panelOpen;
+  }, [transcript, panelOpen, panelMode]);
 
   // Reset scroll when switching view modes so title stays visible.
   // Use rAF to ensure this runs after the editor re-mounts and sets content.
@@ -359,6 +370,35 @@ export function NoteView({
   const getUserNotesText = useCallback(() => {
     return userNotes;
   }, [userNotes]);
+
+  const chat = useNoteChat({
+    sessionId: session?.id ?? "",
+    getTranscript: getTranscriptText,
+    getUserNotes: getUserNotesText,
+  });
+
+  useEffect(() => {
+    if (panelOpen && panelMode === "chat") {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chat.messages, panelOpen, panelMode]);
+
+  const handleChatSubmit = useCallback(() => {
+    if (!chat.input.trim()) return;
+    setPanelOpen(true);
+    setPanelMode("chat");
+    chat.handleSubmit();
+  }, [chat]);
+
+  const handleChatKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleChatSubmit();
+      }
+    },
+    [handleChatSubmit],
+  );
 
   const hasTranscript = transcript.length > 0;
   const hasEnhanced = enhancedNotes != null || enhanceLoading || enhanceError != null;
@@ -480,58 +520,110 @@ export function NoteView({
         </div>
       </div>
 
-      {/* Chat drawer */}
-      {session && (
-        <ChatDrawer
-          sessionId={session.id}
-          getTranscript={getTranscriptText}
-          getUserNotes={getUserNotesText}
-        />
-      )}
-
       {/* Floating recording panel — always show for any note */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4">
         <div className="bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
-          {/* Expandable transcript area */}
+          {/* Expandable area — transcript or chat */}
           {panelOpen && (
-            <div className="relative max-h-64 overflow-y-auto px-5 pt-4 pb-2 border-b border-border">
-              {transcript.length > 0 && (
+            <div className="border-b border-border">
+              {/* Tab switcher */}
+              <div className="flex items-center gap-1 px-4 pt-2 pb-0">
                 <button
-                  onClick={handleCopyTranscript}
-                  className="sticky top-0 float-right p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors z-10 bg-background/80 backdrop-blur-sm"
-                  title={t("sessions.copyTranscript")}
+                  onClick={() => setPanelMode("transcript")}
+                  className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/50 hover:text-text-secondary"}`}
                 >
-                  {transcriptCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                  {t("sessions.chat.transcriptTab")}
                 </button>
-              )}
-              {transcript.length === 0 ? (
-                <p data-ui className="text-xs text-text-secondary py-2">
-                  {t("sessions.noTranscript")}
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {transcript.map((seg) => (
-                    <div key={seg.id} className="flex gap-3 text-xs">
-                      <span
-                        data-ui
-                        className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums"
-                      >
-                        {formatMs(seg.start_ms)}
-                      </span>
-                      <span
-                        data-ui
-                        className={`text-xs shrink-0 pt-0.5 w-8 ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
-                      >
-                        {seg.source === "mic" ? t("sessions.sourceMe") : t("sessions.sourceThem")}
-                      </span>
-                      <span className="text-xs leading-relaxed text-text">
-                        {seg.text}
-                      </span>
-                    </div>
-                  ))}
-                  <div ref={transcriptEndRef} />
-                </div>
-              )}
+                <button
+                  onClick={() => setPanelMode("chat")}
+                  className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${panelMode === "chat" ? "bg-text/8 text-text" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                >
+                  {t("sessions.chat.chatTab")}
+                  {chat.messages.length > 0 && (
+                    <span className="ml-1 text-[10px] text-text-secondary/40">
+                      {chat.messages.length}
+                    </span>
+                  )}
+                </button>
+                {panelMode === "transcript" && transcript.length > 0 && (
+                  <button
+                    onClick={handleCopyTranscript}
+                    className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                    title={t("sessions.copyTranscript")}
+                  >
+                    {transcriptCopied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                  </button>
+                )}
+                {panelMode === "chat" && chat.messages.length > 0 && (
+                  <button
+                    onClick={chat.clearMessages}
+                    className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                    title={t("sessions.chat.newChat")}
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Panel content */}
+              <div className="max-h-64 overflow-y-auto px-5 pt-2 pb-2">
+                {panelMode === "transcript" ? (
+                  <>
+                    {transcript.length === 0 ? (
+                      <p data-ui className="text-xs text-text-secondary py-2">
+                        {t("sessions.noTranscript")}
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {transcript.map((seg) => (
+                          <div key={seg.id} className="flex gap-3 text-xs">
+                            <span
+                              data-ui
+                              className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums"
+                            >
+                              {formatMs(seg.start_ms)}
+                            </span>
+                            <span
+                              data-ui
+                              className={`text-xs shrink-0 pt-0.5 w-8 ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
+                            >
+                              {seg.source === "mic" ? t("sessions.sourceMe") : t("sessions.sourceThem")}
+                            </span>
+                            <span className="text-xs leading-relaxed text-text">
+                              {seg.text}
+                            </span>
+                          </div>
+                        ))}
+                        <div ref={transcriptEndRef} />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2 min-h-[60px]">
+                    {chat.messages.length === 0 && (
+                      <p className="text-xs text-text-secondary/50 py-2">
+                        {t("sessions.chat.placeholder")}
+                      </p>
+                    )}
+                    {chat.messages.map((msg, i) => (
+                      <MessageBubble key={i} message={msg} />
+                    ))}
+                    {chat.isLoading &&
+                      chat.messages[chat.messages.length - 1]?.role !== "assistant" && (
+                        <div className="flex items-center gap-1.5 text-xs text-text-secondary">
+                          <Loader2 size={12} className="animate-spin" />
+                          {t("sessions.chat.thinking")}
+                        </div>
+                      )}
+                    {chat.error && (
+                      <div className="text-xs text-red-400 px-1 py-1">
+                        {chat.error}
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -545,30 +637,39 @@ export function NoteView({
           )}
 
           {/* Bottom bar */}
-          <div data-ui className="flex items-center justify-between px-3 py-2">
+          <div data-ui className="flex items-center gap-2 px-3 py-2">
             {/* Left: audio icon + chevron + stop */}
-            <div className="flex items-center gap-0.5">
-              {isRecording && (() => {
-                const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
-                const clamped = Math.min(Math.max(amp * 3, 0), 1);
-                const minH = 4;
-                const maxH = 16;
-                const h1 = minH + clamped * (maxH - minH) * 0.7;
-                const h2 = minH + clamped * (maxH - minH);
-                const h3 = minH + clamped * (maxH - minH) * 0.5;
-                const cy = 12; // vertical center
-                return (
-                  <svg width="22" height="22" viewBox="0 0 24 24" className="text-green-500">
-                    <rect x="4" y={cy - h1 / 2} width="3" height={h1} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                    <rect x="10.5" y={cy - h2 / 2} width="3" height={h2} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                    <rect x="17" y={cy - h3 / 2} width="3" height={h3} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                  </svg>
-                );
-              })()}
+            <div className="flex items-center gap-0.5 shrink-0">
               <button
                 onClick={() => setPanelOpen(!panelOpen)}
-                className="p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-green-500" : "text-text-secondary/60"}`}
               >
+                {(() => {
+                  const cy = 12;
+                  if (isRecording) {
+                    const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
+                    const clamped = Math.min(Math.max(amp * 3, 0), 1);
+                    const minH = 4;
+                    const maxH = 16;
+                    const h1 = minH + clamped * (maxH - minH) * 0.7;
+                    const h2 = minH + clamped * (maxH - minH);
+                    const h3 = minH + clamped * (maxH - minH) * 0.5;
+                    return (
+                      <svg width="22" height="22" viewBox="0 0 24 24">
+                        <rect x="4" y={cy - h1 / 2} width="3" height={h1} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                        <rect x="10.5" y={cy - h2 / 2} width="3" height={h2} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                        <rect x="17" y={cy - h3 / 2} width="3" height={h3} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                      </svg>
+                    );
+                  }
+                  return (
+                    <svg width="22" height="22" viewBox="0 0 24 24">
+                      <rect x="4" y={cy - 5} width="3" height={10} rx="1.5" fill="currentColor" />
+                      <rect x="10.5" y={cy - 7} width="3" height={14} rx="1.5" fill="currentColor" />
+                      <rect x="17" y={cy - 4} width="3" height={8} rx="1.5" fill="currentColor" />
+                    </svg>
+                  );
+                })()}
                 {panelOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </button>
               {isRecording && (
@@ -582,12 +683,48 @@ export function NoteView({
               )}
             </div>
 
+            {/* Center: chat input */}
+            {session && (
+              <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  data-ui
+                  value={chat.input}
+                  onChange={(e) => chat.setInput(e.target.value)}
+                  onKeyDown={handleChatKeyDown}
+                  onFocus={() => {
+                    chat.handleInputFocus();
+                  }}
+                  placeholder={t("sessions.chat.placeholder")}
+                  className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary/30 min-w-0"
+                />
+                {chat.isLoading ? (
+                  <button
+                    onClick={chat.stop}
+                    className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                ) : (
+                  chat.input.trim() && (
+                    <button
+                      onClick={handleChatSubmit}
+                      className="p-1 rounded-md text-accent hover:text-accent/70 transition-colors shrink-0"
+                    >
+                      <Send size={14} />
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+
             {/* Right: resume / start recording / enhance */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               {!isRecording && (
                 <button
                   onClick={onStartRecording}
-                  className="text-xs font-medium text-accent hover:text-accent/70 transition-colors"
+                  className="text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
                 >
                   {hasTranscript
                     ? t("sessions.resumeRecording")
@@ -599,7 +736,7 @@ export function NoteView({
                   <span className="w-px h-3.5 bg-border-strong" />
                   <button
                     onClick={onEnhanceNotes}
-                    className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors"
+                    className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
                   >
                     <Sparkles size={12} />
                     {enhancedNotes
@@ -611,6 +748,26 @@ export function NoteView({
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ message }: { message: ChatMessage }) {
+  const isUser = message.role === "user";
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed ${
+          isUser
+            ? "bg-accent/10 text-text"
+            : "bg-background-secondary text-text"
+        }`}
+      >
+        <span className="whitespace-pre-wrap">{message.content}</span>
+        {!isUser && message.content === "" && (
+          <Loader2 size={12} className="animate-spin text-text-secondary" />
+        )}
       </div>
     </div>
   );

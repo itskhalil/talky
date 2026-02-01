@@ -436,6 +436,8 @@
   },
   "notes": {
     "searchPlaceholder": "Search",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
     "findPlaceholder": "Find in note...",
     "noMatches": "No matches",
     "emptyState": "Select a note or create a new one",
@@ -490,10 +492,12 @@
       "orderedList": "Numbered List"
     },
     "chat": {
-      "placeholder": "Ask about this meeting...",
+      "placeholder": "Ask anything...",
       "newChat": "New chat",
       "send": "Send",
-      "thinking": "Thinking..."
+      "thinking": "Thinking...",
+      "chatTab": "Chat",
+      "transcriptTab": "Transcript"
     }
   },
   "footer": {

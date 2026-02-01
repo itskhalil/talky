@@ -4,25 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-**Prerequisites:** [Rust](https://rustup.rs/) (latest stable), [Bun](https://bun.sh/)
+**Prerequisites:** [Rust](https://rustup.rs/) (latest stable), [Node.js](https://nodejs.org/) (with npm)
 
 ```bash
 # Install dependencies
-bun install
+npm install
 
 # Run in development mode
-bun run tauri dev
+npm run tauri dev
 # If cmake error on macOS:
-CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri dev
+CMAKE_POLICY_VERSION_MINIMUM=3.5 npm run tauri dev
 
 # Build for production
-bun run tauri build
+npm run tauri build
 
 # Linting and formatting (run before committing)
-bun run lint              # ESLint for frontend
-bun run lint:fix          # ESLint with auto-fix
-bun run format            # Prettier + cargo fmt
-bun run format:check      # Check formatting without changes
+npm run lint              # ESLint for frontend
+npm run lint:fix          # ESLint with auto-fix
+npm run format            # Prettier + cargo fmt
+npm run format:check      # Check formatting without changes
 ```
 
 **Model Setup (Required for Development):**
