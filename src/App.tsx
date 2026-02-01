@@ -2,27 +2,21 @@ import { useEffect, useState, useRef } from "react";
 import { Toaster } from "sonner";
 import "./App.css";
 import AccessibilityPermissions from "./components/AccessibilityPermissions";
-import Footer from "./components/footer";
 import Onboarding, { AccessibilityOnboarding } from "./components/onboarding";
-import { Sidebar, SidebarSection, SECTIONS_CONFIG } from "./components/Sidebar";
+import { SessionsView } from "./components/sessions/SessionsView";
+import { SettingsPage } from "./components/SettingsPage";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands } from "@/bindings";
 
 type OnboardingStep = "accessibility" | "model" | "done";
-
-const renderSettingsContent = (section: SidebarSection) => {
-  const ActiveComponent =
-    SECTIONS_CONFIG[section]?.component || SECTIONS_CONFIG.sessions.component;
-  return <ActiveComponent />;
-};
+type AppView = "notes" | "settings";
 
 function App() {
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep | null>(
     null,
   );
-  const [currentSection, setCurrentSection] =
-    useState<SidebarSection>("sessions");
+  const [view, setView] = useState<AppView>("notes");
   const { settings, updateSetting } = useSettings();
   const refreshAudioDevices = useSettingsStore(
     (state) => state.refreshAudioDevices,
@@ -122,24 +116,14 @@ function App() {
           },
         }}
       />
-      {/* Main content area that takes remaining space */}
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar
-          activeSection={currentSection}
-          onSectionChange={setCurrentSection}
-        />
-        {/* Scrollable content area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-            <div className="flex flex-col items-center p-4 gap-4">
-              <AccessibilityPermissions />
-              {renderSettingsContent(currentSection)}
-            </div>
-          </div>
-        </div>
+      <AccessibilityPermissions />
+      <div className="flex-1 overflow-hidden">
+        {view === "notes" ? (
+          <SessionsView onOpenSettings={() => setView("settings")} />
+        ) : (
+          <SettingsPage onBack={() => setView("notes")} />
+        )}
       </div>
-      {/* Fixed footer at bottom */}
-      <Footer />
     </div>
   );
 }

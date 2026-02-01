@@ -68,9 +68,9 @@ export function NotesEditor({
     }`;
 
   return (
-    <div className="notes-editor border border-mid-gray/20 rounded-lg overflow-hidden bg-background focus-within:border-logo-primary/60 transition-colors">
+    <div className="notes-editor overflow-hidden bg-background transition-colors">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1 border-b border-mid-gray/20">
+      <div className="flex items-center gap-0.5 px-2 py-1 border-b border-mid-gray/10">
         <button
           type="button"
           title={t("sessions.toolbar.bold")}

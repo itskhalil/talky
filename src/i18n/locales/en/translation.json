@@ -105,6 +105,8 @@
     "deleteModel": "Delete {{modelName}}"
   },
   "settings": {
+    "back": "Back",
+    "title": "Settings",
     "general": {
       "title": "General",
       "shortcut": {
@@ -409,7 +411,12 @@
       }
     }
   },
-  "sessions": {
+  "notes": {
+    "emptyState": "Select a note or create a new one",
+    "recording": "Recording",
+    "endNote": "End Note"
+  },
+  "settings": {
     "title": "Notes",
     "newNote": "New Note",
     "endNote": "Close Note",
