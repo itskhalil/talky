@@ -311,6 +311,7 @@ pub fn run() {
         commands::session::start_session,
         commands::session::start_session_recording,
         commands::session::stop_session_recording,
+        commands::session::reactivate_session,
         commands::session::end_session,
         commands::session::get_sessions,
         commands::session::get_session,

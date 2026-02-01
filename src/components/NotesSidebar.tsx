@@ -13,8 +13,7 @@ interface Session {
 interface NotesSidebarProps {
   sessions: Session[];
   selectedId: string | null;
-  activeSessionId: string | undefined;
-  isRecording: boolean;
+  recordingSessionId: string | null;
   onSelect: (id: string) => void;
   onNewNote: () => void;
   onDelete: (id: string) => void;
@@ -32,8 +31,7 @@ function formatDate(timestamp: number): string {
 export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   sessions,
   selectedId,
-  activeSessionId,
-  isRecording,
+  recordingSessionId,
   onSelect,
   onNewNote,
   onDelete,
@@ -58,7 +56,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       <div className="flex-1 overflow-y-auto px-2">
         {sessions.map((session) => {
           const isSelected = selectedId === session.id;
-          const isActive = activeSessionId === session.id;
+          const isRecordingThis = recordingSessionId === session.id;
 
           return (
             <div
@@ -72,7 +70,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  {isActive && isRecording && (
+                  {isRecordingThis && (
                     <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
                   )}
                   <span
@@ -88,17 +86,15 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   {formatDate(session.started_at)}
                 </div>
               </div>
-              {!isActive && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(session.id);
-                  }}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
-                >
-                  <Trash2 size={13} />
-                </button>
-              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(session.id);
+                }}
+                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
+              >
+                <Trash2 size={13} />
+              </button>
             </div>
           );
         })}
