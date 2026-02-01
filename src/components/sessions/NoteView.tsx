@@ -6,6 +6,8 @@ import {
   Square,
   Sparkles,
   Loader2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { JSONContent } from "@tiptap/core";
@@ -256,6 +258,33 @@ export function NoteView({
   const [titleValue, setTitleValue] = useState(session?.title ?? "");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const [enhancedJSON, setEnhancedJSON] = useState<JSONContent | null>(null);
+  const [notesCopied, setNotesCopied] = useState(false);
+  const [transcriptCopied, setTranscriptCopied] = useState(false);
+
+  const handleCopyNotes = async () => {
+    let text = "";
+    if (viewMode === "enhanced" && enhancedNotes) {
+      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2}\s*/g, "").replace(/\*{4}/g, "");
+    } else {
+      text = userNotes;
+    }
+    await navigator.clipboard.writeText(text);
+    setNotesCopied(true);
+    setTimeout(() => setNotesCopied(false), 1500);
+  };
+
+  const handleCopyTranscript = async () => {
+    const text = transcript
+      .map((seg) => {
+        const mins = Math.floor(seg.start_ms / 60000);
+        const secs = Math.floor((seg.start_ms % 60000) / 1000);
+        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}  ${seg.text}`;
+      })
+      .join("\n");
+    await navigator.clipboard.writeText(text);
+    setTranscriptCopied(true);
+    setTimeout(() => setTranscriptCopied(false), 1500);
+  };
 
   useEffect(() => {
     setTitleValue(session?.title ?? "");
@@ -320,26 +349,35 @@ export function NoteView({
         <div className="max-w-3xl mx-auto">
           {/* View mode toggle - only show when enhanced notes exist */}
           {hasEnhanced && (
-            <div className="flex gap-1 mb-4 bg-background-secondary rounded-lg p-0.5 w-fit">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex gap-1 bg-background-secondary rounded-lg p-0.5 w-fit">
+                <button
+                  onClick={() => onViewModeChange("enhanced")}
+                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                    viewMode === "enhanced"
+                      ? "bg-background text-text shadow-sm"
+                      : "text-text-secondary hover:text-text"
+                  }`}
+                >
+                  {t("sessions.enhancedNotes")}
+                </button>
+                <button
+                  onClick={() => onViewModeChange("notes")}
+                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                    viewMode === "notes"
+                      ? "bg-background text-text shadow-sm"
+                      : "text-text-secondary hover:text-text"
+                  }`}
+                >
+                  {t("sessions.yourNotes")}
+                </button>
+              </div>
               <button
-                onClick={() => onViewModeChange("enhanced")}
-                className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                  viewMode === "enhanced"
-                    ? "bg-background text-text shadow-sm"
-                    : "text-text-secondary hover:text-text"
-                }`}
+                onClick={handleCopyNotes}
+                className="p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                title={t("sessions.copyNotes")}
               >
-                {t("sessions.enhancedNotes")}
-              </button>
-              <button
-                onClick={() => onViewModeChange("notes")}
-                className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                  viewMode === "notes"
-                    ? "bg-background text-text shadow-sm"
-                    : "text-text-secondary hover:text-text"
-                }`}
-              >
-                {t("sessions.yourNotes")}
+                {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
               </button>
             </div>
           )}
@@ -407,7 +445,16 @@ export function NoteView({
         <div className="bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
           {/* Expandable transcript area */}
           {panelOpen && (
-            <div className="max-h-64 overflow-y-auto px-5 pt-4 pb-2 border-b border-border">
+            <div className="relative max-h-64 overflow-y-auto px-5 pt-4 pb-2 border-b border-border">
+              {transcript.length > 0 && (
+                <button
+                  onClick={handleCopyTranscript}
+                  className="sticky top-0 float-right p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors z-10 bg-background/80 backdrop-blur-sm"
+                  title={t("sessions.copyTranscript")}
+                >
+                  {transcriptCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                </button>
+              )}
               {transcript.length === 0 ? (
                 <p data-ui className="text-xs text-text-secondary py-2">
                   {t("sessions.noTranscript")}
@@ -430,6 +477,15 @@ export function NoteView({
                   <div ref={transcriptEndRef} />
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Consent warning */}
+          {isRecording && (
+            <div className="px-3 pt-1.5 pb-0">
+              <p className="text-[10px] text-text-secondary/50 text-center">
+                {t("sessions.consentWarning")}
+              </p>
             </div>
           )}
 

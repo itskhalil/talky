@@ -452,6 +452,10 @@
     "enhancing": "Enhancing notes...",
     "enhanceError": "Failed to enhance notes",
     "summaryRequiresPostProcess": "Configure an AI provider in settings to enable summaries.",
+    "copied": "Copied!",
+    "copyNotes": "Copy notes",
+    "copyTranscript": "Copy transcript",
+    "consentWarning": "Ask for consent before transcribing conversations",
     "toolbar": {
       "bold": "Bold",
       "italic": "Italic",

@@ -204,11 +204,16 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     [selectedSessionId, saveUserNotes],
   );
 
+  // Persist selected session to localStorage
+  useEffect(() => {
+    if (selectedSessionId) {
+      localStorage.setItem("lastSelectedSessionId", selectedSessionId);
+    }
+  }, [selectedSessionId]);
+
   // Initial load
   useEffect(() => {
-    loadSessions();
-    // Check if there's already an active/recording session
-    (async () => {
+    loadSessions().then(async () => {
       try {
         const active = await invoke<Session | null>("get_active_session");
         if (active) {
@@ -218,11 +223,28 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             setRecordingSessionId(active.id);
             setIsRecording(true);
           }
+          return;
         }
       } catch (e) {
         console.error("Failed to load active session:", e);
       }
-    })();
+
+      // No active session — restore last selected from localStorage
+      const lastId = localStorage.getItem("lastSelectedSessionId");
+      if (lastId) {
+        // We need to check against loaded sessions; read current state via invoke
+        try {
+          const allSessions = await invoke<Session[]>("get_sessions");
+          if (allSessions.some((s) => s.id === lastId)) {
+            setSelectedSessionId(lastId);
+          } else if (allSessions.length > 0) {
+            setSelectedSessionId(allSessions[0].id);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    });
   }, [loadSessions]);
 
   useEffect(() => {
