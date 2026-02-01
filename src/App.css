@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --color-text: #2c2c2c;
+  --color-text: #000000;
   --color-text-secondary: #7c7c78;
+  --color-text-ai: #555550;
   --color-background: #f5f3ed;
   --color-background-sidebar: #edeae3;
   --color-background-ui: #8b8b73;
@@ -34,8 +35,15 @@
 }
 
 /* Headings and UI labels use a clean sans-serif */
-h1, h2, h3, h4, h5, h6,
-input, button, [data-ui] {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+input,
+button,
+[data-ui] {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
 }
 
@@ -52,6 +60,7 @@ input, button, [data-ui] {
   :root {
     --color-text: #e8e6e1;
     --color-text-secondary: #9c9a93;
+    --color-text-ai: #b5b3ac;
     --color-background: #2a2924;
     --color-background-sidebar: #24231f;
     --color-background-ui: #8b8b73;
@@ -104,6 +113,7 @@ input, button, [data-ui] {
   ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.12);
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
   }

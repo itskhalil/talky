@@ -94,7 +94,7 @@ function EnhancedNotesPanel({ content, loading, error }: { content: string | nul
   const lines = content.split("\n");
 
   return (
-    <div className="text-sm leading-relaxed space-y-0.5 pt-2">
+    <div className="text-base leading-[1.7] space-y-0.5 pt-2">
       {lines.map((line, i) => {
         const trimmed = line.trimStart();
 
@@ -107,12 +107,15 @@ function EnhancedNotesPanel({ content, loading, error }: { content: string | nul
         // Check for headers (### style)
         const headerMatch = displayLine.trimStart().match(/^(#{1,4})\s+(.*)/);
 
-        const colorClass = isAiLine ? "text-text-secondary" : "text-text";
+        const colorClass = isAiLine ? "text-text-ai" : "text-text";
 
         if (headerMatch) {
+          const level = headerMatch[1].length;
+          const headerSize =
+            level === 1 ? "text-xl" : level === 2 ? "text-lg" : "text-base";
           return (
             <div key={i} className={colorClass}>
-              <p className="font-semibold mt-3 mb-1">{renderBoldSegments(headerMatch[2])}</p>
+              <p className={`${headerSize} font-semibold mt-3 mb-1`}>{renderBoldSegments(headerMatch[2])}</p>
             </div>
           );
         }
@@ -307,22 +310,23 @@ export function NoteView({
             <div data-ui className="flex items-center justify-between px-3 py-2">
               {/* Left: audio icon + chevron + stop */}
               <div className="flex items-center gap-0.5">
-                {isRecording && (
-                  <svg width="22" height="22" viewBox="0 0 24 24" className="text-green-500">
-                    <rect x="4" y="6" width="3" rx="1.5" fill="currentColor">
-                      <animate attributeName="height" values="12;6;14;8;12" dur="1s" repeatCount="indefinite" />
-                      <animate attributeName="y" values="6;9;5;8;6" dur="1s" repeatCount="indefinite" />
-                    </rect>
-                    <rect x="10.5" y="4" width="3" rx="1.5" fill="currentColor">
-                      <animate attributeName="height" values="16;10;8;14;16" dur="1.1s" repeatCount="indefinite" />
-                      <animate attributeName="y" values="4;7;8;5;4" dur="1.1s" repeatCount="indefinite" />
-                    </rect>
-                    <rect x="17" y="7" width="3" rx="1.5" fill="currentColor">
-                      <animate attributeName="height" values="10;14;6;12;10" dur="0.9s" repeatCount="indefinite" />
-                      <animate attributeName="y" values="7;5;9;6;7" dur="0.9s" repeatCount="indefinite" />
-                    </rect>
-                  </svg>
-                )}
+                {isRecording && (() => {
+                  const amp = Math.max(amplitude.mic, amplitude.speaker);
+                  const clamped = Math.min(Math.max(amp, 0), 1);
+                  const minH = 4;
+                  const maxH = 16;
+                  const h1 = minH + clamped * (maxH - minH) * 0.7;
+                  const h2 = minH + clamped * (maxH - minH);
+                  const h3 = minH + clamped * (maxH - minH) * 0.5;
+                  const cy = 12; // vertical center
+                  return (
+                    <svg width="22" height="22" viewBox="0 0 24 24" className="text-green-500">
+                      <rect x="4" y={cy - h1 / 2} width="3" height={h1} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                      <rect x="10.5" y={cy - h2 / 2} width="3" height={h2} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                      <rect x="17" y={cy - h3 / 2} width="3" height={h3} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                    </svg>
+                  );
+                })()}
                 <button
                   onClick={() => setPanelOpen(!panelOpen)}
                   className="p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"

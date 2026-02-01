@@ -28,14 +28,6 @@ function formatDate(timestamp: number): string {
   });
 }
 
-function formatDuration(startedAt: number, endedAt: number | null): string {
-  const end = endedAt ?? Math.floor(Date.now() / 1000);
-  const seconds = end - startedAt;
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) return `${mins}m ${secs}s`;
-  return `${secs}s`;
-}
 
 export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   sessions,
@@ -94,8 +86,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 </div>
                 <div data-ui className="text-xs text-text-secondary mt-0.5">
                   {formatDate(session.started_at)}
-                  {" · "}
-                  {formatDuration(session.started_at, session.ended_at)}
                 </div>
               </div>
               {!isActive && (
