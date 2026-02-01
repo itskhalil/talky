@@ -64,9 +64,9 @@
         "title": "Mikrofon Erişimi",
         "description": "Sesinizi transkripsiyon için alabilmek için gereklidir."
       },
-      "accessibility": {
-        "title": "Erişilebilirlik Erişimi",
-        "description": "Transkribe edilen metni uygulamalarınıza yazabilmek için gereklidir."
+      "screenRecording": {
+        "title": "Ekran Kaydı Erişimi",
+        "description": "Toplantılarda hoparlör sesini yakalamak için gereklidir."
       },
       "grant": "İzin Ver",
       "granted": "Verildi",
@@ -436,12 +436,6 @@
     "yes": "Evet",
     "no": "Hayır",
     "noOptionsFound": "Seçenek bulunamadı"
-  },
-  "accessibility": {
-    "permissionsRequired": "Erişilebilirlik İzinleri Gerekli",
-    "permissionsDescription": "Talky, transkribe edilen metni yazabilmek için erişilebilirlik izinlerine ihtiyaç duyar.",
-    "openSettings": "Sistem Ayarlarını Aç",
-    "dismiss": "Yoksay"
   },
   "errors": {
     "loadDirectory": "Dizin yüklenirken hata oluştu: {{error}}"

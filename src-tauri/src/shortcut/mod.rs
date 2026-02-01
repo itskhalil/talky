@@ -168,9 +168,6 @@ pub fn resume_binding(app: AppHandle, id: String) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-
-#[tauri::command]
-#[specta::specta]
 pub fn change_audio_feedback_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.audio_feedback = enabled;
@@ -316,9 +313,6 @@ pub fn update_custom_words(app: AppHandle, words: Vec<String>) -> Result<(), Str
     settings::write_settings(&app, settings);
     Ok(())
 }
-
-#[tauri::command]
-#[specta::specta]
 
 #[tauri::command]
 #[specta::specta]

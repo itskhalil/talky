@@ -1,15 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { Toaster } from "sonner";
 import "./App.css";
-import AccessibilityPermissions from "./components/AccessibilityPermissions";
-import Onboarding, { AccessibilityOnboarding } from "./components/onboarding";
+import Onboarding, { PermissionsOnboarding } from "./components/onboarding";
 import { SessionsView } from "./components/sessions/SessionsView";
 import { SettingsPage } from "./components/SettingsPage";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands } from "@/bindings";
 
-type OnboardingStep = "accessibility" | "model" | "done";
+type OnboardingStep = "permissions" | "model" | "done";
 type AppView = "notes" | "settings";
 
 function App() {
@@ -70,17 +69,17 @@ function App() {
       const result = await commands.hasAnyModelsAvailable();
       if (result.status === "ok") {
         // If they have models/downloads, they're done. Otherwise start permissions step.
-        setOnboardingStep(result.data ? "done" : "accessibility");
+        setOnboardingStep(result.data ? "done" : "permissions");
       } else {
-        setOnboardingStep("accessibility");
+        setOnboardingStep("permissions");
       }
     } catch (error) {
       console.error("Failed to check onboarding status:", error);
-      setOnboardingStep("accessibility");
+      setOnboardingStep("permissions");
     }
   };
 
-  const handleAccessibilityComplete = () => {
+  const handlePermissionsComplete = () => {
     setOnboardingStep("model");
   };
 
@@ -94,8 +93,8 @@ function App() {
     return null;
   }
 
-  if (onboardingStep === "accessibility") {
-    return <AccessibilityOnboarding onComplete={handleAccessibilityComplete} />;
+  if (onboardingStep === "permissions") {
+    return <PermissionsOnboarding onComplete={handlePermissionsComplete} />;
   }
 
   if (onboardingStep === "model") {
@@ -116,7 +115,6 @@ function App() {
           },
         }}
       />
-      <AccessibilityPermissions />
       <div className="flex-1 overflow-hidden">
         {view === "notes" ? (
           <SessionsView onOpenSettings={() => setView("settings")} />

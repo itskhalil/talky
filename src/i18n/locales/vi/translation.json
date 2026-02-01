@@ -65,9 +65,9 @@
         "title": "Quyền truy cập Micrô",
         "description": "Cần thiết để nghe giọng nói của bạn để chuyển đổi."
       },
-      "accessibility": {
-        "title": "Quyền truy cập Trợ năng",
-        "description": "Cần thiết để nhập văn bản đã chuyển đổi vào các ứng dụng của bạn."
+      "screenRecording": {
+        "title": "Quyền ghi màn hình",
+        "description": "Cần thiết để thu âm loa trong các cuộc họp."
       },
       "grant": "Cấp quyền",
       "granted": "Đã cấp",
@@ -433,12 +433,6 @@
     "yes": "Có",
     "no": "Không",
     "noOptionsFound": "Không tìm thấy tùy chọn"
-  },
-  "accessibility": {
-    "permissionsRequired": "Cần quyền truy cập",
-    "permissionsDescription": "Talky cần quyền truy cập để gõ văn bản đã chuyển đổi.",
-    "openSettings": "Mở Cài đặt Hệ thống",
-    "dismiss": "Bỏ qua"
   },
   "errors": {
     "loadDirectory": "Lỗi khi tải thư mục: {{error}}"

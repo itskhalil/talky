@@ -66,9 +66,9 @@
         "title": "Microphone Access",
         "description": "Required to hear your voice for transcription."
       },
-      "accessibility": {
-        "title": "Accessibility Access",
-        "description": "Required to type transcribed text into your applications."
+      "screenRecording": {
+        "title": "Screen Recording Access",
+        "description": "Required to capture speaker audio in meetings."
       },
       "grant": "Grant Permission",
       "granted": "Granted",
@@ -530,12 +530,6 @@
     "yes": "Yes",
     "no": "No",
     "noOptionsFound": "No options found"
-  },
-  "accessibility": {
-    "permissionsRequired": "Accessibility Permissions Required",
-    "permissionsDescription": "Talky needs accessibility permissions to type transcribed text.",
-    "openSettings": "Open System Settings",
-    "dismiss": "Dismiss"
   },
   "errors": {
     "loadDirectory": "Error loading directory: {{error}}"

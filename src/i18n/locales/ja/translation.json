@@ -64,9 +64,9 @@
         "title": "マイクへのアクセス",
         "description": "文字起こしのためにあなたの声を聞くために必要です。"
       },
-      "accessibility": {
-        "title": "アクセシビリティへのアクセス",
-        "description": "アプリケーションに文字起こしテキストを入力するために必要です。"
+      "screenRecording": {
+        "title": "画面収録へのアクセス",
+        "description": "会議中のスピーカー音声をキャプチャするために必要です。"
       },
       "grant": "権限を許可",
       "granted": "許可済み",
@@ -432,12 +432,6 @@
     "yes": "はい",
     "no": "いいえ",
     "noOptionsFound": "オプションが見つかりません"
-  },
-  "accessibility": {
-    "permissionsRequired": "アクセシビリティ権限が必要です",
-    "permissionsDescription": "Talkyが文字起こしテキストを入力するには、アクセシビリティ権限が必要です。",
-    "openSettings": "システム設定を開く",
-    "dismiss": "閉じる"
   },
   "errors": {
     "loadDirectory": "ディレクトリの読み込みエラー: {{error}}"

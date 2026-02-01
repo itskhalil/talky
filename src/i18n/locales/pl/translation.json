@@ -64,9 +64,9 @@
         "title": "Dostęp do mikrofonu",
         "description": "Wymagany do słyszenia Twojego głosu w celu transkrypcji."
       },
-      "accessibility": {
-        "title": "Dostęp do dostępności",
-        "description": "Wymagany do wpisywania transkrybowanego tekstu w Twoich aplikacjach."
+      "screenRecording": {
+        "title": "Dostęp do nagrywania ekranu",
+        "description": "Wymagany do przechwytywania dźwięku głośników podczas spotkań."
       },
       "grant": "Przyznaj uprawnienie",
       "granted": "Przyznano",
@@ -432,12 +432,6 @@
     "yes": "Tak",
     "no": "Nie",
     "noOptionsFound": "Nie znaleziono opcji"
-  },
-  "accessibility": {
-    "permissionsRequired": "Wymagane uprawnienia dostępności",
-    "permissionsDescription": "Talky potrzebuje uprawnień dostępności, aby wpisywać transkrybowany tekst.",
-    "openSettings": "Otwórz ustawienia systemowe",
-    "dismiss": "Zamknij"
   },
   "errors": {
     "loadDirectory": "Błąd wczytywania katalogu: {{error}}"

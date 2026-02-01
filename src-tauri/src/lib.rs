@@ -10,7 +10,6 @@ mod llm_client;
 mod managers;
 mod settings;
 mod shortcut;
-mod signal_handle;
 mod tray;
 mod tray_i18n;
 mod utils;
@@ -23,10 +22,6 @@ use managers::history::HistoryManager;
 use managers::model::ModelManager;
 use managers::session::SessionManager;
 use managers::transcription::TranscriptionManager;
-#[cfg(unix)]
-use signal_hook::consts::SIGUSR2;
-#[cfg(unix)]
-use signal_hook::iterator::Signals;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
@@ -137,11 +132,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // Initialize the shortcuts
     shortcut::init_shortcuts(app_handle);
 
-    #[cfg(unix)]
-    let signals = Signals::new(&[SIGUSR2]).unwrap();
-    // Set up SIGUSR2 signal handler for toggling transcription
-    #[cfg(unix)]
-    signal_handle::setup_signal_handler(app_handle.clone(), signals);
 
     // Apply macOS Accessory policy if starting hidden
     #[cfg(target_os = "macos")]
@@ -233,7 +223,6 @@ pub fn run() {
     let specta_builder = Builder::<tauri::Wry>::new().commands(collect_commands![
         shortcut::change_binding,
         shortcut::reset_binding,
-        shortcut::change_ptt_setting,
         shortcut::change_audio_feedback_setting,
         shortcut::change_audio_feedback_volume_setting,
         shortcut::change_sound_theme_setting,
@@ -242,7 +231,6 @@ pub fn run() {
         shortcut::change_translate_to_english_setting,
         shortcut::change_selected_language_setting,
         shortcut::change_debug_mode_setting,
-        shortcut::change_word_correction_threshold_setting,
         shortcut::change_post_process_enabled_setting,
         shortcut::change_experimental_enabled_setting,
         shortcut::change_post_process_base_url_setting,
@@ -258,7 +246,6 @@ pub fn run() {
         shortcut::suspend_binding,
         shortcut::resume_binding,
         shortcut::change_mute_while_recording_setting,
-        shortcut::change_append_trailing_space_setting,
         shortcut::change_app_language_setting,
         shortcut::change_update_checks_setting,
         trigger_update_check,
@@ -285,8 +272,6 @@ pub fn run() {
         commands::models::has_any_models_available,
         commands::models::has_any_models_or_downloads,
         commands::models::get_recommended_first_model,
-        commands::audio::update_microphone_mode,
-        commands::audio::get_microphone_mode,
         commands::audio::get_available_microphones,
         commands::audio::set_selected_microphone,
         commands::audio::get_selected_microphone,

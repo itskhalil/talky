@@ -64,9 +64,9 @@
         "title": "Acceso al Micrófono",
         "description": "Necesario para escuchar tu voz para la transcripción."
       },
-      "accessibility": {
-        "title": "Acceso de Accesibilidad",
-        "description": "Necesario para escribir el texto transcrito en tus aplicaciones."
+      "screenRecording": {
+        "title": "Acceso a Grabación de Pantalla",
+        "description": "Necesario para capturar el audio del altavoz en reuniones."
       },
       "grant": "Conceder Permiso",
       "granted": "Concedido",
@@ -432,12 +432,6 @@
     "yes": "Sí",
     "no": "No",
     "noOptionsFound": "No se encontraron opciones"
-  },
-  "accessibility": {
-    "permissionsRequired": "Se Requieren Permisos de Accesibilidad",
-    "permissionsDescription": "Talky necesita permisos de accesibilidad para escribir texto transcrito.",
-    "openSettings": "Abrir Ajustes del Sistema",
-    "dismiss": "Descartar"
   },
   "errors": {
     "loadDirectory": "Error al cargar el directorio: {{error}}"
