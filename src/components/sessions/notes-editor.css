@@ -1,7 +1,7 @@
 .notes-editor .tiptap {
   outline: none;
   min-height: 320px;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.7;
   color: var(--color-text);
 }

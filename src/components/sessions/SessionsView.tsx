@@ -69,6 +69,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ sessionId: string; notes: string } | null>(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -165,8 +166,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
         clearTimeout(saveTimerRef.current);
       }
       if (selectedSessionId) {
+        pendingSaveRef.current = { sessionId: selectedSessionId, notes: newNotes };
         saveTimerRef.current = setTimeout(() => {
           saveUserNotes(selectedSessionId, newNotes);
+          pendingSaveRef.current = null;
         }, 500);
       }
     },
@@ -191,9 +194,14 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (pendingSaveRef.current) {
+        saveUserNotes(pendingSaveRef.current.sessionId, pendingSaveRef.current.notes);
+        pendingSaveRef.current = null;
       }
     };
-  }, [selectedSessionId]);
+  }, [selectedSessionId, saveUserNotes]);
 
   useEffect(() => {
     const unlisten = listen<{ session_id: string; segment: TranscriptSegment }>(

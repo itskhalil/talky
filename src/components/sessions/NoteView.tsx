@@ -6,7 +6,6 @@ import {
   Square,
   Sparkles,
   Loader2,
-  Circle,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 
@@ -100,8 +99,6 @@ export function NoteView({
 
   const hasTranscript = transcript.length > 0;
   const isEnded = !isActive;
-  const showEnhanceButton =
-    isEnded && hasTranscript && !summary && !summaryLoading;
 
   return (
     <div className="flex flex-col h-full relative">
@@ -146,19 +143,6 @@ export function NoteView({
           placeholder={t("sessions.notesPlaceholder")}
         />
 
-        {/* Enhance button */}
-        {showEnhanceButton && (
-          <div className="flex justify-center mt-10">
-            <button
-              data-ui
-              onClick={onGenerateSummary}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent text-background text-sm font-medium hover:bg-accent/85 transition-colors"
-            >
-              <Sparkles size={15} />
-              {t("sessions.generateSummary")}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Floating recording panel */}
@@ -194,58 +178,67 @@ export function NoteView({
             )}
 
             {/* Bottom bar */}
-            <div data-ui className="flex items-center gap-3 px-4 py-2.5">
-              {/* Expand toggle */}
-              <button
-                onClick={() => setPanelOpen(!panelOpen)}
-                className="flex items-center gap-1.5 text-text-secondary hover:text-text transition-colors"
-              >
+            <div data-ui className="flex items-center justify-between px-3 py-2">
+              {/* Left: audio icon + chevron + stop */}
+              <div className="flex items-center gap-0.5">
                 {isRecording && (
-                  <Circle
-                    size={8}
-                    className="text-red-400 fill-red-400"
-                  />
+                  <svg width="22" height="22" viewBox="0 0 24 24" className="text-green-500">
+                    <rect x="4" y="6" width="3" rx="1.5" fill="currentColor">
+                      <animate attributeName="height" values="12;6;14;8;12" dur="1s" repeatCount="indefinite" />
+                      <animate attributeName="y" values="6;9;5;8;6" dur="1s" repeatCount="indefinite" />
+                    </rect>
+                    <rect x="10.5" y="4" width="3" rx="1.5" fill="currentColor">
+                      <animate attributeName="height" values="16;10;8;14;16" dur="1.1s" repeatCount="indefinite" />
+                      <animate attributeName="y" values="4;7;8;5;4" dur="1.1s" repeatCount="indefinite" />
+                    </rect>
+                    <rect x="17" y="7" width="3" rx="1.5" fill="currentColor">
+                      <animate attributeName="height" values="10;14;6;12;10" dur="0.9s" repeatCount="indefinite" />
+                      <animate attributeName="y" values="7;5;9;6;7" dur="0.9s" repeatCount="indefinite" />
+                    </rect>
+                  </svg>
                 )}
-                <span className="text-xs font-medium">
-                  {t("sessions.transcript", { defaultValue: "Transcript" })}
-                </span>
-                {panelOpen ? (
-                  <ChevronDown size={13} />
-                ) : (
-                  <ChevronUp size={13} />
+                <button
+                  onClick={() => setPanelOpen(!panelOpen)}
+                  className="p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                >
+                  {panelOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                </button>
+                {isRecording && (
+                  <button
+                    onClick={onStopRecording}
+                    className="p-1.5 rounded-md bg-text/8 hover:bg-text/12 transition-colors text-text-secondary/60"
+                    title={t("sessions.stopRecording")}
+                  >
+                    <Square size={11} fill="currentColor" />
+                  </button>
                 )}
-              </button>
+              </div>
 
-              {/* Stop button */}
-              {isRecording && (
-                <button
-                  onClick={onStopRecording}
-                  className="p-1.5 rounded-lg hover:bg-accent-soft transition-colors text-text-secondary hover:text-text"
-                  title={t("sessions.stopRecording")}
-                >
-                  <Square size={14} />
-                </button>
-              )}
-
-              {/* Resume link */}
-              {isActive && !isRecording && (
-                <button
-                  onClick={onStartRecording}
-                  className="text-xs font-medium text-accent hover:text-accent/70 transition-colors"
-                >
-                  {t("sessions.resumeRecording")}
-                </button>
-              )}
-
-              {/* Regenerate summary */}
-              {isEnded && summary && !summaryLoading && (
-                <button
-                  onClick={onGenerateSummary}
-                  className="text-xs text-text-secondary hover:text-text transition-colors ml-auto"
-                >
-                  {t("sessions.regenerateSummary")}
-                </button>
-              )}
+              {/* Right: resume / summary */}
+              <div className="flex items-center gap-3">
+                {isActive && !isRecording && (
+                  <button
+                    onClick={onStartRecording}
+                    className="text-xs font-medium text-accent hover:text-accent/70 transition-colors"
+                  >
+                    {t("sessions.resumeRecording")}
+                  </button>
+                )}
+                {!isRecording && hasTranscript && !summaryLoading && (
+                  <>
+                    {isActive && <span className="w-px h-3.5 bg-border-strong" />}
+                    <button
+                      onClick={onGenerateSummary}
+                      className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors"
+                    >
+                      <Sparkles size={12} />
+                      {summary
+                        ? t("sessions.regenerateSummary")
+                        : t("sessions.generateSummary")}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -417,7 +417,11 @@ impl SessionManager {
             "INSERT INTO meeting_notes (session_id, summary, action_items, decisions, user_notes, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
              ON CONFLICT(session_id) DO UPDATE SET
-                summary = ?2, action_items = ?3, decisions = ?4, user_notes = ?5, updated_at = ?6",
+                summary = COALESCE(?2, summary),
+                action_items = COALESCE(?3, action_items),
+                decisions = COALESCE(?4, decisions),
+                user_notes = COALESCE(?5, user_notes),
+                updated_at = ?6",
             params![session_id, summary, action_items, decisions, user_notes, now],
         )?;
 

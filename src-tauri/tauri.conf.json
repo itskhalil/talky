@@ -21,7 +21,9 @@
         "minHeight": 570,
         "resizable": true,
         "maximizable": false,
-        "visible": false
+        "visible": false,
+        "hiddenTitle": true,
+        "titleBarStyle": "overlay"
       }
     ],
     "security": {
