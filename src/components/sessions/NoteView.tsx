@@ -11,6 +11,7 @@ import {
   Send,
   X,
   RotateCcw,
+  PenLine,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
@@ -411,9 +412,9 @@ export function NoteView({
           <FindBar editor={activeEditor} onClose={onCloseFindBar} />
         </div>
       )}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-12 pt-4 pb-32 w-full cursor-text select-text">
-        {/* Editable title */}
-        <div className="max-w-3xl mx-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll px-12 pt-4 pb-32 w-full cursor-text select-text">
+        {/* Editable title + view mode toggle */}
+        <div className="max-w-3xl mx-auto flex items-center gap-2 mb-6">
           <input
             type="text"
             data-ui
@@ -422,43 +423,38 @@ export function NoteView({
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             placeholder={t("sessions.newNote")}
-            className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 mb-6 tracking-tight"
+            className="flex-1 text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight"
           />
-        </div>
-
-        <div className="max-w-3xl mx-auto">
-          {/* View mode toggle - only show when enhanced notes exist */}
           {hasEnhanced && (
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex gap-1 bg-background-secondary rounded-lg p-0.5 w-fit">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex bg-text/8 rounded-lg p-0.5">
                 <button
                   onClick={() => onViewModeChange("enhanced")}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${viewMode === "enhanced"
-                      ? "bg-background text-text shadow-sm"
-                      : "text-text-secondary hover:text-text"
-                    }`}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                  title={t("sessions.enhancedNotes")}
                 >
-                  {t("sessions.enhancedNotes")}
+                  <Sparkles size={14} />
                 </button>
                 <button
                   onClick={() => onViewModeChange("notes")}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${viewMode === "notes"
-                      ? "bg-background text-text shadow-sm"
-                      : "text-text-secondary hover:text-text"
-                    }`}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                  title={t("sessions.yourNotes")}
                 >
-                  {t("sessions.yourNotes")}
+                  <PenLine size={14} />
                 </button>
               </div>
               <button
                 onClick={handleCopyNotes}
-                className="p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
                 title={t("sessions.copyNotes")}
               >
                 {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
               </button>
             </div>
           )}
+        </div>
+
+        <div className="max-w-3xl mx-auto">
 
           {/* Content area */}
           {hasEnhanced && viewMode === "enhanced" ? (
@@ -600,11 +596,6 @@ export function NoteView({
                   </>
                 ) : (
                   <div className="space-y-2 min-h-[60px]">
-                    {chat.messages.length === 0 && (
-                      <p className="text-xs text-text-secondary/50 py-2">
-                        {t("sessions.chat.placeholder")}
-                      </p>
-                    )}
                     {chat.messages.map((msg, i) => (
                       <MessageBubble key={i} message={msg} />
                     ))}
@@ -697,7 +688,7 @@ export function NoteView({
                     chat.handleInputFocus();
                   }}
                   placeholder={t("sessions.chat.placeholder")}
-                  className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary/30 min-w-0"
+                  className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary min-w-0"
                 />
                 {chat.isLoading ? (
                   <button
