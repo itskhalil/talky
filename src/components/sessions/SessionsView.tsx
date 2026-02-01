@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { StickyNote } from "lucide-react";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
 import {
@@ -70,6 +71,23 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     cleanup,
   } = useSessionStore.getState();
 
+  const [findBarOpen, setFindBarOpen] = useState(false);
+
+  const toggleFindBar = useCallback(() => {
+    setFindBarOpen((prev) => !prev);
+  }, []);
+
+  const closeFindBar = useCallback(() => {
+    setFindBarOpen(false);
+  }, []);
+
+  useKeyboardShortcuts({
+    onOpenSettings,
+    onToggleFindBar: toggleFindBar,
+    onCloseFindBar: closeFindBar,
+    findBarOpen,
+  });
+
   useEffect(() => {
     initialize();
     return () => cleanup();
@@ -114,6 +132,8 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             enhanceError={enhanceError}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            findBarOpen={findBarOpen}
+            onCloseFindBar={closeFindBar}
           />
         ) : (
           <EmptyState onNewNote={createNote} />

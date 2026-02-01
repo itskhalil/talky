@@ -15,6 +15,7 @@ interface NotesEditorProps {
   mode?: "plain" | "enhanced";
   initialJSON?: JSONContent | null;
   onJSONChange?: (json: JSONContent) => void;
+  onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
 }
 
 export function NotesEditor({
@@ -25,6 +26,7 @@ export function NotesEditor({
   mode = "plain",
   initialJSON,
   onJSONChange,
+  onEditorReady,
 }: NotesEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -72,6 +74,11 @@ export function NotesEditor({
   useEffect(() => {
     initialJSONAppliedRef.current = null;
   }, [mode, editor]);
+
+  // Expose editor instance to parent
+  useEffect(() => {
+    onEditorReady?.(editor);
+  }, [editor, onEditorReady]);
 
   // Set content from initialJSON or markdown string
   useEffect(() => {

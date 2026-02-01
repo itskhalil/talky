@@ -413,6 +413,8 @@
   },
   "notes": {
     "searchPlaceholder": "Search",
+    "findPlaceholder": "Find in note...",
+    "noMatches": "No matches",
     "emptyState": "Select a note or create a new one",
     "recording": "Recording",
     "endNote": "End Note"
