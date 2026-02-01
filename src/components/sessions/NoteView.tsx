@@ -257,6 +257,7 @@ export function NoteView({
   const [panelOpen, setPanelOpen] = useState(false);
   const [titleValue, setTitleValue] = useState(session?.title ?? "");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [enhancedJSON, setEnhancedJSON] = useState<JSONContent | null>(null);
   const [notesCopied, setNotesCopied] = useState(false);
   const [transcriptCopied, setTranscriptCopied] = useState(false);
@@ -296,6 +297,11 @@ export function NoteView({
     }
   }, [transcript, panelOpen]);
 
+  // Reset scroll when switching view modes so title stays visible
+  useEffect(() => {
+    scrollContainerRef.current?.scrollTo(0, 0);
+  }, [viewMode]);
+
   // Parse enhanced notes into tiptap JSON when they change
   useEffect(() => {
     if (enhancedNotes) {
@@ -331,7 +337,7 @@ export function NoteView({
   return (
     <div className="flex flex-col h-full relative">
       {/* Title + editor area */}
-      <div className="flex-1 overflow-y-auto px-12 pt-4 pb-32 w-full cursor-text select-text">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-12 pt-4 pb-32 w-full cursor-text select-text">
         {/* Editable title */}
         <div className="max-w-3xl mx-auto">
           <input
