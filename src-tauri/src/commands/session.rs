@@ -38,14 +38,32 @@ pub async fn generate_session_summary(
         .iter()
         .map(|seg| {
             let label = if seg.source == "mic" {
-                "[mic]"
+                "[You]"
             } else {
-                "[speaker]"
+                "[Other]"
             };
             format!("[{}] {}: {}", format_ms_timestamp(seg.start_ms), label, seg.text)
         })
         .collect::<Vec<_>>()
         .join("\n");
+
+    // Compute duration from transcript span
+    let duration = if let (Some(first), Some(last)) = (segments.first(), segments.last()) {
+        let total_ms = last.end_ms - first.start_ms;
+        let total_secs = total_ms / 1000;
+        let mins = total_secs / 60;
+        let secs = total_secs % 60;
+        format!("{}m {}s", mins, secs)
+    } else {
+        "Unknown".to_string()
+    };
+
+    // Fetch session title
+    let session_title = sm
+        .get_session(&session_id)
+        .map_err(|e| e.to_string())?
+        .map(|s| s.title)
+        .unwrap_or_default();
 
     // Fetch user notes
     let user_notes = sm
@@ -77,40 +95,32 @@ pub async fn generate_session_summary(
         return Err("No post-process model configured".to_string());
     }
 
-    let system_message = "You are a meeting notes enhancer. Your job is to take a user's rough notes and a meeting transcript, then produce unified chronological meeting notes.\n\n\
-Rules:\n\
-- Preserve the user's original text, structure, and terminology exactly\n\
-- Enhance user's bullets with specific details from the transcript (names, numbers, dates, action items)\n\
-- For parts of the meeting the user didn't capture, generate concise bullets summarizing key points\n\
-- Prefix ALL generated content (content not from the user's notes) with [+]\n\
-- Do NOT prefix content that originated from the user's notes\n\
-- Use vocabulary from the user's notes throughout (their spelling of names, acronyms, project names takes priority over transcript)\n\
-- Match the user's writing style: if they're terse, be terse; if they use headers, use headers for new topics\n\
-- Output should read as one continuous set of chronological notes, not separate sections\n\
-- Use markdown bullet points (- ) for items\n\
-- If the user used markdown headers (## ), use the same style for generated topic headers".to_string();
+    let system_message = "You are enhancing meeting notes. You will receive:\n\
+1. The user's rough notes — these signal what THEY found important\n\
+2. The full meeting transcript\n\n\
+Generate polished, comprehensive meeting notes. For each line of output, prefix it with either [user] or [ai]:\n\
+- [user] = content that corresponds to something the user noted (even if you've reworded it for clarity)\n\
+- [ai] = new detail you added from the transcript that the user didn't capture\n\n\
+Guidelines:\n\
+- The user's notes tell you what matters. Their topics and emphasis are your guide.\n\
+- Read like notes, not prose. \"Q3 budget = 100k (60k infra, 25k tooling, 15k contingency)\" not \"The group discussed the Q3 budget and agreed to set it at $100,000.\"\n\
+- Use the user's vocabulary. If they wrote \"SHIVA\", write \"SHIVA\" even if transcript heard \"shiba\".\n\
+- Match their tone and density.\n\
+- Add important details from the transcript the user missed — names, numbers, dates, decisions, action items.\n\
+- For significant topics the user didn't note at all, add them as [ai] sections.\n\
+- Use markdown: ### headers, bullet points (-), **bold** for key items.\n\
+- Output only the notes. No preamble.".to_string();
 
-    let user_message = if user_notes.trim().is_empty() {
-        format!(
-            "## MEETING TRANSCRIPT\n\n{}\n\n## TASK\n\n\
-Generate comprehensive meeting notes from this transcript. \
-Prefix every bullet with [+] since there are no user notes. \
-Use markdown bullets (- ) and headers (## ) to organize by topic. \
-Be concise but capture all key points, decisions, and action items.",
-            transcript_text
-        )
+    let notes_section = if user_notes.trim().is_empty() {
+        "No notes were taken. Generate comprehensive notes from the transcript, marking all lines as [ai].".to_string()
     } else {
-        format!(
-            "## USER'S NOTES\n\n{}\n\n## MEETING TRANSCRIPT\n\n{}\n\n## TASK\n\n\
-Create unified chronological meeting notes:\n\
-1. For each of the user's notes: Output their text, enhanced with specifics from the transcript\n\
-2. For transcript sections the user didn't cover: Generate 1-3 bullets summarizing key points\n\
-3. Use vocabulary from user's notes throughout (their spelling takes priority)\n\
-4. Match the user's writing style and structure\n\
-5. Prefix generated bullets with [+] — do NOT prefix the user's original content",
-            user_notes, transcript_text
-        )
+        user_notes
     };
+
+    let user_message = format!(
+        "## MEETING CONTEXT\nTitle: {}\nDuration: {}\n\n## USER'S NOTES\n{}\n\n## TRANSCRIPT\n{}",
+        session_title, duration, notes_section, transcript_text
+    );
 
     let messages = vec![
         ChatMessage {

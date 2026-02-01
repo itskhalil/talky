@@ -71,6 +71,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [enhancedNotes, setEnhancedNotes] = useState<string | null>(null);
   const [enhanceLoading, setEnhanceLoading] = useState(false);
   const [enhanceError, setEnhanceError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"notes" | "enhanced">("notes");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<{ sessionId: string; notes: string } | null>(null);
 
@@ -155,10 +156,14 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       const result = await invoke<{
         enhanced_notes: string | null;
       } | null>("get_meeting_notes", { sessionId });
-      setEnhancedNotes(result?.enhanced_notes ?? null);
+      const notes = result?.enhanced_notes ?? null;
+      setEnhancedNotes(notes);
+      if (notes) setViewMode("enhanced");
+      else setViewMode("notes");
     } catch (e) {
       console.error("Failed to load enhanced notes:", e);
       setEnhancedNotes(null);
+      setViewMode("notes");
     }
   }, []);
 
@@ -170,6 +175,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
         sessionId,
       });
       setEnhancedNotes(result);
+      setViewMode("enhanced");
     } catch (e) {
       console.error("Failed to enhance notes:", e);
       setEnhanceError(String(e));
@@ -416,6 +422,8 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             onEnhanceNotes={() => enhanceNotes(selectedSessionId)}
             enhanceLoading={enhanceLoading}
             enhanceError={enhanceError}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
         ) : (
           <EmptyState onNewNote={handleNewNote} />
