@@ -1,8 +1,8 @@
 .notes-editor .tiptap {
   outline: none;
   min-height: 320px;
-  font-size: 1rem;
-  line-height: 1.7;
+  font-size: 0.875rem;
+  line-height: 1.6;
   color: var(--color-text);
 }
 
@@ -52,14 +52,14 @@
 
 /* Enhanced mode heading styles */
 .notes-editor .tiptap h1 {
-  font-size: 1.25rem;
+  font-size: 1.145rem;
   font-weight: 600;
   margin-top: 1.25rem;
   margin-bottom: 0.25rem;
 }
 
 .notes-editor .tiptap h2 {
-  font-size: 1.125rem;
+  font-size: 1.07rem;
   font-weight: 600;
   margin-top: 1rem;
   margin-bottom: 0.25rem;

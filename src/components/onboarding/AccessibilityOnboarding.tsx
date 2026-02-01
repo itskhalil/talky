@@ -201,7 +201,7 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
         <div className="p-4 rounded-full bg-emerald-500/20">
           <Check className="w-12 h-12 text-emerald-400" />
         </div>
-        <p className="text-lg font-medium text-text">
+        <p className="text-base font-medium text-text">
           {t("onboarding.permissions.allGranted")}
         </p>
       </div>
@@ -217,7 +217,7 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
 
       <div className="max-w-md w-full flex flex-col items-center gap-4">
         <div className="text-center mb-2">
-          <h2 className="text-xl font-semibold text-text mb-2">
+          <h2 className="text-lg font-semibold text-text mb-2">
             {t("onboarding.permissions.title")}
           </h2>
           <p className="text-text/70">

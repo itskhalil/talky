@@ -41,7 +41,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-xl font-semibold">{t("settings.title")}</h1>
+        <h1 className="text-lg font-semibold">{t("settings.title")}</h1>
       </div>
 
       {/* Tab bar */}

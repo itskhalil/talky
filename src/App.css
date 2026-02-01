@@ -18,10 +18,9 @@
 }
 
 :root {
-  /* Typography — a refined, literary feel */
-  font-family: "Charter", "Georgia", "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", "Palatino", serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
   font-size: 16px;
-  line-height: 1.65;
+  line-height: 1.5;
   font-weight: 400;
 
   font-synthesis: none;
@@ -32,19 +31,6 @@
 
   color: var(--color-text);
   background-color: var(--color-background);
-}
-
-/* Headings and UI labels use a clean sans-serif */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-input,
-button,
-[data-ui] {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
 }
 
 .container {

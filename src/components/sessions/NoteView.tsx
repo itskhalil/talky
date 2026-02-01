@@ -410,13 +410,13 @@ export function NoteView({
           {hasEnhanced && viewMode === "enhanced" ? (
             <>
               {enhanceLoading && (
-                <div className="flex items-center gap-2 text-sm text-text-secondary pt-2">
+                <div className="flex items-center gap-2 text-xs text-text-secondary pt-2">
                   <Loader2 size={14} className="animate-spin" />
                   {t("sessions.enhancing")}
                 </div>
               )}
               {enhanceError && !enhanceLoading && (
-                <div className="text-sm pt-2">
+                <div className="text-xs pt-2">
                   <p className="text-red-400">{t("sessions.enhanceError")}</p>
                   <p className="text-xs text-text-secondary mt-1">{enhanceError}</p>
                 </div>
@@ -436,19 +436,19 @@ export function NoteView({
             <>
               {/* Summary display */}
               {summaryLoading && (
-                <div className="flex items-center gap-2 text-sm text-text-secondary mb-5">
+                <div className="flex items-center gap-2 text-xs text-text-secondary mb-5">
                   <Loader2 size={14} className="animate-spin" />
                   {t("sessions.summaryLoading")}
                 </div>
               )}
               {summaryError && !summaryLoading && (
-                <div className="text-sm mb-5">
+                <div className="text-xs mb-5">
                   <p className="text-red-400">{t("sessions.summaryError")}</p>
                   <p className="text-xs text-text-secondary mt-1">{summaryError}</p>
                 </div>
               )}
               {summary && !summaryLoading && (
-                <div className="mb-6 text-sm whitespace-pre-wrap leading-relaxed text-text">
+                <div className="mb-6 text-xs whitespace-pre-wrap leading-relaxed text-text">
                   {summary}
                 </div>
               )}
@@ -488,7 +488,7 @@ export function NoteView({
               ) : (
                 <div className="space-y-2">
                   {transcript.map((seg) => (
-                    <div key={seg.id} className="flex gap-3 text-sm">
+                    <div key={seg.id} className="flex gap-3 text-xs">
                       <span
                         data-ui
                         className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums"
@@ -501,7 +501,7 @@ export function NoteView({
                       >
                         {seg.source === "mic" ? t("sessions.sourceMe") : t("sessions.sourceThem")}
                       </span>
-                      <span className="text-sm leading-relaxed text-text">
+                      <span className="text-xs leading-relaxed text-text">
                         {seg.text}
                       </span>
                     </div>
@@ -515,7 +515,7 @@ export function NoteView({
           {/* Consent warning */}
           {isRecording && (
             <div className="px-3 pt-1.5 pb-0">
-              <p className="text-[10px] text-text-secondary/50 text-center">
+              <p className="text-xs text-text-secondary/50 text-center">
                 {t("sessions.consentWarning")}
               </p>
             </div>
