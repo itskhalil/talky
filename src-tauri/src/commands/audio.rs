@@ -1,5 +1,7 @@
 use crate::audio_feedback;
 use crate::audio_toolkit::audio::{list_input_devices, list_output_devices};
+#[cfg(target_os = "macos")]
+use crate::audio_toolkit::speaker::SpeakerInput;
 use crate::managers::audio::AudioRecordingManager;
 use crate::settings::{get_settings, write_settings};
 use log::warn;
@@ -173,4 +175,19 @@ pub fn get_clamshell_microphone(app: AppHandle) -> Result<String, String> {
 pub fn is_recording(app: AppHandle) -> bool {
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
     audio_manager.is_recording()
+}
+
+/// Triggers the system audio permission request by briefly initializing the audio tap.
+/// This is used during onboarding to request the "System Audio Recording Only" permission.
+#[tauri::command]
+#[specta::specta]
+pub fn request_system_audio_permission() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        // Creating a SpeakerInput triggers the system audio permission prompt
+        let _speaker = SpeakerInput::new()
+            .map_err(|e| format!("Failed to request system audio permission: {}", e))?;
+        // The speaker is dropped immediately, we just needed to trigger the permission
+    }
+    Ok(())
 }

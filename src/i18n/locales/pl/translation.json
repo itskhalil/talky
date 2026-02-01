@@ -64,8 +64,8 @@
         "title": "Dostęp do mikrofonu",
         "description": "Wymagany do słyszenia Twojego głosu w celu transkrypcji."
       },
-      "screenRecording": {
-        "title": "Dostęp do nagrywania ekranu",
+      "systemAudio": {
+        "title": "Dostęp do dźwięku systemowego",
         "description": "Wymagany do przechwytywania dźwięku głośników podczas spotkań."
       },
       "grant": "Przyznaj uprawnienie",
@@ -187,25 +187,6 @@
           "none": "Brak",
           "bottom": "Dół",
           "top": "Góra"
-        }
-      },
-      "pasteMethod": {
-        "title": "Metoda wklejania",
-        "description": "Wybierz sposób wstawiania tekstu. Direct: symuluje wpisywanie. None: pomija wklejanie, tylko aktualizuje historię/clipboard.",
-        "options": {
-          "clipboard": "Schowek ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Schowek (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Schowek (Shift+Insert)",
-          "direct": "Bezpośrednio",
-          "none": "Brak"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Obsługa schowka",
-        "description": "Nie modyfikuj schowka zachowuje jego zawartość. Kopiuj do schowka pozostawia wynik transkrypcji w schowku.",
-        "options": {
-          "dontModify": "Nie modyfikuj schowka",
-          "copyToClipboard": "Kopiuj do schowka"
         }
       },
       "translateToEnglish": {
@@ -352,14 +333,6 @@
       "postProcessingToggle": {
         "label": "Postprocess",
         "description": "Włącz AI do ulepszania tekstu po transkrypcji"
-      },
-      "muteWhileRecording": {
-        "label": "Wycisz podczas nagrywania",
-        "description": "Wycisz dźwięk systemu podczas nagrywania"
-      },
-      "appendTrailingSpace": {
-        "label": "Dodaj spację na końcu",
-        "description": "Dodaj spację po wklejonej transkrypcji"
       },
       "paths": {
         "appData": "Dane aplikacji:",

@@ -65,8 +65,8 @@
         "title": "Quyền truy cập Micrô",
         "description": "Cần thiết để nghe giọng nói của bạn để chuyển đổi."
       },
-      "screenRecording": {
-        "title": "Quyền ghi màn hình",
+      "systemAudio": {
+        "title": "Quyền truy cập âm thanh hệ thống",
         "description": "Cần thiết để thu âm loa trong các cuộc họp."
       },
       "grant": "Cấp quyền",
@@ -188,25 +188,6 @@
           "none": "Không có",
           "bottom": "Dưới",
           "top": "Trên"
-        }
-      },
-      "pasteMethod": {
-        "title": "Phương thức dán",
-        "description": "Chọn cách chèn văn bản. Trực tiếp: mô phỏng gõ phím qua đầu vào hệ thống. Không có: bỏ qua dán, chỉ cập nhật lịch sử/clipboard.",
-        "options": {
-          "clipboard": "Clipboard ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Clipboard (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Clipboard (Shift+Insert)",
-          "direct": "Trực tiếp",
-          "none": "Không có"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Xử lý Clipboard",
-        "description": "Không sửa đổi Clipboard giữ nguyên nội dung clipboard hiện tại sau khi chuyển đổi. Sao chép vào Clipboard để lại kết quả chuyển đổi trong clipboard sau khi dán.",
-        "options": {
-          "dontModify": "Không sửa đổi Clipboard",
-          "copyToClipboard": "Sao chép vào Clipboard"
         }
       },
       "translateToEnglish": {
@@ -353,14 +334,6 @@
       "postProcessingToggle": {
         "label": "Xử lý sau",
         "description": "Bật tinh chỉnh văn bản bằng AI sau khi chuyển đổi"
-      },
-      "muteWhileRecording": {
-        "label": "Tắt tiếng khi ghi âm",
-        "description": "Tắt tiếng âm thanh hệ thống trong khi ghi âm"
-      },
-      "appendTrailingSpace": {
-        "label": "Thêm dấu cách cuối",
-        "description": "Thêm một dấu cách sau bản ghi đã dán"
       },
       "paths": {
         "appData": "Dữ liệu ứng dụng:",

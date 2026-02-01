@@ -64,8 +64,8 @@
         "title": "麦克风访问",
         "description": "需要听取您的语音进行转录。"
       },
-      "screenRecording": {
-        "title": "屏幕录制访问",
+      "systemAudio": {
+        "title": "系统音频访问",
         "description": "需要在会议中捕获扬声器音频。"
       },
       "grant": "授予权限",
@@ -187,25 +187,6 @@
           "none": "无",
           "bottom": "底部",
           "top": "顶部"
-        }
-      },
-      "pasteMethod": {
-        "title": "粘贴方式",
-        "description": "选择文字插入方式。直接：通过系统输入模拟打字。无：跳过粘贴，仅更新历史记录/剪贴板。",
-        "options": {
-          "clipboard": "剪贴板 ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "剪贴板 (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "剪贴板 (Shift+Insert)",
-          "direct": "直接",
-          "none": "无"
-        }
-      },
-      "clipboardHandling": {
-        "title": "剪贴板处理",
-        "description": "不修改剪贴板将在转录后保留当前剪贴板内容。复制到剪贴板将在粘贴后将转录结果留在剪贴板中。",
-        "options": {
-          "dontModify": "不修改剪贴板",
-          "copyToClipboard": "复制到剪贴板"
         }
       },
       "translateToEnglish": {
@@ -352,14 +333,6 @@
       "postProcessingToggle": {
         "label": "后处理",
         "description": "启用转录后的 AI 文本优化"
-      },
-      "muteWhileRecording": {
-        "label": "录制时静音",
-        "description": "录制期间静音系统音频"
-      },
-      "appendTrailingSpace": {
-        "label": "追加尾部空格",
-        "description": "在粘贴的转录后添加空格"
       },
       "paths": {
         "appData": "应用数据:",

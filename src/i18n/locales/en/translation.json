@@ -66,8 +66,8 @@
         "title": "Microphone Access",
         "description": "Required to hear your voice for transcription."
       },
-      "screenRecording": {
-        "title": "Screen Recording Access",
+      "systemAudio": {
+        "title": "System Audio Access",
         "description": "Required to capture speaker audio in meetings."
       },
       "grant": "Grant Permission",
@@ -197,25 +197,6 @@
           "none": "None",
           "bottom": "Bottom",
           "top": "Top"
-        }
-      },
-      "pasteMethod": {
-        "title": "Paste Method",
-        "description": "Choose how text is inserted. Direct: simulates typing via system input. None: skips paste, only updates history/clipboard.",
-        "options": {
-          "clipboard": "Clipboard ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Clipboard (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Clipboard (Shift+Insert)",
-          "direct": "Direct",
-          "none": "None"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Clipboard Handling",
-        "description": "Don't Modify Clipboard preserves your current clipboard contents after transcription. Copy to Clipboard leaves the transcription result in your clipboard after pasting.",
-        "options": {
-          "dontModify": "Don't Modify Clipboard",
-          "copyToClipboard": "Copy to Clipboard"
         }
       },
       "translateToEnglish": {
@@ -384,14 +365,6 @@
       "postProcessingToggle": {
         "label": "Post Processing",
         "description": "Enable AI-powered text refinement after transcription"
-      },
-      "muteWhileRecording": {
-        "label": "Mute While Recording",
-        "description": "Mute system audio during recording"
-      },
-      "appendTrailingSpace": {
-        "label": "Append Trailing Space",
-        "description": "Add a space after pasted transcription"
       },
       "paths": {
         "appData": "App Data:",

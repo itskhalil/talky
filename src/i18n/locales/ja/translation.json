@@ -64,8 +64,8 @@
         "title": "マイクへのアクセス",
         "description": "文字起こしのためにあなたの声を聞くために必要です。"
       },
-      "screenRecording": {
-        "title": "画面収録へのアクセス",
+      "systemAudio": {
+        "title": "システムオーディオへのアクセス",
         "description": "会議中のスピーカー音声をキャプチャするために必要です。"
       },
       "grant": "権限を許可",
@@ -187,25 +187,6 @@
           "none": "なし",
           "bottom": "下",
           "top": "上"
-        }
-      },
-      "pasteMethod": {
-        "title": "貼り付け方法",
-        "description": "テキストの挿入方法を選択。直接：システム入力でタイピングをシミュレート。なし：貼り付けをスキップし、履歴/クリップボードのみ更新。",
-        "options": {
-          "clipboard": "クリップボード ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "クリップボード (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "クリップボード (Shift+Insert)",
-          "direct": "直接",
-          "none": "なし"
-        }
-      },
-      "clipboardHandling": {
-        "title": "クリップボードの処理",
-        "description": "クリップボードを変更しないを選択すると、文字起こし後も現在のクリップボード内容が保持されます。クリップボードにコピーを選択すると、貼り付け後も文字起こし結果がクリップボードに残ります。",
-        "options": {
-          "dontModify": "クリップボードを変更しない",
-          "copyToClipboard": "クリップボードにコピー"
         }
       },
       "translateToEnglish": {
@@ -352,14 +333,6 @@
       "postProcessingToggle": {
         "label": "後処理",
         "description": "文字起こし後のAIによるテキスト改善を有効化"
-      },
-      "muteWhileRecording": {
-        "label": "録音中にミュート",
-        "description": "録音中にシステムオーディオをミュート"
-      },
-      "appendTrailingSpace": {
-        "label": "末尾にスペースを追加",
-        "description": "貼り付けた文字起こしの後にスペースを追加"
       },
       "paths": {
         "appData": "アプリデータ:",

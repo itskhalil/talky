@@ -64,8 +64,8 @@
         "title": "Mikrofonzugriff",
         "description": "Erforderlich, um Ihre Stimme für die Transkription zu hören."
       },
-      "screenRecording": {
-        "title": "Bildschirmaufnahme-Zugriff",
+      "systemAudio": {
+        "title": "Systemaudio-Zugriff",
         "description": "Erforderlich, um Lautsprecher-Audio in Besprechungen aufzunehmen."
       },
       "grant": "Berechtigung erteilen",
@@ -187,25 +187,6 @@
           "none": "Keine",
           "bottom": "Unten",
           "top": "Oben"
-        }
-      },
-      "pasteMethod": {
-        "title": "Einfügemethode",
-        "description": "Wähle, wie Text eingefügt wird. Direkt: simuliert Tippen über Systemeingabe. Keine: überspringt Einfügen, aktualisiert nur Verlauf/Zwischenablage.",
-        "options": {
-          "clipboard": "Zwischenablage ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Zwischenablage (Strg+Umschalt+V)",
-          "clipboardShiftInsert": "Zwischenablage (Umschalt+Einfg)",
-          "direct": "Direkt",
-          "none": "Keine"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Zwischenablage-Verhalten",
-        "description": "Zwischenablage nicht ändern bewahrt den aktuellen Inhalt nach der Transkription. In Zwischenablage kopieren hinterlässt das Transkriptionsergebnis in der Zwischenablage.",
-        "options": {
-          "dontModify": "Zwischenablage nicht ändern",
-          "copyToClipboard": "In Zwischenablage kopieren"
         }
       },
       "translateToEnglish": {
@@ -352,14 +333,6 @@
       "postProcessingToggle": {
         "label": "Nachbearbeitung",
         "description": "KI-gestützte Textverfeinerung nach der Transkription aktivieren"
-      },
-      "muteWhileRecording": {
-        "label": "Während Aufnahme stummschalten",
-        "description": "Systemaudio während der Aufnahme stummschalten"
-      },
-      "appendTrailingSpace": {
-        "label": "Leerzeichen anhängen",
-        "description": "Leerzeichen nach eingefügter Transkription hinzufügen"
       },
       "paths": {
         "appData": "App-Daten:",

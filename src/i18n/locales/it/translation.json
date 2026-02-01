@@ -64,8 +64,8 @@
         "title": "Accesso al Microfono",
         "description": "Necessario per sentire la tua voce per la trascrizione."
       },
-      "screenRecording": {
-        "title": "Accesso alla Registrazione Schermo",
+      "systemAudio": {
+        "title": "Accesso all'Audio di Sistema",
         "description": "Necessario per catturare l'audio degli altoparlanti nelle riunioni."
       },
       "grant": "Concedi Permesso",
@@ -187,25 +187,6 @@
           "none": "Nessuna",
           "bottom": "In basso",
           "top": "In alto"
-        }
-      },
-      "pasteMethod": {
-        "title": "Metodo di Incolla",
-        "description": "Scegli come viene inserito il testo. Diretto: simula l'input da tastiera. Nessuno: non incolla, aggiorna solo la cronologia/appunti.",
-        "options": {
-          "clipboard": "Appunti ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Appunti (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Appunti (Shift+Insert)",
-          "direct": "Diretto",
-          "none": "Nessuno"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Gestione Appunti",
-        "description": "Non Modificare gli Appunti mantiene il contenuto dei tuoi appunti dopo la trascrizione. Copia negli Appunti lascia il risultato della trascrizione negli appunti dopo aver incollato.",
-        "options": {
-          "dontModify": "Non Modificare gli Appunti",
-          "copyToClipboard": "Copia negli Appunti"
         }
       },
       "translateToEnglish": {
@@ -352,14 +333,6 @@
       "postProcessingToggle": {
         "label": "Post-Elaborazione",
         "description": "Abilita il miglioramento della trascrizione con IA"
-      },
-      "muteWhileRecording": {
-        "label": "Silenzia durante la registrazione",
-        "description": "Silenzia l'audio di sistema durante la registrazione"
-      },
-      "appendTrailingSpace": {
-        "label": "Aggiungi Spazio Finale",
-        "description": "Aggiungi uno spazio dopo la trascrizione incollata"
       },
       "paths": {
         "appData": "Dati App:",
