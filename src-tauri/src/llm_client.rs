@@ -127,26 +127,6 @@ pub async fn send_chat_completion_messages(
         .and_then(|choice| choice.message.content.clone()))
 }
 
-/// Send a chat completion request to an OpenAI-compatible API
-/// Convenience wrapper around send_chat_completion_messages with a single user message.
-pub async fn send_chat_completion(
-    provider: &PostProcessProvider,
-    api_key: String,
-    model: &str,
-    prompt: String,
-) -> Result<Option<String>, String> {
-    send_chat_completion_messages(
-        provider,
-        api_key,
-        model,
-        vec![ChatMessage {
-            role: "user".to_string(),
-            content: prompt,
-        }],
-    )
-    .await
-}
-
 /// Fetch available models from an OpenAI-compatible API
 /// Returns a list of model IDs
 pub async fn fetch_models(

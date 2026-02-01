@@ -7,14 +7,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::Manager;
 
-const WHISPER_SAMPLE_RATE: usize = 16000;
-
 /* ──────────────────────────────────────────────────────────────── */
 
 #[derive(Clone, Debug)]
 pub enum RecordingState {
     Idle,
-    Recording { binding_id: String },
+    Recording,
 }
 
 /* ──────────────────────────────────────────────────────────────── */
@@ -163,34 +161,6 @@ impl AudioRecordingManager {
         debug!("Microphone stream stopped");
     }
 
-    /* ---------- recording --------------------------------------------------- */
-
-    pub fn try_start_recording(&self, binding_id: &str) -> bool {
-        let mut state = self.state.lock().unwrap();
-
-        if let RecordingState::Idle = *state {
-            if let Err(e) = self.start_microphone_stream() {
-                error!("Failed to open microphone stream: {e}");
-                return false;
-            }
-
-            if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
-                if rec.start().is_ok() {
-                    *self.is_recording.lock().unwrap() = true;
-                    *state = RecordingState::Recording {
-                        binding_id: binding_id.to_string(),
-                    };
-                    debug!("Recording started for binding {binding_id}");
-                    return true;
-                }
-            }
-            error!("Recorder not available");
-            false
-        } else {
-            false
-        }
-    }
-
     pub fn update_selected_device(&self) -> Result<(), anyhow::Error> {
         // If currently open, restart the microphone stream to use the new device
         if *self.is_open.lock().unwrap() {
@@ -200,49 +170,10 @@ impl AudioRecordingManager {
         Ok(())
     }
 
-    pub fn stop_recording(&self, binding_id: &str) -> Option<Vec<f32>> {
-        let mut state = self.state.lock().unwrap();
-
-        match *state {
-            RecordingState::Recording {
-                binding_id: ref active,
-            } if active == binding_id => {
-                *state = RecordingState::Idle;
-                drop(state);
-
-                let samples = if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
-                    match rec.stop() {
-                        Ok(buf) => buf,
-                        Err(e) => {
-                            error!("stop() failed: {e}");
-                            Vec::new()
-                        }
-                    }
-                } else {
-                    error!("Recorder not available");
-                    Vec::new()
-                };
-
-                *self.is_recording.lock().unwrap() = false;
-                self.stop_microphone_stream();
-
-                // Pad if very short
-                let s_len = samples.len();
-                if s_len < WHISPER_SAMPLE_RATE && s_len > 0 {
-                    let mut padded = samples;
-                    padded.resize(WHISPER_SAMPLE_RATE * 5 / 4, 0.0);
-                    Some(padded)
-                } else {
-                    Some(samples)
-                }
-            }
-            _ => None,
-        }
-    }
     pub fn is_recording(&self) -> bool {
         matches!(
             *self.state.lock().unwrap(),
-            RecordingState::Recording { .. }
+            RecordingState::Recording
         )
     }
 
@@ -250,7 +181,7 @@ impl AudioRecordingManager {
     pub fn cancel_recording(&self) {
         let mut state = self.state.lock().unwrap();
 
-        if let RecordingState::Recording { .. } = *state {
+        if let RecordingState::Recording = *state {
             *state = RecordingState::Idle;
             drop(state);
 
@@ -274,9 +205,7 @@ impl AudioRecordingManager {
 
         *self.is_recording.lock().unwrap() = true;
         let mut state = self.state.lock().unwrap();
-        *state = RecordingState::Recording {
-            binding_id: "session".to_string(),
-        };
+        *state = RecordingState::Recording;
         debug!("Session recording started");
         Ok(())
     }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, Local, Utc};
+use chrono::Utc;
 use log::{debug, info};
 use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
-use crate::audio_toolkit::save_wav_file;
 
 static SESSION_MIGRATIONS: &[M] = &[
     M::up(
@@ -222,13 +221,6 @@ impl SessionManager {
         self.active_session.lock().unwrap().clone()
     }
 
-    pub fn get_session_elapsed_ms(&self) -> Option<u64> {
-        self.session_start_time
-            .lock()
-            .unwrap()
-            .map(|t| t.elapsed().as_millis() as u64)
-    }
-
     pub fn add_segment(
         &self,
         session_id: &str,
@@ -406,27 +398,6 @@ impl SessionManager {
         Ok(())
     }
 
-    pub async fn save_session_audio(
-        &self,
-        session_id: &str,
-        samples: Vec<f32>,
-        channel: &str,
-    ) -> Result<String> {
-        let timestamp = Utc::now().timestamp();
-        let file_name = format!("session-{}-{}-{}.wav", session_id, channel, timestamp);
-        let file_path = self.recordings_dir.join(&file_name);
-
-        save_wav_file(file_path, &samples).await?;
-
-        let conn = self.get_connection()?;
-        conn.execute(
-            "INSERT INTO audio_recordings (session_id, file_name, channel, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params![session_id, file_name, channel, timestamp],
-        )?;
-
-        Ok(file_name)
-    }
-
     pub fn update_session_title(&self, session_id: &str, title: &str) -> Result<()> {
         let conn = self.get_connection()?;
         conn.execute(
@@ -539,12 +510,4 @@ impl SessionManager {
         Ok(session)
     }
 
-    fn format_session_title(&self, timestamp: i64) -> String {
-        if let Some(utc_datetime) = DateTime::from_timestamp(timestamp, 0) {
-            let local_datetime = utc_datetime.with_timezone(&Local);
-            format!("Meeting - {}", local_datetime.format("%B %e, %Y %l:%M%p"))
-        } else {
-            format!("Meeting {}", timestamp)
-        }
-    }
 }

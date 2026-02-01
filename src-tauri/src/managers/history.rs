@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, Local, Utc};
+use chrono::Utc;
 use log::{debug, error, info};
 use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
@@ -9,7 +9,6 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::audio_toolkit::save_wav_file;
 
 /// Database migrations for transcription history.
 /// Each migration is applied in order. The library tracks which migrations
@@ -176,62 +175,6 @@ impl HistoryManager {
         Ok(Connection::open(&self.db_path)?)
     }
 
-    /// Save a transcription to history (both database and WAV file)
-    pub async fn save_transcription(
-        &self,
-        audio_samples: Vec<f32>,
-        transcription_text: String,
-        post_processed_text: Option<String>,
-        post_process_prompt: Option<String>,
-    ) -> Result<()> {
-        let timestamp = Utc::now().timestamp();
-        let file_name = format!("talky-{}.wav", timestamp);
-        let title = self.format_timestamp_title(timestamp);
-
-        // Save WAV file
-        let file_path = self.recordings_dir.join(&file_name);
-        save_wav_file(file_path, &audio_samples).await?;
-
-        // Save to database
-        self.save_to_database(
-            file_name,
-            timestamp,
-            title,
-            transcription_text,
-            post_processed_text,
-            post_process_prompt,
-        )?;
-
-        // Clean up old entries
-        self.cleanup_old_entries()?;
-
-        // Emit history updated event
-        if let Err(e) = self.app_handle.emit("history-updated", ()) {
-            error!("Failed to emit history-updated event: {}", e);
-        }
-
-        Ok(())
-    }
-
-    fn save_to_database(
-        &self,
-        file_name: String,
-        timestamp: i64,
-        title: String,
-        transcription_text: String,
-        post_processed_text: Option<String>,
-        post_process_prompt: Option<String>,
-    ) -> Result<()> {
-        let conn = self.get_connection()?;
-        conn.execute(
-            "INSERT INTO transcription_history (file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![file_name, timestamp, false, title, transcription_text, post_processed_text, post_process_prompt],
-        )?;
-
-        debug!("Saved transcription to database");
-        Ok(())
-    }
-
     pub fn cleanup_old_entries(&self) -> Result<()> {
         let retention_period = crate::settings::get_recording_retention_period(&self.app_handle);
 
@@ -379,37 +322,6 @@ impl HistoryManager {
         Ok(entries)
     }
 
-    pub fn get_latest_entry(&self) -> Result<Option<HistoryEntry>> {
-        let conn = self.get_connection()?;
-        Self::get_latest_entry_with_conn(&conn)
-    }
-
-    fn get_latest_entry_with_conn(conn: &Connection) -> Result<Option<HistoryEntry>> {
-        let mut stmt = conn.prepare(
-            "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt
-             FROM transcription_history
-             ORDER BY timestamp DESC
-             LIMIT 1",
-        )?;
-
-        let entry = stmt
-            .query_row([], |row| {
-                Ok(HistoryEntry {
-                    id: row.get("id")?,
-                    file_name: row.get("file_name")?,
-                    timestamp: row.get("timestamp")?,
-                    saved: row.get("saved")?,
-                    title: row.get("title")?,
-                    transcription_text: row.get("transcription_text")?,
-                    post_processed_text: row.get("post_processed_text")?,
-                    post_process_prompt: row.get("post_process_prompt")?,
-                })
-            })
-            .optional()?;
-
-        Ok(entry)
-    }
-
     pub async fn toggle_saved_status(&self, id: i64) -> Result<()> {
         let conn = self.get_connection()?;
 
@@ -497,76 +409,5 @@ impl HistoryManager {
         Ok(())
     }
 
-    fn format_timestamp_title(&self, timestamp: i64) -> String {
-        if let Some(utc_datetime) = DateTime::from_timestamp(timestamp, 0) {
-            // Convert UTC to local timezone
-            let local_datetime = utc_datetime.with_timezone(&Local);
-            local_datetime.format("%B %e, %Y - %l:%M%p").to_string()
-        } else {
-            format!("Recording {}", timestamp)
-        }
-    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rusqlite::{params, Connection};
-
-    fn setup_conn() -> Connection {
-        let conn = Connection::open_in_memory().expect("open in-memory db");
-        conn.execute_batch(
-            "CREATE TABLE transcription_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_name TEXT NOT NULL,
-                timestamp INTEGER NOT NULL,
-                saved BOOLEAN NOT NULL DEFAULT 0,
-                title TEXT NOT NULL,
-                transcription_text TEXT NOT NULL,
-                post_processed_text TEXT,
-                post_process_prompt TEXT
-            );",
-        )
-        .expect("create transcription_history table");
-        conn
-    }
-
-    fn insert_entry(conn: &Connection, timestamp: i64, text: &str, post_processed: Option<&str>) {
-        conn.execute(
-            "INSERT INTO transcription_history (file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                format!("talky-{}.wav", timestamp),
-                timestamp,
-                false,
-                format!("Recording {}", timestamp),
-                text,
-                post_processed,
-                Option::<String>::None
-            ],
-        )
-        .expect("insert history entry");
-    }
-
-    #[test]
-    fn get_latest_entry_returns_none_when_empty() {
-        let conn = setup_conn();
-        let entry = HistoryManager::get_latest_entry_with_conn(&conn).expect("fetch latest entry");
-        assert!(entry.is_none());
-    }
-
-    #[test]
-    fn get_latest_entry_returns_newest_entry() {
-        let conn = setup_conn();
-        insert_entry(&conn, 100, "first", None);
-        insert_entry(&conn, 200, "second", Some("processed"));
-
-        let entry = HistoryManager::get_latest_entry_with_conn(&conn)
-            .expect("fetch latest entry")
-            .expect("entry exists");
-
-        assert_eq!(entry.timestamp, 200);
-        assert_eq!(entry.transcription_text, "second");
-        assert_eq!(entry.post_processed_text.as_deref(), Some("processed"));
-    }
-}

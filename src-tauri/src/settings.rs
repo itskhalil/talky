@@ -1,4 +1,3 @@
-use log::{debug, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
@@ -508,12 +507,6 @@ impl AppSettings {
             .find(|provider| provider.id == provider_id)
     }
 
-    pub fn active_chat_provider(&self) -> Option<&PostProcessProvider> {
-        self.post_process_providers
-            .iter()
-            .find(|provider| provider.id == self.chat_provider_id)
-    }
-
     pub fn post_process_provider_mut(
         &mut self,
         provider_id: &str,
@@ -522,40 +515,6 @@ impl AppSettings {
             .iter_mut()
             .find(|provider| provider.id == provider_id)
     }
-}
-
-pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
-    // Initialize store
-    let store = app
-        .store(SETTINGS_STORE_PATH)
-        .expect("Failed to initialize store");
-
-    let mut settings = if let Some(settings_value) = store.get("settings") {
-        // Parse the entire settings object
-        match serde_json::from_value::<AppSettings>(settings_value) {
-            Ok(settings) => {
-                debug!("Found existing settings: {:?}", settings);
-                settings
-            }
-            Err(e) => {
-                warn!("Failed to parse settings: {}", e);
-                // Fall back to default settings if parsing fails
-                let default_settings = get_default_settings();
-                store.set("settings", serde_json::to_value(&default_settings).unwrap());
-                default_settings
-            }
-        }
-    } else {
-        let default_settings = get_default_settings();
-        store.set("settings", serde_json::to_value(&default_settings).unwrap());
-        default_settings
-    };
-
-    if ensure_post_process_defaults(&mut settings) {
-        store.set("settings", serde_json::to_value(&settings).unwrap());
-    }
-
-    settings
 }
 
 pub fn get_settings(app: &AppHandle) -> AppSettings {
