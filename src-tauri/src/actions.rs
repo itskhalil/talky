@@ -28,30 +28,6 @@ impl ShortcutAction for CancelAction {
     }
 }
 
-// Test Action
-struct TestAction;
-
-impl ShortcutAction for TestAction {
-    fn start(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str) {
-        log::info!(
-            "Shortcut ID '{}': Started - {} (App: {})",
-            binding_id,
-            shortcut_str,
-            app.package_info().name
-        );
-    }
-
-    fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str) {
-        log::info!(
-            "Shortcut ID '{}': Stopped - {} (App: {})",
-            binding_id,
-            shortcut_str,
-            app.package_info().name
-        );
-    }
-}
-
-
 const POLL_INTERVAL_MS: u64 = 500;
 const MIN_CHUNK_SAMPLES: usize = 16000; // 1s at 16kHz — don't transcribe less
 const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe
@@ -264,10 +240,6 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
     map.insert(
         "cancel".to_string(),
         Arc::new(CancelAction) as Arc<dyn ShortcutAction>,
-    );
-    map.insert(
-        "test".to_string(),
-        Arc::new(TestAction) as Arc<dyn ShortcutAction>,
     );
     map
 });

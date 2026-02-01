@@ -64,8 +64,8 @@
         "title": "Mikrofon Erişimi",
         "description": "Sesinizi transkripsiyon için alabilmek için gereklidir."
       },
-      "screenRecording": {
-        "title": "Ekran Kaydı Erişimi",
+      "systemAudio": {
+        "title": "Sistem Ses Erişimi",
         "description": "Toplantılarda hoparlör sesini yakalamak için gereklidir."
       },
       "grant": "İzin Ver",
@@ -191,25 +191,6 @@
           "none": "Yok",
           "bottom": "Alt",
           "top": "Üst"
-        }
-      },
-      "pasteMethod": {
-        "title": "Yapıştırma Yöntemi",
-        "description": "Metnin nasıl ekleneceğini seçin. Doğrudan: sistem girişiyle yazmayı simüle eder. Yok: yapıştırmayı atlar, sadece geçmişi/panoyu günceller.",
-        "options": {
-          "clipboard": "Pano ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Pano (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Pano (Shift+Insert)",
-          "direct": "Doğrudan",
-          "none": "Yok"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Pano Yönetimi",
-        "description": "Panoyu Değiştirme, transkripsiyon sonrası mevcut pano içeriğini korur. Panoya Kopyala ise yapıştırma işleminden sonra transkripsiyon sonucunu panoda bırakır.",
-        "options": {
-          "dontModify": "Panoyu Değiştirme",
-          "copyToClipboard": "Panoya Kopyala"
         }
       },
       "translateToEnglish": {
@@ -356,14 +337,6 @@
       "postProcessingToggle": {
         "label": "Son İşlem",
         "description": "Transkripsiyon sonrası yapay zekâ destekli metin iyileştirmeyi etkinleştirir"
-      },
-      "muteWhileRecording": {
-        "label": "Kayıt Sırasında Sessize Al",
-        "description": "Kayıt sırasında sistem sesini kapatır"
-      },
-      "appendTrailingSpace": {
-        "label": "Sonuna Boşluk Ekle",
-        "description": "Yapıştırılan transkripsiyondan sonra boşluk ekler"
       },
       "paths": {
         "appData": "Uygulama Verileri:",

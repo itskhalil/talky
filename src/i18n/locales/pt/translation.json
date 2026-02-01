@@ -64,8 +64,8 @@
         "title": "Acesso ao Microfone",
         "description": "Necessário para ouvir sua voz para transcrição."
       },
-      "screenRecording": {
-        "title": "Acesso à Gravação de Tela",
+      "systemAudio": {
+        "title": "Acesso ao Áudio do Sistema",
         "description": "Necessário para capturar o áudio do alto-falante em reuniões."
       },
       "grant": "Conceder Permissão",
@@ -191,25 +191,6 @@
           "none": "Nenhum",
           "bottom": "Inferior",
           "top": "Superior"
-        }
-      },
-      "pasteMethod": {
-        "title": "Método de Colar",
-        "description": "Escolha como o texto é inserido. Direto: simula digitação via entrada do sistema. Nenhum: ignora colar, apenas atualiza histórico/área de transferência.",
-        "options": {
-          "clipboard": "Área de Transferência ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Área de Transferência (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Área de Transferência (Shift+Insert)",
-          "direct": "Direto",
-          "none": "Nenhum"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Manipulação da Área de Transferência",
-        "description": "Não Modificar Área de Transferência preserva o conteúdo atual da área de transferência após a transcrição. Copiar para Área de Transferência deixa o resultado da transcrição na área de transferência após colar.",
-        "options": {
-          "dontModify": "Não Modificar Área de Transferência",
-          "copyToClipboard": "Copiar para Área de Transferência"
         }
       },
       "translateToEnglish": {
@@ -356,14 +337,6 @@
       "postProcessingToggle": {
         "label": "Pós-Processamento",
         "description": "Habilitar refinamento de texto com IA após a transcrição"
-      },
-      "muteWhileRecording": {
-        "label": "Silenciar Durante Gravação",
-        "description": "Silenciar áudio do sistema durante a gravação"
-      },
-      "appendTrailingSpace": {
-        "label": "Adicionar Espaço Final",
-        "description": "Adicionar um espaço após a transcrição colada"
       },
       "paths": {
         "appData": "Dados do App:",

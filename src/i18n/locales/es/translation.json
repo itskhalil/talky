@@ -64,8 +64,8 @@
         "title": "Acceso al Micrófono",
         "description": "Necesario para escuchar tu voz para la transcripción."
       },
-      "screenRecording": {
-        "title": "Acceso a Grabación de Pantalla",
+      "systemAudio": {
+        "title": "Acceso al Audio del Sistema",
         "description": "Necesario para capturar el audio del altavoz en reuniones."
       },
       "grant": "Conceder Permiso",
@@ -187,25 +187,6 @@
           "none": "Ninguna",
           "bottom": "Abajo",
           "top": "Arriba"
-        }
-      },
-      "pasteMethod": {
-        "title": "Método de Pegado",
-        "description": "Elige cómo se inserta el texto. Directo: simula escritura mediante entrada del sistema. Ninguno: omite el pegado, solo actualiza historial/portapapeles.",
-        "options": {
-          "clipboard": "Portapapeles ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Portapapeles (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Portapapeles (Shift+Insert)",
-          "direct": "Directo",
-          "none": "Ninguno"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Manejo del Portapapeles",
-        "description": "No Modificar Portapapeles conserva el contenido actual de tu portapapeles después de la transcripción. Copiar al Portapapeles deja el resultado de la transcripción en tu portapapeles después de pegar.",
-        "options": {
-          "dontModify": "No Modificar Portapapeles",
-          "copyToClipboard": "Copiar al Portapapeles"
         }
       },
       "translateToEnglish": {
@@ -352,14 +333,6 @@
       "postProcessingToggle": {
         "label": "Post Procesamiento",
         "description": "Habilitar refinamiento de texto impulsado por IA después de la transcripción"
-      },
-      "muteWhileRecording": {
-        "label": "Silenciar Durante la Grabación",
-        "description": "Silenciar el audio del sistema durante la grabación"
-      },
-      "appendTrailingSpace": {
-        "label": "Agregar Espacio Final",
-        "description": "Agregar un espacio después de la transcripción pegada"
       },
       "paths": {
         "appData": "Datos de la Aplicación:",

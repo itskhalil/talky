@@ -65,8 +65,8 @@
         "title": "Accès au microphone",
         "description": "Nécessaire pour entendre votre voix pour la transcription."
       },
-      "screenRecording": {
-        "title": "Accès à l'enregistrement d'écran",
+      "systemAudio": {
+        "title": "Accès à l'audio système",
         "description": "Nécessaire pour capturer l'audio du haut-parleur dans les réunions."
       },
       "grant": "Accorder l'autorisation",
@@ -188,25 +188,6 @@
           "none": "Aucune",
           "bottom": "Bas",
           "top": "Haut"
-        }
-      },
-      "pasteMethod": {
-        "title": "Méthode de collage",
-        "description": "Choisissez comment le texte est inséré. Direct : simule la frappe via l'entrée système. Aucun : ignore le collage, met uniquement à jour l'historique/presse-papiers.",
-        "options": {
-          "clipboard": "Presse-papiers ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Presse-papiers (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Presse-papiers (Shift+Insert)",
-          "direct": "Direct",
-          "none": "Aucun"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Gestion du presse-papiers",
-        "description": "Ne pas modifier le presse-papiers préserve le contenu actuel de votre presse-papiers après la transcription. Copier dans le presse-papiers laisse le résultat de la transcription dans votre presse-papiers après le collage.",
-        "options": {
-          "dontModify": "Ne pas modifier le presse-papiers",
-          "copyToClipboard": "Copier dans le presse-papiers"
         }
       },
       "translateToEnglish": {
@@ -353,14 +334,6 @@
       "postProcessingToggle": {
         "label": "Post-traitement",
         "description": "Activer l'affinage du texte par IA après la transcription"
-      },
-      "muteWhileRecording": {
-        "label": "Muet pendant l'enregistrement",
-        "description": "Couper le son du système pendant l'enregistrement"
-      },
-      "appendTrailingSpace": {
-        "label": "Ajouter un espace final",
-        "description": "Ajouter un espace après la transcription collée"
       },
       "paths": {
         "appData": "Données de l'application :",

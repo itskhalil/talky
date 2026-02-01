@@ -64,8 +64,8 @@
         "title": "Přístup k mikrofonu",
         "description": "Potřebný pro naslouchání vašemu hlasu pro přepis."
       },
-      "screenRecording": {
-        "title": "Přístup k nahrávání obrazovky",
+      "systemAudio": {
+        "title": "Přístup k systémovému zvuku",
         "description": "Potřebný pro zachycení zvuku reproduktorů během schůzek."
       },
       "grant": "Udělit oprávnění",
@@ -187,25 +187,6 @@
           "none": "Žádné",
           "bottom": "Dole",
           "top": "Nahoře"
-        }
-      },
-      "pasteMethod": {
-        "title": "Způsob vložení",
-        "description": "Vyberte, jak se text vkládá. Přímé: simuluje psaní přes systémový vstup. Žádné: přeskočí vložení a aktualizuje pouze historii/schránku.",
-        "options": {
-          "clipboard": "Schránka ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Schránka (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Schránka (Shift+Insert)",
-          "direct": "Přímé",
-          "none": "Žádné"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Práce se schránkou",
-        "description": "'Neměnit schránku' zachová po přepisu aktuální obsah schránky. 'Kopírovat do schránky' ponechá po vložení výsledek přepisu ve schránce.",
-        "options": {
-          "dontModify": "Neměnit schránku",
-          "copyToClipboard": "Kopírovat do schránky"
         }
       },
       "translateToEnglish": {
@@ -352,14 +333,6 @@
       "postProcessingToggle": {
         "label": "Následné zpracování",
         "description": "Povolit AI vylepšení textu po přepisu"
-      },
-      "muteWhileRecording": {
-        "label": "Ztlumit při nahrávání",
-        "description": "Ztlumit systémový zvuk během nahrávání"
-      },
-      "appendTrailingSpace": {
-        "label": "Přidat koncovou mezeru",
-        "description": "Přidat mezeru po vloženém přepisu"
       },
       "paths": {
         "appData": "Data aplikace:",

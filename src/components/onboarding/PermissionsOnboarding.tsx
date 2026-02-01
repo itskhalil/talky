@@ -3,9 +3,8 @@ import { useTranslation } from "react-i18next";
 import {
   checkMicrophonePermission,
   requestMicrophonePermission,
-  checkScreenRecordingPermission,
-  requestScreenRecordingPermission,
 } from "tauri-plugin-macos-permissions-api";
+import { commands } from "@/bindings";
 import TalkyTextLogo from "../icons/TalkyTextLogo";
 
 interface PermissionsOnboardingProps {
@@ -72,32 +71,28 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
 }) => {
   const { t } = useTranslation();
   const [microphoneGranted, setMicrophoneGranted] = useState(false);
-  const [screenRecordingGranted, setScreenRecordingGranted] = useState(false);
+  const [systemAudioRequested, setSystemAudioRequested] = useState(false);
   const [isRequestingMic, setIsRequestingMic] = useState(false);
-  const [isRequestingScreen, setIsRequestingScreen] = useState(false);
+  const [isRequestingSystemAudio, setIsRequestingSystemAudio] = useState(false);
 
   const checkPermissions = useCallback(async () => {
-    const [mic, screen] = await Promise.all([
-      checkMicrophonePermission(),
-      checkScreenRecordingPermission(),
-    ]);
+    const mic = await checkMicrophonePermission();
     setMicrophoneGranted(mic);
-    setScreenRecordingGranted(screen);
-    return { mic, screen };
+    return { mic };
   }, []);
 
   useEffect(() => {
     checkPermissions();
   }, [checkPermissions]);
 
-  // Auto-advance when all permissions are granted
+  // Auto-advance when all permissions are granted/requested
   useEffect(() => {
-    if (microphoneGranted && screenRecordingGranted) {
+    if (microphoneGranted && systemAudioRequested) {
       // Small delay for visual feedback
       const timer = setTimeout(onComplete, 500);
       return () => clearTimeout(timer);
     }
-  }, [microphoneGranted, screenRecordingGranted, onComplete]);
+  }, [microphoneGranted, systemAudioRequested, onComplete]);
 
   const handleMicrophoneRequest = async () => {
     setIsRequestingMic(true);
@@ -113,21 +108,20 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
     }
   };
 
-  const handleScreenRecordingRequest = async () => {
-    setIsRequestingScreen(true);
+  const handleSystemAudioRequest = async () => {
+    setIsRequestingSystemAudio(true);
     try {
-      await requestScreenRecordingPermission();
-      // Check again after request
-      const granted = await checkScreenRecordingPermission();
-      setScreenRecordingGranted(granted);
+      await commands.requestSystemAudioPermission();
+      // No way to check if granted, but the dialog was shown
+      setSystemAudioRequested(true);
     } catch (error) {
-      console.error("Error requesting screen recording permission:", error);
+      console.error("Error requesting system audio permission:", error);
     } finally {
-      setIsRequestingScreen(false);
+      setIsRequestingSystemAudio(false);
     }
   };
 
-  const allGranted = microphoneGranted && screenRecordingGranted;
+  const allGranted = microphoneGranted && systemAudioRequested;
 
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
@@ -154,13 +148,11 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
           />
 
           <PermissionItem
-            title={t("onboarding.permissions.screenRecording.title")}
-            description={t(
-              "onboarding.permissions.screenRecording.description",
-            )}
-            isGranted={screenRecordingGranted}
-            isRequesting={isRequestingScreen}
-            onRequest={handleScreenRecordingRequest}
+            title={t("onboarding.permissions.systemAudio.title")}
+            description={t("onboarding.permissions.systemAudio.description")}
+            isGranted={systemAudioRequested}
+            isRequesting={isRequestingSystemAudio}
+            onRequest={handleSystemAudioRequest}
             grantedText={t("onboarding.permissions.granted")}
             grantText={t("onboarding.permissions.grant")}
           />
