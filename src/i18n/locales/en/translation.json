@@ -110,29 +110,6 @@
     "title": "Settings",
     "general": {
       "title": "General",
-      "shortcut": {
-        "title": "Talky Shortcuts",
-        "description": "Configure keyboard shortcuts to trigger speech-to-text recording",
-        "loading": "Loading shortcuts...",
-        "none": "No shortcuts configured",
-        "notFound": "Shortcut not found",
-        "pressKeys": "Press keys...",
-        "bindings": {
-          "transcribe": {
-            "name": "Transcribe Shortcut",
-            "description": "The keyboard shortcut to record and transcribe your voice."
-          },
-          "cancel": {
-            "name": "Cancel Shortcut",
-            "description": "The keyboard shortcut to cancel the current recording."
-          }
-        },
-        "errors": {
-          "restore": "Failed to restore original shortcut",
-          "set": "Failed to set shortcut: {{error}}",
-          "reset": "Failed to reset shortcut to original value"
-        }
-      },
       "language": {
         "title": "Language",
         "description": "Select the language for speech recognition. Auto will automatically determine the language, while selecting a specific language can improve accuracy for that language.",
@@ -140,10 +117,6 @@
         "searchPlaceholder": "Search languages...",
         "noResults": "No languages found",
         "auto": "Auto"
-      },
-      "pushToTalk": {
-        "label": "Push To Talk",
-        "description": "Hold to record, release to stop"
       }
     },
     "sound": {

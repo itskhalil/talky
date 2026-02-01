@@ -104,29 +104,6 @@
   "settings": {
     "general": {
       "title": "Geral",
-      "shortcut": {
-        "title": "Atalhos do Talky",
-        "description": "Configure atalhos de teclado para iniciar a gravação de voz para texto",
-        "loading": "Carregando atalhos...",
-        "none": "Nenhum atalho configurado",
-        "notFound": "Atalho não encontrado",
-        "pressKeys": "Pressione as teclas...",
-        "bindings": {
-          "transcribe": {
-            "name": "Atalho de Transcrição",
-            "description": "O atalho de teclado para gravar e transcrever sua voz."
-          },
-          "cancel": {
-            "name": "Atalho de Cancelar",
-            "description": "O atalho de teclado para cancelar a gravação atual."
-          }
-        },
-        "errors": {
-          "restore": "Falha ao restaurar atalho original",
-          "set": "Falha ao definir atalho: {{error}}",
-          "reset": "Falha ao redefinir atalho para o valor original"
-        }
-      },
       "language": {
         "title": "Idioma",
         "description": "Selecione o idioma para reconhecimento de fala. Auto detectará automaticamente o idioma, enquanto selecionar um idioma específico pode melhorar a precisão para esse idioma.",
@@ -134,10 +111,6 @@
         "searchPlaceholder": "Buscar idiomas...",
         "noResults": "Nenhum idioma encontrado",
         "auto": "Auto"
-      },
-      "pushToTalk": {
-        "label": "Pressionar para Falar",
-        "description": "Segure para gravar, solte para parar"
       }
     },
     "sound": {

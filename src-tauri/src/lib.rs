@@ -9,7 +9,6 @@ mod helpers;
 mod llm_client;
 mod managers;
 mod settings;
-mod shortcut;
 mod tray;
 mod tray_i18n;
 mod utils;
@@ -22,9 +21,8 @@ use managers::history::HistoryManager;
 use managers::model::ModelManager;
 use managers::session::SessionManager;
 use managers::transcription::TranscriptionManager;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::image::Image;
 
 use tauri::tray::TrayIconBuilder;
@@ -76,14 +74,6 @@ fn build_console_filter() -> env_filter::Filter {
     builder.build()
 }
 
-#[derive(Default)]
-struct ShortcutToggleStates {
-    // Map: shortcut_binding_id -> is_active
-    active_toggles: HashMap<String, bool>,
-}
-
-type ManagedToggleState = Mutex<ShortcutToggleStates>;
-
 fn show_main_window(app: &AppHandle) {
     if let Some(main_window) = app.get_webview_window("main") {
         // First, ensure the window is visible
@@ -129,10 +119,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(history_manager.clone());
     app_handle.manage(session_manager.clone());
 
-    // Initialize the shortcuts
-    shortcut::init_shortcuts(app_handle);
-
-
     // Apply macOS Accessory policy if starting hidden
     #[cfg(target_os = "macos")]
     {
@@ -169,12 +155,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     show_main_window(app);
                     let _ = app.emit("check-for-updates", ());
                 }
-            }
-            "cancel" => {
-                use crate::utils::cancel_current_operation;
-
-                // Use centralized cancellation that handles all operations
-                cancel_current_operation(app);
             }
             "quit" => {
                 app.exit(0);
@@ -221,33 +201,32 @@ pub fn run() {
     let console_filter = build_console_filter();
 
     let specta_builder = Builder::<tauri::Wry>::new().commands(collect_commands![
-        shortcut::change_binding,
-        shortcut::reset_binding,
-        shortcut::change_audio_feedback_setting,
-        shortcut::change_audio_feedback_volume_setting,
-        shortcut::change_sound_theme_setting,
-        shortcut::change_start_hidden_setting,
-        shortcut::change_autostart_setting,
-        shortcut::change_translate_to_english_setting,
-        shortcut::change_selected_language_setting,
-        shortcut::change_debug_mode_setting,
-        shortcut::change_post_process_enabled_setting,
-        shortcut::change_experimental_enabled_setting,
-        shortcut::change_post_process_base_url_setting,
-        shortcut::change_post_process_api_key_setting,
-        shortcut::change_post_process_model_setting,
-        shortcut::set_post_process_provider,
-        shortcut::fetch_post_process_models,
-        shortcut::add_post_process_prompt,
-        shortcut::update_post_process_prompt,
-        shortcut::delete_post_process_prompt,
-        shortcut::set_post_process_selected_prompt,
-        shortcut::update_custom_words,
-        shortcut::suspend_binding,
-        shortcut::resume_binding,
-        shortcut::change_mute_while_recording_setting,
-        shortcut::change_app_language_setting,
-        shortcut::change_update_checks_setting,
+        commands::settings::change_audio_feedback_setting,
+        commands::settings::change_audio_feedback_volume_setting,
+        commands::settings::change_sound_theme_setting,
+        commands::settings::change_start_hidden_setting,
+        commands::settings::change_autostart_setting,
+        commands::settings::change_translate_to_english_setting,
+        commands::settings::change_selected_language_setting,
+        commands::settings::change_debug_mode_setting,
+        commands::settings::change_post_process_enabled_setting,
+        commands::settings::change_experimental_enabled_setting,
+        commands::settings::change_post_process_base_url_setting,
+        commands::settings::change_post_process_api_key_setting,
+        commands::settings::change_post_process_model_setting,
+        commands::settings::set_post_process_provider,
+        commands::settings::fetch_post_process_models,
+        commands::settings::add_post_process_prompt,
+        commands::settings::update_post_process_prompt,
+        commands::settings::delete_post_process_prompt,
+        commands::settings::set_post_process_selected_prompt,
+        commands::settings::update_custom_words,
+        commands::settings::change_app_language_setting,
+        commands::settings::change_update_checks_setting,
+        commands::settings::set_chat_provider,
+        commands::settings::change_chat_api_key_setting,
+        commands::settings::change_chat_model_setting,
+        commands::settings::fetch_chat_models,
         trigger_update_check,
         commands::cancel_operation,
         commands::write_chat_debug_log,
@@ -314,10 +293,6 @@ pub fn run() {
         commands::session::generate_session_summary,
         commands::session::get_session_summary,
         commands::session::flush_pending_audio,
-        shortcut::set_chat_provider,
-        shortcut::change_chat_api_key_setting,
-        shortcut::change_chat_model_setting,
-        shortcut::fetch_chat_models,
     ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -363,12 +338,10 @@ pub fn run() {
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .manage(Mutex::new(ShortcutToggleStates::default()))
         .setup(move |app| {
 
             let settings = get_settings(&app.handle());

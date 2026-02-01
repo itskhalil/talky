@@ -100,29 +100,6 @@
   "settings": {
     "general": {
       "title": "Obecné",
-      "shortcut": {
-        "title": "Zkratky Talky",
-        "description": "Nastavte klávesové zkratky pro spuštění nahrávání řeči na text",
-        "loading": "Načítám zkratky...",
-        "none": "Žádné zkratky nejsou nastavené",
-        "notFound": "Zkratka nenalezena",
-        "pressKeys": "Stiskněte klávesy...",
-        "bindings": {
-          "transcribe": {
-            "name": "Zkratka přepisu",
-            "description": "Klávesová zkratka pro nahrávání a přepis vašeho hlasu."
-          },
-          "cancel": {
-            "name": "Zkratka zrušení",
-            "description": "Klávesová zkratka pro zrušení aktuálního nahrávání."
-          }
-        },
-        "errors": {
-          "restore": "Nepodařilo se obnovit původní zkratku",
-          "set": "Nepodařilo se nastavit zkratku: {{error}}",
-          "reset": "Nepodařilo se vrátit zkratku na původní hodnotu"
-        }
-      },
       "language": {
         "title": "Jazyk",
         "description": "Vyberte jazyk rozpoznávání řeči. Auto jazyk určí automaticky, zatímco výběr konkrétního jazyka může zlepšit přesnost.",
@@ -130,10 +107,6 @@
         "searchPlaceholder": "Hledat jazyky...",
         "noResults": "Žádné jazyky nenalezeny",
         "auto": "Auto"
-      },
-      "pushToTalk": {
-        "label": "Stisk a mluv",
-        "description": "Podržte pro nahrávání, uvolněte pro zastavení"
       }
     },
     "sound": {
