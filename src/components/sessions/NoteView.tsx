@@ -98,18 +98,11 @@ function EnhancedNotesPanel({ content, loading, error }: { content: string | nul
       {lines.map((line, i) => {
         const trimmed = line.trimStart();
 
-        // Determine source: [user] or [ai] prefix
-        const aiPrefixMatch = trimmed.match(/^(?:- )?\[ai\]\s*/);
-        const userPrefixMatch = trimmed.match(/^(?:- )?\[user\]\s*/);
-        const isAiLine = aiPrefixMatch != null;
+        // Detect which source tag is present anywhere in the line
+        const isAiLine = /\[ai\]/.test(trimmed);
 
-        // Strip the prefix for display
-        let displayLine = line;
-        if (aiPrefixMatch) {
-          displayLine = line.replace(/\[ai\]\s*/, "");
-        } else if (userPrefixMatch) {
-          displayLine = line.replace(/\[user\]\s*/, "");
-        }
+        // Strip ALL occurrences of [user] and [ai] from the line
+        let displayLine = line.replace(/\[(?:user|ai)\]\s*/g, "");
 
         // Check for headers (### style)
         const headerMatch = displayLine.trimStart().match(/^(#{1,4})\s+(.*)/);
