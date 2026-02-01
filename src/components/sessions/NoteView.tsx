@@ -307,9 +307,14 @@ export function NoteView({
     }
   }, [transcript, panelOpen]);
 
-  // Reset scroll when switching view modes so title stays visible
+  // Reset scroll when switching view modes so title stays visible.
+  // Use rAF to ensure this runs after the editor re-mounts and sets content.
   useEffect(() => {
     scrollContainerRef.current?.scrollTo(0, 0);
+    const frame = requestAnimationFrame(() => {
+      scrollContainerRef.current?.scrollTo(0, 0);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [viewMode]);
 
   // Parse enhanced notes into tiptap JSON when they change
