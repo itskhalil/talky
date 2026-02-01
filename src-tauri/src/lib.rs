@@ -264,6 +264,7 @@ pub fn run() {
         shortcut::handy_keys::stop_handy_keys_recording,
         trigger_update_check,
         commands::cancel_operation,
+        commands::write_chat_debug_log,
         commands::get_app_dir_path,
         commands::get_app_settings,
         commands::get_default_settings,
