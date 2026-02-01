@@ -76,6 +76,9 @@ interface SessionStore {
   generateSummary: () => Promise<void>;
   enhanceNotes: () => Promise<void>;
   setViewMode: (mode: "notes" | "enhanced") => void;
+  selectNextSession: () => void;
+  selectPreviousSession: () => void;
+  deselectSession: () => void;
 
   // Internal
   _fetchSessionData: (sessionId: string) => Promise<void>;
@@ -554,9 +557,11 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     if (!selectedSessionId) return;
     set({ enhanceLoading: true, enhanceError: null });
     try {
+      console.log("[enhanceNotes] sending sessionId:", selectedSessionId);
       const result = await invoke<string>("generate_session_summary", {
         sessionId: selectedSessionId,
       });
+      console.log("[enhanceNotes] result:", result);
       set((s) => {
         const existing = s.cache[selectedSessionId];
         if (!existing)
@@ -577,6 +582,26 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   },
 
   setViewMode: (mode) => set({ viewMode: mode }),
+
+  selectNextSession: () => {
+    const { sessions, selectedSessionId } = get();
+    if (sessions.length === 0) return;
+    const idx = sessions.findIndex((s) => s.id === selectedSessionId);
+    const nextIdx = idx < sessions.length - 1 ? idx + 1 : idx;
+    if (sessions[nextIdx]) get().selectSession(sessions[nextIdx].id);
+  },
+
+  selectPreviousSession: () => {
+    const { sessions, selectedSessionId } = get();
+    if (sessions.length === 0) return;
+    const idx = sessions.findIndex((s) => s.id === selectedSessionId);
+    const prevIdx = idx > 0 ? idx - 1 : 0;
+    if (sessions[prevIdx]) get().selectSession(sessions[prevIdx].id);
+  },
+
+  deselectSession: () => {
+    set({ selectedSessionId: null });
+  },
 
   cleanup: () => {
     const state = get();

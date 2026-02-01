@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ChevronUp,
@@ -10,7 +10,8 @@ import {
   Check,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
-import { JSONContent } from "@tiptap/core";
+import { FindBar } from "./FindBar";
+import { JSONContent, Editor } from "@tiptap/core";
 
 interface Session {
   id: string;
@@ -52,6 +53,8 @@ interface NoteViewProps {
   enhanceError: string | null;
   viewMode: "notes" | "enhanced";
   onViewModeChange: (mode: "notes" | "enhanced") => void;
+  findBarOpen?: boolean;
+  onCloseFindBar?: () => void;
 }
 
 function formatMs(ms: number): string {
@@ -87,7 +90,7 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
           parsed[i].isAi = parsed[j].isAi;
           break;
         }
-        if (parsed[j].cleaned.trim() === "") break;
+        if (parsed[j].cleaned.trim() === "") continue;
       }
     }
   }
@@ -252,6 +255,8 @@ export function NoteView({
   enhanceError,
   viewMode,
   onViewModeChange,
+  findBarOpen,
+  onCloseFindBar,
 }: NoteViewProps) {
   const { t } = useTranslation();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -261,6 +266,11 @@ export function NoteView({
   const [enhancedJSON, setEnhancedJSON] = useState<JSONContent | null>(null);
   const [notesCopied, setNotesCopied] = useState(false);
   const [transcriptCopied, setTranscriptCopied] = useState(false);
+  const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
+
+  const handleEditorReady = useCallback((editor: Editor | null) => {
+    setActiveEditor(editor);
+  }, []);
 
   const handleCopyNotes = async () => {
     let text = "";
@@ -337,6 +347,11 @@ export function NoteView({
   return (
     <div className="flex flex-col h-full relative">
       {/* Title + editor area */}
+      {findBarOpen && onCloseFindBar && (
+        <div className="absolute top-2 right-4 z-20 w-80">
+          <FindBar editor={activeEditor} onClose={onCloseFindBar} />
+        </div>
+      )}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-12 pt-4 pb-32 w-full cursor-text select-text">
         {/* Editable title */}
         <div className="max-w-3xl mx-auto">
@@ -408,6 +423,7 @@ export function NoteView({
                   mode="enhanced"
                   initialJSON={enhancedJSON}
                   onJSONChange={handleEnhancedJSONChange}
+                  onEditorReady={handleEditorReady}
                 />
               )}
             </>
@@ -438,6 +454,7 @@ export function NoteView({
                 onChange={onNotesChange}
                 disabled={!notesLoaded}
                 placeholder={t("sessions.notesPlaceholder")}
+                onEditorReady={handleEditorReady}
               />
             </>
           )}

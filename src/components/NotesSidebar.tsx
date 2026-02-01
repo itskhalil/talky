@@ -86,6 +86,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary" />
           <input
             type="text"
+            data-search-input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("notes.searchPlaceholder")}
