@@ -323,6 +323,13 @@ pub fn end_session(app: AppHandle) -> Result<Option<Session>, String> {
 
 #[tauri::command]
 #[specta::specta]
+pub fn search_sessions(app: AppHandle, query: String) -> Result<Vec<Session>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.search_sessions(&query).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn get_sessions(app: AppHandle) -> Result<Vec<Session>, String> {
     let sm = app.state::<Arc<SessionManager>>();
     sm.get_sessions().map_err(|e| e.to_string())

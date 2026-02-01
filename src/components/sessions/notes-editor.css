@@ -51,23 +51,23 @@
 }
 
 /* Enhanced mode heading styles */
-.notes-editor--enhanced .tiptap h1 {
+.notes-editor .tiptap h1 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin-top: 0.75rem;
+  margin-top: 1.25rem;
   margin-bottom: 0.25rem;
 }
 
-.notes-editor--enhanced .tiptap h2 {
+.notes-editor .tiptap h2 {
   font-size: 1.125rem;
   font-weight: 600;
-  margin-top: 0.75rem;
+  margin-top: 1rem;
   margin-bottom: 0.25rem;
 }
 
-.notes-editor--enhanced .tiptap h3 {
+.notes-editor .tiptap h3 {
   font-size: 1rem;
   font-weight: 600;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
   margin-bottom: 0.25rem;
 }

@@ -412,6 +412,7 @@
     }
   },
   "notes": {
+    "searchPlaceholder": "Search",
     "emptyState": "Select a note or create a new one",
     "recording": "Recording",
     "endNote": "End Note"
