@@ -1,32 +1,11 @@
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::transcription::TranscriptionManager;
 use log::{debug, error};
-use once_cell::sync::Lazy;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
-
-// Shortcut Action Trait
-pub trait ShortcutAction: Send + Sync {
-    fn start(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
-    fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
-}
-
-// Cancel Action
-struct CancelAction;
-
-impl ShortcutAction for CancelAction {
-    fn start(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
-        crate::utils::cancel_current_operation(app);
-    }
-
-    fn stop(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
-        // Nothing to do on stop for cancel
-    }
-}
 
 const POLL_INTERVAL_MS: u64 = 500;
 const MIN_CHUNK_SAMPLES: usize = 16000; // 1s at 16kHz — don't transcribe less
@@ -233,13 +212,3 @@ fn is_silence(samples: &[f32]) -> bool {
     let rms = (sum_sq / samples.len() as f32).sqrt();
     rms < 0.01 // roughly -40 dB
 }
-
-// Static Action Map
-pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::new(|| {
-    let mut map = HashMap::new();
-    map.insert(
-        "cancel".to_string(),
-        Arc::new(CancelAction) as Arc<dyn ShortcutAction>,
-    );
-    map
-});

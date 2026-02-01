@@ -1,8 +1,6 @@
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::transcription::TranscriptionManager;
-use crate::shortcut;
-use crate::ManagedToggleState;
-use log::{info, warn};
+use log::info;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
@@ -18,18 +16,6 @@ pub fn emit_levels(app_handle: &AppHandle, levels: &Vec<f32>) {
 /// Handles cancelling both recording and transcription operations and updates UI state.
 pub fn cancel_current_operation(app: &AppHandle) {
     info!("Initiating operation cancellation...");
-
-    // Unregister the cancel shortcut asynchronously
-    shortcut::unregister_cancel_shortcut(app);
-
-    // First, reset all shortcut toggle states.
-    // This is critical for non-push-to-talk mode where shortcuts toggle on/off
-    let toggle_state_manager = app.state::<ManagedToggleState>();
-    if let Ok(mut states) = toggle_state_manager.lock() {
-        states.active_toggles.values_mut().for_each(|v| *v = false);
-    } else {
-        warn!("Failed to lock toggle state manager during cancellation");
-    }
 
     // Cancel any ongoing recording
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();

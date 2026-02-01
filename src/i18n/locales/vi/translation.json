@@ -101,29 +101,6 @@
   "settings": {
     "general": {
       "title": "Chung",
-      "shortcut": {
-        "title": "Phím tắt Talky",
-        "description": "Cấu hình phím tắt để kích hoạt ghi âm chuyển đổi giọng nói thành văn bản",
-        "loading": "Đang tải phím tắt...",
-        "none": "Chưa cấu hình phím tắt",
-        "notFound": "Không tìm thấy phím tắt",
-        "pressKeys": "Nhấn phím...",
-        "bindings": {
-          "transcribe": {
-            "name": "Phím tắt chuyển đổi",
-            "description": "Phím tắt để ghi âm và chuyển đổi giọng nói của bạn."
-          },
-          "cancel": {
-            "name": "Phím tắt hủy",
-            "description": "Phím tắt để hủy bản ghi hiện tại."
-          }
-        },
-        "errors": {
-          "restore": "Không thể khôi phục phím tắt gốc",
-          "set": "Không thể đặt phím tắt: {{error}}",
-          "reset": "Không thể đặt lại phím tắt về giá trị gốc"
-        }
-      },
       "language": {
         "title": "Ngôn ngữ",
         "description": "Chọn ngôn ngữ để nhận dạng giọng nói. Tự động sẽ tự động xác định ngôn ngữ, trong khi chọn một ngôn ngữ cụ thể có thể cải thiện độ chính xác cho ngôn ngữ đó.",
@@ -131,10 +108,6 @@
         "searchPlaceholder": "Tìm kiếm ngôn ngữ...",
         "noResults": "Không tìm thấy ngôn ngữ",
         "auto": "Tự động"
-      },
-      "pushToTalk": {
-        "label": "Nhấn để nói",
-        "description": "Giữ để ghi âm, thả để dừng"
       }
     },
     "sound": {
