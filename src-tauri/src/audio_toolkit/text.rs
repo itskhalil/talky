@@ -1,3 +1,4 @@
+use log::debug;
 use natural::phonetics::soundex;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -81,6 +82,10 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
         }
 
         if let Some(replacement) = best_match {
+            debug!(
+                "Custom word match: '{}' -> '{}' (score: {:.3}, threshold: {})",
+                word, replacement, best_score, threshold
+            );
             // Preserve the original case pattern as much as possible
             let corrected = preserve_case_pattern(word, replacement);
 
