@@ -675,6 +675,17 @@ async stopSessionRecording(sessionId: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Reactivate a completed session so it can record again.
+ */
+async reactivateSession(sessionId: string) : Promise<Result<Session, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("reactivate_session", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async endSession() : Promise<Result<Session | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("end_session") };

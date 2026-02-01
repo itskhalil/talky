@@ -284,6 +284,24 @@ pub fn spawn_speaker_capture(
     });
 }
 
+/// Reactivate a completed session so it can record again.
+#[tauri::command]
+#[specta::specta]
+pub fn reactivate_session(app: AppHandle, session_id: String) -> Result<Session, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let rm = app.state::<Arc<crate::managers::audio::AudioRecordingManager>>();
+
+    // Stop any ongoing recording first
+    sm.stop_speaker_capture();
+    if rm.is_recording() {
+        rm.stop_session_recording();
+    }
+
+    sm.reset_speaker_state();
+    let session = sm.reactivate_session(&session_id).map_err(|e| e.to_string())?;
+    Ok(session)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn end_session(app: AppHandle) -> Result<Option<Session>, String> {

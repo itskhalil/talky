@@ -53,7 +53,9 @@ function EmptyState({ onNewNote }: { onNewNote: () => void }) {
 
 export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [activeSession, setActiveSession] = useState<Session | null>(null);
+  const [recordingSessionId, setRecordingSessionId] = useState<string | null>(
+    null,
+  );
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
@@ -81,18 +83,6 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       setSessions(result);
     } catch (e) {
       console.error("Failed to load sessions:", e);
-    }
-  }, []);
-
-  const loadActiveSession = useCallback(async () => {
-    try {
-      const result = await invoke<Session | null>("get_active_session");
-      setActiveSession(result);
-      if (result) {
-        setSelectedSessionId(result.id);
-      }
-    } catch (e) {
-      console.error("Failed to load active session:", e);
     }
   }, []);
 
@@ -213,10 +203,26 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     [selectedSessionId, saveUserNotes],
   );
 
+  // Initial load
   useEffect(() => {
     loadSessions();
-    loadActiveSession();
-  }, [loadSessions, loadActiveSession]);
+    // Check if there's already an active/recording session
+    (async () => {
+      try {
+        const active = await invoke<Session | null>("get_active_session");
+        if (active) {
+          setSelectedSessionId(active.id);
+          const recording = await invoke<boolean>("is_recording");
+          if (recording) {
+            setRecordingSessionId(active.id);
+            setIsRecording(true);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load active session:", e);
+      }
+    })();
+  }, [loadSessions]);
 
   useEffect(() => {
     if (selectedSessionId) {
@@ -258,13 +264,13 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
 
   useEffect(() => {
     const unlistenStart = listen<Session>("session-started", (event) => {
-      setActiveSession(event.payload);
+      setRecordingSessionId(event.payload.id);
       setSelectedSessionId(event.payload.id);
       loadSessions();
     });
 
     const unlistenEnd = listen<Session>("session-ended", () => {
-      setActiveSession(null);
+      setRecordingSessionId(null);
       setIsRecording(false);
       setAmplitude({ mic: 0, speaker: 0 });
       loadSessions();
@@ -280,7 +286,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     const unlisten = listen<AmplitudeEvent>(
       "session-amplitude",
       (event) => {
-        if (event.payload.session_id === activeSession?.id) {
+        if (event.payload.session_id === recordingSessionId) {
           setAmplitude({
             mic: event.payload.mic,
             speaker: event.payload.speaker,
@@ -292,25 +298,20 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [activeSession?.id]);
-
-  // Check recording state on mount / when active session changes
-  useEffect(() => {
-    const checkRecording = async () => {
-      try {
-        const recording = await invoke<boolean>("is_recording");
-        setIsRecording(recording && activeSession != null);
-      } catch {
-        setIsRecording(false);
-      }
-    };
-    checkRecording();
-  }, [activeSession]);
+  }, [recordingSessionId]);
 
   const handleNewNote = async () => {
     try {
+      // If currently recording, stop first
+      if (isRecording && recordingSessionId) {
+        await invoke("stop_session_recording", { sessionId: recordingSessionId });
+        setIsRecording(false);
+        setRecordingSessionId(null);
+        setAmplitude({ mic: 0, speaker: 0 });
+      }
+
       const result = await invoke<Session>("start_session", { title: null });
-      setActiveSession(result);
+      setRecordingSessionId(result.id);
       setSelectedSessionId(result.id);
       setTranscript([]);
       setUserNotes("");
@@ -334,12 +335,12 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     }
   };
 
-  const handleStartRecording = async () => {
-    if (!selectedSessionId) return;
+  const handleStartRecording = async (sessionId: string) => {
     try {
-      await invoke("start_session_recording", {
-        sessionId: selectedSessionId,
-      });
+      // Reactivate session if it's not the current active one
+      await invoke<Session>("reactivate_session", { sessionId });
+      await invoke("start_session_recording", { sessionId });
+      setRecordingSessionId(sessionId);
       setIsRecording(true);
     } catch (e) {
       console.error("Failed to start recording:", e);
@@ -347,10 +348,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   };
 
   const handleStopRecording = async () => {
-    if (!selectedSessionId) return;
+    if (!recordingSessionId) return;
     try {
       await invoke("stop_session_recording", {
-        sessionId: selectedSessionId,
+        sessionId: recordingSessionId,
       });
       setIsRecording(false);
       setAmplitude({ mic: 0, speaker: 0 });
@@ -374,6 +375,13 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
 
   const handleDeleteSession = async (sessionId: string) => {
     try {
+      // If deleting the recording session, stop recording first
+      if (sessionId === recordingSessionId && isRecording) {
+        await invoke("stop_session_recording", { sessionId });
+        setIsRecording(false);
+        setRecordingSessionId(null);
+        setAmplitude({ mic: 0, speaker: 0 });
+      }
       await invoke("delete_session", { sessionId });
       if (selectedSessionId === sessionId) {
         setSelectedSessionId(null);
@@ -386,13 +394,14 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     }
   };
 
+  const isSelectedRecording = isRecording && recordingSessionId === selectedSessionId;
+
   return (
     <div className="flex h-full">
       <NotesSidebar
         sessions={sessions}
         selectedId={selectedSessionId}
-        activeSessionId={activeSession?.id}
-        isRecording={isRecording}
+        recordingSessionId={isRecording ? recordingSessionId : null}
         onSelect={setSelectedSessionId}
         onNewNote={handleNewNote}
         onDelete={handleDeleteSession}
@@ -402,10 +411,9 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
         {selectedSessionId ? (
           <NoteView
             session={
-              sessions.find((s) => s.id === selectedSessionId) ?? activeSession
+              sessions.find((s) => s.id === selectedSessionId) ?? null
             }
-            isActive={activeSession?.id === selectedSessionId}
-            isRecording={isRecording}
+            isRecording={isSelectedRecording}
             amplitude={amplitude}
             transcript={transcript}
             userNotes={userNotes}
@@ -415,7 +423,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             summaryError={summaryError}
             onNotesChange={handleNotesChange}
             onTitleChange={handleTitleChange}
-            onStartRecording={handleStartRecording}
+            onStartRecording={() => handleStartRecording(selectedSessionId)}
             onStopRecording={handleStopRecording}
             onGenerateSummary={() => generateSummary(selectedSessionId)}
             enhancedNotes={enhancedNotes}

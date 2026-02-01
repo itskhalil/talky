@@ -486,6 +486,29 @@ impl SessionManager {
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
+    pub fn reactivate_session(&self, session_id: &str) -> Result<Session> {
+        // End any currently active session
+        self.end_session()?;
+
+        // Reactivate the target session
+        let conn = self.get_connection()?;
+        conn.execute(
+            "UPDATE sessions SET status = 'active', ended_at = NULL WHERE id = ?1",
+            params![session_id],
+        )?;
+
+        *self.active_session.lock().unwrap() = Some(session_id.to_string());
+        *self.session_start_time.lock().unwrap() = Some(std::time::Instant::now());
+
+        let session = self.get_session(session_id)?
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
+
+        let _ = self.app_handle.emit("session-started", &session);
+        info!("Session reactivated: {}", session_id);
+
+        Ok(session)
+    }
+
     fn format_session_title(&self, timestamp: i64) -> String {
         if let Some(utc_datetime) = DateTime::from_timestamp(timestamp, 0) {
             let local_datetime = utc_datetime.with_timezone(&Local);

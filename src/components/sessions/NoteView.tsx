@@ -29,7 +29,6 @@ interface TranscriptSegment {
 
 interface NoteViewProps {
   session: Session | null | undefined;
-  isActive: boolean;
   isRecording: boolean;
   amplitude: { mic: number; speaker: number };
   transcript: TranscriptSegment[];
@@ -166,7 +165,6 @@ function EnhancedNotesPanel({ content, loading, error }: { content: string | nul
 
 export function NoteView({
   session,
-  isActive,
   isRecording,
   amplitude,
   transcript,
@@ -217,7 +215,6 @@ export function NoteView({
   };
 
   const hasTranscript = transcript.length > 0;
-  const isEnded = !isActive;
   const hasEnhanced = enhancedNotes != null || enhanceLoading || enhanceError != null;
 
   return (
@@ -305,105 +302,105 @@ export function NoteView({
         </div>
       </div>
 
-      {/* Floating recording panel */}
-      {(isActive || hasTranscript) && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4">
-          <div className="bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
-            {/* Expandable transcript area */}
-            {panelOpen && (
-              <div className="max-h-64 overflow-y-auto px-5 pt-4 pb-2 border-b border-border">
-                {transcript.length === 0 ? (
-                  <p data-ui className="text-xs text-text-secondary py-2">
-                    {t("sessions.noTranscript")}
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {transcript.map((seg) => (
-                      <div key={seg.id} className="flex gap-3 text-sm">
-                        <span
-                          data-ui
-                          className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums"
-                        >
-                          {formatMs(seg.start_ms)}
-                        </span>
-                        <span className="text-sm leading-relaxed text-text">
-                          {seg.text}
-                        </span>
-                      </div>
-                    ))}
-                    <div ref={transcriptEndRef} />
-                  </div>
-                )}
-              </div>
-            )}
+      {/* Floating recording panel — always show for any note */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4">
+        <div className="bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
+          {/* Expandable transcript area */}
+          {panelOpen && (
+            <div className="max-h-64 overflow-y-auto px-5 pt-4 pb-2 border-b border-border">
+              {transcript.length === 0 ? (
+                <p data-ui className="text-xs text-text-secondary py-2">
+                  {t("sessions.noTranscript")}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {transcript.map((seg) => (
+                    <div key={seg.id} className="flex gap-3 text-sm">
+                      <span
+                        data-ui
+                        className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums"
+                      >
+                        {formatMs(seg.start_ms)}
+                      </span>
+                      <span className="text-sm leading-relaxed text-text">
+                        {seg.text}
+                      </span>
+                    </div>
+                  ))}
+                  <div ref={transcriptEndRef} />
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Bottom bar */}
-            <div data-ui className="flex items-center justify-between px-3 py-2">
-              {/* Left: audio icon + chevron + stop */}
-              <div className="flex items-center gap-0.5">
-                {isRecording && (() => {
-                  const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
-                  const clamped = Math.min(Math.max(amp * 3, 0), 1);
-                  const minH = 4;
-                  const maxH = 16;
-                  const h1 = minH + clamped * (maxH - minH) * 0.7;
-                  const h2 = minH + clamped * (maxH - minH);
-                  const h3 = minH + clamped * (maxH - minH) * 0.5;
-                  const cy = 12; // vertical center
-                  return (
-                    <svg width="22" height="22" viewBox="0 0 24 24" className="text-green-500">
-                      <rect x="4" y={cy - h1 / 2} width="3" height={h1} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                      <rect x="10.5" y={cy - h2 / 2} width="3" height={h2} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                      <rect x="17" y={cy - h3 / 2} width="3" height={h3} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                    </svg>
-                  );
-                })()}
+          {/* Bottom bar */}
+          <div data-ui className="flex items-center justify-between px-3 py-2">
+            {/* Left: audio icon + chevron + stop */}
+            <div className="flex items-center gap-0.5">
+              {isRecording && (() => {
+                const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
+                const clamped = Math.min(Math.max(amp * 3, 0), 1);
+                const minH = 4;
+                const maxH = 16;
+                const h1 = minH + clamped * (maxH - minH) * 0.7;
+                const h2 = minH + clamped * (maxH - minH);
+                const h3 = minH + clamped * (maxH - minH) * 0.5;
+                const cy = 12; // vertical center
+                return (
+                  <svg width="22" height="22" viewBox="0 0 24 24" className="text-green-500">
+                    <rect x="4" y={cy - h1 / 2} width="3" height={h1} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                    <rect x="10.5" y={cy - h2 / 2} width="3" height={h2} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                    <rect x="17" y={cy - h3 / 2} width="3" height={h3} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                  </svg>
+                );
+              })()}
+              <button
+                onClick={() => setPanelOpen(!panelOpen)}
+                className="p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+              >
+                {panelOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+              </button>
+              {isRecording && (
                 <button
-                  onClick={() => setPanelOpen(!panelOpen)}
-                  className="p-1.5 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                  onClick={onStopRecording}
+                  className="p-1.5 rounded-md bg-text/8 hover:bg-text/12 transition-colors text-text-secondary/60"
+                  title={t("sessions.stopRecording")}
                 >
-                  {panelOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  <Square size={11} fill="currentColor" />
                 </button>
-                {isRecording && (
-                  <button
-                    onClick={onStopRecording}
-                    className="p-1.5 rounded-md bg-text/8 hover:bg-text/12 transition-colors text-text-secondary/60"
-                    title={t("sessions.stopRecording")}
-                  >
-                    <Square size={11} fill="currentColor" />
-                  </button>
-                )}
-              </div>
+              )}
+            </div>
 
-              {/* Right: resume / summary */}
-              <div className="flex items-center gap-3">
-                {isActive && !isRecording && (
+            {/* Right: resume / start recording / enhance */}
+            <div className="flex items-center gap-3">
+              {!isRecording && (
+                <button
+                  onClick={onStartRecording}
+                  className="text-xs font-medium text-accent hover:text-accent/70 transition-colors"
+                >
+                  {hasTranscript
+                    ? t("sessions.resumeRecording")
+                    : t("sessions.startRecording")}
+                </button>
+              )}
+              {!isRecording && hasTranscript && !enhanceLoading && (
+                <>
+                  <span className="w-px h-3.5 bg-border-strong" />
                   <button
-                    onClick={onStartRecording}
-                    className="text-xs font-medium text-accent hover:text-accent/70 transition-colors"
+                    onClick={onEnhanceNotes}
+                    className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors"
                   >
-                    {t("sessions.resumeRecording")}
+                    <Sparkles size={12} />
+                    {enhancedNotes
+                      ? t("sessions.reenhance")
+                      : t("sessions.enhanceNotes")}
                   </button>
-                )}
-                {!isRecording && hasTranscript && !enhanceLoading && (
-                  <>
-                    {isActive && <span className="w-px h-3.5 bg-border-strong" />}
-                    <button
-                      onClick={onEnhanceNotes}
-                      className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors"
-                    >
-                      <Sparkles size={12} />
-                      {enhancedNotes
-                        ? t("sessions.reenhance")
-                        : t("sessions.enhanceNotes")}
-                    </button>
-                  </>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
