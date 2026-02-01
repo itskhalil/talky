@@ -1,7 +1,7 @@
 //! Shared shortcut event handling logic
 //!
 //! This module contains the common logic for handling shortcut events,
-//! used by both the Tauri and handy-keys implementations.
+//! used by the Talky keyboard implementation.
 
 use log::warn;
 use std::sync::Arc;
@@ -17,7 +17,6 @@ use crate::ManagedToggleState;
 /// This function contains the shared logic for:
 /// - Looking up the action in ACTION_MAP
 /// - Handling the cancel binding (only fires when recording)
-/// - Handling push-to-talk mode (start on press, stop on release)
 /// - Handling toggle mode (toggle state on press only)
 ///
 /// # Arguments
@@ -31,7 +30,6 @@ pub fn handle_shortcut_event(
     hotkey_string: &str,
     is_pressed: bool,
 ) {
-    let settings = get_settings(app);
 
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!(
@@ -50,15 +48,6 @@ pub fn handle_shortcut_event(
         return;
     }
 
-    // Push-to-talk mode: start on press, stop on release
-    if settings.push_to_talk {
-        if is_pressed {
-            action.start(app, binding_id, hotkey_string);
-        } else {
-            action.stop(app, binding_id, hotkey_string);
-        }
-        return;
-    }
 
     // Toggle mode: toggle state on press only
     if is_pressed {

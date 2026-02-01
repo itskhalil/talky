@@ -1,4 +1,4 @@
-const HandyHand = ({
+const TalkyHand = ({
   width,
   height,
 }: {
@@ -21,4 +21,4 @@ const HandyHand = ({
   </svg>
 );
 
-export default HandyHand;
+export default TalkyHand;
