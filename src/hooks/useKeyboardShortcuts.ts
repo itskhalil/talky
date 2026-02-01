@@ -33,7 +33,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (mod && e.key === "k") {
+      if (mod && (e.key === "k" || e.key === "/")) {
         e.preventDefault();
         const input = document.querySelector<HTMLInputElement>(
           "[data-search-input]",

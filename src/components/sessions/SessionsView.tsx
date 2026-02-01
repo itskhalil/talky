@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { StickyNote, PanelLeftOpen } from "lucide-react";
+import { StickyNote, PanelLeftOpen, Settings } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
@@ -36,6 +36,7 @@ function EmptyState({ onNewNote }: { onNewNote: () => void }) {
 }
 
 export function SessionsView({ onOpenSettings }: SessionsViewProps) {
+  const { t } = useTranslation();
   const sessions = useSessionStore((s) => s.sessions);
   const selectedSessionId = useSessionStore((s) => s.selectedSessionId);
   const recordingSessionId = useSessionStore((s) => s.recordingSessionId);
@@ -74,9 +75,9 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [findBarOpen, setFindBarOpen] = useState(false);
 
   // Resizable sidebar
-  const SIDEBAR_MIN = 180;
+  const SIDEBAR_MIN = 200;
   const SIDEBAR_MAX = 400;
-  const SIDEBAR_DEFAULT = 224;
+  const SIDEBAR_DEFAULT = 260;
   const SIDEBAR_STORAGE_KEY = "handy-sidebar-width";
   const SIDEBAR_COLLAPSED_KEY = "handy-sidebar-collapsed";
 
@@ -159,14 +160,22 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   return (
     <div className="flex h-full">
       {sidebarCollapsed ? (
-        <div className="flex flex-col items-center py-3 px-1 border-r border-t border-border bg-background-sidebar">
-          <button
-            onClick={() => setSidebarCollapsed(false)}
-            className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
-            title={t("notes.expandSidebar")}
-          >
-            <PanelLeftOpen size={17} />
-          </button>
+        <div className="flex flex-col items-center justify-end py-3 px-1 border-r border-t border-border bg-background-sidebar h-full">
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={onOpenSettings}
+              className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+            >
+              <Settings size={17} />
+            </button>
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+              title={t("notes.expandSidebar")}
+            >
+              <PanelLeftOpen size={17} />
+            </button>
+          </div>
         </div>
       ) : (
         <>

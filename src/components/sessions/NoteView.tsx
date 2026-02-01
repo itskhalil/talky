@@ -406,15 +406,42 @@ export function NoteView({
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Title + editor area */}
       {findBarOpen && onCloseFindBar && (
         <div className="absolute top-2 right-4 z-20 w-80">
           <FindBar editor={activeEditor} onClose={onCloseFindBar} />
         </div>
       )}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll px-12 pt-4 pb-32 w-full cursor-text select-text">
-        {/* Editable title + view mode toggle */}
-        <div className="max-w-3xl mx-auto flex items-center gap-2 mb-6">
+      {/* Pinned toggle + copy controls */}
+      {hasEnhanced && (
+        <div className="absolute top-4 right-12 z-10 flex items-center gap-1.5">
+          <div className="flex bg-text/8 rounded-lg p-0.5">
+            <button
+              onClick={() => onViewModeChange("enhanced")}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
+              title={t("sessions.enhancedNotes")}
+            >
+              <Sparkles size={14} />
+            </button>
+            <button
+              onClick={() => onViewModeChange("notes")}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
+              title={t("sessions.yourNotes")}
+            >
+              <PenLine size={14} />
+            </button>
+          </div>
+          <button
+            onClick={handleCopyNotes}
+            className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
+            title={t("sessions.copyNotes")}
+          >
+            {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+          </button>
+        </div>
+      )}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-4 pb-32 w-full cursor-text select-text">
+        {/* Editable title */}
+        <div className="max-w-3xl mx-auto mb-6">
           <input
             type="text"
             data-ui
@@ -423,38 +450,10 @@ export function NoteView({
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             placeholder={t("sessions.newNote")}
-            className="flex-1 text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight"
+            className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-24"
           />
-          {hasEnhanced && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <div className="flex bg-text/8 rounded-lg p-0.5">
-                <button
-                  onClick={() => onViewModeChange("enhanced")}
-                  className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                  title={t("sessions.enhancedNotes")}
-                >
-                  <Sparkles size={14} />
-                </button>
-                <button
-                  onClick={() => onViewModeChange("notes")}
-                  className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                  title={t("sessions.yourNotes")}
-                >
-                  <PenLine size={14} />
-                </button>
-              </div>
-              <button
-                onClick={handleCopyNotes}
-                className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-                title={t("sessions.copyNotes")}
-              >
-                {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-              </button>
-            </div>
-          )}
         </div>
-
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto overflow-hidden break-words">
 
           {/* Content area */}
           {hasEnhanced && viewMode === "enhanced" ? (
@@ -544,7 +543,7 @@ export function NoteView({
                 {panelMode === "transcript" && transcript.length > 0 && (
                   <button
                     onClick={handleCopyTranscript}
-                    className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                    className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
                     title={t("sessions.copyTranscript")}
                   >
                     {transcriptCopied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
@@ -553,12 +552,18 @@ export function NoteView({
                 {panelMode === "chat" && chat.messages.length > 0 && (
                   <button
                     onClick={chat.clearMessages}
-                    className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                    className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
                     title={t("sessions.chat.newChat")}
                   >
                     <RotateCcw size={12} />
                   </button>
                 )}
+                <button
+                  onClick={() => setPanelOpen(false)}
+                  className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                >
+                  <ChevronDown size={12} />
+                </button>
               </div>
 
               {/* Panel content */}

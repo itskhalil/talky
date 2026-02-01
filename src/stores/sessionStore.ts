@@ -391,6 +391,9 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         sessionId: recordingSessionId,
       });
       set({ isRecording: false, amplitude: { mic: 0, speaker: 0 } });
+      // Auto-enhance after stopping and swap to enhanced view
+      const { enhanceNotes } = get();
+      enhanceNotes();
     } catch (e) {
       console.error("Failed to stop recording:", e);
     }
@@ -558,7 +561,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   enhanceNotes: async () => {
     const { selectedSessionId } = get();
     if (!selectedSessionId) return;
-    set({ enhanceLoading: true, enhanceError: null });
+    set({ enhanceLoading: true, enhanceError: null, viewMode: "enhanced" as const });
     try {
       console.log("[enhanceNotes] sending sessionId:", selectedSessionId);
       const result = await invoke<string>("generate_session_summary", {
