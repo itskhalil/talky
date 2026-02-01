@@ -275,6 +275,7 @@ export function NoteView({
   const [notesCopied, setNotesCopied] = useState(false);
   const [transcriptCopied, setTranscriptCopied] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     setActiveEditor(editor);
@@ -340,6 +341,18 @@ export function NoteView({
     }
   }, [enhancedNotes]);
 
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "0";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [titleValue, adjustTextareaHeight]);
+
   const handleTitleBlur = () => {
     const trimmed = titleValue.trim();
     if (trimmed && trimmed !== session?.title) {
@@ -350,7 +363,7 @@ export function NoteView({
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      (e.target as HTMLInputElement).blur();
+      (e.target as HTMLTextAreaElement).blur();
     }
   };
 
@@ -413,44 +426,49 @@ export function NoteView({
       )}
       {/* Pinned toggle + copy controls */}
       {hasEnhanced && (
-        <div className="absolute top-4 right-12 z-10 flex items-center gap-1.5">
-          <div className="flex bg-text/8 rounded-lg p-0.5">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 flex justify-end pointer-events-none z-10">
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            <div className="flex bg-text/8 rounded-lg p-0.5">
+              <button
+                onClick={() => onViewModeChange("enhanced")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                title={t("sessions.enhancedNotes")}
+              >
+                <Sparkles size={14} />
+              </button>
+              <button
+                onClick={() => onViewModeChange("notes")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                title={t("sessions.yourNotes")}
+              >
+                <PenLine size={14} />
+              </button>
+            </div>
             <button
-              onClick={() => onViewModeChange("enhanced")}
-              className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
-              title={t("sessions.enhancedNotes")}
+              onClick={handleCopyNotes}
+              className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
+              title={t("sessions.copyNotes")}
             >
-              <Sparkles size={14} />
-            </button>
-            <button
-              onClick={() => onViewModeChange("notes")}
-              className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
-              title={t("sessions.yourNotes")}
-            >
-              <PenLine size={14} />
+              {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
             </button>
           </div>
-          <button
-            onClick={handleCopyNotes}
-            className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-            title={t("sessions.copyNotes")}
-          >
-            {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-          </button>
         </div>
       )}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-4 pb-32 w-full cursor-text select-text">
         {/* Editable title */}
-        <div className="max-w-3xl mx-auto mb-6">
-          <input
-            type="text"
-            data-ui
+        <div className="max-w-2xl mx-auto mb-6">
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={titleValue}
-            onChange={(e) => setTitleValue(e.target.value)}
+            onChange={(e) => {
+              setTitleValue(e.target.value);
+              // Height adjustment is also handled by useEffect on titleValue
+            }}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             placeholder={t("sessions.newNote")}
-            className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-24"
+            className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden"
           />
         </div>
         <div className="max-w-3xl mx-auto overflow-hidden break-words">
@@ -754,11 +772,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed ${
-          isUser
-            ? "bg-accent/10 text-text"
-            : "bg-background-secondary text-text"
-        }`}
+        className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed ${isUser
+          ? "bg-accent/10 text-text"
+          : "bg-background-secondary text-text"
+          }`}
       >
         <span className="whitespace-pre-wrap">{message.content}</span>
         {!isUser && message.content === "" && (
