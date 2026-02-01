@@ -56,6 +56,22 @@
     "errors": {
       "loadModels": "Nepodařilo se načíst dostupné modely",
       "downloadModel": "Nepodařilo se stáhnout model: {{error}}"
+    },
+    "permissions": {
+      "title": "Požadovaná oprávnění",
+      "description": "Talky potřebuje několik oprávnění pro správné fungování.",
+      "microphone": {
+        "title": "Přístup k mikrofonu",
+        "description": "Potřebný pro naslouchání vašemu hlasu pro přepis."
+      },
+      "screenRecording": {
+        "title": "Přístup k nahrávání obrazovky",
+        "description": "Potřebný pro zachycení zvuku reproduktorů během schůzek."
+      },
+      "grant": "Udělit oprávnění",
+      "granted": "Uděleno",
+      "waiting": "Čekání...",
+      "allGranted": "Vše připraveno!"
     }
   },
   "modelSelector": {
@@ -416,12 +432,6 @@
     "yes": "Ano",
     "no": "Ne",
     "noOptionsFound": "Nenalezeny žádné možnosti"
-  },
-  "accessibility": {
-    "permissionsRequired": "Vyžadována oprávnění usnadnění přístupu",
-    "permissionsDescription": "Talky potřebuje oprávnění usnadnění přístupu, aby mohlo psát přepsaný text.",
-    "openSettings": "Otevřít Nastavení systému",
-    "dismiss": "Zavřít"
   },
   "errors": {
     "loadDirectory": "Chyba při načítání adresáře: {{error}}"

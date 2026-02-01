@@ -64,9 +64,9 @@
         "title": "麦克风访问",
         "description": "需要听取您的语音进行转录。"
       },
-      "accessibility": {
-        "title": "辅助功能访问",
-        "description": "需要将转录文本输入到您的应用程序中。"
+      "screenRecording": {
+        "title": "屏幕录制访问",
+        "description": "需要在会议中捕获扬声器音频。"
       },
       "grant": "授予权限",
       "granted": "已授予",
@@ -432,12 +432,6 @@
     "yes": "是",
     "no": "否",
     "noOptionsFound": "未找到选项"
-  },
-  "accessibility": {
-    "permissionsRequired": "需要辅助功能权限",
-    "permissionsDescription": "Talky 需要辅助功能权限才能输入转录的文字。",
-    "openSettings": "打开系统设置",
-    "dismiss": "关闭"
   },
   "errors": {
     "loadDirectory": "加载目录时出错: {{error}}"

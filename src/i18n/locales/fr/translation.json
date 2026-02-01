@@ -65,9 +65,9 @@
         "title": "Accès au microphone",
         "description": "Nécessaire pour entendre votre voix pour la transcription."
       },
-      "accessibility": {
-        "title": "Accès à l'accessibilité",
-        "description": "Nécessaire pour taper le texte transcrit dans vos applications."
+      "screenRecording": {
+        "title": "Accès à l'enregistrement d'écran",
+        "description": "Nécessaire pour capturer l'audio du haut-parleur dans les réunions."
       },
       "grant": "Accorder l'autorisation",
       "granted": "Accordé",
@@ -433,12 +433,6 @@
     "yes": "Oui",
     "no": "Non",
     "noOptionsFound": "Aucune option trouvée"
-  },
-  "accessibility": {
-    "permissionsRequired": "Autorisations d'accessibilité requises",
-    "permissionsDescription": "Talky a besoin des autorisations d'accessibilité pour taper le texte transcrit.",
-    "openSettings": "Ouvrir les Préférences Système",
-    "dismiss": "Ignorer"
   },
   "errors": {
     "loadDirectory": "Erreur lors du chargement du répertoire : {{error}}"

@@ -64,9 +64,9 @@
         "title": "Mikrofonzugriff",
         "description": "Erforderlich, um Ihre Stimme für die Transkription zu hören."
       },
-      "accessibility": {
-        "title": "Bedienungshilfen-Zugriff",
-        "description": "Erforderlich, um transkribierten Text in Ihre Anwendungen einzugeben."
+      "screenRecording": {
+        "title": "Bildschirmaufnahme-Zugriff",
+        "description": "Erforderlich, um Lautsprecher-Audio in Besprechungen aufzunehmen."
       },
       "grant": "Berechtigung erteilen",
       "granted": "Erteilt",
@@ -432,12 +432,6 @@
     "yes": "Ja",
     "no": "Nein",
     "noOptionsFound": "Keine Optionen gefunden"
-  },
-  "accessibility": {
-    "permissionsRequired": "Bedienungshilfen-Berechtigungen erforderlich",
-    "permissionsDescription": "Talky benötigt Bedienungshilfen-Berechtigungen, um transkribierten Text einzugeben.",
-    "openSettings": "Systemeinstellungen öffnen",
-    "dismiss": "Schließen"
   },
   "errors": {
     "loadDirectory": "Fehler beim Laden des Verzeichnisses: {{error}}"
