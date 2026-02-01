@@ -4,6 +4,26 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 import { commands } from "@/bindings";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { invoke } from "@tauri-apps/api/core";
+
+const t0 = Date.now();
+const logBuffer: string[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function chatLog(msg: string) {
+  const elapsed = Date.now() - t0;
+  const line = `[+${elapsed}ms] ${msg}`;
+  console.log(`[chat] ${line}`);
+  logBuffer.push(line);
+  // Batch writes
+  if (!flushTimer) {
+    flushTimer = setTimeout(() => {
+      const lines = logBuffer.splice(0);
+      flushTimer = null;
+      invoke("write_chat_debug_log", { lines }).catch(() => {});
+    }, 100);
+  }
+}
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -78,22 +98,22 @@ export function useNoteChat({
 
     setError(null);
 
-    console.log("[chat] provider:", providerId, "model:", model, "baseURL:", provider.base_url);
-    console.log("[chat] apiKey present:", !!apiKey, "length:", apiKey.length);
+    chatLog(`provider=${providerId} model=${model} baseURL=${provider.base_url}`);
+    chatLog(`apiKey present=${!!apiKey} length=${apiKey.length}`);
 
     // Flush pending audio before sending
     try {
-      console.log("[chat] flushing pending audio...");
+      chatLog("flushing pending audio...");
       await commands.flushPendingAudio(sessionId);
-      console.log("[chat] flush done");
+      chatLog("flush done");
     } catch (e) {
-      console.warn("[chat] flush error (non-fatal):", e);
+      chatLog(`flush error (non-fatal): ${e}`);
     }
 
     // Get latest transcript & notes
     const transcript = getTranscript();
     const userNotes = getUserNotes();
-    console.log("[chat] transcript length:", transcript.length, "notes length:", userNotes.length);
+    chatLog(`transcript length=${transcript.length} notes length=${userNotes.length}`);
 
     const userMessage: ChatMessage = { role: "user", content: trimmed };
     const newMessages = [...messages, userMessage];
@@ -118,14 +138,14 @@ Answer concisely based on the context above. If the information isn't in the con
       // Build the AI SDK provider
       let aiModel;
       if (providerId === "anthropic") {
-        console.log("[chat] using Anthropic provider");
+        chatLog("using Anthropic provider");
         const anthropic = createAnthropic({
           apiKey,
           baseURL: provider.base_url,
         });
         aiModel = anthropic(model);
       } else {
-        console.log("[chat] using OpenAI-compatible provider");
+        chatLog("using OpenAI-compatible provider");
         const openai = createOpenAI({
           apiKey,
           baseURL: provider.base_url,
@@ -138,7 +158,7 @@ Answer concisely based on the context above. If the information isn't in the con
         content: m.content,
       }));
 
-      console.log("[chat] calling streamText with", apiMessages.length, "messages");
+      chatLog(`calling streamText with ${apiMessages.length} messages`);
       const result = streamText({
         model: aiModel,
         system: systemPrompt,
@@ -150,9 +170,9 @@ Answer concisely based on the context above. If the information isn't in the con
       const assistantIdx = newMessages.length;
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      console.log("[chat] awaiting result...");
+      chatLog("awaiting result...");
       const resolved = await result;
-      console.log("[chat] got result, iterating textStream...");
+      chatLog("got result, iterating textStream...");
 
       for await (const chunk of resolved.textStream) {
         if (abortController.signal.aborted) break;
@@ -165,11 +185,11 @@ Answer concisely based on the context above. If the information isn't in the con
           return updated;
         });
       }
-      console.log("[chat] stream complete");
+      chatLog("stream complete");
     } catch (err: unknown) {
       console.error("[chat] error:", err);
       if (err instanceof Error && err.name === "AbortError") {
-        console.log("[chat] aborted by user");
+        chatLog("aborted by user");
       } else {
         const errorMsg =
           err instanceof Error ? err.message : String(err);
@@ -190,7 +210,7 @@ Answer concisely based on the context above. If the information isn't in the con
     } finally {
       abortRef.current = null;
       setIsLoading(false);
-      console.log("[chat] done, isLoading=false");
+      chatLog("done, isLoading=false");
     }
   }, [input, isLoading, messages, sessionId, getTranscript, getUserNotes]);
 

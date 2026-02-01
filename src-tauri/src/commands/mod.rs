@@ -40,6 +40,26 @@ pub fn get_default_settings() -> Result<AppSettings, String> {
 
 #[tauri::command]
 #[specta::specta]
+pub fn write_chat_debug_log(app: AppHandle, lines: Vec<String>) -> Result<(), String> {
+    use std::io::Write;
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| format!("Failed to get log directory: {}", e))?;
+    let path = log_dir.join("chat-debug.log");
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|e| format!("Failed to open chat log: {}", e))?;
+    for line in &lines {
+        writeln!(file, "{}", line).map_err(|e| format!("Failed to write: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn get_log_dir_path(app: AppHandle) -> Result<String, String> {
     let log_dir = app
         .path()
