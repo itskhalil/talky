@@ -119,7 +119,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   )}
                   <span
                     data-ui
-                    className={`text-sm truncate ${isSelected ? "font-medium text-text" : "text-text"
+                    className={`text-sm line-clamp-2 break-words ${isSelected ? "font-medium text-text" : "text-text"
                       }`}
                   >
                     {session.title}
