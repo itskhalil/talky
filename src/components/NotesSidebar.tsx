@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus, Trash2, Settings, Search } from "lucide-react";
+import { Plus, Trash2, Settings, Search, PanelLeftClose } from "lucide-react";
 
 interface Session {
   id: string;
@@ -19,6 +19,7 @@ interface NotesSidebarProps {
   onNewNote: () => void;
   onDelete: (id: string) => void;
   onOpenSettings: () => void;
+  onCollapse?: () => void;
 }
 
 function formatDate(timestamp: number): string {
@@ -37,6 +38,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   onNewNote,
   onDelete,
   onOpenSettings,
+  onCollapse,
 }) => {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,7 +70,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const displayedSessions = searchResults ?? sessions;
 
   return (
-    <div className="flex flex-col w-56 h-full border-r border-t border-border bg-background-sidebar">
+    <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar">
       <div className="px-3 pt-3 pb-2">
         <button
           onClick={onNewNote}
@@ -141,14 +143,23 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         })}
       </div>
 
-      {/* Bottom: settings gear */}
-      <div className="px-3 py-3 border-t border-border">
+      {/* Bottom: settings + collapse */}
+      <div className="flex items-center justify-between px-3 py-3 border-t border-border">
         <button
           onClick={onOpenSettings}
           className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
         >
           <Settings size={17} />
         </button>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+            title={t("notes.collapseSidebar")}
+          >
+            <PanelLeftClose size={17} />
+          </button>
+        )}
       </div>
     </div>
   );
