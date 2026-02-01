@@ -95,21 +95,7 @@ pub async fn generate_session_summary(
         return Err("No post-process model configured".to_string());
     }
 
-    let system_message = "You are enhancing meeting notes. You will receive:\n\
-1. The user's rough notes — these signal what THEY found important\n\
-2. The full meeting transcript\n\n\
-Generate polished, comprehensive meeting notes. For each line of output, prefix it with either [user] or [ai]:\n\
-- [user] = content that corresponds to something the user noted (even if you've reworded it for clarity)\n\
-- [ai] = new detail you added from the transcript that the user didn't capture\n\n\
-Guidelines:\n\
-- The user's notes tell you what matters. Their topics and emphasis are your guide.\n\
-- Read like notes, not prose. \"Q3 budget = 100k (60k infra, 25k tooling, 15k contingency)\" not \"The group discussed the Q3 budget and agreed to set it at $100,000.\"\n\
-- Use the user's vocabulary. If they wrote \"SHIVA\", write \"SHIVA\" even if transcript heard \"shiba\".\n\
-- Match their tone and density.\n\
-- Add important details from the transcript the user missed — names, numbers, dates, decisions, action items.\n\
-- For significant topics the user didn't note at all, add them as [ai] sections.\n\
-- Use markdown: ### headers, bullet points (-), **bold** for key items.\n\
-- Output only the notes. No preamble.".to_string();
+    let system_message = include_str!("../../../.AI/prompt.txt").to_string();
 
     let notes_section = if user_notes.trim().is_empty() {
         "No notes were taken. Generate comprehensive notes from the transcript, marking all lines as [ai].".to_string()
