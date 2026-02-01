@@ -164,6 +164,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       const result = await invoke<string>("generate_session_summary", {
         sessionId,
       });
+      console.log("[enhanceNotes] raw model response:\n", result);
       setEnhancedNotes(result);
       setViewMode("enhanced");
     } catch (e) {
@@ -226,8 +227,16 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
 
   useEffect(() => {
     if (selectedSessionId) {
-      loadTranscript(selectedSessionId);
+      // Reset state immediately so there's no stale content while loading
       setNotesLoaded(false);
+      setTranscript([]);
+      setSummary(null);
+      setSummaryError(null);
+      setEnhancedNotes(null);
+      setEnhanceError(null);
+      setViewMode("enhanced");
+
+      loadTranscript(selectedSessionId);
       loadUserNotes(selectedSessionId);
       loadSummary(selectedSessionId);
       loadEnhancedNotes(selectedSessionId);

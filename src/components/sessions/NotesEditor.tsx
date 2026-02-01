@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
-import { AiSourceExtension } from "./AiSourceExtension";
+import { AiSourceExtension, setSuppressSourcePromotion } from "./AiSourceExtension";
 import { JSONContent } from "@tiptap/core";
 import "./notes-editor.css";
 
@@ -35,12 +35,18 @@ export function NotesEditor({
 
   const isEnhanced = mode === "enhanced";
   const initialJSONAppliedRef = useRef<JSONContent | null>(null);
+  const suppressUpdateRef = useRef(false);
+
+  // Reset the ref when mode changes so the new editor instance gets content
+  useEffect(() => {
+    initialJSONAppliedRef.current = null;
+  }, [mode]);
 
   const editor = useEditor(
     {
       extensions: [
         StarterKit.configure({
-          heading: isEnhanced ? { levels: [1, 2, 3] } : false,
+          heading: { levels: [1, 2, 3] },
           codeBlock: false,
           code: false,
           blockquote: false,
@@ -55,6 +61,7 @@ export function NotesEditor({
       content: "",
       editable: !disabled,
       onUpdate: ({ editor }) => {
+        if (suppressUpdateRef.current) return;
         if (modeRef.current === "enhanced") {
           onJSONChangeRef.current?.(editor.getJSON());
         } else {
@@ -73,12 +80,20 @@ export function NotesEditor({
       // Only apply if this is a genuinely new JSON payload (not one we already set)
       if (initialJSON !== initialJSONAppliedRef.current) {
         initialJSONAppliedRef.current = initialJSON;
+        suppressUpdateRef.current = true;
+        setSuppressSourcePromotion(true);
         editor.commands.setContent(initialJSON);
+        setSuppressSourcePromotion(false);
+        suppressUpdateRef.current = false;
       }
     } else if (!isEnhanced) {
       const current = (editor.storage as Record<string, any>).markdown?.getMarkdown() ?? "";
       if (current !== content) {
+        suppressUpdateRef.current = true;
+        setSuppressSourcePromotion(true);
         editor.commands.setContent(content);
+        setSuppressSourcePromotion(false);
+        suppressUpdateRef.current = false;
       }
     }
   }, [content, initialJSON, editor, isEnhanced]);

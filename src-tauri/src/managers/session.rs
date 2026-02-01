@@ -268,6 +268,36 @@ impl SessionManager {
         Ok(segment)
     }
 
+    pub fn search_sessions(&self, query: &str) -> Result<Vec<Session>> {
+        let conn = self.get_connection()?;
+        let pattern = format!("%{}%", query);
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status
+             FROM sessions s
+             LEFT JOIN meeting_notes mn ON mn.session_id = s.id
+             WHERE s.title LIKE ?1
+                OR mn.user_notes LIKE ?1
+                OR mn.enhanced_notes LIKE ?1
+             ORDER BY s.started_at DESC",
+        )?;
+
+        let rows = stmt.query_map(params![pattern], |row| {
+            Ok(Session {
+                id: row.get("id")?,
+                title: row.get("title")?,
+                started_at: row.get("started_at")?,
+                ended_at: row.get("ended_at")?,
+                status: row.get("status")?,
+            })
+        })?;
+
+        let mut sessions = Vec::new();
+        for row in rows {
+            sessions.push(row?);
+        }
+        Ok(sessions)
+    }
+
     pub fn get_sessions(&self) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(

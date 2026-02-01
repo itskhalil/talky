@@ -96,9 +96,8 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
     const trimmed = cleaned.trimStart();
     const source = isAi ? "ai" : "user";
 
-    // Empty line → empty paragraph
+    // Skip empty lines — spacing is handled by CSS margins on headings/lists
     if (trimmed === "") {
-      nodes.push({ type: "paragraph", attrs: { source: "user" } });
       i++;
       continue;
     }
@@ -271,6 +270,7 @@ export function NoteView({
   // Parse enhanced notes into tiptap JSON when they change
   useEffect(() => {
     if (enhancedNotes) {
+      console.log("[EnhancedNotesPanel] raw content:\n", enhancedNotes);
       setEnhancedJSON(parseEnhancedToTiptapJSON(enhancedNotes));
     } else {
       setEnhancedJSON(null);

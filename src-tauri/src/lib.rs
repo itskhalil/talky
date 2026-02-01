@@ -313,6 +313,7 @@ pub fn run() {
         commands::session::stop_session_recording,
         commands::session::reactivate_session,
         commands::session::end_session,
+        commands::session::search_sessions,
         commands::session::get_sessions,
         commands::session::get_session,
         commands::session::get_session_transcript,

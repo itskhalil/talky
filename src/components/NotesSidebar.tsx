@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Settings } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { Plus, Trash2, Settings, Search } from "lucide-react";
 
 interface Session {
   id: string;
@@ -38,6 +39,33 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   onOpenSettings,
 }) => {
   const { t } = useTranslation();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Session[] | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const doSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    try {
+      const results = await invoke<Session[]>("search_sessions", { query: query.trim() });
+      setSearchResults(results);
+    } catch (e) {
+      console.error("Search failed:", e);
+      setSearchResults(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(searchQuery), 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery, doSearch]);
+
+  const displayedSessions = searchResults ?? sessions;
 
   return (
     <div className="flex flex-col w-56 h-full border-r border-t border-border bg-background-sidebar">
@@ -52,9 +80,23 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         </button>
       </div>
 
+      {/* Search */}
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("notes.searchPlaceholder")}
+            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-transparent border border-border text-text placeholder:text-text-secondary focus:outline-none focus:border-border transition-colors"
+          />
+        </div>
+      </div>
+
       {/* Notes list */}
       <div className="flex-1 overflow-y-auto px-2">
-        {sessions.map((session) => {
+        {displayedSessions.map((session) => {
           const isSelected = selectedId === session.id;
           const isRecordingThis = recordingSessionId === session.id;
 

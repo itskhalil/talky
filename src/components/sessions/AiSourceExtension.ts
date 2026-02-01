@@ -1,6 +1,12 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
+/** Module-level flag to prevent source promotion during programmatic setContent */
+let _suppressSourcePromotion = false;
+export function setSuppressSourcePromotion(v: boolean) {
+  _suppressSourcePromotion = v;
+}
+
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     aiSource: {
@@ -40,10 +46,9 @@ export const AiSourceExtension = Extension.create({
       new Plugin({
         key: new PluginKey("aiSourcePromotion"),
         appendTransaction(transactions, _oldState, newState) {
-          // Only process if there was an actual content change from user input
-          const hasDocChange = transactions.some(
-            (tr) => tr.docChanged && !tr.getMeta("setContent"),
-          );
+          // Only promote on user-driven edits — not programmatic setContent
+          if (_suppressSourcePromotion) return null;
+          const hasDocChange = transactions.some((tr) => tr.docChanged);
           if (!hasDocChange) return null;
 
           const { tr } = newState;

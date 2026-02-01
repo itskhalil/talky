@@ -694,6 +694,14 @@ async endSession() : Promise<Result<Session | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async searchSessions(query: string) : Promise<Result<Session[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("search_sessions", { query }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getSessions() : Promise<Result<Session[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_sessions") };
