@@ -268,6 +268,12 @@ pub struct AppSettings {
     pub experimental_enabled: bool,
     #[serde(default)]
     pub keyboard_implementation: KeyboardImplementation,
+    #[serde(default = "default_chat_provider_id")]
+    pub chat_provider_id: String,
+    #[serde(default = "default_chat_api_keys")]
+    pub chat_api_keys: HashMap<String, String>,
+    #[serde(default = "default_chat_models")]
+    pub chat_models: HashMap<String, String>,
 }
 
 fn default_model() -> String {
@@ -440,6 +446,18 @@ fn default_post_process_prompts() -> Vec<LLMPrompt> {
     }]
 }
 
+fn default_chat_provider_id() -> String {
+    "openai".to_string()
+}
+
+fn default_chat_api_keys() -> HashMap<String, String> {
+    HashMap::new()
+}
+
+fn default_chat_models() -> HashMap<String, String> {
+    HashMap::new()
+}
+
 fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
     let mut changed = false;
     for provider in default_post_process_providers() {
@@ -548,6 +566,9 @@ pub fn get_default_settings() -> AppSettings {
         app_language: default_app_language(),
         experimental_enabled: false,
         keyboard_implementation: KeyboardImplementation::default(),
+        chat_provider_id: default_chat_provider_id(),
+        chat_api_keys: default_chat_api_keys(),
+        chat_models: default_chat_models(),
     }
 }
 
@@ -562,6 +583,12 @@ impl AppSettings {
         self.post_process_providers
             .iter()
             .find(|provider| provider.id == provider_id)
+    }
+
+    pub fn active_chat_provider(&self) -> Option<&PostProcessProvider> {
+        self.post_process_providers
+            .iter()
+            .find(|provider| provider.id == self.chat_provider_id)
     }
 
     pub fn post_process_provider_mut(

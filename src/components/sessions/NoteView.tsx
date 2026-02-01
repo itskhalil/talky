@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
+import { ChatDrawer } from "./ChatDrawer";
 import { JSONContent, Editor } from "@tiptap/core";
 
 interface Session {
@@ -346,6 +347,19 @@ export function NoteView({
     onEnhancedNotesChange?.(tagged);
   };
 
+  const getTranscriptText = useCallback(() => {
+    return transcript
+      .map((seg) => {
+        const label = seg.source === "mic" ? "[You]" : "[Other]";
+        return `[${formatMs(seg.start_ms)}] ${label}: ${seg.text}`;
+      })
+      .join("\n");
+  }, [transcript]);
+
+  const getUserNotesText = useCallback(() => {
+    return userNotes;
+  }, [userNotes]);
+
   const hasTranscript = transcript.length > 0;
   const hasEnhanced = enhancedNotes != null || enhanceLoading || enhanceError != null;
 
@@ -465,6 +479,15 @@ export function NoteView({
           )}
         </div>
       </div>
+
+      {/* Chat drawer */}
+      {session && (
+        <ChatDrawer
+          sessionId={session.id}
+          getTranscript={getTranscriptText}
+          getUserNotes={getUserNotesText}
+        />
+      )}
 
       {/* Floating recording panel — always show for any note */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4">

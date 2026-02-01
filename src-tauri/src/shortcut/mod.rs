@@ -879,3 +879,79 @@ pub fn change_app_language_setting(app: AppHandle, language: String) -> Result<(
 
     Ok(())
 }
+
+// ============================================================================
+// Chat Settings Commands
+// ============================================================================
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_chat_provider(app: AppHandle, provider_id: String) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    validate_provider_exists(&settings, &provider_id)?;
+    settings.chat_provider_id = provider_id;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_chat_api_key_setting(
+    app: AppHandle,
+    provider_id: String,
+    api_key: String,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    validate_provider_exists(&settings, &provider_id)?;
+    settings.chat_api_keys.insert(provider_id, api_key);
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_chat_model_setting(
+    app: AppHandle,
+    provider_id: String,
+    model: String,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    validate_provider_exists(&settings, &provider_id)?;
+    settings.chat_models.insert(provider_id, model);
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn fetch_chat_models(
+    app: AppHandle,
+    provider_id: String,
+) -> Result<Vec<String>, String> {
+    let settings = settings::get_settings(&app);
+
+    let provider = settings
+        .post_process_providers
+        .iter()
+        .find(|p| p.id == provider_id)
+        .ok_or_else(|| format!("Provider '{}' not found", provider_id))?
+        .clone();
+
+    // Try chat API key first, fall back to post-process API key
+    let api_key = settings
+        .chat_api_keys
+        .get(&provider_id)
+        .filter(|k| !k.trim().is_empty())
+        .or_else(|| settings.post_process_api_keys.get(&provider_id))
+        .cloned()
+        .unwrap_or_default();
+
+    if api_key.trim().is_empty() && provider.id != "custom" {
+        return Err(format!(
+            "API key is required for {}. Please add an API key to list available models.",
+            provider.label
+        ));
+    }
+
+    crate::llm_client::fetch_models(&provider, api_key).await
+}

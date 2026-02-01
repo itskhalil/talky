@@ -13,7 +13,8 @@
     "postProcessing": "Post Process",
     "history": "History",
     "debug": "Debug",
-    "about": "About"
+    "about": "About",
+    "chat": "Chat"
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
@@ -302,6 +303,28 @@
         "createFirst": "Click 'Create New Prompt' above to create your first post-processing prompt."
       }
     },
+    "chat": {
+      "title": "Chat",
+      "api": {
+        "title": "Chat API",
+        "provider": {
+          "title": "Provider",
+          "description": "Select an OpenAI-compatible provider for chat."
+        },
+        "apiKey": {
+          "title": "API Key",
+          "description": "API key for the selected chat provider.",
+          "placeholder": "sk-..."
+        },
+        "model": {
+          "title": "Model",
+          "description": "Choose a model for chat.",
+          "placeholderWithOptions": "Search or select a model",
+          "placeholderNoOptions": "Type a model name",
+          "refreshModels": "Refresh models"
+        }
+      }
+    },
     "history": {
       "title": "History",
       "openFolder": "Open Recordings Folder",
@@ -465,6 +488,12 @@
       "italic": "Italic",
       "bulletList": "Bullet List",
       "orderedList": "Numbered List"
+    },
+    "chat": {
+      "placeholder": "Ask about this meeting...",
+      "newChat": "New chat",
+      "send": "Send",
+      "thinking": "Thinking..."
     }
   },
   "footer": {

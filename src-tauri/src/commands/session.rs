@@ -1,10 +1,52 @@
 use crate::llm_client::ChatMessage;
+use crate::managers::audio::AudioRecordingManager;
+use crate::managers::transcription::TranscriptionManager;
 use crate::managers::session::{
     MeetingNotes, Session, SessionManager, TranscriptSegment,
 };
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+
+/// Force-flush any buffered audio through the transcription pipeline.
+/// Called before chat so the transcript is as up-to-date as possible.
+#[tauri::command]
+#[specta::specta]
+pub async fn flush_pending_audio(app: AppHandle, session_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let rm = app.state::<Arc<AudioRecordingManager>>();
+    let tm = app.state::<Arc<TranscriptionManager>>();
+
+    // Only flush if we're actively recording this session
+    if sm.get_active_session_id().as_deref() != Some(&session_id) {
+        return Ok(());
+    }
+    if !rm.is_recording() {
+        return Ok(());
+    }
+
+    // Take whatever mic audio has accumulated
+    let mic_chunk = rm.take_session_chunk();
+    if !mic_chunk.is_empty() {
+        if let Ok(text) = tm.transcribe_chunk(mic_chunk) {
+            if !text.is_empty() {
+                let _ = sm.add_segment(&session_id, text, "mic", 0, 0);
+            }
+        }
+    }
+
+    // Take whatever speaker audio has accumulated
+    let spk_chunk = sm.take_speaker_samples();
+    if !spk_chunk.is_empty() {
+        if let Ok(text) = tm.transcribe_chunk(spk_chunk) {
+            if !text.is_empty() {
+                let _ = sm.add_segment(&session_id, text, "speaker", 0, 0);
+            }
+        }
+    }
+
+    Ok(())
+}
 
 fn format_ms_timestamp(ms: i64) -> String {
     let total_secs = ms / 1000;
