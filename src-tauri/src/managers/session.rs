@@ -58,6 +58,9 @@ static SESSION_MIGRATIONS: &[M] = &[
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         );",
     ),
+    M::up(
+        "ALTER TABLE meeting_notes ADD COLUMN enhanced_notes TEXT;",
+    ),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -88,6 +91,7 @@ pub struct MeetingNotes {
     pub action_items: Option<String>,
     pub decisions: Option<String>,
     pub user_notes: Option<String>,
+    pub enhanced_notes: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -409,20 +413,22 @@ impl SessionManager {
         action_items: Option<String>,
         decisions: Option<String>,
         user_notes: Option<String>,
+        enhanced_notes: Option<String>,
     ) -> Result<()> {
         let now = Utc::now().timestamp();
         let conn = self.get_connection()?;
 
         conn.execute(
-            "INSERT INTO meeting_notes (session_id, summary, action_items, decisions, user_notes, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
+            "INSERT INTO meeting_notes (session_id, summary, action_items, decisions, user_notes, enhanced_notes, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
              ON CONFLICT(session_id) DO UPDATE SET
                 summary = COALESCE(?2, summary),
                 action_items = COALESCE(?3, action_items),
                 decisions = COALESCE(?4, decisions),
                 user_notes = COALESCE(?5, user_notes),
-                updated_at = ?6",
-            params![session_id, summary, action_items, decisions, user_notes, now],
+                enhanced_notes = COALESCE(?6, enhanced_notes),
+                updated_at = ?7",
+            params![session_id, summary, action_items, decisions, user_notes, enhanced_notes, now],
         )?;
 
         Ok(())
@@ -432,7 +438,7 @@ impl SessionManager {
         let conn = self.get_connection()?;
         let notes = conn
             .query_row(
-                "SELECT id, session_id, summary, action_items, decisions, user_notes, created_at, updated_at FROM meeting_notes WHERE session_id = ?1",
+                "SELECT id, session_id, summary, action_items, decisions, user_notes, enhanced_notes, created_at, updated_at FROM meeting_notes WHERE session_id = ?1",
                 params![session_id],
                 |row| {
                     Ok(MeetingNotes {
@@ -442,6 +448,7 @@ impl SessionManager {
                         action_items: row.get("action_items")?,
                         decisions: row.get("decisions")?,
                         user_notes: row.get("user_notes")?,
+                        enhanced_notes: row.get("enhanced_notes")?,
                         created_at: row.get("created_at")?,
                         updated_at: row.get("updated_at")?,
                     })

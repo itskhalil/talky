@@ -444,6 +444,10 @@
     "noSummary": "No summary available.",
     "regenerateSummary": "Regenerate",
     "generateSummary": "Generate Summary",
+    "enhanceNotes": "Enhance Notes",
+    "reenhance": "Re-enhance",
+    "enhancing": "Enhancing notes...",
+    "enhanceError": "Failed to enhance notes",
     "summaryRequiresPostProcess": "Configure an AI provider in settings to enable summaries.",
     "toolbar": {
       "bold": "Bold",

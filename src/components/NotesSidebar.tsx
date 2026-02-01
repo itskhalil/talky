@@ -50,9 +50,8 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const { t } = useTranslation();
 
   return (
-    <div className="flex flex-col w-56 h-full border-r border-border bg-background-sidebar" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
-      {/* Drag region + New Note button */}
-      <div className="px-3 pt-11 pb-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+    <div className="flex flex-col w-56 h-full border-r border-t border-border bg-background-sidebar">
+      <div className="px-3 pt-3 pb-2">
         <button
           onClick={onNewNote}
           data-ui
@@ -64,7 +63,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       </div>
 
       {/* Notes list */}
-      <div className="flex-1 overflow-y-auto px-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+      <div className="flex-1 overflow-y-auto px-2">
         {sessions.map((session) => {
           const isSelected = selectedId === session.id;
           const isActive = activeSessionId === session.id;
@@ -116,7 +115,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       </div>
 
       {/* Bottom: settings gear */}
-      <div className="px-3 py-3 border-t border-border" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+      <div className="px-3 py-3 border-t border-border">
         <button
           onClick={onOpenSettings}
           className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
