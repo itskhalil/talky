@@ -808,7 +808,7 @@ reset_bindings: string[] }
 export type KeyboardImplementation = "tauri" | "handy_keys"
 export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
-export type MeetingNotes = { id: number; session_id: string; summary: string | null; action_items: string | null; decisions: string | null; user_notes: string | null; created_at: number; updated_at: number }
+export type MeetingNotes = { id: number; session_id: string; summary: string | null; action_items: string | null; decisions: string | null; user_notes: string | null; enhanced_notes: string | null; created_at: number; updated_at: number }
 export type ModelInfo = { id: string; name: string; description: string; filename: string; url: string | null; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
 export type ModelUnloadTimeout = "never" | "immediately" | "min_2" | "min_5" | "min_10" | "min_15" | "hour_1" | "sec_5"

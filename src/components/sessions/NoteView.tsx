@@ -38,11 +38,15 @@ interface NoteViewProps {
   summary: string | null;
   summaryLoading: boolean;
   summaryError: string | null;
+  enhancedNotes: string | null;
   onNotesChange: (notes: string) => void;
   onTitleChange: (title: string) => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
   onGenerateSummary: () => void;
+  onEnhanceNotes: () => void;
+  enhanceLoading: boolean;
+  enhanceError: string | null;
 }
 
 function formatMs(ms: number): string {
@@ -50,6 +54,56 @@ function formatMs(ms: number): string {
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function EnhancedNotesPanel({ content, loading, error }: { content: string | null; loading: boolean; error: string | null }) {
+  const { t } = useTranslation();
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-text-secondary pt-2">
+        <Loader2 size={14} className="animate-spin" />
+        {t("sessions.enhancing")}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-sm pt-2">
+        <p className="text-red-400">{t("sessions.enhanceError")}</p>
+        <p className="text-xs text-text-secondary mt-1">{error}</p>
+      </div>
+    );
+  }
+
+  if (!content) return null;
+
+  const lines = content.split("\n");
+
+  return (
+    <div className="text-sm leading-relaxed space-y-0.5 pt-2">
+      {lines.map((line, i) => {
+        const trimmed = line.trimStart();
+        const isGenerated = trimmed.startsWith("[+]") || trimmed.startsWith("- [+]") || trimmed.startsWith("## [+]");
+        const displayLine = line.replace(/\[+\]\s*/, "");
+        const isHeader = trimmed.startsWith("##");
+
+        return (
+          <div
+            key={i}
+            className={isGenerated ? "text-text-secondary" : "text-text"}
+          >
+            {isHeader ? (
+              <p className="font-semibold mt-3 mb-1">{displayLine.replace(/^#+\s*/, "")}</p>
+            ) : (
+              <p className="whitespace-pre-wrap">{displayLine}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export function NoteView({
@@ -62,11 +116,15 @@ export function NoteView({
   summary,
   summaryLoading,
   summaryError,
+  enhancedNotes,
   onNotesChange,
   onTitleChange,
   onStartRecording,
   onStopRecording,
   onGenerateSummary,
+  onEnhanceNotes,
+  enhanceLoading,
+  enhanceError,
 }: NoteViewProps) {
   const { t } = useTranslation();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -99,50 +157,76 @@ export function NoteView({
 
   const hasTranscript = transcript.length > 0;
   const isEnded = !isActive;
+  const hasEnhanced = enhancedNotes != null || enhanceLoading || enhanceError != null;
 
   return (
     <div className="flex flex-col h-full relative">
       {/* Title + editor area */}
-      <div className="flex-1 overflow-y-auto px-12 pt-8 pb-32 max-w-3xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto px-12 pt-8 pb-32 w-full">
         {/* Editable title */}
-        <input
-          type="text"
-          data-ui
-          value={titleValue}
-          onChange={(e) => setTitleValue(e.target.value)}
-          onBlur={handleTitleBlur}
-          onKeyDown={handleTitleKeyDown}
-          placeholder={t("sessions.newNote")}
-          className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 mb-6 tracking-tight"
-        />
+        <div className={hasEnhanced ? "max-w-5xl mx-auto" : "max-w-3xl mx-auto"}>
+          <input
+            type="text"
+            data-ui
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            onBlur={handleTitleBlur}
+            onKeyDown={handleTitleKeyDown}
+            placeholder={t("sessions.newNote")}
+            className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 mb-6 tracking-tight"
+          />
+        </div>
 
-        {/* Summary display */}
-        {summaryLoading && (
-          <div className="flex items-center gap-2 text-sm text-text-secondary mb-5">
-            <Loader2 size={14} className="animate-spin" />
-            {t("sessions.summaryLoading")}
+        {hasEnhanced ? (
+          <div className="flex gap-8 max-w-5xl mx-auto">
+            {/* Left: user's notes editor */}
+            <div className="flex-1 min-w-0">
+              <NotesEditor
+                content={notesLoaded ? userNotes : ""}
+                onChange={onNotesChange}
+                disabled={!notesLoaded}
+                placeholder={t("sessions.notesPlaceholder")}
+              />
+            </div>
+            {/* Right: enhanced notes */}
+            <div className="flex-1 min-w-0 border-l border-border pl-8">
+              <EnhancedNotesPanel
+                content={enhancedNotes}
+                loading={enhanceLoading}
+                error={enhanceError}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-3xl mx-auto">
+            {/* Summary display */}
+            {summaryLoading && (
+              <div className="flex items-center gap-2 text-sm text-text-secondary mb-5">
+                <Loader2 size={14} className="animate-spin" />
+                {t("sessions.summaryLoading")}
+              </div>
+            )}
+            {summaryError && !summaryLoading && (
+              <div className="text-sm mb-5">
+                <p className="text-red-400">{t("sessions.summaryError")}</p>
+                <p className="text-xs text-text-secondary mt-1">{summaryError}</p>
+              </div>
+            )}
+            {summary && !summaryLoading && (
+              <div className="mb-6 text-sm whitespace-pre-wrap leading-relaxed text-text">
+                {summary}
+              </div>
+            )}
+
+            {/* Notes editor */}
+            <NotesEditor
+              content={notesLoaded ? userNotes : ""}
+              onChange={onNotesChange}
+              disabled={!notesLoaded}
+              placeholder={t("sessions.notesPlaceholder")}
+            />
           </div>
         )}
-        {summaryError && !summaryLoading && (
-          <div className="text-sm mb-5">
-            <p className="text-red-400">{t("sessions.summaryError")}</p>
-            <p className="text-xs text-text-secondary mt-1">{summaryError}</p>
-          </div>
-        )}
-        {summary && !summaryLoading && (
-          <div className="mb-6 text-sm whitespace-pre-wrap leading-relaxed text-text">
-            {summary}
-          </div>
-        )}
-
-        {/* Notes editor */}
-        <NotesEditor
-          content={notesLoaded ? userNotes : ""}
-          onChange={onNotesChange}
-          disabled={!notesLoaded}
-          placeholder={t("sessions.notesPlaceholder")}
-        />
-
       </div>
 
       {/* Floating recording panel */}
@@ -224,17 +308,17 @@ export function NoteView({
                     {t("sessions.resumeRecording")}
                   </button>
                 )}
-                {!isRecording && hasTranscript && !summaryLoading && (
+                {!isRecording && hasTranscript && !enhanceLoading && (
                   <>
                     {isActive && <span className="w-px h-3.5 bg-border-strong" />}
                     <button
-                      onClick={onGenerateSummary}
+                      onClick={onEnhanceNotes}
                       className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors"
                     >
                       <Sparkles size={12} />
-                      {summary
-                        ? t("sessions.regenerateSummary")
-                        : t("sessions.generateSummary")}
+                      {enhancedNotes
+                        ? t("sessions.reenhance")
+                        : t("sessions.enhanceNotes")}
                     </button>
                   </>
                 )}

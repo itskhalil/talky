@@ -1,9 +1,22 @@
+use crate::llm_client::ChatMessage;
 use crate::managers::session::{
     MeetingNotes, Session, SessionManager, TranscriptSegment,
 };
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+
+fn format_ms_timestamp(ms: i64) -> String {
+    let total_secs = ms / 1000;
+    let hours = total_secs / 3600;
+    let mins = (total_secs % 3600) / 60;
+    let secs = total_secs % 60;
+    if hours > 0 {
+        format!("{:02}:{:02}:{:02}", hours, mins, secs)
+    } else {
+        format!("{:02}:{:02}", mins, secs)
+    }
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -20,6 +33,7 @@ pub async fn generate_session_summary(
         return Err("No transcript segments to summarize".to_string());
     }
 
+    // Build timestamped transcript
     let transcript_text: String = segments
         .iter()
         .map(|seg| {
@@ -28,10 +42,17 @@ pub async fn generate_session_summary(
             } else {
                 "[speaker]"
             };
-            format!("{}: {}", label, seg.text)
+            format!("[{}] {}: {}", format_ms_timestamp(seg.start_ms), label, seg.text)
         })
         .collect::<Vec<_>>()
         .join("\n");
+
+    // Fetch user notes
+    let user_notes = sm
+        .get_meeting_notes(&session_id)
+        .map_err(|e| e.to_string())?
+        .and_then(|n| n.user_notes)
+        .unwrap_or_default();
 
     let settings = crate::settings::get_settings(&app);
 
@@ -56,16 +77,57 @@ pub async fn generate_session_summary(
         return Err("No post-process model configured".to_string());
     }
 
-    let prompt = format!(
-        "Summarize the following meeting transcript:\n\n{}",
-        transcript_text
-    );
+    let system_message = "You are a meeting notes enhancer. Your job is to take a user's rough notes and a meeting transcript, then produce unified chronological meeting notes.\n\n\
+Rules:\n\
+- Preserve the user's original text, structure, and terminology exactly\n\
+- Enhance user's bullets with specific details from the transcript (names, numbers, dates, action items)\n\
+- For parts of the meeting the user didn't capture, generate concise bullets summarizing key points\n\
+- Prefix ALL generated content (content not from the user's notes) with [+]\n\
+- Do NOT prefix content that originated from the user's notes\n\
+- Use vocabulary from the user's notes throughout (their spelling of names, acronyms, project names takes priority over transcript)\n\
+- Match the user's writing style: if they're terse, be terse; if they use headers, use headers for new topics\n\
+- Output should read as one continuous set of chronological notes, not separate sections\n\
+- Use markdown bullet points (- ) for items\n\
+- If the user used markdown headers (## ), use the same style for generated topic headers".to_string();
 
-    let result = crate::llm_client::send_chat_completion(&provider, api_key, &model, prompt)
+    let user_message = if user_notes.trim().is_empty() {
+        format!(
+            "## MEETING TRANSCRIPT\n\n{}\n\n## TASK\n\n\
+Generate comprehensive meeting notes from this transcript. \
+Prefix every bullet with [+] since there are no user notes. \
+Use markdown bullets (- ) and headers (## ) to organize by topic. \
+Be concise but capture all key points, decisions, and action items.",
+            transcript_text
+        )
+    } else {
+        format!(
+            "## USER'S NOTES\n\n{}\n\n## MEETING TRANSCRIPT\n\n{}\n\n## TASK\n\n\
+Create unified chronological meeting notes:\n\
+1. For each of the user's notes: Output their text, enhanced with specifics from the transcript\n\
+2. For transcript sections the user didn't cover: Generate 1-3 bullets summarizing key points\n\
+3. Use vocabulary from user's notes throughout (their spelling takes priority)\n\
+4. Match the user's writing style and structure\n\
+5. Prefix generated bullets with [+] — do NOT prefix the user's original content",
+            user_notes, transcript_text
+        )
+    };
+
+    let messages = vec![
+        ChatMessage {
+            role: "system".to_string(),
+            content: system_message,
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: user_message,
+        },
+    ];
+
+    let result = crate::llm_client::send_chat_completion_messages(&provider, api_key, &model, messages)
         .await?
         .ok_or_else(|| "LLM returned no content".to_string())?;
 
-    sm.save_meeting_notes(&session_id, Some(result.clone()), None, None, None)
+    sm.save_meeting_notes(&session_id, None, None, None, None, Some(result.clone()))
         .map_err(|e| e.to_string())?;
 
     Ok(result)
@@ -308,7 +370,7 @@ pub fn save_meeting_notes(
     user_notes: Option<String>,
 ) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
-    sm.save_meeting_notes(&session_id, summary, action_items, decisions, user_notes)
+    sm.save_meeting_notes(&session_id, summary, action_items, decisions, user_notes, None)
         .map_err(|e| e.to_string())
 }
 
@@ -320,7 +382,7 @@ pub fn save_user_notes(
     notes: String,
 ) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
-    sm.save_meeting_notes(&session_id, None, None, None, Some(notes))
+    sm.save_meeting_notes(&session_id, None, None, None, Some(notes), None)
         .map_err(|e| e.to_string())
 }
 

@@ -68,6 +68,9 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [enhancedNotes, setEnhancedNotes] = useState<string | null>(null);
+  const [enhanceLoading, setEnhanceLoading] = useState(false);
+  const [enhanceError, setEnhanceError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<{ sessionId: string; notes: string } | null>(null);
 
@@ -147,6 +150,34 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     }
   }, []);
 
+  const loadEnhancedNotes = useCallback(async (sessionId: string) => {
+    try {
+      const result = await invoke<{
+        enhanced_notes: string | null;
+      } | null>("get_meeting_notes", { sessionId });
+      setEnhancedNotes(result?.enhanced_notes ?? null);
+    } catch (e) {
+      console.error("Failed to load enhanced notes:", e);
+      setEnhancedNotes(null);
+    }
+  }, []);
+
+  const enhanceNotes = useCallback(async (sessionId: string) => {
+    setEnhanceLoading(true);
+    setEnhanceError(null);
+    try {
+      const result = await invoke<string>("generate_session_summary", {
+        sessionId,
+      });
+      setEnhancedNotes(result);
+    } catch (e) {
+      console.error("Failed to enhance notes:", e);
+      setEnhanceError(String(e));
+    } finally {
+      setEnhanceLoading(false);
+    }
+  }, []);
+
   const saveUserNotes = useCallback(
     async (sessionId: string, notes: string) => {
       try {
@@ -187,8 +218,9 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       setNotesLoaded(false);
       loadUserNotes(selectedSessionId);
       loadSummary(selectedSessionId);
+      loadEnhancedNotes(selectedSessionId);
     }
-  }, [selectedSessionId, loadTranscript, loadUserNotes, loadSummary]);
+  }, [selectedSessionId, loadTranscript, loadUserNotes, loadSummary, loadEnhancedNotes]);
 
   useEffect(() => {
     return () => {
@@ -279,6 +311,8 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       setNotesLoaded(true);
       setSummary(null);
       setSummaryError(null);
+      setEnhancedNotes(null);
+      setEnhanceError(null);
       setIsRecording(false);
       loadSessions();
 
@@ -378,6 +412,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             onStartRecording={handleStartRecording}
             onStopRecording={handleStopRecording}
             onGenerateSummary={() => generateSummary(selectedSessionId)}
+            enhancedNotes={enhancedNotes}
+            onEnhanceNotes={() => enhanceNotes(selectedSessionId)}
+            enhanceLoading={enhanceLoading}
+            enhanceError={enhanceError}
           />
         ) : (
           <EmptyState onNewNote={handleNewNote} />

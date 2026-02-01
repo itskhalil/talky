@@ -81,6 +81,7 @@ input, button, [data-ui] {
   stroke-width: 1;
 }
 
+
 /* Smooth scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

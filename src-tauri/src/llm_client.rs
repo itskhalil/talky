@@ -3,10 +3,10 @@ use log::debug;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
-struct ChatMessage {
-    role: String,
-    content: String,
+#[derive(Debug, Serialize, Clone)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -76,14 +76,14 @@ fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwes
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }
 
-/// Send a chat completion request to an OpenAI-compatible API
+/// Send a chat completion request with explicit messages to an OpenAI-compatible API
 /// Returns Ok(Some(content)) on success, Ok(None) if response has no content,
 /// or Err on actual errors (HTTP, parsing, etc.)
-pub async fn send_chat_completion(
+pub async fn send_chat_completion_messages(
     provider: &PostProcessProvider,
     api_key: String,
     model: &str,
-    prompt: String,
+    messages: Vec<ChatMessage>,
 ) -> Result<Option<String>, String> {
     let base_url = provider.base_url.trim_end_matches('/');
     let url = format!("{}/chat/completions", base_url);
@@ -94,10 +94,7 @@ pub async fn send_chat_completion(
 
     let request_body = ChatCompletionRequest {
         model: model.to_string(),
-        messages: vec![ChatMessage {
-            role: "user".to_string(),
-            content: prompt,
-        }],
+        messages,
     };
 
     let response = client
@@ -128,6 +125,26 @@ pub async fn send_chat_completion(
         .choices
         .first()
         .and_then(|choice| choice.message.content.clone()))
+}
+
+/// Send a chat completion request to an OpenAI-compatible API
+/// Convenience wrapper around send_chat_completion_messages with a single user message.
+pub async fn send_chat_completion(
+    provider: &PostProcessProvider,
+    api_key: String,
+    model: &str,
+    prompt: String,
+) -> Result<Option<String>, String> {
+    send_chat_completion_messages(
+        provider,
+        api_key,
+        model,
+        vec![ChatMessage {
+            role: "user".to_string(),
+            content: prompt,
+        }],
+    )
+    .await
 }
 
 /// Fetch available models from an OpenAI-compatible API

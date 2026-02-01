@@ -23,7 +23,8 @@
         "maximizable": false,
         "visible": false,
         "hiddenTitle": true,
-        "titleBarStyle": "overlay"
+        "titleBarStyle": "Transparent",
+        "backgroundColor": "#f5f3ed"
       }
     ],
     "security": {
