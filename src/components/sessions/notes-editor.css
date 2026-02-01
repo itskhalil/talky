@@ -44,3 +44,30 @@
 .notes-editor .tiptap strong {
   font-weight: 600;
 }
+
+/* AI source coloring */
+.notes-editor .tiptap [data-source="ai"] {
+  color: var(--color-text-ai);
+}
+
+/* Enhanced mode heading styles */
+.notes-editor--enhanced .tiptap h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.notes-editor--enhanced .tiptap h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.notes-editor--enhanced .tiptap h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}

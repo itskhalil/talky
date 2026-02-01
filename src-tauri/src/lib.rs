@@ -322,6 +322,7 @@ pub fn run() {
         commands::session::get_meeting_notes,
         commands::session::save_meeting_notes,
         commands::session::save_user_notes,
+        commands::session::save_enhanced_notes,
         commands::session::get_user_notes,
         commands::session::generate_session_summary,
         commands::session::get_session_summary,

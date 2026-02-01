@@ -416,6 +416,18 @@ pub fn save_user_notes(
 
 #[tauri::command]
 #[specta::specta]
+pub fn save_enhanced_notes(
+    app: AppHandle,
+    session_id: String,
+    notes: String,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.save_meeting_notes(&session_id, None, None, None, None, Some(notes))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn get_user_notes(
     app: AppHandle,
     session_id: String,
