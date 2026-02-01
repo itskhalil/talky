@@ -338,7 +338,6 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       const result = await invoke<Session>("start_session", { title: null });
 
       set((s) => ({
-        sessions: [result, ...s.sessions],
         selectedSessionId: result.id,
         recordingSessionId: result.id,
         notesLoaded: true,
@@ -410,13 +409,15 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
       set((s) => {
         const { [sessionId]: _, ...restCache } = s.cache;
+        const deletedIndex = s.sessions.findIndex((sess) => sess.id === sessionId);
         const newSessions = s.sessions.filter((sess) => sess.id !== sessionId);
         const updates: Partial<SessionStore> = {
           cache: restCache,
           sessions: newSessions,
         };
         if (s.selectedSessionId === sessionId) {
-          const nextSession = newSessions[0] ?? null;
+          const nextSession =
+            newSessions[Math.min(deletedIndex, newSessions.length - 1)] ?? null;
           updates.selectedSessionId = nextSession?.id ?? null;
           updates.notesLoaded = nextSession
             ? !!restCache[nextSession.id]
