@@ -165,7 +165,7 @@ impl SessionManager {
     pub fn start_session(&self, title: Option<String>) -> Result<Session> {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().timestamp();
-        let title = title.unwrap_or_else(|| self.format_session_title(now));
+        let title = title.unwrap_or_else(|| "New Note".to_string());
 
         let conn = self.get_connection()?;
         conn.execute(
