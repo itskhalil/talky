@@ -1,11 +1,11 @@
 [package]
-name = "handy"
+name = "talky"
 version = "0.7.0"
-description = "Handy"
+description = "Talky"
 authors = ["cjpais"]
 edition = "2021"
 license = "MIT"
-default-run = "handy"
+default-run = "talky"
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
@@ -16,7 +16,7 @@ incremental = true # Compile your binary in smaller steps.
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "handy_app_lib"
+name = "talky_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 # [[bin]]
@@ -69,7 +69,6 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 tar = "0.4.44"
 flate2 = "1.0"
 transcribe-rs = { version = "0.2.2", features = ["whisper", "parakeet", "moonshine"] }
-handy-keys = "0.1.4"
 ferrous-opencc = "0.2.3"
 ort = { version = "=2.0.0-rc.10", features = ["ndarray"] }
 ndarray = "0.16"

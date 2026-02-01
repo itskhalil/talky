@@ -77,8 +77,6 @@ const DEFAULT_AUDIO_DEVICE: AudioDevice = {
 const settingUpdaters: {
   [K in keyof Settings]?: (value: Settings[K]) => Promise<unknown>;
 } = {
-  always_on_microphone: (value) =>
-    commands.updateMicrophoneMode(value as boolean),
   audio_feedback: (value) =>
     commands.changeAudioFeedbackSetting(value as boolean),
   audio_feedback_volume: (value) =>
@@ -89,7 +87,6 @@ const settingUpdaters: {
     commands.changeAutostartSetting(value as boolean),
   update_checks_enabled: (value) =>
     commands.changeUpdateChecksSetting(value as boolean),
-  push_to_talk: (value) => commands.changePttSetting(value as boolean),
   selected_microphone: (value) =>
     commands.setSelectedMicrophone(
       (value as string) === "Default" || value === null
@@ -114,8 +111,6 @@ const settingUpdaters: {
     commands.changeSelectedLanguageSetting(value as string),
   debug_mode: (value) => commands.changeDebugModeSetting(value as boolean),
   custom_words: (value) => commands.updateCustomWords(value as string[]),
-  word_correction_threshold: (value) =>
-    commands.changeWordCorrectionThresholdSetting(value as number),
   history_limit: (value) => commands.updateHistoryLimit(value as number),
   post_process_enabled: (value) =>
     commands.changePostProcessEnabledSetting(value as boolean),
@@ -123,8 +118,6 @@ const settingUpdaters: {
     commands.setPostProcessSelectedPrompt(value as string),
   mute_while_recording: (value) =>
     commands.changeMuteWhileRecordingSetting(value as boolean),
-  append_trailing_space: (value) =>
-    commands.changeAppendTrailingSpaceSetting(value as boolean),
   log_level: (value) => commands.setLogLevel(value as any),
   app_language: (value) => commands.changeAppLanguageSetting(value as string),
   experimental_enabled: (value) =>

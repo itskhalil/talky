@@ -78,8 +78,8 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const SIDEBAR_MIN = 200;
   const SIDEBAR_MAX = 400;
   const SIDEBAR_DEFAULT = 260;
-  const SIDEBAR_STORAGE_KEY = "handy-sidebar-width";
-  const SIDEBAR_COLLAPSED_KEY = "handy-sidebar-collapsed";
+  const SIDEBAR_STORAGE_KEY = "talky-sidebar-width";
+  const SIDEBAR_COLLAPSED_KEY = "talky-sidebar-collapsed";
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);

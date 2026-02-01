@@ -126,23 +126,6 @@ pub enum RecordingRetentionPeriod {
     Months3,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
-#[serde(rename_all = "snake_case")]
-pub enum KeyboardImplementation {
-    Tauri,
-    HandyKeys,
-}
-
-impl Default for KeyboardImplementation {
-    fn default() -> Self {
-        // Default to HandyKeys only on macOS where it's well-tested.
-        // Windows and Linux use Tauri by default (handy-keys not sufficiently tested yet).
-        #[cfg(target_os = "macos")]
-        return KeyboardImplementation::HandyKeys;
-        #[cfg(not(target_os = "macos"))]
-        return KeyboardImplementation::Tauri;
-    }
-}
 
 impl Default for ModelUnloadTimeout {
     fn default() -> Self {
@@ -266,8 +249,6 @@ pub struct AppSettings {
     pub app_language: String,
     #[serde(default)]
     pub experimental_enabled: bool,
-    #[serde(default)]
-    pub keyboard_implementation: KeyboardImplementation,
     #[serde(default = "default_chat_provider_id")]
     pub chat_provider_id: String,
     #[serde(default = "default_chat_api_keys")]
@@ -565,7 +546,6 @@ pub fn get_default_settings() -> AppSettings {
         append_trailing_space: false,
         app_language: default_app_language(),
         experimental_enabled: false,
-        keyboard_implementation: KeyboardImplementation::default(),
         chat_provider_id: default_chat_provider_id(),
         chat_api_keys: default_chat_api_keys(),
         chat_models: default_chat_models(),
