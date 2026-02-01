@@ -47,6 +47,8 @@ interface NoteViewProps {
   onEnhanceNotes: () => void;
   enhanceLoading: boolean;
   enhanceError: string | null;
+  viewMode: "notes" | "enhanced";
+  onViewModeChange: (mode: "notes" | "enhanced") => void;
 }
 
 function formatMs(ms: number): string {
@@ -54,6 +56,16 @@ function formatMs(ms: number): string {
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function renderBoldSegments(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
 }
 
 function EnhancedNotesPanel({ content, loading, error }: { content: string | null; loading: boolean; error: string | null }) {
@@ -85,20 +97,40 @@ function EnhancedNotesPanel({ content, loading, error }: { content: string | nul
     <div className="text-sm leading-relaxed space-y-0.5 pt-2">
       {lines.map((line, i) => {
         const trimmed = line.trimStart();
-        const isGenerated = trimmed.startsWith("[+]") || trimmed.startsWith("- [+]") || trimmed.startsWith("## [+]");
-        const displayLine = line.replace(/\[+\]\s*/, "");
-        const isHeader = trimmed.startsWith("##");
+
+        // Determine source: [user] or [ai] prefix
+        const aiPrefixMatch = trimmed.match(/^(?:- )?\[ai\]\s*/);
+        const userPrefixMatch = trimmed.match(/^(?:- )?\[user\]\s*/);
+        const isAiLine = aiPrefixMatch != null;
+
+        // Strip the prefix for display
+        let displayLine = line;
+        if (aiPrefixMatch) {
+          displayLine = line.replace(/\[ai\]\s*/, "");
+        } else if (userPrefixMatch) {
+          displayLine = line.replace(/\[user\]\s*/, "");
+        }
+
+        // Check for headers (### style)
+        const headerMatch = displayLine.trimStart().match(/^(#{1,4})\s+(.*)/);
+
+        const colorClass = isAiLine ? "text-text-secondary" : "text-text";
+
+        if (headerMatch) {
+          return (
+            <div key={i} className={colorClass}>
+              <p className="font-semibold mt-3 mb-1">{renderBoldSegments(headerMatch[2])}</p>
+            </div>
+          );
+        }
+
+        if (trimmed === "") {
+          return <div key={i} className="h-2" />;
+        }
 
         return (
-          <div
-            key={i}
-            className={isGenerated ? "text-text-secondary" : "text-text"}
-          >
-            {isHeader ? (
-              <p className="font-semibold mt-3 mb-1">{displayLine.replace(/^#+\s*/, "")}</p>
-            ) : (
-              <p className="whitespace-pre-wrap">{displayLine}</p>
-            )}
+          <div key={i} className={colorClass}>
+            <p className="whitespace-pre-wrap">{renderBoldSegments(displayLine)}</p>
           </div>
         );
       })}
@@ -125,6 +157,8 @@ export function NoteView({
   onEnhanceNotes,
   enhanceLoading,
   enhanceError,
+  viewMode,
+  onViewModeChange,
 }: NoteViewProps) {
   const { t } = useTranslation();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -164,7 +198,7 @@ export function NoteView({
       {/* Title + editor area */}
       <div className="flex-1 overflow-y-auto px-12 pt-8 pb-32 w-full">
         {/* Editable title */}
-        <div className={hasEnhanced ? "max-w-5xl mx-auto" : "max-w-3xl mx-auto"}>
+        <div className="max-w-3xl mx-auto">
           <input
             type="text"
             data-ui
@@ -177,56 +211,71 @@ export function NoteView({
           />
         </div>
 
-        {hasEnhanced ? (
-          <div className="flex gap-8 max-w-5xl mx-auto">
-            {/* Left: user's notes editor */}
-            <div className="flex-1 min-w-0">
+        <div className="max-w-3xl mx-auto">
+          {/* View mode toggle - only show when enhanced notes exist */}
+          {hasEnhanced && (
+            <div className="flex gap-1 mb-4 bg-background-secondary rounded-lg p-0.5 w-fit">
+              <button
+                onClick={() => onViewModeChange("enhanced")}
+                className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                  viewMode === "enhanced"
+                    ? "bg-background text-text shadow-sm"
+                    : "text-text-secondary hover:text-text"
+                }`}
+              >
+                {t("sessions.enhancedNotes")}
+              </button>
+              <button
+                onClick={() => onViewModeChange("notes")}
+                className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                  viewMode === "notes"
+                    ? "bg-background text-text shadow-sm"
+                    : "text-text-secondary hover:text-text"
+                }`}
+              >
+                {t("sessions.yourNotes")}
+              </button>
+            </div>
+          )}
+
+          {/* Content area */}
+          {hasEnhanced && viewMode === "enhanced" ? (
+            <EnhancedNotesPanel
+              content={enhancedNotes}
+              loading={enhanceLoading}
+              error={enhanceError}
+            />
+          ) : (
+            <>
+              {/* Summary display */}
+              {summaryLoading && (
+                <div className="flex items-center gap-2 text-sm text-text-secondary mb-5">
+                  <Loader2 size={14} className="animate-spin" />
+                  {t("sessions.summaryLoading")}
+                </div>
+              )}
+              {summaryError && !summaryLoading && (
+                <div className="text-sm mb-5">
+                  <p className="text-red-400">{t("sessions.summaryError")}</p>
+                  <p className="text-xs text-text-secondary mt-1">{summaryError}</p>
+                </div>
+              )}
+              {summary && !summaryLoading && (
+                <div className="mb-6 text-sm whitespace-pre-wrap leading-relaxed text-text">
+                  {summary}
+                </div>
+              )}
+
+              {/* Notes editor */}
               <NotesEditor
                 content={notesLoaded ? userNotes : ""}
                 onChange={onNotesChange}
                 disabled={!notesLoaded}
                 placeholder={t("sessions.notesPlaceholder")}
               />
-            </div>
-            {/* Right: enhanced notes */}
-            <div className="flex-1 min-w-0 border-l border-border pl-8">
-              <EnhancedNotesPanel
-                content={enhancedNotes}
-                loading={enhanceLoading}
-                error={enhanceError}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-3xl mx-auto">
-            {/* Summary display */}
-            {summaryLoading && (
-              <div className="flex items-center gap-2 text-sm text-text-secondary mb-5">
-                <Loader2 size={14} className="animate-spin" />
-                {t("sessions.summaryLoading")}
-              </div>
-            )}
-            {summaryError && !summaryLoading && (
-              <div className="text-sm mb-5">
-                <p className="text-red-400">{t("sessions.summaryError")}</p>
-                <p className="text-xs text-text-secondary mt-1">{summaryError}</p>
-              </div>
-            )}
-            {summary && !summaryLoading && (
-              <div className="mb-6 text-sm whitespace-pre-wrap leading-relaxed text-text">
-                {summary}
-              </div>
-            )}
-
-            {/* Notes editor */}
-            <NotesEditor
-              content={notesLoaded ? userNotes : ""}
-              onChange={onNotesChange}
-              disabled={!notesLoaded}
-              placeholder={t("sessions.notesPlaceholder")}
-            />
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Floating recording panel */}

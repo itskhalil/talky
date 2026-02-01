@@ -446,6 +446,8 @@
     "generateSummary": "Generate Summary",
     "enhanceNotes": "Enhance Notes",
     "reenhance": "Re-enhance",
+    "yourNotes": "Your Notes",
+    "enhancedNotes": "Enhanced Notes",
     "enhancing": "Enhancing notes...",
     "enhanceError": "Failed to enhance notes",
     "summaryRequiresPostProcess": "Configure an AI provider in settings to enable summaries.",
