@@ -469,6 +469,12 @@ export function NoteView({
                       >
                         {formatMs(seg.start_ms)}
                       </span>
+                      <span
+                        data-ui
+                        className={`text-xs shrink-0 pt-0.5 w-8 ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
+                      >
+                        {seg.source === "mic" ? t("sessions.sourceMe") : t("sessions.sourceThem")}
+                      </span>
                       <span className="text-sm leading-relaxed text-text">
                         {seg.text}
                       </span>

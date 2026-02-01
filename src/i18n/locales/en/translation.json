@@ -431,6 +431,8 @@
     "deleteConfirm": "Are you sure you want to delete this note?",
     "mic": "You",
     "speaker": "Others",
+    "sourceMe": "Me",
+    "sourceThem": "Them",
     "notes": "Notes",
     "notesPlaceholder": "Type your notes here...",
     "notesTab": "Notes",
