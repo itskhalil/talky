@@ -11,6 +11,7 @@ import { useSettings } from "../../../hooks/useSettings";
 import { useModelStore } from "../../../stores/modelStore";
 import { VolumeSlider } from "../VolumeSlider";
 import { MuteWhileRecording } from "../MuteWhileRecording";
+import ModelSelector from "../../model-selector";
 
 export const GeneralSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -26,6 +27,9 @@ export const GeneralSettings: React.FC = () => {
           <LanguageSelector descriptionMode="tooltip" grouped={true} />
         )}
         <PushToTalk descriptionMode="tooltip" grouped={true} />
+      </SettingsGroup>
+      <SettingsGroup title={t("modelSelector.chooseModel")}>
+        <ModelSelector />
       </SettingsGroup>
       <SettingsGroup title={t("settings.sound.title")}>
         <MicrophoneSelector descriptionMode="tooltip" grouped={true} />

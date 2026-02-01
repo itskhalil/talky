@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { FlaskConical, Info, StickyNote } from "lucide-react";
+import { BrainCircuit, FlaskConical, Info, StickyNote } from "lucide-react";
 import HandyTextLogo from "./icons/HandyTextLogo";
 import HandyHand from "./icons/HandyHand";
 import { useSettings } from "../hooks/useSettings";
@@ -8,6 +8,7 @@ import {
   GeneralSettings,
   DebugSettings,
   AboutSettings,
+  PostProcessingSettings,
 } from "./settings";
 import { SessionsView } from "./sessions/SessionsView";
 
@@ -39,6 +40,12 @@ export const SECTIONS_CONFIG = {
     labelKey: "sidebar.general",
     icon: HandyHand,
     component: GeneralSettings,
+    enabled: () => true,
+  },
+  postProcessing: {
+    labelKey: "sidebar.postProcessing",
+    icon: BrainCircuit,
+    component: PostProcessingSettings,
     enabled: () => true,
   },
   debug: {

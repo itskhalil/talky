@@ -5,6 +5,85 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
+#[tauri::command]
+#[specta::specta]
+pub async fn generate_session_summary(
+    app: AppHandle,
+    session_id: String,
+) -> Result<String, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let segments = sm
+        .get_session_transcript(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    if segments.is_empty() {
+        return Err("No transcript segments to summarize".to_string());
+    }
+
+    let transcript_text: String = segments
+        .iter()
+        .map(|seg| {
+            let label = if seg.source == "mic" {
+                "[mic]"
+            } else {
+                "[speaker]"
+            };
+            format!("{}: {}", label, seg.text)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let settings = crate::settings::get_settings(&app);
+
+    let provider = settings
+        .active_post_process_provider()
+        .ok_or_else(|| "No post-process provider configured".to_string())?
+        .clone();
+
+    let api_key = settings
+        .post_process_api_keys
+        .get(&provider.id)
+        .cloned()
+        .unwrap_or_default();
+
+    let model = settings
+        .post_process_models
+        .get(&provider.id)
+        .cloned()
+        .unwrap_or_default();
+
+    if model.is_empty() {
+        return Err("No post-process model configured".to_string());
+    }
+
+    let prompt = format!(
+        "Summarize the following meeting transcript:\n\n{}",
+        transcript_text
+    );
+
+    let result = crate::llm_client::send_chat_completion(&provider, api_key, &model, prompt)
+        .await?
+        .ok_or_else(|| "LLM returned no content".to_string())?;
+
+    sm.save_meeting_notes(&session_id, Some(result.clone()), None, None, None)
+        .map_err(|e| e.to_string())?;
+
+    Ok(result)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_session_summary(
+    app: AppHandle,
+    session_id: String,
+) -> Result<Option<String>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let notes = sm
+        .get_meeting_notes(&session_id)
+        .map_err(|e| e.to_string())?;
+    Ok(notes.and_then(|n| n.summary))
+}
+
 /// Create a new session (Note) without starting recording.
 #[tauri::command]
 #[specta::specta]

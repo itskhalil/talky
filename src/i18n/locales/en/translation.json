@@ -428,6 +428,13 @@
     "startRecording": "Start Recording",
     "stopRecording": "Stop Recording",
     "recording": "Recording",
+    "summaryTab": "Summary",
+    "summaryLoading": "Generating summary...",
+    "summaryError": "Failed to generate summary",
+    "noSummary": "No summary available.",
+    "regenerateSummary": "Regenerate",
+    "generateSummary": "Generate Summary",
+    "summaryRequiresPostProcess": "Configure an AI provider in settings to enable summaries.",
     "toolbar": {
       "bold": "Bold",
       "italic": "Italic",

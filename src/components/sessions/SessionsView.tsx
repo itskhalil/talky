@@ -10,6 +10,8 @@ import {
   Mic,
   Volume2,
   Circle,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 
@@ -57,7 +59,7 @@ interface AmplitudeEvent {
   speaker: number;
 }
 
-type DetailTab = "notes" | "transcript";
+type DetailTab = "notes" | "transcript" | "summary";
 
 export function SessionsView() {
   const { t } = useTranslation();
@@ -75,6 +77,9 @@ export function SessionsView() {
   const [notesLoaded, setNotesLoaded] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("notes");
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -125,6 +130,35 @@ export function SessionsView() {
     }
   }, []);
 
+  const loadSummary = useCallback(async (sessionId: string) => {
+    try {
+      const result = await invoke<string | null>("get_session_summary", {
+        sessionId,
+      });
+      setSummary(result);
+      setSummaryError(null);
+    } catch (e) {
+      console.error("Failed to load summary:", e);
+      setSummary(null);
+    }
+  }, []);
+
+  const generateSummary = useCallback(async (sessionId: string) => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const result = await invoke<string>("generate_session_summary", {
+        sessionId,
+      });
+      setSummary(result);
+    } catch (e) {
+      console.error("Failed to generate summary:", e);
+      setSummaryError(String(e));
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
   const saveUserNotes = useCallback(
     async (sessionId: string, notes: string) => {
       try {
@@ -162,8 +196,9 @@ export function SessionsView() {
       loadTranscript(selectedSessionId);
       setNotesLoaded(false);
       loadUserNotes(selectedSessionId);
+      loadSummary(selectedSessionId);
     }
-  }, [selectedSessionId, loadTranscript, loadUserNotes]);
+  }, [selectedSessionId, loadTranscript, loadUserNotes, loadSummary]);
 
   useEffect(() => {
     return () => {
@@ -251,6 +286,8 @@ export function SessionsView() {
       setTranscript([]);
       setUserNotes("");
       setNotesLoaded(true);
+      setSummary(null);
+      setSummaryError(null);
       setActiveTab("notes");
       setIsRecording(false);
       loadSessions();
@@ -266,11 +303,18 @@ export function SessionsView() {
         clearTimeout(saveTimerRef.current);
         await saveUserNotes(selectedSessionId, userNotes);
       }
+      const endedSessionId = selectedSessionId;
       await invoke("end_session");
       setActiveSession(null);
       setIsRecording(false);
       setAmplitude({ mic: 0, speaker: 0 });
       loadSessions();
+
+      // Auto-generate summary
+      if (endedSessionId) {
+        setActiveTab("summary");
+        generateSummary(endedSessionId);
+      }
     } catch (e) {
       console.error("Failed to end note:", e);
     }
@@ -406,6 +450,16 @@ export function SessionsView() {
           >
             {t("sessions.transcriptTab")}
           </button>
+          <button
+            onClick={() => setActiveTab("summary")}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "summary"
+                ? "border-b-2 border-logo-primary text-logo-primary"
+                : "text-mid-gray hover:text-foreground"
+            }`}
+          >
+            {t("sessions.summaryTab")}
+          </button>
         </div>
 
         {/* Notes tab */}
@@ -485,6 +539,47 @@ export function SessionsView() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Summary tab */}
+        {activeTab === "summary" && (
+          <div className="flex flex-col gap-3">
+            {summaryLoading && (
+              <div className="flex items-center gap-2 text-sm text-mid-gray">
+                <Loader2 size={16} className="animate-spin" />
+                {t("sessions.summaryLoading")}
+              </div>
+            )}
+            {!summaryLoading && summaryError && (
+              <div className="text-sm">
+                <p className="text-red-400 mb-2">
+                  {t("sessions.summaryError")}
+                </p>
+                <p className="text-xs text-mid-gray">{summaryError}</p>
+              </div>
+            )}
+            {!summaryLoading && !summaryError && summary && (
+              <div className="border border-mid-gray/20 rounded-lg p-3 bg-background">
+                <p className="text-sm whitespace-pre-wrap">{summary}</p>
+              </div>
+            )}
+            {!summaryLoading && !summaryError && !summary && (
+              <p className="text-sm text-mid-gray">
+                {t("sessions.noSummary")}
+              </p>
+            )}
+            {selectedSessionId && !summaryLoading && (
+              <button
+                onClick={() => generateSummary(selectedSessionId)}
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-mid-gray/20 hover:bg-mid-gray/30 transition-colors w-fit"
+              >
+                <RefreshCw size={12} />
+                {summary
+                  ? t("sessions.regenerateSummary")
+                  : t("sessions.generateSummary")}
+              </button>
+            )}
           </div>
         )}
       </div>
