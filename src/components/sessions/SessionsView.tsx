@@ -30,8 +30,6 @@ interface AmplitudeEvent {
   speaker: number;
 }
 
-type DetailTab = "notes" | "transcript" | "summary";
-
 interface SessionsViewProps {
   onOpenSettings: () => void;
 }
@@ -39,12 +37,13 @@ interface SessionsViewProps {
 function EmptyState({ onNewNote }: { onNewNote: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-center justify-center h-full text-mid-gray gap-4">
-      <StickyNote size={48} className="opacity-30" />
+    <div className="flex flex-col items-center justify-center h-full text-text-secondary gap-4">
+      <StickyNote size={40} strokeWidth={1} className="opacity-25" />
       <p className="text-sm">{t("notes.emptyState")}</p>
       <button
         onClick={onNewNote}
-        className="text-sm px-4 py-2 bg-logo-primary/80 rounded-lg hover:bg-logo-primary transition-colors text-foreground"
+        data-ui
+        className="text-sm px-4 py-2 bg-accent-soft rounded-lg hover:bg-accent/10 transition-colors text-accent border border-border"
       >
         {t("sessions.newNote")}
       </button>
@@ -66,7 +65,6 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [userNotes, setUserNotes] = useState("");
   const [notesLoaded, setNotesLoaded] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [activeTab, setActiveTab] = useState<DetailTab>("notes");
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -273,44 +271,18 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       setNotesLoaded(true);
       setSummary(null);
       setSummaryError(null);
-      setActiveTab("notes");
       setIsRecording(false);
       loadSessions();
+
+      // Auto-start recording
+      try {
+        await invoke("start_session_recording", { sessionId: result.id });
+        setIsRecording(true);
+      } catch (e) {
+        console.error("Failed to auto-start recording:", e);
+      }
     } catch (e) {
       console.error("Failed to create note:", e);
-    }
-  };
-
-  const handleEndNote = async () => {
-    try {
-      // Stop recording first if active
-      if (isRecording && selectedSessionId) {
-        await invoke("stop_session_recording", {
-          sessionId: selectedSessionId,
-        });
-        setIsRecording(false);
-        setAmplitude({ mic: 0, speaker: 0 });
-      }
-
-      // Flush any pending notes save
-      if (saveTimerRef.current && selectedSessionId) {
-        clearTimeout(saveTimerRef.current);
-        await saveUserNotes(selectedSessionId, userNotes);
-      }
-      const endedSessionId = selectedSessionId;
-      await invoke("end_session");
-      setActiveSession(null);
-      setIsRecording(false);
-      setAmplitude({ mic: 0, speaker: 0 });
-      loadSessions();
-
-      // Auto-generate summary
-      if (endedSessionId) {
-        setActiveTab("summary");
-        generateSummary(endedSessionId);
-      }
-    } catch (e) {
-      console.error("Failed to end note:", e);
     }
   };
 
@@ -336,6 +308,19 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       setAmplitude({ mic: 0, speaker: 0 });
     } catch (e) {
       console.error("Failed to stop recording:", e);
+    }
+  };
+
+  const handleTitleChange = async (title: string) => {
+    if (!selectedSessionId) return;
+    try {
+      await invoke("update_session_title", {
+        sessionId: selectedSessionId,
+        title,
+      });
+      loadSessions();
+    } catch (e) {
+      console.error("Failed to update title:", e);
     }
   };
 
@@ -380,11 +365,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             summary={summary}
             summaryLoading={summaryLoading}
             summaryError={summaryError}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
             onNotesChange={handleNotesChange}
+            onTitleChange={handleTitleChange}
             onStartRecording={handleStartRecording}
-            onEndNote={handleEndNote}
+            onStopRecording={handleStopRecording}
             onGenerateSummary={() => generateSummary(selectedSessionId)}
           />
         ) : (

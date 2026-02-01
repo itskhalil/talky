@@ -1,18 +1,22 @@
 .notes-editor .tiptap {
   outline: none;
-  min-height: 280px;
-  padding: 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  min-height: 320px;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--color-text);
 }
 
 .notes-editor .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: var(--color-mid-gray, #888);
-  opacity: 0.6;
+  color: var(--color-mid-gray, #9c9c94);
+  opacity: 0.4;
   pointer-events: none;
   height: 0;
+}
+
+.notes-editor .tiptap p {
+  margin: 0.15em 0;
 }
 
 .notes-editor .tiptap ul {
@@ -34,5 +38,9 @@
 }
 
 .notes-editor .tiptap li {
-  margin: 0.125rem 0;
+  margin: 0.2rem 0;
+}
+
+.notes-editor .tiptap strong {
+  font-weight: 600;
 }

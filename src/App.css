@@ -1,38 +1,42 @@
 @import "tailwindcss";
 
 @theme {
-  --color-text: #0f0f0f;
-  --color-background: #fbfbfb;
-  --color-background-ui: #da5893;
-  --color-logo-primary: #faa2ca;
-  --color-logo-stroke: #382731;
-  --color-text-stroke: #f6f6f6;
-  --color-mid-gray: #808080;
+  --color-text: #2c2c2c;
+  --color-text-secondary: #7c7c78;
+  --color-background: #f5f3ed;
+  --color-background-sidebar: #edeae3;
+  --color-background-ui: #8b8b73;
+  --color-accent: #6b6b56;
+  --color-accent-soft: rgba(107, 107, 86, 0.08);
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-border-strong: rgba(0, 0, 0, 0.1);
+  --color-logo-primary: #8b8b73;
+  --color-logo-stroke: #2c2c2c;
+  --color-text-stroke: #f5f3ed;
+  --color-mid-gray: #9c9c94;
 }
 
 :root {
-  /* Typography */
+  /* Typography — a refined, literary feel */
+  font-family: "Charter", "Georgia", "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", "Palatino", serif;
   font-size: 15px;
-  line-height: 24px;
+  line-height: 1.65;
   font-weight: 400;
 
-  /* Colors - Light Theme */
-  /* --color-text: #0f0f0f;
-  --color-background: #fbfbfb;
-  --color-logo-primary: #FAA2CA;
-  --color-logo-stroke: #382731;
-  --color-text-stroke: #f6f6f6; */
-
-  /* Typography settings */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 
-  /* Apply colors */
   color: var(--color-text);
   background-color: var(--color-background);
+}
+
+/* Headings and UI labels use a clean sans-serif */
+h1, h2, h3, h4, h5, h6,
+input, button, [data-ui] {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
 }
 
 .container {
@@ -46,11 +50,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Colors - Dark Theme */
-    --color-text: #fbfbfb;
-    --color-background: #2c2b29;
-    --color-logo-primary: #f28cbb;
-    --color-logo-stroke: #fad1ed;
+    --color-text: #e8e6e1;
+    --color-text-secondary: #9c9a93;
+    --color-background: #2a2924;
+    --color-background-sidebar: #24231f;
+    --color-background-ui: #8b8b73;
+    --color-accent: #a3a38a;
+    --color-accent-soft: rgba(163, 163, 138, 0.1);
+    --color-border: rgba(255, 255, 255, 0.06);
+    --color-border-strong: rgba(255, 255, 255, 0.1);
+    --color-logo-primary: #a3a38a;
+    --color-logo-stroke: #e8e6e1;
+    --color-mid-gray: #7c7a73;
   }
 }
 
@@ -68,4 +79,31 @@
   fill: var(--color-logo-stroke);
   stroke: var(--color-logo-stroke);
   stroke-width: 1;
+}
+
+/* Smooth scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
 }

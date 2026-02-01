@@ -51,7 +51,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const { t } = useTranslation();
 
   return (
-    <div className="flex flex-col w-56 h-full border-r border-mid-gray/20 bg-background">
+    <div className="flex flex-col w-56 h-full border-r border-border bg-background-sidebar">
       {/* Logo */}
       <div className="flex items-center justify-center px-3 pt-4 pb-2">
         <HandyTextLogo width={100} />
@@ -61,9 +61,10 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       <div className="px-3 pb-2">
         <button
           onClick={onNewNote}
-          className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-logo-primary/80 rounded-lg hover:bg-logo-primary transition-colors text-sm font-medium"
+          data-ui
+          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-accent-soft text-accent hover:bg-accent/10 border border-border"
         >
-          <Plus size={16} />
+          <Plus size={15} strokeWidth={1.5} />
           {t("sessions.newNote")}
         </button>
       </div>
@@ -77,23 +78,28 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           return (
             <div
               key={session.id}
-              className={`group flex items-start gap-2 px-2 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+              className={`group flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${
                 isSelected
-                  ? "bg-logo-primary/10"
-                  : "hover:bg-mid-gray/10"
+                  ? "bg-accent-soft"
+                  : "hover:bg-accent-soft"
               }`}
               onClick={() => onSelect(session.id)}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   {isActive && isRecording && (
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
                   )}
-                  <span className="text-sm font-medium truncate">
+                  <span
+                    data-ui
+                    className={`text-sm truncate ${
+                      isSelected ? "font-medium text-text" : "text-text"
+                    }`}
+                  >
                     {session.title}
                   </span>
                 </div>
-                <div className="text-xs text-mid-gray mt-0.5">
+                <div data-ui className="text-xs text-text-secondary mt-0.5">
                   {formatDate(session.started_at)}
                   {" · "}
                   {formatDuration(session.started_at, session.ended_at)}
@@ -105,9 +111,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                     e.stopPropagation();
                     onDelete(session.id);
                   }}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-mid-gray hover:text-red-400 transition-all shrink-0"
+                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={13} />
                 </button>
               )}
             </div>
@@ -116,12 +122,12 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       </div>
 
       {/* Bottom: settings gear */}
-      <div className="px-3 py-3 border-t border-mid-gray/20">
+      <div className="px-3 py-3 border-t border-border">
         <button
           onClick={onOpenSettings}
-          className="p-2 rounded-lg hover:bg-mid-gray/20 text-mid-gray hover:text-foreground transition-colors"
+          className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
         >
-          <Settings size={18} />
+          <Settings size={17} />
         </button>
       </div>
     </div>

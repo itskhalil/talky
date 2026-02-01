@@ -436,6 +436,7 @@
     "transcriptTab": "Transcript",
     "startRecording": "Start Recording",
     "stopRecording": "Stop Recording",
+    "resumeRecording": "Resume",
     "recording": "Recording",
     "summaryTab": "Summary",
     "summaryLoading": "Generating summary...",
