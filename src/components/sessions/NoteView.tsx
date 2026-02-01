@@ -8,6 +8,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
+import { JSONContent } from "@tiptap/core";
 
 interface Session {
   id: string;
@@ -39,6 +40,7 @@ interface NoteViewProps {
   summaryError: string | null;
   enhancedNotes: string | null;
   onNotesChange: (notes: string) => void;
+  onEnhancedNotesChange?: (tagged: string) => void;
   onTitleChange: (title: string) => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
@@ -57,110 +59,174 @@ function formatMs(ms: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-function renderInlineMarkdown(text: string) {
-  // Match **bold** or *italic* (but not ** inside bold)
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("*") && part.endsWith("*")) {
-      return <em key={i}>{part.slice(1, -1)}</em>;
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
+/**
+ * Parse enhanced notes (tagged markdown with [ai]/[user] markers) into
+ * a tiptap JSON document with `source` attributes on each block.
+ */
+export function parseEnhancedToTiptapJSON(content: string): JSONContent {
+  const lines = content.split("\n");
+  const nodes: JSONContent[] = [];
 
-function EnhancedNotesPanel({ content, loading, error }: { content: string | null; loading: boolean; error: string | null }) {
-  const { t } = useTranslation();
-
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-text-secondary pt-2">
-        <Loader2 size={14} className="animate-spin" />
-        {t("sessions.enhancing")}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-sm pt-2">
-        <p className="text-red-400">{t("sessions.enhanceError")}</p>
-        <p className="text-xs text-text-secondary mt-1">{error}</p>
-      </div>
-    );
-  }
-
-  if (!content) return null;
-
-  console.log("[EnhancedNotesPanel] raw content:\n", content);
-
-  // Pre-process lines: strip tags, detect source, parse structure
-  const rawLines = content.split("\n");
-  const parsed = rawLines.map((line) => {
+  // For lines without a tag (headers), inherit from next tagged line
+  const parsed = lines.map((line) => {
     const isAi = /\[ai\]/.test(line);
     const isUser = /\[user\]/.test(line);
-    // Strip tags including surrounding bold markers: **[user]**, **[ai]**
     const cleaned = line
       .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2}\s*/g, "")
-      .replace(/\*{4}/g, ""); // clean up any leftover empty bold markers
-    const trimmed = cleaned.trimStart();
-    const headerMatch = trimmed.match(/^(#{1,4})\s+(.*)/);
-    const bulletMatch = trimmed.match(/^-\s+(.*)/);
-    return { cleaned, trimmed, isAi, isUser, hasTag: isAi || isUser, headerMatch, bulletMatch };
+      .replace(/\*{4}/g, "");
+    return { cleaned, isAi, isUser, hasTag: isAi || isUser };
   });
 
-  // For lines without a tag (typically headers), inherit from the next tagged line
+  // Inherit source for untagged headers
   for (let i = 0; i < parsed.length; i++) {
-    if (!parsed[i].hasTag && parsed[i].headerMatch) {
+    if (!parsed[i].hasTag && parsed[i].cleaned.trimStart().match(/^#{1,3}\s/)) {
       for (let j = i + 1; j < parsed.length; j++) {
         if (parsed[j].hasTag) {
           parsed[i].isAi = parsed[j].isAi;
           break;
         }
-        if (parsed[j].trimmed === "") break;
+        if (parsed[j].cleaned.trim() === "") break;
       }
     }
   }
 
-  return (
-    <div className="text-base leading-[1.7] cursor-text select-text">
-      {parsed.map((line, i) => {
-        const colorClass = line.isAi ? "text-text-ai" : "text-text";
+  let i = 0;
+  while (i < parsed.length) {
+    const { cleaned, isAi } = parsed[i];
+    const trimmed = cleaned.trimStart();
+    const source = isAi ? "ai" : "user";
 
-        if (line.headerMatch) {
-          const level = line.headerMatch[1].length;
-          const headerSize =
-            level === 1 ? "text-xl" : level === 2 ? "text-lg" : "text-base";
-          return (
-            <div key={i} className={colorClass}>
-              <p className={`${headerSize} font-semibold mt-3 mb-1`}>{renderInlineMarkdown(line.headerMatch[2])}</p>
-            </div>
-          );
-        }
+    // Empty line → empty paragraph
+    if (trimmed === "") {
+      nodes.push({ type: "paragraph", attrs: { source: "user" } });
+      i++;
+      continue;
+    }
 
-        if (line.trimmed === "") {
-          return <div key={i} className="h-1" />;
-        }
+    // Heading
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.*)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      nodes.push({
+        type: "heading",
+        attrs: { level, source },
+        content: parseInlineContent(headingMatch[2]),
+      });
+      i++;
+      continue;
+    }
 
-        if (line.bulletMatch) {
-          return (
-            <div key={i} className={`${colorClass} flex gap-2 ml-1`}>
-              <span className="shrink-0 select-none">•</span>
-              <p className="whitespace-pre-wrap">{renderInlineMarkdown(line.bulletMatch[1])}</p>
-            </div>
-          );
-        }
+    // Bullet list: collect consecutive bullet lines
+    if (trimmed.match(/^-\s/)) {
+      const listItems: JSONContent[] = [];
+      while (i < parsed.length) {
+        const bTrimmed = parsed[i].cleaned.trimStart();
+        const bMatch = bTrimmed.match(/^-\s+(.*)/);
+        if (!bMatch) break;
+        const bSource = parsed[i].isAi ? "ai" : "user";
+        listItems.push({
+          type: "listItem",
+          attrs: { source: bSource },
+          content: [
+            {
+              type: "paragraph",
+              attrs: { source: bSource },
+              content: parseInlineContent(bMatch[1]),
+            },
+          ],
+        });
+        i++;
+      }
+      nodes.push({ type: "bulletList", content: listItems });
+      continue;
+    }
 
-        return (
-          <div key={i} className={colorClass}>
-            <p className="whitespace-pre-wrap">{renderInlineMarkdown(line.cleaned)}</p>
-          </div>
-        );
-      })}
-    </div>
-  );
+    // Regular paragraph
+    nodes.push({
+      type: "paragraph",
+      attrs: { source },
+      content: parseInlineContent(trimmed),
+    });
+    i++;
+  }
+
+  return { type: "doc", content: nodes };
+}
+
+function parseInlineContent(text: string): JSONContent[] {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  const result: JSONContent[] = [];
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith("**") && part.endsWith("**")) {
+      result.push({
+        type: "text",
+        text: part.slice(2, -2),
+        marks: [{ type: "bold" }],
+      });
+    } else if (part.startsWith("*") && part.endsWith("*")) {
+      result.push({
+        type: "text",
+        text: part.slice(1, -1),
+        marks: [{ type: "italic" }],
+      });
+    } else {
+      result.push({ type: "text", text: part });
+    }
+  }
+  return result.length > 0 ? result : [{ type: "text", text: " " }];
+}
+
+/**
+ * Serialize tiptap JSON back to tagged markdown for storage.
+ */
+export function serializeTiptapToTagged(json: JSONContent): string {
+  if (!json.content) return "";
+  const lines: string[] = [];
+
+  for (const node of json.content) {
+    const source = node.attrs?.source ?? "user";
+    const tag = `[${source}]`;
+
+    if (node.type === "heading") {
+      const level = node.attrs?.level ?? 2;
+      const hashes = "#".repeat(level);
+      const text = inlineToMarkdown(node.content);
+      lines.push(`${hashes} ${text}`);
+    } else if (node.type === "bulletList" && node.content) {
+      for (const li of node.content) {
+        const liSource = li.attrs?.source ?? "user";
+        const liTag = `[${liSource}]`;
+        const para = li.content?.[0];
+        const text = para ? inlineToMarkdown(para.content) : "";
+        lines.push(`${liTag} - ${text}`);
+      }
+    } else if (node.type === "paragraph") {
+      const text = inlineToMarkdown(node.content);
+      if (text.trim() === "") {
+        lines.push("");
+      } else {
+        lines.push(`${tag} ${text}`);
+      }
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function inlineToMarkdown(content?: JSONContent[]): string {
+  if (!content) return "";
+  return content
+    .map((node) => {
+      if (node.type !== "text" || !node.text) return "";
+      const hasBold = node.marks?.some((m) => m.type === "bold");
+      const hasItalic = node.marks?.some((m) => m.type === "italic");
+      let t = node.text;
+      if (hasBold) t = `**${t}**`;
+      if (hasItalic) t = `*${t}*`;
+      return t;
+    })
+    .join("");
 }
 
 export function NoteView({
@@ -175,6 +241,7 @@ export function NoteView({
   summaryError,
   enhancedNotes,
   onNotesChange,
+  onEnhancedNotesChange,
   onTitleChange,
   onStartRecording,
   onStopRecording,
@@ -189,6 +256,7 @@ export function NoteView({
   const [panelOpen, setPanelOpen] = useState(false);
   const [titleValue, setTitleValue] = useState(session?.title ?? "");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [enhancedJSON, setEnhancedJSON] = useState<JSONContent | null>(null);
 
   useEffect(() => {
     setTitleValue(session?.title ?? "");
@@ -199,6 +267,15 @@ export function NoteView({
       transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [transcript, panelOpen]);
+
+  // Parse enhanced notes into tiptap JSON when they change
+  useEffect(() => {
+    if (enhancedNotes) {
+      setEnhancedJSON(parseEnhancedToTiptapJSON(enhancedNotes));
+    } else {
+      setEnhancedJSON(null);
+    }
+  }, [enhancedNotes]);
 
   const handleTitleBlur = () => {
     const trimmed = titleValue.trim();
@@ -212,6 +289,11 @@ export function NoteView({
       e.preventDefault();
       (e.target as HTMLInputElement).blur();
     }
+  };
+
+  const handleEnhancedJSONChange = (json: JSONContent) => {
+    const tagged = serializeTiptapToTagged(json);
+    onEnhancedNotesChange?.(tagged);
   };
 
   const hasTranscript = transcript.length > 0;
@@ -264,11 +346,29 @@ export function NoteView({
 
           {/* Content area */}
           {hasEnhanced && viewMode === "enhanced" ? (
-            <EnhancedNotesPanel
-              content={enhancedNotes}
-              loading={enhanceLoading}
-              error={enhanceError}
-            />
+            <>
+              {enhanceLoading && (
+                <div className="flex items-center gap-2 text-sm text-text-secondary pt-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  {t("sessions.enhancing")}
+                </div>
+              )}
+              {enhanceError && !enhanceLoading && (
+                <div className="text-sm pt-2">
+                  <p className="text-red-400">{t("sessions.enhanceError")}</p>
+                  <p className="text-xs text-text-secondary mt-1">{enhanceError}</p>
+                </div>
+              )}
+              {enhancedJSON && !enhanceLoading && (
+                <NotesEditor
+                  content=""
+                  onChange={() => {}}
+                  mode="enhanced"
+                  initialJSON={enhancedJSON}
+                  onJSONChange={handleEnhancedJSONChange}
+                />
+              )}
+            </>
           ) : (
             <>
               {/* Summary display */}

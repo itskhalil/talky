@@ -360,6 +360,26 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     }
   };
 
+  const handleEnhancedNotesChange = useCallback(
+    (tagged: string) => {
+      if (!selectedSessionId) return;
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+      saveTimerRef.current = setTimeout(async () => {
+        try {
+          await invoke("save_enhanced_notes", {
+            sessionId: selectedSessionId,
+            notes: tagged,
+          });
+        } catch (e) {
+          console.error("Failed to save enhanced notes:", e);
+        }
+      }, 500);
+    },
+    [selectedSessionId],
+  );
+
   const handleTitleChange = async (title: string) => {
     if (!selectedSessionId) return;
     try {
@@ -422,6 +442,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             summaryLoading={summaryLoading}
             summaryError={summaryError}
             onNotesChange={handleNotesChange}
+            onEnhancedNotesChange={handleEnhancedNotesChange}
             onTitleChange={handleTitleChange}
             onStartRecording={() => handleStartRecording(selectedSessionId)}
             onStopRecording={handleStopRecording}

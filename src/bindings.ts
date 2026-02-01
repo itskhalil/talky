@@ -766,6 +766,14 @@ async saveUserNotes(sessionId: string, notes: string) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+async saveEnhancedNotes(sessionId: string, notes: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_enhanced_notes", { sessionId, notes }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getUserNotes(sessionId: string) : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_user_notes", { sessionId }) };
