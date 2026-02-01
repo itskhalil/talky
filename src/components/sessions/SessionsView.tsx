@@ -283,6 +283,15 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
 
   const handleEndNote = async () => {
     try {
+      // Stop recording first if active
+      if (isRecording && selectedSessionId) {
+        await invoke("stop_session_recording", {
+          sessionId: selectedSessionId,
+        });
+        setIsRecording(false);
+        setAmplitude({ mic: 0, speaker: 0 });
+      }
+
       // Flush any pending notes save
       if (saveTimerRef.current && selectedSessionId) {
         clearTimeout(saveTimerRef.current);
@@ -375,7 +384,6 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             onTabChange={setActiveTab}
             onNotesChange={handleNotesChange}
             onStartRecording={handleStartRecording}
-            onStopRecording={handleStopRecording}
             onEndNote={handleEndNote}
             onGenerateSummary={() => generateSummary(selectedSessionId)}
           />

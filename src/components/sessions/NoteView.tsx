@@ -44,7 +44,6 @@ interface NoteViewProps {
   onTabChange: (tab: DetailTab) => void;
   onNotesChange: (notes: string) => void;
   onStartRecording: () => void;
-  onStopRecording: () => void;
   onEndNote: () => void;
   onGenerateSummary: () => void;
 }
@@ -84,7 +83,6 @@ export function NoteView({
   onTabChange,
   onNotesChange,
   onStartRecording,
-  onStopRecording,
   onEndNote,
   onGenerateSummary,
 }: NoteViewProps) {
@@ -113,7 +111,7 @@ export function NoteView({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* Mic button */}
+            {/* Mic button — starts recording */}
             {isActive && !isRecording && (
               <button
                 onClick={onStartRecording}
@@ -123,25 +121,16 @@ export function NoteView({
                 <Mic size={20} />
               </button>
             )}
+            {/* Stop button — stops recording and ends the note */}
             {isActive && isRecording && (
               <button
-                onClick={onStopRecording}
+                onClick={onEndNote}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors animate-pulse"
               >
                 <Square size={14} />
                 <span className="text-sm font-medium">
-                  {t("sessions.recording")}
+                  {t("sessions.stopRecording")}
                 </span>
-              </button>
-            )}
-
-            {/* End Note button */}
-            {isActive && !isRecording && (
-              <button
-                onClick={onEndNote}
-                className="text-xs px-3 py-1.5 rounded-lg bg-mid-gray/20 hover:bg-mid-gray/30 transition-colors"
-              >
-                {t("sessions.endNote")}
               </button>
             )}
           </div>

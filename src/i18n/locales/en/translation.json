@@ -416,7 +416,7 @@
     "recording": "Recording",
     "endNote": "End Note"
   },
-  "settings": {
+  "sessions": {
     "title": "Notes",
     "newNote": "New Note",
     "endNote": "Close Note",
