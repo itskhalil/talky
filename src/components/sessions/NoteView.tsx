@@ -299,8 +299,8 @@ export function NoteView({
   // Parse enhanced notes into tiptap JSON when they change
   useEffect(() => {
     if (enhancedNotes) {
-      console.log("[EnhancedNotesPanel] raw content:\n", enhancedNotes);
-      setEnhancedJSON(parseEnhancedToTiptapJSON(enhancedNotes));
+      const json = parseEnhancedToTiptapJSON(enhancedNotes);
+      setEnhancedJSON(json);
     } else {
       setEnhancedJSON(null);
     }
@@ -353,21 +353,19 @@ export function NoteView({
               <div className="flex gap-1 bg-background-secondary rounded-lg p-0.5 w-fit">
                 <button
                   onClick={() => onViewModeChange("enhanced")}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                    viewMode === "enhanced"
+                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${viewMode === "enhanced"
                       ? "bg-background text-text shadow-sm"
                       : "text-text-secondary hover:text-text"
-                  }`}
+                    }`}
                 >
                   {t("sessions.enhancedNotes")}
                 </button>
                 <button
                   onClick={() => onViewModeChange("notes")}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                    viewMode === "notes"
+                  className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${viewMode === "notes"
                       ? "bg-background text-text shadow-sm"
                       : "text-text-secondary hover:text-text"
-                  }`}
+                    }`}
                 >
                   {t("sessions.yourNotes")}
                 </button>
@@ -400,7 +398,7 @@ export function NoteView({
               {enhancedJSON && !enhanceLoading && (
                 <NotesEditor
                   content=""
-                  onChange={() => {}}
+                  onChange={() => { }}
                   mode="enhanced"
                   initialJSON={enhancedJSON}
                   onJSONChange={handleEnhancedJSONChange}

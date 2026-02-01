@@ -37,11 +37,6 @@ export function NotesEditor({
   const initialJSONAppliedRef = useRef<JSONContent | null>(null);
   const suppressUpdateRef = useRef(false);
 
-  // Reset the ref when mode changes so the new editor instance gets content
-  useEffect(() => {
-    initialJSONAppliedRef.current = null;
-  }, [mode]);
-
   const editor = useEditor(
     {
       extensions: [
@@ -73,6 +68,11 @@ export function NotesEditor({
     [mode],
   );
 
+  // Reset the ref when the editor instance changes so new editors get content
+  useEffect(() => {
+    initialJSONAppliedRef.current = null;
+  }, [mode, editor]);
+
   // Set content from initialJSON or markdown string
   useEffect(() => {
     if (!editor) return;
@@ -100,7 +100,9 @@ export function NotesEditor({
 
   useEffect(() => {
     if (!editor) return;
+    suppressUpdateRef.current = true;
     editor.setEditable(!disabled);
+    suppressUpdateRef.current = false;
   }, [disabled, editor]);
 
   if (!editor) return null;
