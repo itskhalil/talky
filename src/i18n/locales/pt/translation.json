@@ -2,9 +2,7 @@
   "tray": {
     "settings": "Configurações...",
     "checkUpdates": "Verificar Atualizações...",
-    "copyLastTranscript": "Copiar última transcrição",
-    "quit": "Sair",
-    "cancel": "Cancelar"
+    "quit": "Sair"
   },
   "sidebar": {
     "general": "Geral",

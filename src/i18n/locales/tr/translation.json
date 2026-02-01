@@ -2,9 +2,7 @@
   "tray": {
     "settings": "Ayarlar...",
     "checkUpdates": "Güncellemeleri Kontrol Et...",
-    "copyLastTranscript": "Son transkripti kopyala",
-    "quit": "Çıkış",
-    "cancel": "İptal"
+    "quit": "Çıkış"
   },
   "sidebar": {
     "general": "Genel",

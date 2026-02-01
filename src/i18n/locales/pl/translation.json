@@ -2,9 +2,7 @@
   "tray": {
     "settings": "Ustawienia...",
     "checkUpdates": "Sprawdź aktualizacje...",
-    "copyLastTranscript": "Kopiuj ostatnią transkrypcję",
-    "quit": "Zamknij",
-    "cancel": "Anuluj"
+    "quit": "Zamknij"
   },
   "sidebar": {
     "general": "Ogólne",
