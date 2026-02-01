@@ -11,6 +11,7 @@ import {
   Volume2,
   Circle,
 } from "lucide-react";
+import { NotesEditor } from "./NotesEditor";
 
 interface Session {
   id: string;
@@ -136,8 +137,7 @@ export function SessionsView() {
   );
 
   const handleNotesChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newNotes = e.target.value;
+    (newNotes: string) => {
       setUserNotes(newNotes);
 
       if (saveTimerRef.current) {
@@ -411,13 +411,11 @@ export function SessionsView() {
         {/* Notes tab */}
         {activeTab === "notes" && (
           <div>
-            <textarea
-              className="w-full border border-mid-gray/20 rounded-lg p-3 bg-background text-sm resize-none focus:outline-none focus:border-logo-primary/60 transition-colors"
-              rows={14}
-              placeholder={t("sessions.notesPlaceholder")}
-              value={notesLoaded ? userNotes : ""}
+            <NotesEditor
+              content={notesLoaded ? userNotes : ""}
               onChange={handleNotesChange}
               disabled={!notesLoaded}
+              placeholder={t("sessions.notesPlaceholder")}
             />
           </div>
         )}

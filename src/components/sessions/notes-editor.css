@@ -1,0 +1,38 @@
+.notes-editor .tiptap {
+  outline: none;
+  min-height: 280px;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.notes-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-mid-gray, #888);
+  opacity: 0.6;
+  pointer-events: none;
+  height: 0;
+}
+
+.notes-editor .tiptap ul {
+  padding-left: 1.25rem;
+  list-style-type: disc;
+}
+
+.notes-editor .tiptap ul ul {
+  list-style-type: circle;
+}
+
+.notes-editor .tiptap ul ul ul {
+  list-style-type: square;
+}
+
+.notes-editor .tiptap ol {
+  padding-left: 1.25rem;
+  list-style-type: decimal;
+}
+
+.notes-editor .tiptap li {
+  margin: 0.125rem 0;
+}

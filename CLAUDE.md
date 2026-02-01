@@ -43,17 +43,21 @@ Handy is a cross-platform desktop speech-to-text app built with Tauri 2.x (Rust 
   - `audio.rs` - Audio recording and device management
   - `model.rs` - Model downloading and management
   - `transcription.rs` - Speech-to-text processing pipeline
+  - `session.rs` - Notes/session lifecycle and transcript storage
   - `history.rs` - Transcription history storage
 - `audio_toolkit/` - Low-level audio processing:
   - `audio/` - Device enumeration, recording, resampling
   - `vad/` - Voice Activity Detection (Silero VAD)
 - `commands/` - Tauri command handlers for frontend communication
+  - `session.rs` - Note creation, recording start/stop, transcript and meeting notes CRUD
+- `actions.rs` - Shortcut actions and the session transcription loop (`run_session_transcription_loop`)
 - `shortcut.rs` - Global keyboard shortcut handling
 - `settings.rs` - Application settings management
 
 ### Frontend Structure (src/)
 
 - `App.tsx` - Main component with onboarding flow
+- `components/sessions/` - Notes UI (list view, detail view with Notes/Transcript tabs, recording controls)
 - `components/settings/` - Settings UI (35+ files)
 - `components/model-selector/` - Model management interface
 - `components/onboarding/` - First-run experience
@@ -67,6 +71,8 @@ Handy is a cross-platform desktop speech-to-text app built with Tauri 2.x (Rust 
 **Manager Pattern:** Core functionality organized into managers (Audio, Model, Transcription) initialized at startup and managed via Tauri state.
 
 **Command-Event Architecture:** Frontend → Backend via Tauri commands; Backend → Frontend via events.
+
+**Notes (Sessions):** A "Note" is the primary entity. Users create a Note, optionally type freeform notes, and can start/stop recording multiple times within a single Note. Recording produces a live transcript (mic + speaker channels). Backend uses "session" naming internally; UI uses "Note".
 
 **Pipeline Processing:** Audio → VAD → Whisper/Parakeet → Text output → Clipboard/Paste
 

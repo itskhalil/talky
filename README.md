@@ -2,45 +2,46 @@
 
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/WVBeWsNXK4)
 
-**A free, open source, and extensible speech-to-text application that works completely offline.**
+**A free, open source meeting notes app with live transcription — completely offline.**
 
-Handy is a cross-platform desktop application built with Tauri (Rust + React/TypeScript) that provides simple, privacy-focused speech transcription. Press a shortcut, speak, and have your words appear in any text field—all without sending your voice to the cloud.
+Handy is a cross-platform desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Everything runs locally — your audio never leaves your computer.
 
 ## Why Handy?
 
-Handy was created to fill the gap for a truly open source, extensible speech-to-text tool. As stated on [handy.computer](https://handy.computer):
+Think [Granola](https://granola.ai) but open source and fully offline.
 
-- **Free**: Accessibility tooling belongs in everyone's hands, not behind a paywall
+- **Free**: Meeting tooling belongs in everyone's hands, not behind a paywall
 - **Open Source**: Together we can build further. Extend Handy for yourself and contribute to something bigger
-- **Private**: Your voice stays on your computer. Get transcriptions without sending audio to the cloud
-- **Simple**: One tool, one job. Transcribe what you say and put it into a text box
+- **Private**: Your voice stays on your computer. No cloud, no accounts, no data collection
+- **Local AI**: Transcription runs on-device using Whisper or Parakeet models with GPU acceleration
 
-Handy isn't trying to be the best speech-to-text app—it's trying to be the most forkable one.
+Handy isn't trying to be the best meeting notes app — it's trying to be the most forkable one.
 
 ## How It Works
 
-1. **Press** a configurable keyboard shortcut to start/stop recording (or use push-to-talk mode)
-2. **Speak** your words while the shortcut is active
-3. **Release** and Handy processes your speech using Whisper
-4. **Get** your transcribed text pasted directly into whatever app you're using
+1. **Create a Note** — open the app and start a new note
+2. **Type your own notes** — jot down thoughts, agenda items, or context in the built-in editor
+3. **Start recording** — hit record and Handy transcribes both your microphone and system audio (speaker) in real time
+4. **Stop and resume** — pause recording whenever you want, start again within the same note
+5. **Review** — switch between your Notes tab and the Transcript tab to see everything captured
 
-The process is entirely local:
+All processing happens locally:
 
+- Mic and speaker audio are captured and transcribed separately so you can tell who said what
 - Silence is filtered using VAD (Voice Activity Detection) with Silero
 - Transcription uses your choice of models:
   - **Whisper models** (Small/Medium/Turbo/Large) with GPU acceleration when available
-  - **Parakeet V3** - CPU-optimized model with excellent performance and automatic language detection
-- Works on Windows, macOS, and Linux
+  - **Parakeet V3** — CPU-optimized model with excellent performance and automatic language detection
+- Works on macOS, Windows, and Linux
 
 ## Quick Start
 
 ### Installation
 
 1. Download the latest release from the [releases page](https://github.com/cjpais/Handy/releases) or the [website](https://handy.computer)
-2. Install the application following platform-specific instructions
-3. Launch Handy and grant necessary system permissions (microphone, accessibility)
-4. Configure your preferred keyboard shortcuts in Settings
-5. Start transcribing!
+2. Install and launch Handy, granting microphone and accessibility permissions when prompted
+3. Download a transcription model (the app will guide you)
+4. Create a Note and start recording
 
 ### Development Setup
 
@@ -50,7 +51,7 @@ For detailed build instructions including platform-specific requirements, see [B
 
 Handy is built as a Tauri application combining:
 
-- **Frontend**: React + TypeScript with Tailwind CSS for the settings UI
+- **Frontend**: React + TypeScript with Tailwind CSS for the notes and settings UI
 - **Backend**: Rust for system integration, audio processing, and ML inference
 - **Core Libraries**:
   - `whisper-rs`: Local speech recognition with Whisper models

@@ -427,7 +427,13 @@
     "transcriptTab": "Transcript",
     "startRecording": "Start Recording",
     "stopRecording": "Stop Recording",
-    "recording": "Recording"
+    "recording": "Recording",
+    "toolbar": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "bulletList": "Bullet List",
+      "orderedList": "Numbered List"
+    }
   },
   "footer": {
     "downloadingModel": "Downloading {{model}}...",
