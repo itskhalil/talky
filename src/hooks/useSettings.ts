@@ -9,7 +9,6 @@ interface UseSettingsReturn {
   isUpdating: (key: string) => boolean;
   audioDevices: AudioDevice[];
   outputDevices: AudioDevice[];
-  audioFeedbackEnabled: boolean;
   postProcessModelOptions: Record<string, string[]>;
 
   // Actions
@@ -55,7 +54,6 @@ export const useSettings = (): UseSettingsReturn => {
     isUpdating: store.isUpdatingKey,
     audioDevices: store.audioDevices,
     outputDevices: store.outputDevices,
-    audioFeedbackEnabled: store.settings?.audio_feedback || false,
     postProcessModelOptions: store.postProcessModelOptions,
     updateSetting: store.updateSetting,
     resetSetting: store.resetSetting,
