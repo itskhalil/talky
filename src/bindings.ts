@@ -303,6 +303,13 @@ async openAppDataDir() : Promise<Result<null, string>> {
 async checkAppleIntelligenceAvailable() : Promise<boolean> {
     return await TAURI_INVOKE("check_apple_intelligence_available");
 },
+/**
+ * Check if Ollama is running and available at the given base URL.
+ * Returns the list of installed model names if available, empty vec if not running.
+ */
+async checkOllamaAvailable(baseUrl: string | null) : Promise<string[]> {
+    return await TAURI_INVOKE("check_ollama_available", { baseUrl });
+},
 async getAvailableModels() : Promise<Result<ModelInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_models") };

@@ -10,6 +10,7 @@ type PostProcessProviderState = {
   selectedProviderId: string;
   selectedProvider: PostProcessProvider | undefined;
   isCustomProvider: boolean;
+  isOllamaProvider: boolean;
   isAppleProvider: boolean;
   appleIntelligenceUnavailable: boolean;
   baseUrl: string;
@@ -30,6 +31,7 @@ type PostProcessProviderState = {
 };
 
 const APPLE_PROVIDER_ID = "apple_intelligence";
+const OLLAMA_PROVIDER_ID = "ollama";
 
 export const usePostProcessProviderState = (): PostProcessProviderState => {
   const {
@@ -52,7 +54,8 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
   // Filter providers based on hide_cloud_models setting
   const providers = useMemo(() => {
     if (hideCloudModels) {
-      return allProviders.filter((p) => p.id === "custom");
+      // Show local providers: Custom and Ollama
+      return allProviders.filter((p) => p.id === "custom" || p.id === OLLAMA_PROVIDER_ID);
     }
     return allProviders;
   }, [allProviders, hideCloudModels]);
@@ -106,9 +109,12 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
     [selectedProviderId, setPostProcessProvider],
   );
 
+  const isOllamaProvider = selectedProvider?.id === OLLAMA_PROVIDER_ID;
+
   const handleBaseUrlChange = useCallback(
     (value: string) => {
-      if (!selectedProvider || selectedProvider.id !== "custom") {
+      // Allow base URL editing for Custom and Ollama providers
+      if (!selectedProvider || (selectedProvider.id !== "custom" && selectedProvider.id !== OLLAMA_PROVIDER_ID)) {
         return;
       }
       const trimmed = value.trim();
@@ -205,6 +211,7 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
     selectedProviderId,
     selectedProvider,
     isCustomProvider,
+    isOllamaProvider,
     isAppleProvider,
     appleIntelligenceUnavailable,
     baseUrl,
