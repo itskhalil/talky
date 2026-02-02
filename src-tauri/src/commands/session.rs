@@ -137,7 +137,7 @@ pub async fn generate_session_summary(
         return Err("No post-process model configured".to_string());
     }
 
-    let system_message = include_str!("../../../.AI/prompt.txt").to_string();
+    let system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
 
     let notes_section = if user_notes.trim().is_empty() {
         "No notes were taken. Generate comprehensive notes from the transcript, marking all lines as [ai].".to_string()
