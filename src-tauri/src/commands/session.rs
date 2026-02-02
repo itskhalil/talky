@@ -224,10 +224,13 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
         spawn_speaker_capture(speaker_buf, shutdown);
     }
 
+    // Get time offset from existing segments (for pause/resume continuity)
+    let time_offset_ms = sm.get_session_time_offset(&session_id);
+
     let app_clone = app.clone();
     let sid = session_id.clone();
     tauri::async_runtime::spawn(async move {
-        crate::actions::run_session_transcription_loop(app_clone, sid).await;
+        crate::actions::run_session_transcription_loop(app_clone, sid, time_offset_ms).await;
     });
 
     crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Recording);

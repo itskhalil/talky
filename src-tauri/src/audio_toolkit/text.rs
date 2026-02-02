@@ -147,8 +147,8 @@ const FILLER_WORDS: &[&str] = &[
 
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
 
-/// Collapses repeated 1-2 letter words (3+ repetitions) to a single instance.
-/// E.g., "wh wh wh wh" -> "wh", "I I I I" -> "I"
+/// Collapses repeated short words (3+ repetitions) to a single instance.
+/// E.g., "wh wh wh wh" -> "wh", "I I I I" -> "I", "Yeah Yeah Yeah Yeah" -> "Yeah"
 fn collapse_stutters(text: &str) -> String {
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.is_empty() {
@@ -162,8 +162,8 @@ fn collapse_stutters(text: &str) -> String {
         let word = words[i];
         let word_lower = word.to_lowercase();
 
-        // Only process 1-2 letter words
-        if word_lower.len() <= 2 && word_lower.chars().all(|c| c.is_alphabetic()) {
+        // Process words up to 4 letters to catch common stutters like "Yeah", "what", "okay"
+        if word_lower.len() <= 4 && word_lower.chars().all(|c| c.is_alphabetic()) {
             // Count consecutive repetitions (case-insensitive)
             let mut count = 1;
             while i + count < words.len() && words[i + count].to_lowercase() == word_lower {
@@ -202,7 +202,7 @@ static FILLER_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
 ///
 /// This function cleans up raw transcription text by:
 /// 1. Removing filler words (uh, um, hmm, etc.)
-/// 2. Collapsing repeated 1-2 letter stutters (e.g., "wh wh wh" -> "wh")
+/// 2. Collapsing repeated short word stutters (e.g., "wh wh wh" -> "wh", "Yeah Yeah Yeah" -> "Yeah")
 /// 3. Cleaning up excess whitespace
 ///
 /// # Arguments
@@ -402,6 +402,30 @@ mod tests {
         let text = "no no is fine";
         let result = filter_transcription_output(text);
         assert_eq!(result, "no no is fine");
+    }
+
+    #[test]
+    fn test_filter_stutter_four_letter_words() {
+        // Test that 4-letter words like "Yeah" are now collapsed
+        let text = "Yeah Yeah Yeah Yeah okay";
+        let result = filter_transcription_output(text);
+        assert_eq!(result, "Yeah okay");
+    }
+
+    #[test]
+    fn test_filter_stutter_what() {
+        // Test collapsing repeated "what"
+        let text = "what what what what happened";
+        let result = filter_transcription_output(text);
+        assert_eq!(result, "what happened");
+    }
+
+    #[test]
+    fn test_filter_stutter_well() {
+        // Test collapsing repeated "well"
+        let text = "well well well I think";
+        let result = filter_transcription_output(text);
+        assert_eq!(result, "well I think");
     }
 
     #[test]
