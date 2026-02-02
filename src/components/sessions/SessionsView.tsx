@@ -12,6 +12,8 @@ import {
   useEnhancedNotes,
   useSummary,
   useSelectedCache,
+  useEnhanceLoading,
+  useEnhanceError,
 } from "@/stores/sessionStore";
 
 interface SessionsViewProps {
@@ -45,8 +47,8 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const notesLoaded = useSessionStore((s) => s.notesLoaded);
   const summaryLoading = useSessionStore((s) => s.summaryLoading);
   const summaryError = useSessionStore((s) => s.summaryError);
-  const enhanceLoading = useSessionStore((s) => s.enhanceLoading);
-  const enhanceError = useSessionStore((s) => s.enhanceError);
+  const enhanceLoading = useEnhanceLoading();
+  const enhanceError = useEnhanceError();
   const viewMode = useSessionStore((s) => s.viewMode);
 
   const session = useSelectedSession();

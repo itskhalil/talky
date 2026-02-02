@@ -1,7 +1,8 @@
 {
   "_comment": "French translation for Talky. Contribute at: https://github.com/itskhalil/talky",
   "tray": {
-    "settings": "Paramètres...",
+    "newNote": "Nouvelle Note",
+    "stopRecording": "Arrêter l'enregistrement",
     "checkUpdates": "Rechercher des mises à jour...",
     "quit": "Quitter"
   },

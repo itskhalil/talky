@@ -501,8 +501,8 @@ export function NoteView({
       {/* Pinned toggle + copy controls */}
       {hasEnhanced && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 flex justify-end pointer-events-none z-10">
-          <div className="flex items-center gap-1.5 pointer-events-auto bg-background-sidebar rounded-lg p-0.5">
-            <div className="flex">
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            <div className="flex bg-background-sidebar rounded-lg p-0.5">
               <button
                 onClick={() => onViewModeChange("enhanced")}
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
@@ -518,22 +518,24 @@ export function NoteView({
                 <PenLine size={14} />
               </button>
             </div>
-            <button
-              onClick={handleCopyNotes}
-              className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-              title={t("sessions.copyNotes")}
-            >
-              {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-            </button>
-            {copyAsBulletsEnabled && (
+            <div className="flex items-center bg-background-sidebar rounded-lg p-0.5">
               <button
-                onClick={handleCopyAsBullets}
+                onClick={handleCopyNotes}
                 className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-                title={t("sessions.copyAsBullets")}
+                title={t("sessions.copyNotes")}
               >
-                {bulletsCopied ? <Check size={14} className="text-green-500" /> : <List size={14} />}
+                {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
               </button>
-            )}
+              {copyAsBulletsEnabled && (
+                <button
+                  onClick={handleCopyAsBullets}
+                  className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
+                  title={t("sessions.copyAsBullets")}
+                >
+                  {bulletsCopied ? <Check size={14} className="text-green-500" /> : <List size={14} />}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

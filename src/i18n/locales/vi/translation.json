@@ -1,7 +1,8 @@
 {
   "_comment": "Vietnamese translation for Talky. Contribute at: https://github.com/itskhalil/talky",
   "tray": {
-    "settings": "Cài đặt...",
+    "newNote": "Ghi Chú Mới",
+    "stopRecording": "Dừng Ghi Âm",
     "checkUpdates": "Kiểm tra cập nhật...",
     "quit": "Thoát"
   },

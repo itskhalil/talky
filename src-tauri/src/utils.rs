@@ -23,6 +23,7 @@ pub fn cancel_current_operation(app: &AppHandle) {
 
     // Update tray icon
     change_tray_icon(app, crate::tray::TrayIconState::Idle);
+    stop_recording_indicator(app);
 
     // Unload model if immediate unload is enabled
     let tm = app.state::<Arc<TranscriptionManager>>();
