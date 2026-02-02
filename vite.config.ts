@@ -17,12 +17,11 @@ export default defineConfig(async () => ({
     },
   },
 
-  // Multiple entry points for main app and overlay
+  // Build configuration
   build: {
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
-        overlay: resolve(__dirname, "src/overlay/index.html"),
       },
     },
   },
