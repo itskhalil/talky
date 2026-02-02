@@ -49,9 +49,13 @@ Talky integrates with AI providers for enhanced productivity:
 ### Installation
 
 1. Download the latest release from the [releases page](https://github.com/itskhalil/talky/releases)
-2. Install and launch Talky, granting microphone and system audio permissions when prompted
-3. Download a transcription model (the app will guide you)
-4. Create a Note and start recording
+2. **macOS only**: The app is not notarized, so you'll need to remove the quarantine attribute before opening:
+   ```bash
+   xattr -cr /Applications/Talky.app
+   ```
+3. Install and launch Talky, granting microphone and system audio permissions when prompted
+4. Download a transcription model (the app will guide you)
+5. Create a Note and start recording
 
 ### Development Setup
 
