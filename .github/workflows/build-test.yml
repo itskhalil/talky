@@ -10,10 +10,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-14"
+          - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
             target: "aarch64-apple-darwin"
-          - platform: "macos-13"
+          - platform: "macos-15-large"
             args: "--target x86_64-apple-darwin"
             target: "x86_64-apple-darwin"
 
