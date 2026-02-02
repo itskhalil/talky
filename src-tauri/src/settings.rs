@@ -149,14 +149,6 @@ impl ModelUnloadTimeout {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
-pub enum SoundTheme {
-    Marimba,
-    Pop,
-    Custom,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
-#[serde(rename_all = "snake_case")]
 pub enum FontSize {
     Small,
     Medium,
@@ -179,32 +171,9 @@ impl FontSize {
     }
 }
 
-impl SoundTheme {
-    fn as_str(&self) -> &'static str {
-        match self {
-            SoundTheme::Marimba => "marimba",
-            SoundTheme::Pop => "pop",
-            SoundTheme::Custom => "custom",
-        }
-    }
-
-    pub fn to_start_path(&self) -> String {
-        format!("resources/{}_start.wav", self.as_str())
-    }
-
-    pub fn to_stop_path(&self) -> String {
-        format!("resources/{}_stop.wav", self.as_str())
-    }
-}
-
 /* still handy for composing the initial JSON in the store ------------- */
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct AppSettings {
-    pub audio_feedback: bool,
-    #[serde(default = "default_audio_feedback_volume")]
-    pub audio_feedback_volume: f32,
-    #[serde(default = "default_sound_theme")]
-    pub sound_theme: SoundTheme,
     #[serde(default)]
     pub font_size: FontSize,
     #[serde(default = "default_start_hidden")]
@@ -311,14 +280,6 @@ fn default_history_limit() -> usize {
 
 fn default_recording_retention_period() -> RecordingRetentionPeriod {
     RecordingRetentionPeriod::PreserveLimit
-}
-
-fn default_audio_feedback_volume() -> f32 {
-    1.0
-}
-
-fn default_sound_theme() -> SoundTheme {
-    SoundTheme::Marimba
 }
 
 fn default_post_process_enabled() -> bool {
@@ -495,9 +456,6 @@ pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 
 pub fn get_default_settings() -> AppSettings {
     AppSettings {
-        audio_feedback: false,
-        audio_feedback_volume: default_audio_feedback_volume(),
-        sound_theme: default_sound_theme(),
         font_size: FontSize::default(),
         start_hidden: default_start_hidden(),
         autostart_enabled: default_autostart_enabled(),

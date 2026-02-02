@@ -1,15 +1,16 @@
 # Talky
 
-**A free, open source meeting notes app with live transcription — completely offline.**
-Talky is a cross-platform desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Everything runs locally — your audio never leaves your computer.
+**A free, open source meeting notes app with live transcription and AI-powered note enhancement.**
+
+Talky is a cross-platform desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Transcription runs entirely on your device — your audio never leaves your computer. Optional AI features let you enhance your notes and chat with your transcript.
 
 ## Why Talky?
 
-Think [Granola](https://granola.ai) but open source and fully offline.
+Think [Granola](https://granola.ai) but open source and private by default.
 - **Free**: Meeting tooling belongs in everyone's hands, not behind a paywall
 - **Open Source**: Together we can build further. Extend Talky for yourself and contribute to something bigger
-- **Private**: Your voice stays on your computer. No cloud, no accounts, no data collection
-- **Local AI**: Transcription runs on-device using Whisper or Parakeet models with GPU acceleration
+- **Private**: Transcription runs entirely on your device — your audio never leaves your computer. AI features are optional and use your own API keys.
+- **Local AI**: Speech-to-text runs on-device using Whisper or Parakeet models with GPU acceleration. You can also use local LLMs via Ollama or Apple Intelligence for fully offline AI.
 
 ## How It Works
 
@@ -39,8 +40,8 @@ Talky integrates with AI providers for enhanced productivity:
 
 #### Supported AI Providers
 
-- **Cloud**: OpenAI, Anthropic, OpenRouter, Groq, Cerebras
 - **Local**: Ollama, Apple Intelligence (macOS Apple Silicon)
+- **Cloud**: OpenAI, Anthropic, OpenRouter, Groq, Cerebras (disabled by default, enable via debug pane)
 - **Custom**: Any OpenAI-compatible endpoint
 
 ## Quick Start
@@ -63,16 +64,14 @@ Talky is built as a Tauri application combining:
 - **Frontend**: React + TypeScript with Tailwind CSS for the notes and settings UI
 - **Backend**: Rust for system integration, audio processing, and ML inference
 - **Core Libraries**:
-  - `whisper-rs`: Local speech recognition with Whisper models
-  - `transcription-rs`: CPU-optimized speech recognition with Parakeet models
+  - `transcribe-rs`: Local speech recognition with Whisper, Parakeet, and Moonshine models
   - `cpal`: Cross-platform audio I/O
   - `vad-rs`: Voice Activity Detection
-  - `rdev`: Global keyboard shortcuts and system events
   - `rubato`: Audio resampling
 
 ### Debug Mode
 
-Talky includes a debug mode for development and troubleshooting. Access it by pressing:
+Talky includes a debug pane for development, troubleshooting, and advanced settings like enabling cloud AI providers. Access it by pressing:
 
 - **macOS**: `Cmd+Shift+D`
 - **Windows/Linux**: `Ctrl+Shift+D`

@@ -1,42 +1,9 @@
-use crate::settings::{get_settings, write_settings, FontSize, LLMPrompt, SoundTheme};
+use crate::settings::{get_settings, write_settings, FontSize, LLMPrompt};
 use crate::tray::update_tray_menu;
 use crate::utils::TrayIconState;
 use log::info;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_audio_feedback_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.audio_feedback = enabled;
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_audio_feedback_volume_setting(app: AppHandle, volume: f32) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.audio_feedback_volume = volume;
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_sound_theme_setting(app: AppHandle, theme: String) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    let theme = match theme.as_str() {
-        "marimba" => SoundTheme::Marimba,
-        "pop" => SoundTheme::Pop,
-        "custom" => SoundTheme::Custom,
-        _ => return Err(format!("Unknown theme: {}", theme)),
-    };
-    settings.sound_theme = theme;
-    write_settings(&app, settings);
-    Ok(())
-}
 
 #[tauri::command]
 #[specta::specta]
