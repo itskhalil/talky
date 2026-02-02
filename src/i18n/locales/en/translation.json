@@ -302,6 +302,10 @@
         "label": "Check for Updates",
         "description": "Automatically check for new versions of Talky"
       },
+      "hideCloudModels": {
+        "label": "Hide Cloud Models",
+        "description": "Only show the Custom provider for AI models"
+      },
       "soundTheme": {
         "label": "Sound Theme",
         "description": "Choose a sound theme for recording start and stop feedback"

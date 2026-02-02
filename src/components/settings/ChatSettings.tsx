@@ -31,9 +31,17 @@ export const ChatSettings: React.FC = () => {
   } = useSettingsStore();
 
   const providers = settings?.post_process_providers || [];
+  const hideCloudModels = settings?.hide_cloud_models ?? true;
   const chatProviders = useMemo(
-    () => providers.filter((p) => p.id !== APPLE_PROVIDER_ID),
-    [providers],
+    () =>
+      providers.filter((p) => {
+        // Always exclude Apple Intelligence from chat providers
+        if (p.id === APPLE_PROVIDER_ID) return false;
+        // If hide_cloud_models is enabled, only show Custom
+        if (hideCloudModels) return p.id === "custom";
+        return true;
+      }),
+    [providers, hideCloudModels],
   );
 
   const selectedProviderId = settings?.chat_provider_id || "openai";

@@ -15,6 +15,7 @@ function App() {
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep | null>(
     null,
   );
+  const [fromOnboarding, setFromOnboarding] = useState(false);
   const [view, setView] = useState<AppView>("notes");
   const { settings, updateSetting } = useSettings();
   const refreshAudioDevices = useSettingsStore(
@@ -35,8 +36,12 @@ function App() {
       hasCompletedPostOnboardingInit.current = true;
       refreshAudioDevices();
       refreshOutputDevices();
+      // Navigate to settings after onboarding so user can configure AI models
+      if (fromOnboarding) {
+        setView("settings");
+      }
     }
-  }, [onboardingStep, refreshAudioDevices, refreshOutputDevices]);
+  }, [onboardingStep, refreshAudioDevices, refreshOutputDevices, fromOnboarding]);
 
   // Handle keyboard shortcuts for debug mode toggle
   useEffect(() => {
@@ -85,6 +90,7 @@ function App() {
 
   const handleModelSelected = () => {
     // Transition to main app - user has started a download
+    setFromOnboarding(true);
     setOnboardingStep("done");
   };
 
