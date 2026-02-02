@@ -307,8 +307,24 @@ export function NoteView({
   };
 
   useEffect(() => {
-    setTitleValue(session?.title ?? "");
+    if (session) {
+      // Show empty field with placeholder for new notes
+      const isNewNote = session.title === "New Note";
+      setTitleValue(isNewNote ? "" : session.title);
+    } else {
+      setTitleValue("");
+    }
   }, [session?.id, session?.title]);
+
+  // Auto-focus title for new notes
+  useEffect(() => {
+    if (session && textareaRef.current) {
+      const isNewNote = session.title === "New Note";
+      if (isNewNote) {
+        textareaRef.current.focus();
+      }
+    }
+  }, [session?.id]);
 
   const panelWasOpen = useRef(panelOpen);
   useEffect(() => {
@@ -364,6 +380,8 @@ export function NoteView({
     if (e.key === "Enter") {
       e.preventDefault();
       (e.target as HTMLTextAreaElement).blur();
+      // Focus the notes editor
+      activeEditor?.commands.focus();
     }
   };
 
