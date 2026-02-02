@@ -49,8 +49,8 @@ This guide covers how to set up the development environment and build Talky from
 ### 1. Clone the Repository
 
 ```bash
-git clone git@github.com:cjpais/Talky.git
-cd Talky
+git clone git@github.com:itskhalil/talky.git
+cd talky
 ```
 
 ### 2. Install Dependencies
