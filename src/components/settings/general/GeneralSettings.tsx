@@ -4,6 +4,7 @@ import { LanguageSelector } from "../LanguageSelector";
 import { CustomWords } from "../CustomWords";
 import { FontSizeSetting } from "../FontSizeSetting";
 import { SettingsGroup } from "../../ui/SettingsGroup";
+import { Alert } from "../../ui/Alert";
 import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
 import { PostProcessingSettingsApi } from "../PostProcessingSettingsApi";
@@ -20,6 +21,9 @@ export const GeneralSettings: React.FC = () => {
         <FontSizeSetting descriptionMode="tooltip" grouped />
       </SettingsGroup>
       <SettingsGroup title={t("modelSelector.chooseTranscriptionModel")}>
+        <Alert variant="info" contained>
+          {t("modelSelector.transcriptionTip")}
+        </Alert>
         <ModelSelector />
         {showLanguageSelector && (
           <LanguageSelector descriptionMode="tooltip" grouped={true} />
@@ -27,9 +31,15 @@ export const GeneralSettings: React.FC = () => {
         <CustomWords descriptionMode="tooltip" grouped />
       </SettingsGroup>
       <SettingsGroup title={t("modelSelector.summarisationModel")}>
+        <Alert variant="info" contained>
+          {t("modelSelector.summarisationTip")}
+        </Alert>
         <PostProcessingSettingsApi />
       </SettingsGroup>
       <SettingsGroup title={t("settings.chat.title")}>
+        <Alert variant="info" contained>
+          {t("settings.chat.tip")}
+        </Alert>
         <ChatSettings />
       </SettingsGroup>
     </div>
