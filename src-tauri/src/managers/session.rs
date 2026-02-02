@@ -358,6 +358,52 @@ impl SessionManager {
         Ok(segments)
     }
 
+    /// Get recent transcript segments for a session, filtered by source and time window.
+    ///
+    /// This is used for deduplication - when adding a mic segment, we check if
+    /// similar speaker segments already exist in the recent time window.
+    ///
+    /// # Arguments
+    /// * `session_id` - The session to query
+    /// * `source` - The source to filter by ("mic" or "speaker")
+    /// * `since_ms` - Only return segments that end after this time (in session milliseconds)
+    ///
+    /// # Returns
+    /// A vector of transcript segments matching the criteria
+    pub fn get_recent_segments(
+        &self,
+        session_id: &str,
+        source: &str,
+        since_ms: i64,
+    ) -> Result<Vec<TranscriptSegment>> {
+        let conn = self.get_connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, text, source, start_ms, end_ms, created_at
+             FROM transcript_segments
+             WHERE session_id = ?1 AND source = ?2 AND end_ms >= ?3
+             ORDER BY start_ms DESC
+             LIMIT 10",
+        )?;
+
+        let rows = stmt.query_map(params![session_id, source, since_ms], |row| {
+            Ok(TranscriptSegment {
+                id: row.get("id")?,
+                session_id: row.get("session_id")?,
+                text: row.get("text")?,
+                source: row.get("source")?,
+                start_ms: row.get("start_ms")?,
+                end_ms: row.get("end_ms")?,
+                created_at: row.get("created_at")?,
+            })
+        })?;
+
+        let mut segments = Vec::new();
+        for row in rows {
+            segments.push(row?);
+        }
+        Ok(segments)
+    }
+
     pub fn delete_session(&self, session_id: &str) -> Result<()> {
         let conn = self.get_connection()?;
 

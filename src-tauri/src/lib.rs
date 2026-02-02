@@ -225,7 +225,6 @@ pub fn run() {
         commands::settings::change_app_language_setting,
         commands::settings::change_update_checks_setting,
         commands::settings::set_chat_provider,
-        commands::settings::change_chat_api_key_setting,
         commands::settings::change_chat_model_setting,
         commands::settings::fetch_chat_models,
         trigger_update_check,

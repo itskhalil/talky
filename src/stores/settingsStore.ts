@@ -49,7 +49,6 @@ interface SettingsStore {
   // Chat settings
   chatModelOptions: Record<string, string[]>;
   setChatProvider: (providerId: string) => Promise<void>;
-  updateChatApiKey: (providerId: string, apiKey: string) => Promise<void>;
   updateChatModel: (providerId: string, model: string) => Promise<void>;
   fetchChatModels: (providerId: string) => Promise<string[]>;
   setChatModelOptions: (providerId: string, models: string[]) => void;
@@ -407,26 +406,6 @@ export const useSettingsStore = create<SettingsStore>()(
         await refreshSettings();
       } catch (error) {
         console.error("Failed to set chat provider:", error);
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    updateChatApiKey: async (providerId, apiKey) => {
-      const { setUpdating, refreshSettings } = get();
-      const updateKey = `chat_api_key:${providerId}`;
-      setUpdating(updateKey, true);
-      set((state) => ({
-        chatModelOptions: {
-          ...state.chatModelOptions,
-          [providerId]: [],
-        },
-      }));
-      try {
-        await commands.changeChatApiKeySetting(providerId, apiKey);
-        await refreshSettings();
-      } catch (error) {
-        console.error("Failed to update chat API key:", error);
       } finally {
         setUpdating(updateKey, false);
       }

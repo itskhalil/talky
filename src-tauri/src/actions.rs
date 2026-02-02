@@ -15,6 +15,8 @@ const WHISPER_RATE: usize = 16000;
 
 pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) {
     use crate::audio_toolkit::pipeline::{ChannelMode, Pipeline};
+    use crate::audio_toolkit::text::is_duplicate_segment;
+    use crate::audio_toolkit::vad::{SileroVad, SmoothedVad};
     use crate::managers::session::{SessionAmplitudeEvent, SessionManager};
     use tokio::time::{interval, Duration};
 
@@ -33,12 +35,40 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
         }
     };
 
+    // Initialize VAD for filtering residual echo on mic channel
+    let vad: Option<Box<dyn crate::audio_toolkit::VoiceActivityDetector>> = match app
+        .path()
+        .resolve(
+            "resources/models/silero_vad_v4.onnx",
+            tauri::path::BaseDirectory::Resource,
+        ) {
+        Ok(vad_path) => match SileroVad::new(&vad_path, 0.5) {
+            Ok(silero) => {
+                log::info!("VAD initialized successfully");
+                Some(Box::new(SmoothedVad::new(
+                    Box::new(silero),
+                    3,  // prefill_frames: ~90ms context before speech
+                    5,  // hangover_frames: ~150ms after speech ends
+                    2,  // onset_frames: require 2 consecutive voice frames
+                )))
+            }
+            Err(e) => {
+                log::warn!("VAD init failed, running without voice activity detection: {}", e);
+                None
+            }
+        },
+        Err(e) => {
+            log::warn!("Failed to resolve VAD model path: {}", e);
+            None
+        }
+    };
+
     // Both mic and speaker streams are already resampled to 16kHz,
     // so Pipeline resamplers act as identity (16k→16k).
     let mut pipeline = Pipeline::new(
         WHISPER_RATE as u32,
         WHISPER_RATE as u32,
-        None, // VAD handled separately or inside pipeline if needed
+        vad,
         aec,
         ChannelMode::MicAndSpeaker,
     );
@@ -81,23 +111,46 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             let pairs = pipeline.flush();
             pipeline.process_pairs(pairs);
 
-            // Transcribe remaining mic (AEC-cleaned via pipeline)
-            let (remaining_mic, _remaining_spk) = pipeline.take_all_accumulated();
-            if !remaining_mic.is_empty() {
-                let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64;
-                if let Ok(text) = tm.transcribe_chunk(remaining_mic) {
-                    if !text.is_empty() {
-                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, now);
-                    }
-                }
-            }
-
-            // Transcribe remaining speaker
+            // Transcribe remaining speaker first (so we can dedupe mic against it)
             if !pending_spk_samples.is_empty() {
                 let start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64;
                 if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples)) {
                     if !text.is_empty() {
                         let _ = sm.add_segment(&session_id, text, "speaker", start_ms, now);
+                    }
+                }
+            }
+
+            // Transcribe remaining mic (AEC-cleaned via pipeline) with deduplication
+            let (remaining_mic, _remaining_spk) = pipeline.take_all_accumulated();
+            if !remaining_mic.is_empty() {
+                let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64;
+                if let Ok(text) = tm.transcribe_chunk(remaining_mic) {
+                    if !text.is_empty() {
+                        // Check for duplicates against speaker segments
+                        let is_dup = sm
+                            .get_recent_segments(&session_id, "speaker", start_ms - 2000)
+                            .map(|segments| {
+                                segments.iter().any(|seg| {
+                                    is_duplicate_segment(
+                                        &text,
+                                        start_ms,
+                                        now,
+                                        &seg.text,
+                                        seg.start_ms,
+                                        seg.end_ms,
+                                        0.75,
+                                        500,
+                                    )
+                                })
+                            })
+                            .unwrap_or(false);
+
+                        if !is_dup {
+                            let _ = sm.add_segment(&session_id, text, "mic", start_ms, now);
+                        } else {
+                            debug!("Skipping duplicate mic segment (final flush)");
+                        }
                     }
                 }
             }
@@ -170,7 +223,31 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             match tm.transcribe_chunk(mic_audio) {
                 Ok(text) => {
                     if !text.is_empty() {
-                        let _ = sm.add_segment(&session_id, text, "mic", start_ms, now);
+                        // Check if this mic segment duplicates a recent speaker segment
+                        // Speaker channel is authoritative - skip mic if it's just echo
+                        let is_dup = sm
+                            .get_recent_segments(&session_id, "speaker", start_ms - 2000)
+                            .map(|segments| {
+                                segments.iter().any(|seg| {
+                                    is_duplicate_segment(
+                                        &text,
+                                        start_ms,
+                                        now,
+                                        &seg.text,
+                                        seg.start_ms,
+                                        seg.end_ms,
+                                        0.75, // similarity threshold
+                                        500,  // time overlap threshold in ms
+                                    )
+                                })
+                            })
+                            .unwrap_or(false);
+
+                        if !is_dup {
+                            let _ = sm.add_segment(&session_id, text, "mic", start_ms, now);
+                        } else {
+                            debug!("Skipping duplicate mic segment");
+                        }
                     }
                 }
                 Err(e) => {

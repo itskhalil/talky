@@ -184,7 +184,7 @@ impl Pipeline {
         }
         let sum_sq: f32 = frame.iter().map(|&x| x * x).sum();
         let rms = (sum_sq / frame.len() as f32).sqrt();
-        rms < 1e-6
+        rms < 0.005 // ~-46dB, rejects low-level AEC residue
     }
 
     pub fn process_pairs(&mut self, pairs: Vec<AudioPair>) {

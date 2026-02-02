@@ -308,19 +308,6 @@ pub fn set_chat_provider(app: AppHandle, provider_id: String) -> Result<(), Stri
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_chat_api_key_setting(
-    app: AppHandle,
-    provider_id: String,
-    api_key: String,
-) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.chat_api_keys.insert(provider_id, api_key);
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn change_chat_model_setting(
     app: AppHandle,
     provider_id: String,
@@ -344,8 +331,9 @@ pub async fn fetch_chat_models(
         .post_process_provider(&provider_id)
         .ok_or_else(|| format!("Provider not found: {}", provider_id))?;
 
+    // Use the same API key as post-processing for consistency
     let api_key = settings
-        .chat_api_keys
+        .post_process_api_keys
         .get(&provider_id)
         .cloned()
         .unwrap_or_default();
