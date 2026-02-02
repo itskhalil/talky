@@ -18,8 +18,9 @@
 }
 
 :root {
+  --font-size-base: 16px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   line-height: 1.5;
   font-weight: 400;
 

@@ -1,4 +1,4 @@
-use crate::settings::{get_settings, write_settings, LLMPrompt, SoundTheme};
+use crate::settings::{get_settings, write_settings, FontSize, LLMPrompt, SoundTheme};
 use crate::tray::update_tray_menu;
 use crate::utils::TrayIconState;
 use log::info;
@@ -34,6 +34,15 @@ pub fn change_sound_theme_setting(app: AppHandle, theme: String) -> Result<(), S
         _ => return Err(format!("Unknown theme: {}", theme)),
     };
     settings.sound_theme = theme;
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_font_size_setting(app: AppHandle, size: FontSize) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.font_size = size;
     write_settings(&app, settings);
     Ok(())
 }

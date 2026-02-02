@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../LanguageSelector";
 import { CustomWords } from "../CustomWords";
+import { FontSizeSetting } from "../FontSizeSetting";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
@@ -27,6 +28,9 @@ export const GeneralSettings: React.FC = () => {
       </SettingsGroup>
       <SettingsGroup title={t("settings.chat.title")}>
         <ChatSettings />
+      </SettingsGroup>
+      <SettingsGroup title={t("settings.appearance.title")}>
+        <FontSizeSetting descriptionMode="tooltip" grouped />
       </SettingsGroup>
     </div>
   );

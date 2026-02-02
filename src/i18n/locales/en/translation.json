@@ -347,6 +347,16 @@
         "settings": "Settings:"
       }
     },
+    "appearance": {
+      "title": "Appearance",
+      "fontSize": {
+        "title": "Font Size",
+        "description": "Adjust the text size throughout the app",
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      }
+    },
     "about": {
       "title": "About",
       "version": {
