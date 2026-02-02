@@ -58,8 +58,8 @@ interface SessionStore {
   // UI state not worth caching
   summaryLoading: boolean;
   summaryError: string | null;
-  enhanceLoading: boolean;
-  enhanceError: string | null;
+  enhanceLoading: Record<string, boolean>;
+  enhanceError: Record<string, string | null>;
   viewMode: "notes" | "enhanced";
 
   // Actions
@@ -101,8 +101,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
   summaryLoading: false,
   summaryError: null,
-  enhanceLoading: false,
-  enhanceError: null,
+  enhanceLoading: {},
+  enhanceError: {},
   viewMode: "enhanced",
 
   _saveTimers: new Map(),
@@ -120,8 +120,6 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       selectedSessionId: id,
       notesLoaded: !!cached,
       summaryError: null,
-      enhanceError: null,
-      enhanceLoading: false,
       summaryLoading: false,
       viewMode: cached?.enhancedNotes ? "enhanced" : "notes",
     });
@@ -320,6 +318,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }),
     );
 
+    // Listen for tray stop recording request (uses same code path as UI button)
+    unlisteners.push(
+      await listen("tray-stop-recording", () => {
+        const { stopRecording } = get();
+        stopRecording();
+      }),
+    );
+
     set({ _unlisteners: unlisteners });
   },
 
@@ -344,8 +350,6 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         recordingSessionId: result.id,
         notesLoaded: true,
         summaryError: null,
-        enhanceError: null,
-        enhanceLoading: false,
         viewMode: "notes" as const,
         isRecording: false,
         cache: {
@@ -561,29 +565,41 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   enhanceNotes: async () => {
     const { selectedSessionId } = get();
     if (!selectedSessionId) return;
-    set({ enhanceLoading: true, enhanceError: null, viewMode: "enhanced" as const });
+    const sessionId = selectedSessionId; // Capture for closure
+
+    set((s) => ({
+      enhanceLoading: { ...s.enhanceLoading, [sessionId]: true },
+      enhanceError: { ...s.enhanceError, [sessionId]: null },
+      viewMode: "enhanced" as const,
+    }));
+
     try {
-      console.log("[enhanceNotes] sending sessionId:", selectedSessionId);
+      console.log("[enhanceNotes] sending sessionId:", sessionId);
       const result = await invoke<string>("generate_session_summary", {
-        sessionId: selectedSessionId,
+        sessionId,
       });
       console.log("[enhanceNotes] result:", result);
       set((s) => {
-        const existing = s.cache[selectedSessionId];
-        if (!existing)
-          return { enhanceLoading: false, viewMode: "enhanced" as const };
+        const existing = s.cache[sessionId];
+        if (!existing) {
+          return {
+            enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
+          };
+        }
         return {
-          enhanceLoading: false,
-          viewMode: "enhanced" as const,
+          enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
           cache: {
             ...s.cache,
-            [selectedSessionId]: { ...existing, enhancedNotes: result },
+            [sessionId]: { ...existing, enhancedNotes: result },
           },
         };
       });
     } catch (e) {
       console.error("Failed to enhance notes:", e);
-      set({ enhanceLoading: false, enhanceError: String(e) });
+      set((s) => ({
+        enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
+        enhanceError: { ...s.enhanceError, [sessionId]: String(e) },
+      }));
     }
   },
 
@@ -690,5 +706,19 @@ export function useSummary() {
   return useSessionStore(
     (s) =>
       (s.selectedSessionId && s.cache[s.selectedSessionId]?.summary) ?? null,
+  );
+}
+
+export function useEnhanceLoading() {
+  return useSessionStore(
+    (s) =>
+      (s.selectedSessionId && s.enhanceLoading[s.selectedSessionId]) || false,
+  );
+}
+
+export function useEnhanceError() {
+  return useSessionStore(
+    (s) =>
+      (s.selectedSessionId && s.enhanceError[s.selectedSessionId]) || null,
   );
 }

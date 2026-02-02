@@ -1,6 +1,7 @@
 {
   "tray": {
-    "settings": "Configuración...",
+    "newNote": "Nueva Nota",
+    "stopRecording": "Detener Grabación",
     "checkUpdates": "Buscar actualizaciones...",
     "quit": "Salir"
   },

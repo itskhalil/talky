@@ -1,9 +1,25 @@
 use crate::settings;
 use crate::tray_i18n::get_tray_translations;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIcon;
 use tauri::{AppHandle, Manager, Theme};
+
+/// State for the recording indicator animation
+pub struct RecordingIndicatorState {
+    is_running: AtomicBool,
+}
+
+impl Default for RecordingIndicatorState {
+    fn default() -> Self {
+        Self {
+            is_running: AtomicBool::new(false),
+        }
+    }
+}
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TrayIconState {
@@ -71,7 +87,7 @@ pub fn change_tray_icon(app: &AppHandle, icon: TrayIconState) {
     update_tray_menu(app, &icon, None);
 }
 
-pub fn update_tray_menu(app: &AppHandle, _state: &TrayIconState, locale: Option<&str>) {
+pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&str>) {
     let settings = settings::get_settings(app);
 
     let locale = locale.unwrap_or(&settings.app_language);
@@ -79,26 +95,22 @@ pub fn update_tray_menu(app: &AppHandle, _state: &TrayIconState, locale: Option<
 
     // Platform-specific accelerators
     #[cfg(target_os = "macos")]
-    let (settings_accelerator, quit_accelerator) = (Some("Cmd+,"), Some("Cmd+Q"));
+    let quit_accelerator = Some("Cmd+Q");
     #[cfg(not(target_os = "macos"))]
-    let (settings_accelerator, quit_accelerator) = (Some("Ctrl+,"), Some("Ctrl+Q"));
+    let quit_accelerator = Some("Ctrl+Q");
 
-    // Create common menu items
-    let version_label = if cfg!(debug_assertions) {
-        format!("Talky v{} (Dev)", env!("CARGO_PKG_VERSION"))
-    } else {
-        format!("Talky v{}", env!("CARGO_PKG_VERSION"))
+    // Primary action: New Note when idle, Stop Recording when recording
+    let primary_action = match state {
+        TrayIconState::Idle => {
+            MenuItem::with_id(app, "new_note", &strings.new_note, true, None::<&str>)
+                .expect("failed to create new note item")
+        }
+        TrayIconState::Recording => {
+            MenuItem::with_id(app, "stop_recording", &strings.stop_recording, true, None::<&str>)
+                .expect("failed to create stop recording item")
+        }
     };
-    let version_i = MenuItem::with_id(app, "version", &version_label, false, None::<&str>)
-        .expect("failed to create version item");
-    let settings_i = MenuItem::with_id(
-        app,
-        "settings",
-        &strings.settings,
-        true,
-        settings_accelerator,
-    )
-    .expect("failed to create settings item");
+
     let check_updates_i = MenuItem::with_id(
         app,
         "check_updates",
@@ -114,9 +126,8 @@ pub fn update_tray_menu(app: &AppHandle, _state: &TrayIconState, locale: Option<
     let menu = Menu::with_items(
         app,
         &[
-            &version_i,
+            &primary_action,
             &separator(),
-            &settings_i,
             &check_updates_i,
             &separator(),
             &quit_i,
@@ -127,5 +138,62 @@ pub fn update_tray_menu(app: &AppHandle, _state: &TrayIconState, locale: Option<
     let tray = app.state::<TrayIcon>();
     let _ = tray.set_menu(Some(menu));
     let _ = tray.set_icon_as_template(true);
+}
+
+/// Starts the pulsing recording indicator in the menu bar
+pub fn start_recording_indicator(app: &AppHandle) {
+    // Get or create the indicator state
+    let state = match app.try_state::<Arc<RecordingIndicatorState>>() {
+        Some(s) => s.inner().clone(),
+        None => {
+            let s = Arc::new(RecordingIndicatorState::default());
+            app.manage(s.clone());
+            s
+        }
+    };
+
+    // If already running, don't start another loop
+    if state.is_running.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let app_handle = app.clone();
+    let indicator_state = state;
+
+    // Spawn the animation task
+    tauri::async_runtime::spawn(async move {
+        let mut toggle = true;
+
+        loop {
+            // Check FIRST if we should stop
+            if !indicator_state.is_running.load(Ordering::SeqCst) {
+                break;
+            }
+
+            // Update the tray title with pulsing indicator
+            #[cfg(target_os = "macos")]
+            if let Some(tray) = app_handle.try_state::<TrayIcon>() {
+                let title = if toggle { "●" } else { "○" };
+                let _ = tray.set_title(Some(title));
+            }
+
+            toggle = !toggle;
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+
+        // Clear the title when the loop exits - ONLY place this happens
+        #[cfg(target_os = "macos")]
+        if let Some(tray) = app_handle.try_state::<TrayIcon>() {
+            let _ = tray.set_title(None::<&str>);
+        }
+    });
+}
+
+/// Stops the pulsing recording indicator
+pub fn stop_recording_indicator(app: &AppHandle) {
+    // Just set the flag - the loop will clear the title when it exits
+    if let Some(state) = app.try_state::<Arc<RecordingIndicatorState>>() {
+        state.is_running.store(false, Ordering::SeqCst);
+    }
 }
 
