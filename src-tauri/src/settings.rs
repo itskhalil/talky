@@ -389,6 +389,15 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         });
     }
 
+    // Ollama - local LLM with Metal acceleration
+    providers.push(PostProcessProvider {
+        id: "ollama".to_string(),
+        label: "Ollama (Local)".to_string(),
+        base_url: "http://localhost:11434/v1".to_string(),
+        allow_base_url_edit: true,
+        models_endpoint: Some("/models".to_string()),
+    });
+
     // Custom provider always comes last
     providers.push(PostProcessProvider {
         id: "custom".to_string(),

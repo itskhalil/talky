@@ -12,6 +12,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import type { DropdownOption } from "../ui/Dropdown";
 
 const APPLE_PROVIDER_ID = "apple_intelligence";
+const OLLAMA_PROVIDER_ID = "ollama";
 
 /**
  * Chat provider/model settings — rendered inside a SettingsGroup in GeneralSettings.
@@ -35,8 +36,8 @@ export const ChatSettings: React.FC = () => {
       providers.filter((p) => {
         // Always exclude Apple Intelligence from chat providers
         if (p.id === APPLE_PROVIDER_ID) return false;
-        // If hide_cloud_models is enabled, only show Custom
-        if (hideCloudModels) return p.id === "custom";
+        // If hide_cloud_models is enabled, show Custom and Ollama (local providers)
+        if (hideCloudModels) return p.id === "custom" || p.id === OLLAMA_PROVIDER_ID;
         return true;
       }),
     [providers, hideCloudModels],
@@ -47,6 +48,8 @@ export const ChatSettings: React.FC = () => {
     (p) => p.id === selectedProviderId,
   );
   const isCustomProvider = selectedProvider?.id === "custom";
+  const isOllamaProvider = selectedProvider?.id === OLLAMA_PROVIDER_ID;
+  const showBaseUrlField = isCustomProvider || isOllamaProvider;
   const baseUrl = selectedProvider?.base_url ?? "";
 
   const model = settings?.chat_models?.[selectedProviderId] ?? "";
@@ -58,13 +61,13 @@ export const ChatSettings: React.FC = () => {
 
   const handleBaseUrlChange = useCallback(
     (value: string) => {
-      if (!isCustomProvider) return;
+      if (!showBaseUrlField) return;
       const trimmed = value.trim();
       if (trimmed && trimmed !== baseUrl) {
         void updatePostProcessBaseUrl(selectedProviderId, trimmed);
       }
     },
-    [isCustomProvider, baseUrl, selectedProviderId, updatePostProcessBaseUrl],
+    [showBaseUrlField, baseUrl, selectedProviderId, updatePostProcessBaseUrl],
   );
 
   const isBaseUrlUpdating = isUpdating(
@@ -136,7 +139,7 @@ export const ChatSettings: React.FC = () => {
         </div>
       </SettingContainer>
 
-      {isCustomProvider && (
+      {showBaseUrlField && (
         <SettingContainer
           title={t("settings.postProcessing.api.baseUrl.title")}
           description={t("settings.postProcessing.api.baseUrl.description")}

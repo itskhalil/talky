@@ -96,10 +96,15 @@ export function useNoteChat({
       return;
     }
 
+    // For Ollama (local), use a placeholder API key since Ollama ignores it
+    // but the AI SDK may require a non-empty value
+    const isOllama = providerId === "ollama";
+    const effectiveApiKey = isOllama && !apiKey ? "ollama" : apiKey;
+
     setError(null);
 
     chatLog(`provider=${providerId} model=${model} baseURL=${provider.base_url}`);
-    chatLog(`apiKey present=${!!apiKey} length=${apiKey.length}`);
+    chatLog(`apiKey present=${!!effectiveApiKey} length=${effectiveApiKey.length} isOllama=${isOllama}`);
 
     // Flush pending audio before sending
     try {
@@ -140,14 +145,14 @@ Answer concisely based on the context above. If the information isn't in the con
       if (providerId === "anthropic") {
         chatLog("using Anthropic provider");
         const anthropic = createAnthropic({
-          apiKey,
+          apiKey: effectiveApiKey,
           baseURL: provider.base_url,
         });
         aiModel = anthropic(model);
       } else {
         chatLog("using OpenAI-compatible provider");
         const openai = createOpenAI({
-          apiKey,
+          apiKey: effectiveApiKey,
           baseURL: provider.base_url,
         });
         aiModel = openai.chat(model);
