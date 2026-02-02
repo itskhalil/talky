@@ -223,6 +223,7 @@ pub fn run() {
         commands::settings::set_chat_provider,
         commands::settings::change_chat_model_setting,
         commands::settings::fetch_chat_models,
+        commands::settings::change_copy_as_bullets_setting,
         trigger_update_check,
         commands::cancel_operation,
         commands::write_chat_debug_log,

@@ -232,6 +232,8 @@ pub struct AppSettings {
     pub chat_provider_id: String,
     #[serde(default = "default_chat_models")]
     pub chat_models: HashMap<String, String>,
+    #[serde(default)]
+    pub copy_as_bullets_enabled: bool,
 }
 
 fn default_model() -> String {
@@ -485,6 +487,7 @@ pub fn get_default_settings() -> AppSettings {
         experimental_enabled: false,
         chat_provider_id: default_chat_provider_id(),
         chat_models: default_chat_models(),
+        copy_as_bullets_enabled: false,
     }
 }
 

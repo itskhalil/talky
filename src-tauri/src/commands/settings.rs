@@ -307,3 +307,12 @@ pub async fn fetch_chat_models(
 
     crate::llm_client::fetch_models(provider, api_key).await
 }
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_copy_as_bullets_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.copy_as_bullets_enabled = enabled;
+    write_settings(&app, settings);
+    Ok(())
+}

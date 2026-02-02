@@ -109,6 +109,8 @@ const settingUpdaters: {
   app_language: (value) => commands.changeAppLanguageSetting(value as string),
   experimental_enabled: (value) =>
     commands.changeExperimentalEnabledSetting(value as boolean),
+  copy_as_bullets_enabled: (value) =>
+    commands.changeCopyAsBulletsSetting(value as boolean),
 };
 
 export const useSettingsStore = create<SettingsStore>()(

@@ -12,10 +12,12 @@ import {
   X,
   RotateCcw,
   PenLine,
+  List,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
 import { useNoteChat, type ChatMessage } from "@/hooks/useNoteChat";
+import { useSettings } from "@/hooks/useSettings";
 import { JSONContent, Editor } from "@tiptap/core";
 
 interface Session {
@@ -67,6 +69,44 @@ function formatMs(ms: number): string {
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Format notes as Logseq-friendly bullet points.
+ * - Each non-empty line becomes a bullet
+ * - Headings become parent bullets (# removed)
+ * - Subsequent lines indent under headings
+ * - Existing bullets are preserved (no double bullets)
+ */
+function formatNotesForLogseq(notes: string): string {
+  const lines = notes.split("\n");
+  const result: string[] = [];
+  let inHeading = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.*)/);
+    if (headingMatch) {
+      result.push(`- ${headingMatch[2]}`);
+      inHeading = true;
+    } else {
+      // Check if line already starts with a bullet
+      const hasBullet = /^[-*]\s/.test(trimmed);
+      if (hasBullet) {
+        // Already a bullet - just indent if under a heading
+        const content = trimmed.replace(/^[-*]\s+/, "");
+        const prefix = inHeading ? "  - " : "- ";
+        result.push(`${prefix}${content}`);
+      } else {
+        const prefix = inHeading ? "  - " : "- ";
+        result.push(`${prefix}${trimmed}`);
+      }
+    }
+  }
+
+  return result.join("\n");
 }
 
 /**
@@ -264,6 +304,8 @@ export function NoteView({
   onCloseFindBar,
 }: NoteViewProps) {
   const { t } = useTranslation();
+  const { getSetting } = useSettings();
+  const copyAsBulletsEnabled = getSetting("copy_as_bullets_enabled") ?? false;
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<"transcript" | "chat">("transcript");
   const [titleValue, setTitleValue] = useState(session?.title ?? "");
@@ -274,6 +316,7 @@ export function NoteView({
   const [enhancedJSON, setEnhancedJSON] = useState<JSONContent | null>(null);
   const [notesCopied, setNotesCopied] = useState(false);
   const [transcriptCopied, setTranscriptCopied] = useState(false);
+  const [bulletsCopied, setBulletsCopied] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -291,6 +334,19 @@ export function NoteView({
     await navigator.clipboard.writeText(text);
     setNotesCopied(true);
     setTimeout(() => setNotesCopied(false), 1500);
+  };
+
+  const handleCopyAsBullets = async () => {
+    let text = "";
+    if (viewMode === "enhanced" && enhancedNotes) {
+      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2}\s*/g, "").replace(/\*{4}/g, "");
+    } else {
+      text = userNotes;
+    }
+    const formatted = formatNotesForLogseq(text);
+    await navigator.clipboard.writeText(formatted);
+    setBulletsCopied(true);
+    setTimeout(() => setBulletsCopied(false), 1500);
   };
 
   const handleCopyTranscript = async () => {
@@ -469,6 +525,15 @@ export function NoteView({
             >
               {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
             </button>
+            {copyAsBulletsEnabled && (
+              <button
+                onClick={handleCopyAsBullets}
+                className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
+                title={t("sessions.copyAsBullets")}
+              >
+                {bulletsCopied ? <Check size={14} className="text-green-500" /> : <List size={14} />}
+              </button>
+            )}
           </div>
         </div>
       )}
