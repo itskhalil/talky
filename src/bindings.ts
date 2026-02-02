@@ -450,7 +450,7 @@ async isRecording() : Promise<boolean> {
     return await TAURI_INVOKE("is_recording");
 },
 /**
- * Triggers the system audio permission request by briefly initializing the audio tap.
+ * Triggers the system audio permission request by briefly starting the audio tap.
  * This is used during onboarding to request the "System Audio Recording Only" permission.
  */
 async requestSystemAudioPermission() : Promise<Result<null, string>> {
