@@ -155,13 +155,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                 let _ = app.emit("tray-stop-recording", ());
                 show_main_window(app);
             }
-            "check_updates" => {
-                let settings = settings::get_settings(app);
-                if settings.update_checks_enabled {
-                    show_main_window(app);
-                    let _ = app.emit("check-for-updates", ());
-                }
-            }
             "quit" => {
                 app.exit(0);
             }
