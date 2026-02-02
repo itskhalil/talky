@@ -145,7 +145,21 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         .show_menu_on_left_click(true)
         .icon_as_template(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "settings" => {
+            "new_note" => {
+                let sm = app.state::<Arc<SessionManager>>();
+                match sm.start_session(None) {
+                    Ok(session) => {
+                        show_main_window(app);
+                        let _ = app.emit("session-started", session);
+                    }
+                    Err(e) => {
+                        log::error!("Failed to create new note from tray: {}", e);
+                    }
+                }
+            }
+            "stop_recording" => {
+                // Tell frontend to stop recording (uses same code path as UI button)
+                let _ = app.emit("tray-stop-recording", ());
                 show_main_window(app);
             }
             "check_updates" => {

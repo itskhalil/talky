@@ -234,6 +234,7 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
     });
 
     crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Recording);
+    crate::tray::start_recording_indicator(&app);
 
     Ok(())
 }
@@ -254,6 +255,7 @@ pub fn stop_session_recording(app: AppHandle, session_id: String) -> Result<(), 
     rm.stop_session_recording();
 
     crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Idle);
+    crate::tray::stop_recording_indicator(&app);
 
     Ok(())
 }
@@ -348,6 +350,7 @@ pub fn end_session(app: AppHandle) -> Result<Option<Session>, String> {
     let session = sm.end_session().map_err(|e| e.to_string())?;
 
     crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Idle);
+    crate::tray::stop_recording_indicator(&app);
 
     Ok(session)
 }
