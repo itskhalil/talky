@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { WordCorrectionThreshold } from "./WordCorrectionThreshold";
 import { LogLevelSelector } from "./LogLevelSelector";
 import { HideCloudModelsToggle } from "./HideCloudModelsToggle";
+import { CopyAsBulletsToggle } from "./CopyAsBulletsToggle";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { ClamshellMicrophoneSelector } from "../ClamshellMicrophoneSelector";
 import { UpdateChecksToggle } from "../UpdateChecksToggle";
@@ -16,6 +17,7 @@ export const DebugSettings: React.FC = () => {
         <LogLevelSelector grouped={true} />
         <UpdateChecksToggle descriptionMode="tooltip" grouped={true} />
         <HideCloudModelsToggle descriptionMode="tooltip" grouped={true} />
+        <CopyAsBulletsToggle descriptionMode="tooltip" grouped={true} />
         <WordCorrectionThreshold descriptionMode="tooltip" grouped={true} />
         <ClamshellMicrophoneSelector descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>

@@ -189,6 +189,14 @@ async fetchChatModels(providerId: string) : Promise<Result<string[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async changeCopyAsBulletsSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_copy_as_bullets_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async triggerUpdateCheck() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("trigger_update_check") };
@@ -730,7 +738,7 @@ async flushPendingAudio(sessionId: string) : Promise<Result<null, string>> {
 
 /** user-defined types **/
 
-export type AppSettings = { font_size?: FontSize; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: Partial<{ [key in string]: string }>; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; chat_provider_id?: string; chat_models?: Partial<{ [key in string]: string }> }
+export type AppSettings = { font_size?: FontSize; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: Partial<{ [key in string]: string }>; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; chat_provider_id?: string; chat_models?: Partial<{ [key in string]: string }>; copy_as_bullets_enabled?: boolean }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
 export type FontSize = "small" | "medium" | "large"
