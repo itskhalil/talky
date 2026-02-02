@@ -570,5 +570,4 @@ impl SessionManager {
 
         Ok(session)
     }
-
 }
