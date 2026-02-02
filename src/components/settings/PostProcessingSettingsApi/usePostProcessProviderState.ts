@@ -44,9 +44,18 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
   } = useSettings();
 
   const enabled = settings?.post_process_enabled || false;
+  const hideCloudModels = settings?.hide_cloud_models ?? true;
 
   // Settings are guaranteed to have providers after migration
-  const providers = settings?.post_process_providers || [];
+  const allProviders = settings?.post_process_providers || [];
+
+  // Filter providers based on hide_cloud_models setting
+  const providers = useMemo(() => {
+    if (hideCloudModels) {
+      return allProviders.filter((p) => p.id === "custom");
+    }
+    return allProviders;
+  }, [allProviders, hideCloudModels]);
 
   const selectedProviderId = useMemo(() => {
     return settings?.post_process_provider_id || providers[0]?.id || "openai";
