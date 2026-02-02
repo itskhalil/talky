@@ -2,7 +2,6 @@ mod aec;
 mod actions;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
-mod audio_feedback;
 pub mod audio_toolkit;
 mod commands;
 mod helpers;
@@ -201,9 +200,6 @@ pub fn run() {
     let console_filter = build_console_filter();
 
     let specta_builder = Builder::<tauri::Wry>::new().commands(collect_commands![
-        commands::settings::change_audio_feedback_setting,
-        commands::settings::change_audio_feedback_volume_setting,
-        commands::settings::change_sound_theme_setting,
         commands::settings::change_font_size_setting,
         commands::settings::change_start_hidden_setting,
         commands::settings::change_autostart_setting,
@@ -258,8 +254,6 @@ pub fn run() {
         commands::audio::get_available_output_devices,
         commands::audio::set_selected_output_device,
         commands::audio::get_selected_output_device,
-        commands::audio::play_test_sound,
-        commands::audio::check_custom_sounds,
         commands::audio::set_clamshell_microphone,
         commands::audio::get_clamshell_microphone,
         commands::audio::is_recording,
