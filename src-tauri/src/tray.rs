@@ -111,14 +111,6 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
         }
     };
 
-    let check_updates_i = MenuItem::with_id(
-        app,
-        "check_updates",
-        &strings.check_updates,
-        settings.update_checks_enabled,
-        None::<&str>,
-    )
-    .expect("failed to create check updates item");
     let quit_i = MenuItem::with_id(app, "quit", &strings.quit, true, quit_accelerator)
         .expect("failed to create quit item");
     let separator = || PredefinedMenuItem::separator(app).expect("failed to create separator");
@@ -127,8 +119,6 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
         app,
         &[
             &primary_action,
-            &separator(),
-            &check_updates_i,
             &separator(),
             &quit_i,
         ],
