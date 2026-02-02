@@ -48,6 +48,14 @@ Talky integrates with AI providers for enhanced productivity:
 
 ### Installation
 
+#### macOS (quick install)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/install.sh | bash
+```
+
+#### Manual install
+
 1. Download the latest release from the [releases page](https://github.com/itskhalil/talky/releases)
 2. **macOS only**: The app is not notarized, so you'll need to remove the quarantine attribute before opening:
    ```bash
