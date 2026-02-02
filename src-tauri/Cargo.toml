@@ -2,7 +2,7 @@
 name = "talky"
 version = "0.1.0"
 description = "Talky"
-authors = ["cjpais"]
+authors = ["The user Mair"]
 edition = "2021"
 license = "MIT"
 default-run = "talky"
@@ -84,15 +84,6 @@ signal-hook = "0.3"
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-single-instance = "2.3.2"
 tauri-plugin-updater = "2.9.0"
-
-[target.'cfg(windows)'.dependencies]
-windows = { version = "0.61.3", features = [
-  "Win32_Media_Audio_Endpoints",
-  "Win32_System_Com_StructuredStorage",
-  "Win32_System_Variant",
-  "Win32_Foundation",
-  "Win32_UI_WindowsAndMessaging",
-] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cidre = { version = "0.13", features = ["av"] }
