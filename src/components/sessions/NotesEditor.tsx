@@ -84,6 +84,8 @@ export function NotesEditor({
   useEffect(() => {
     if (!editor) return;
     if (isEnhanced && initialJSON) {
+      // Skip content sync while user is actively editing to preserve cursor position
+      if (editor.isFocused) return;
       // Only apply if this is a genuinely new JSON payload (not one we already set)
       if (initialJSON !== initialJSONAppliedRef.current) {
         initialJSONAppliedRef.current = initialJSON;
