@@ -309,6 +309,10 @@
         "label": "Hide Cloud Models",
         "description": "Only show the Custom provider for AI models"
       },
+      "copyAsBullets": {
+        "label": "Copy as Bullets",
+        "description": "Show button to copy notes as bullet points (for Logseq, Roam, etc.)"
+      },
       "soundTheme": {
         "label": "Sound Theme",
         "description": "Choose a sound theme for recording start and stop feedback"
@@ -439,6 +443,7 @@
     "summaryRequiresPostProcess": "Configure an AI provider in settings to enable summaries.",
     "copied": "Copied!",
     "copyNotes": "Copy notes",
+    "copyAsBullets": "Copy as bullets",
     "copyTranscript": "Copy transcript",
     "consentWarning": "Ask for consent before transcribing conversations",
     "toolbar": {
