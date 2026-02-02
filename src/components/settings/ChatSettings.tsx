@@ -5,7 +5,6 @@ import { RefreshCcw } from "lucide-react";
 import { SettingContainer } from "@/components/ui";
 import { ResetButton } from "../ui/ResetButton";
 import { ProviderSelect } from "./PostProcessingSettingsApi/ProviderSelect";
-import { BaseUrlField } from "./PostProcessingSettingsApi/BaseUrlField";
 import { ModelSelect } from "./PostProcessingSettingsApi/ModelSelect";
 import { useSettings } from "../../hooks/useSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -16,7 +15,7 @@ const OLLAMA_PROVIDER_ID = "ollama";
 
 /**
  * Chat provider/model settings — rendered inside a SettingsGroup in GeneralSettings.
- * Mirrors the PostProcessingSettingsApi layout including base URL for custom providers.
+ * Uses the same providers as PostProcessing (summarization) - base URL is configured there.
  */
 export const ChatSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -26,7 +25,6 @@ export const ChatSettings: React.FC = () => {
     updateChatModel,
     fetchChatModels,
     chatModelOptions,
-    updatePostProcessBaseUrl,
   } = useSettingsStore();
 
   const providers = settings?.post_process_providers || [];
@@ -47,31 +45,12 @@ export const ChatSettings: React.FC = () => {
   const selectedProvider = chatProviders.find(
     (p) => p.id === selectedProviderId,
   );
-  const isCustomProvider = selectedProvider?.id === "custom";
-  const isOllamaProvider = selectedProvider?.id === OLLAMA_PROVIDER_ID;
-  const showBaseUrlField = isCustomProvider || isOllamaProvider;
-  const baseUrl = selectedProvider?.base_url ?? "";
 
   const model = settings?.chat_models?.[selectedProviderId] ?? "";
 
   const providerOptions = useMemo<DropdownOption[]>(
     () => chatProviders.map((p) => ({ value: p.id, label: p.label })),
     [chatProviders],
-  );
-
-  const handleBaseUrlChange = useCallback(
-    (value: string) => {
-      if (!showBaseUrlField) return;
-      const trimmed = value.trim();
-      if (trimmed && trimmed !== baseUrl) {
-        void updatePostProcessBaseUrl(selectedProviderId, trimmed);
-      }
-    },
-    [showBaseUrlField, baseUrl, selectedProviderId, updatePostProcessBaseUrl],
-  );
-
-  const isBaseUrlUpdating = isUpdating(
-    `post_process_base_url:${selectedProviderId}`,
   );
 
   const handleProviderSelect = useCallback(
@@ -121,6 +100,9 @@ export const ChatSettings: React.FC = () => {
   );
   const isModelUpdating = isUpdating(`chat_model:${selectedProviderId}`);
 
+  // Suppress unused variable warning - selectedProvider used for potential future features
+  void selectedProvider;
+
   return (
     <>
       <SettingContainer
@@ -138,28 +120,6 @@ export const ChatSettings: React.FC = () => {
           />
         </div>
       </SettingContainer>
-
-      {showBaseUrlField && (
-        <SettingContainer
-          title={t("settings.postProcessing.api.baseUrl.title")}
-          description={t("settings.postProcessing.api.baseUrl.description")}
-          descriptionMode="tooltip"
-          layout="horizontal"
-          grouped={true}
-        >
-          <div className="flex items-center gap-2">
-            <BaseUrlField
-              value={baseUrl}
-              onBlur={handleBaseUrlChange}
-              placeholder={t(
-                "settings.postProcessing.api.baseUrl.placeholder",
-              )}
-              disabled={isBaseUrlUpdating}
-              className="min-w-[380px]"
-            />
-          </div>
-        </SettingContainer>
-      )}
 
       <SettingContainer
         title={t("settings.postProcessing.api.model.title")}
