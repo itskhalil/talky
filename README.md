@@ -4,6 +4,20 @@
 
 Talky is a cross-platform desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Transcription runs entirely on your device — your audio never leaves your computer. Optional AI features let you enhance your notes and chat with your transcript.
 
+## Quick Start
+
+### Installation
+
+#### macOS (quick install)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/install.sh | bash
+```
+
+### Development Setup
+
+For detailed build instructions including platform-specific requirements, see [BUILD.md](BUILD.md).
+
 ## Why Talky?
 
 Think [Granola](https://granola.ai) but open source and private by default.
@@ -43,31 +57,6 @@ Talky integrates with AI providers for enhanced productivity:
 - **Local**: Ollama, Apple Intelligence (macOS Apple Silicon)
 - **Cloud**: OpenAI, Anthropic, OpenRouter, Groq, Cerebras (disabled by default, enable via debug pane)
 - **Custom**: Any OpenAI-compatible endpoint
-
-## Quick Start
-
-### Installation
-
-#### macOS (quick install)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/install.sh | bash
-```
-
-#### Manual install
-
-1. Download the latest release from the [releases page](https://github.com/itskhalil/talky/releases)
-2. **macOS only**: The app is not notarized, so you'll need to remove the quarantine attribute before opening:
-   ```bash
-   xattr -cr /Applications/Talky.app
-   ```
-3. Install and launch Talky, granting microphone and system audio permissions when prompted
-4. Download a transcription model (the app will guide you)
-5. Create a Note and start recording
-
-### Development Setup
-
-For detailed build instructions including platform-specific requirements, see [BUILD.md](BUILD.md).
 
 ## Architecture
 
