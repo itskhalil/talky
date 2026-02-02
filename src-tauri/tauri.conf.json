@@ -43,10 +43,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": [
-      "dmg",
-      "updater"
-    ],
+    "targets": "dmg",
     "resources": [
       "resources/**/*"
     ],
