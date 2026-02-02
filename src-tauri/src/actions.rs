@@ -8,12 +8,18 @@ use tauri::Emitter;
 use tauri::Manager;
 
 const POLL_INTERVAL_MS: u64 = 500;
-const MIN_CHUNK_SAMPLES: usize = 16000; // 1s at 16kHz — don't transcribe less
+const MIN_CHUNK_SAMPLES: usize = 32000; // 2s at 16kHz — reduces stuttering from short chunks
 const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe
 const SILENCE_FLUSH_POLLS: u32 = 4; // 4 polls of silence (~2s) → flush pending audio
 const WHISPER_RATE: usize = 16000;
 
-pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) {
+/// Runs the session transcription loop, processing audio from mic and speaker channels.
+///
+/// # Arguments
+/// * `app` - The Tauri app handle
+/// * `session_id` - The ID of the active session
+/// * `time_offset_ms` - Offset in milliseconds to add to all timestamps (for pause/resume support)
+pub async fn run_session_transcription_loop(app: AppHandle, session_id: String, time_offset_ms: i64) {
     use crate::audio_toolkit::pipeline::{ChannelMode, Pipeline};
     use crate::audio_toolkit::text::is_duplicate_segment;
     use crate::audio_toolkit::vad::{SileroVad, SmoothedVad};
@@ -47,7 +53,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
                 log::info!("VAD initialized successfully");
                 Some(Box::new(SmoothedVad::new(
                     Box::new(silero),
-                    3,  // prefill_frames: ~90ms context before speech
+                    1,  // prefill_frames: ~30ms context (reduced from 3 to avoid stuttering)
                     5,  // hangover_frames: ~150ms after speech ends
                     2,  // onset_frames: require 2 consecutive voice frames
                 )))
@@ -90,7 +96,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
         let session_ended = sm.get_active_session_id().as_deref() != Some(&session_id);
         let recording_stopped = !rm.is_recording();
         if session_ended || recording_stopped {
-            let now = session_start.elapsed().as_millis() as i64;
+            let now = session_start.elapsed().as_millis() as i64 + time_offset_ms;
 
             // Session ended — flush remaining mic audio
             if rm.is_recording() {
@@ -113,7 +119,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
 
             // Transcribe remaining speaker first (so we can dedupe mic against it)
             if !pending_spk_samples.is_empty() {
-                let start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64;
+                let start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
                 if let Ok(text) = tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples)) {
                     if !text.is_empty() {
                         let _ = sm.add_segment(&session_id, text, "speaker", start_ms, now);
@@ -124,12 +130,12 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             // Transcribe remaining mic (AEC-cleaned via pipeline) with deduplication
             let (remaining_mic, _remaining_spk) = pipeline.take_all_accumulated();
             if !remaining_mic.is_empty() {
-                let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64;
+                let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
                 if let Ok(text) = tm.transcribe_chunk(remaining_mic) {
                     if !text.is_empty() {
                         // Check for duplicates against speaker segments
                         let is_dup = sm
-                            .get_recent_segments(&session_id, "speaker", start_ms - 2000)
+                            .get_recent_segments(&session_id, "speaker", start_ms - 5000)
                             .map(|segments| {
                                 segments.iter().any(|seg| {
                                     is_duplicate_segment(
@@ -139,8 +145,8 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
                                         &seg.text,
                                         seg.start_ms,
                                         seg.end_ms,
-                                        0.75,
-                                        500,
+                                        0.60, // similarity threshold (lowered for stricter dedup)
+                                        300,  // time overlap threshold in ms
                                     )
                                 })
                             })
@@ -206,7 +212,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             );
         }
 
-        let now = session_start.elapsed().as_millis() as i64;
+        let now = session_start.elapsed().as_millis() as i64 + time_offset_ms;
 
         // Check if mic audio is ready to transcribe
         let mic_should_transcribe = mic_has_samples
@@ -215,7 +221,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
                     && mic_silent_polls >= SILENCE_FLUSH_POLLS));
 
         if mic_should_transcribe {
-            let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64;
+            let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
 
             // Take only mic from pipeline; speaker is tracked separately
             let (mic_audio, _spk_audio) = pipeline.take_all_accumulated();
@@ -226,7 +232,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
                         // Check if this mic segment duplicates a recent speaker segment
                         // Speaker channel is authoritative - skip mic if it's just echo
                         let is_dup = sm
-                            .get_recent_segments(&session_id, "speaker", start_ms - 2000)
+                            .get_recent_segments(&session_id, "speaker", start_ms - 5000)
                             .map(|segments| {
                                 segments.iter().any(|seg| {
                                     is_duplicate_segment(
@@ -236,8 +242,8 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
                                         &seg.text,
                                         seg.start_ms,
                                         seg.end_ms,
-                                        0.75, // similarity threshold
-                                        500,  // time overlap threshold in ms
+                                        0.60, // similarity threshold (lowered for stricter dedup)
+                                        300,  // time overlap threshold in ms
                                     )
                                 })
                             })
@@ -263,7 +269,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String) 
             || (pending_spk_samples.len() >= MIN_CHUNK_SAMPLES && spk_silent_polls >= SILENCE_FLUSH_POLLS);
 
         if spk_should_transcribe {
-            let start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64;
+            let start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
 
             match tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples)) {
                 Ok(text) => {
