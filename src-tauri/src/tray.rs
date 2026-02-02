@@ -181,10 +181,10 @@ pub fn start_recording_indicator(app: &AppHandle) {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
 
-        // Clear the title when the loop exits - ONLY place this happens
+        // Clear the title when the loop exits
         #[cfg(target_os = "macos")]
         if let Some(tray) = app_handle.try_state::<TrayIcon>() {
-            let _ = tray.set_title(None::<&str>);
+            let _ = tray.set_title(Some(""));  // Empty string to clear
         }
     });
 }

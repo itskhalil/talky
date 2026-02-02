@@ -326,6 +326,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }),
     );
 
+    // Listen for tray new note request (uses same code path as UI button)
+    unlisteners.push(
+      await listen("tray-new-note", () => {
+        const { createNote } = get();
+        createNote();
+      }),
+    );
+
     set({ _unlisteners: unlisteners });
   },
 
