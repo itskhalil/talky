@@ -43,6 +43,20 @@ function App() {
     }
   }, [onboardingStep, refreshAudioDevices, refreshOutputDevices, fromOnboarding]);
 
+  // Apply font size setting
+  useEffect(() => {
+    const fontSizeMap = {
+      small: "14px",
+      medium: "16px",
+      large: "18px",
+    };
+    const fontSize = settings?.font_size ?? "medium";
+    document.documentElement.style.setProperty(
+      "--font-size-base",
+      fontSizeMap[fontSize] || "16px",
+    );
+  }, [settings?.font_size]);
+
   // Handle keyboard shortcuts for debug mode toggle
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

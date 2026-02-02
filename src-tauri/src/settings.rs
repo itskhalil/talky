@@ -155,6 +155,30 @@ pub enum SoundTheme {
     Custom,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum FontSize {
+    Small,
+    Medium,
+    Large,
+}
+
+impl Default for FontSize {
+    fn default() -> Self {
+        FontSize::Medium
+    }
+}
+
+impl FontSize {
+    pub fn to_pixels(self) -> u32 {
+        match self {
+            FontSize::Small => 14,
+            FontSize::Medium => 16,
+            FontSize::Large => 18,
+        }
+    }
+}
+
 impl SoundTheme {
     fn as_str(&self) -> &'static str {
         match self {
@@ -181,6 +205,8 @@ pub struct AppSettings {
     pub audio_feedback_volume: f32,
     #[serde(default = "default_sound_theme")]
     pub sound_theme: SoundTheme,
+    #[serde(default)]
+    pub font_size: FontSize,
     #[serde(default = "default_start_hidden")]
     pub start_hidden: bool,
     #[serde(default = "default_autostart_enabled")]
@@ -469,6 +495,7 @@ pub fn get_default_settings() -> AppSettings {
         audio_feedback: false,
         audio_feedback_volume: default_audio_feedback_volume(),
         sound_theme: default_sound_theme(),
+        font_size: FontSize::default(),
         start_hidden: default_start_hidden(),
         autostart_enabled: default_autostart_enabled(),
         update_checks_enabled: default_update_checks_enabled(),
