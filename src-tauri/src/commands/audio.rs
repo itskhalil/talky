@@ -137,17 +137,19 @@ pub fn is_recording(app: AppHandle) -> bool {
     audio_manager.is_recording()
 }
 
-/// Triggers the system audio permission request by briefly initializing the audio tap.
+/// Triggers the system audio permission request by briefly starting the audio tap.
 /// This is used during onboarding to request the "System Audio Recording Only" permission.
 #[tauri::command]
 #[specta::specta]
 pub fn request_system_audio_permission() -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        // Creating a SpeakerInput triggers the system audio permission prompt
-        let _speaker = SpeakerInput::new()
-            .map_err(|e| format!("Failed to request system audio permission: {}", e))?;
-        // The speaker is dropped immediately, we just needed to trigger the permission
+        // Creating and starting the SpeakerInput stream triggers the system audio permission prompt
+        let speaker =
+            SpeakerInput::new().map_err(|e| format!("Failed to create audio tap: {}", e))?;
+        // Calling stream() starts the device which triggers the permission dialog
+        let _stream = speaker.stream();
+        // The stream is dropped immediately, we just needed to trigger the permission
     }
     Ok(())
 }

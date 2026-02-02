@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   checkMicrophonePermission,
@@ -19,6 +19,7 @@ interface PermissionItemProps {
   onRequest: () => void;
   grantedText: string;
   grantText: string;
+  error?: string;
 }
 
 const PermissionItem: React.FC<PermissionItemProps> = ({
@@ -29,11 +30,13 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
   onRequest,
   grantedText,
   grantText,
+  error,
 }) => (
   <div className="flex items-center justify-between p-4 bg-background border border-mid-gray/20 rounded-lg">
     <div className="flex-1">
       <h3 className="font-medium text-text">{title}</h3>
       <p className="text-sm text-text/60">{description}</p>
+      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
     </div>
     <div className="ml-4">
       {isGranted ? (
@@ -74,6 +77,8 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   const [systemAudioRequested, setSystemAudioRequested] = useState(false);
   const [isRequestingMic, setIsRequestingMic] = useState(false);
   const [isRequestingSystemAudio, setIsRequestingSystemAudio] = useState(false);
+  const [systemAudioError, setSystemAudioError] = useState<string | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkPermissions = useCallback(async () => {
     const mic = await checkMicrophonePermission();
@@ -83,6 +88,11 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
 
   useEffect(() => {
     checkPermissions();
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
   }, [checkPermissions]);
 
   // Auto-advance when all permissions are granted/requested
@@ -98,24 +108,61 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
     setIsRequestingMic(true);
     try {
       await requestMicrophonePermission();
-      // Check again after request (system dialog may have been shown)
-      const granted = await checkMicrophonePermission();
-      setMicrophoneGranted(granted);
+      // Poll for permission changes since the dialog is async
+      // Stop any existing polling
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+      pollingRef.current = setInterval(async () => {
+        const granted = await checkMicrophonePermission();
+        if (granted) {
+          setMicrophoneGranted(true);
+          setIsRequestingMic(false);
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+          }
+        }
+      }, 500);
+      // Stop polling after 30 seconds as a fallback
+      setTimeout(() => {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          setIsRequestingMic(false);
+        }
+      }, 30000);
     } catch (error) {
       console.error("Error requesting microphone permission:", error);
-    } finally {
       setIsRequestingMic(false);
     }
   };
 
   const handleSystemAudioRequest = async () => {
     setIsRequestingSystemAudio(true);
+    setSystemAudioError(null);
     try {
-      await commands.requestSystemAudioPermission();
-      // No way to check if granted, but the dialog was shown
-      setSystemAudioRequested(true);
+      const result = await commands.requestSystemAudioPermission();
+      if (result.status === "ok") {
+        // The permission dialog was triggered (or permission already granted)
+        setSystemAudioRequested(true);
+      } else {
+        // The command failed - this usually means the permission was denied previously
+        // or there's a system issue. Mark as requested anyway so user can proceed.
+        console.error("Error requesting system audio permission:", result.error);
+        setSystemAudioError(
+          t("onboarding.permissions.systemAudio.error", "Enable in System Settings → Privacy & Security → Screen & System Audio Recording")
+        );
+        // Still mark as requested so user isn't blocked
+        setSystemAudioRequested(true);
+      }
     } catch (error) {
       console.error("Error requesting system audio permission:", error);
+      setSystemAudioError(
+        t("onboarding.permissions.systemAudio.error", "Enable in System Settings → Privacy & Security → Screen & System Audio Recording")
+      );
+      // Still mark as requested so user isn't blocked
+      setSystemAudioRequested(true);
     } finally {
       setIsRequestingSystemAudio(false);
     }
@@ -155,6 +202,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
             onRequest={handleSystemAudioRequest}
             grantedText={t("onboarding.permissions.granted")}
             grantText={t("onboarding.permissions.grant")}
+            error={systemAudioError ?? undefined}
           />
         </div>
 
