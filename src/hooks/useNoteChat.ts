@@ -82,10 +82,7 @@ export function useNoteChat({
       return;
     }
 
-    const apiKey =
-      settings.chat_api_keys?.[providerId] ??
-      settings.post_process_api_keys?.[providerId] ??
-      "";
+    const apiKey = settings.post_process_api_keys?.[providerId] ?? "";
     const model =
       settings.chat_models?.[providerId] ??
       settings.post_process_models?.[providerId] ??
