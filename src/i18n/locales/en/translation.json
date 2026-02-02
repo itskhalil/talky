@@ -85,7 +85,9 @@
     "downloadModels": "Download Models",
     "chooseModel": "Choose a Model",
     "chooseTranscriptionModel": "Transcription Model",
+    "transcriptionTip": "Works best with headphones to avoid echo.",
     "summarisationModel": "Summarisation Model",
+    "summarisationTip": "Use the best model you can for quality summaries (e.g. Claude Opus).",
     "active": "Active",
     "download": "Download",
     "downloadSize": "Download size",
@@ -256,7 +258,8 @@
       }
     },
     "chat": {
-      "title": "Chat",
+      "title": "Chat Model",
+      "tip": "Use a fast model for snappy responses (e.g. Gemini Flash).",
       "api": {
         "title": "Chat API",
         "provider": {
