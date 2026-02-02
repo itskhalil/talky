@@ -153,3 +153,46 @@ pub fn check_apple_intelligence_available() -> bool {
     }
 }
 
+/// Check if Ollama is running and available at the given base URL.
+/// Returns the list of installed model names if available, empty vec if not running.
+#[specta::specta]
+#[tauri::command]
+pub async fn check_ollama_available(base_url: Option<String>) -> Vec<String> {
+    let base = base_url
+        .unwrap_or_else(|| "http://localhost:11434".to_string())
+        .trim_end_matches('/')
+        .trim_end_matches("/v1")
+        .to_string();
+
+    let url = format!("{}/api/tags", base);
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(2))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let response = match client.get(&url).send().await {
+        Ok(r) if r.status().is_success() => r,
+        _ => return vec![],
+    };
+
+    // Parse Ollama's response: { "models": [ { "name": "llama3.1:8b", ... }, ... ] }
+    let parsed: serde_json::Value = match response.json().await {
+        Ok(v) => v,
+        Err(_) => return vec![],
+    };
+
+    let mut models = Vec::new();
+    if let Some(model_list) = parsed.get("models").and_then(|m| m.as_array()) {
+        for model in model_list {
+            if let Some(name) = model.get("name").and_then(|n| n.as_str()) {
+                models.push(name.to_string());
+            }
+        }
+    }
+
+    models
+}
