@@ -1,21 +1,15 @@
 # Talky
 
-[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/WVBeWsNXK4)
-
 **A free, open source meeting notes app with live transcription — completely offline.**
-
 Talky is a cross-platform desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Everything runs locally — your audio never leaves your computer.
 
 ## Why Talky?
 
 Think [Granola](https://granola.ai) but open source and fully offline.
-
 - **Free**: Meeting tooling belongs in everyone's hands, not behind a paywall
 - **Open Source**: Together we can build further. Extend Talky for yourself and contribute to something bigger
 - **Private**: Your voice stays on your computer. No cloud, no accounts, no data collection
 - **Local AI**: Transcription runs on-device using Whisper or Parakeet models with GPU acceleration
-
-Talky isn't trying to be the best meeting notes app — it's trying to be the most forkable one.
 
 ## How It Works
 
@@ -23,10 +17,9 @@ Talky isn't trying to be the best meeting notes app — it's trying to be the mo
 2. **Type your own notes** — jot down thoughts, agenda items, or context in the built-in editor
 3. **Start recording** — hit record and Talky transcribes both your microphone and system audio (speaker) in real time
 4. **Stop and resume** — pause recording whenever you want, start again within the same note
-5. **Review** — switch between your Notes tab and the Transcript tab to see everything captured
+5. **Review** — switch between your Notes and the Transcript to see everything captured
 
 All processing happens locally:
-
 - Mic and speaker audio are captured and transcribed separately so you can tell who said what
 - Silence is filtered using VAD (Voice Activity Detection) with Silero
 - Transcription uses your choice of models:
@@ -38,8 +31,8 @@ All processing happens locally:
 
 ### Installation
 
-1. Download the latest release from the [releases page](https://github.com/itskhalil/talky/releases) or the [website](https://handy.computer)
-2. Install and launch Talky, granting microphone and accessibility permissions when prompted
+1. Download the latest release from the [releases page](https://github.com/itskhalil/talky/releases)
+2. Install and launch Talky, granting microphone and system audio permissions when prompted
 3. Download a transcription model (the app will guide you)
 4. Create a Note and start recording
 
@@ -63,57 +56,11 @@ Talky is built as a Tauri application combining:
 
 ### Debug Mode
 
-Talky includes an advanced debug mode for development and troubleshooting. Access it by pressing:
+Talky includes a debug mode for development and troubleshooting. Access it by pressing:
 
 - **macOS**: `Cmd+Shift+D`
 - **Windows/Linux**: `Ctrl+Shift+D`
 
-## Known Issues & Current Limitations
-
-This project is actively being developed and has some [known issues](https://github.com/itskhalil/talky/issues). We believe in transparency about the current state:
-
-### Major Issues (Help Wanted)
-
-**Whisper Model Crashes:**
-
-- Whisper models crash on certain system configurations (Windows and Linux)
-- Does not affect all systems - issue is configuration-dependent
-  - If you experience crashes and are a developer, please help to fix and provide debug logs!
-
-**Wayland Support (Linux):**
-
-- Limited support for Wayland display server
-- Requires [`wtype`](https://github.com/atx/wtype) or [`dotool`](https://sr.ht/~geb/dotool/) for text input to work correctly (see [Linux Notes](#linux-notes) below for installation)
-
-### Linux Notes
-
-**Text Input Tools:**
-
-For reliable text input on Linux, install the appropriate tool for your display server:
-
-| Display Server | Recommended Tool | Install Command                                    |
-| -------------- | ---------------- | -------------------------------------------------- |
-| X11            | `xdotool`        | `sudo apt install xdotool`                         |
-| Wayland        | `wtype`          | `sudo apt install wtype`                           |
-| Both           | `dotool`         | `sudo apt install dotool` (requires `input` group) |
-
-- **X11**: Install `xdotool` for both direct typing and clipboard paste shortcuts
-- **Wayland**: Install `wtype` (preferred) or `dotool` for text input to work correctly
-- **dotool setup**: Requires adding your user to the `input` group: `sudo usermod -aG input $USER` (then log out and back in)
-
-Without these tools, Talky falls back to enigo which may have limited compatibility, especially on Wayland.
-
-**Other Notes:**
-
-- The recording overlay is disabled by default on Linux (`Overlay Position: None`) because certain compositors treat it as the active window. When the overlay is visible it can steal focus, which prevents Talky from pasting back into the application that triggered transcription. If you enable the overlay anyway, be aware that clipboard-based pasting might fail or end up in the wrong window.
-- If you are having trouble with the app, running with the environment variable `WEBKIT_DISABLE_DMABUF_RENDERER=1` may help
-- You can manage global shortcuts outside of Talky and still control the app via signals. Sending `SIGUSR2` to the Talky process toggles recording on/off, which lets Wayland window managers or other hotkey daemons keep ownership of keybindings. Example (Sway):
-
-  ```ini
-  bindsym $mod+o exec pkill -USR2 -n talky
-  ```
-
-  `pkill` here simply delivers the signal—it does not terminate the process.
 
 ### Platform Support
 
@@ -121,176 +68,14 @@ Without these tools, Talky falls back to enigo which may have limited compatibil
 - **x64 Windows**
 - **x64 Linux**
 
-### System Requirements/Recommendations
-
-The following are recommendations for running Talky on your own machine. If you don't meet the system requirements, the performance of the application may be degraded. We are working on improving the performance across all kinds of computers and hardware.
-
-**For Whisper Models:**
-
-- **macOS**: M series Mac, Intel Mac
-- **Windows**: Intel, AMD, or NVIDIA GPU
-- **Linux**: Intel, AMD, or NVIDIA GPU
-  - Ubuntu 22.04, 24.04
-
-**For Parakeet V3 Model:**
-
-- **CPU-only operation** - runs on a wide variety of hardware
-- **Minimum**: Intel Skylake (6th gen) or equivalent AMD processors
-- **Performance**: ~5x real-time speed on mid-range hardware (tested on i5)
-- **Automatic language detection** - no manual language selection required
-
-## Roadmap & Active Development
-
-We're actively working on several features and improvements. Contributions and feedback are welcome!
-
-### In Progress
-
-**Debug Logging:**
-
-- Adding debug logging to a file to help diagnose issues
-
-**macOS Keyboard Improvements:**
-
-- Support for Globe key as transcription trigger
-- A rewrite of global shortcut handling for MacOS, and potentially other OS's too.
-
-**Opt-in Analytics:**
-
-- Collect anonymous usage data to help improve Talky
-- Privacy-first approach with clear opt-in
-
-**Settings Refactoring:**
-
-- Cleanup and refactor settings system which is becoming bloated and messy
-- Implement better abstractions for settings management
-
-**Tauri Commands Cleanup:**
-
-- Abstract and organize Tauri command patterns
-- Investigate tauri-specta for improved type safety and organization
-
-## Troubleshooting
-
-### Manual Model Installation (For Proxy Users or Network Restrictions)
-
-If you're behind a proxy, firewall, or in a restricted network environment where Talky cannot download models automatically, you can manually download and install them. The URLs are publicly accessible from any browser.
-
-#### Step 1: Find Your App Data Directory
-
-1. Open Talky settings
-2. Navigate to the **About** section
-3. Copy the "App Data Directory" path shown there, or use the shortcuts:
-   - **macOS**: `Cmd+Shift+D` to open debug menu
-   - **Windows/Linux**: `Ctrl+Shift+D` to open debug menu
-
-The typical paths are:
-
-- **macOS**: `~/Library/Application Support/com.khalil.talky/`
-- **Windows**: `C:\Users\{username}\AppData\Roaming\com.khalil.talky\`
-- **Linux**: `~/.config/com.khalil.talky/`
-
-#### Step 2: Create Models Directory
-
-Inside your app data directory, create a `models` folder if it doesn't already exist:
-
-```bash
-# macOS/Linux
-mkdir -p ~/Library/Application\ Support/com.khalil.talky/models
-
-# Windows (PowerShell)
-New-Item -ItemType Directory -Force -Path "$env:APPDATA\com.khalil.talky\models"
-```
-
-#### Step 3: Download Model Files
-
-Download the models you want from below
-
-**Whisper Models (single .bin files):**
-
-- Small (487 MB): `https://blob.handy.computer/ggml-small.bin`
-- Medium (492 MB): `https://blob.handy.computer/whisper-medium-q4_1.bin`
-- Turbo (1600 MB): `https://blob.handy.computer/ggml-large-v3-turbo.bin`
-- Large (1100 MB): `https://blob.handy.computer/ggml-large-v3-q5_0.bin`
-
-**Parakeet Models (compressed archives):**
-
-- V2 (473 MB): `https://blob.handy.computer/parakeet-v2-int8.tar.gz`
-- V3 (478 MB): `https://blob.handy.computer/parakeet-v3-int8.tar.gz`
-
-#### Step 4: Install Models
-
-**For Whisper Models (.bin files):**
-
-Simply place the `.bin` file directly into the `models` directory:
-
-```
-{app_data_dir}/models/
-├── ggml-small.bin
-├── whisper-medium-q4_1.bin
-├── ggml-large-v3-turbo.bin
-└── ggml-large-v3-q5_0.bin
-```
-
-**For Parakeet Models (.tar.gz archives):**
-
-1. Extract the `.tar.gz` file
-2. Place the **extracted directory** into the `models` folder
-3. The directory must be named exactly as follows:
-   - **Parakeet V2**: `parakeet-tdt-0.6b-v2-int8`
-   - **Parakeet V3**: `parakeet-tdt-0.6b-v3-int8`
-
-Final structure should look like:
-
-```
-{app_data_dir}/models/
-├── parakeet-tdt-0.6b-v2-int8/     (directory with model files inside)
-├── (model files)
-└── (config files)
-└── parakeet-tdt-0.6b-v3-int8/     (directory with model files inside)
-    ├── (model files)
-    └── (config files)
-```
-
-**Important Notes:**
-
-- For Parakeet models, the extracted directory name **must** match exactly as shown above
-- Do not rename the `.bin` files for Whisper models—use the exact filenames from the download URLs
-- After placing the files, restart Talky to detect the new models
-
-#### Step 5: Verify Installation
-
-1. Restart Talky
-2. Open Settings → Models
-3. Your manually installed models should now appear as "Downloaded"
-4. Select the model you want to use and test transcription
-
-### How to Contribute
-
-1. **Check existing issues** at [github.com/itskhalil/talky/issues](https://github.com/itskhalil/talky/issues)
-2. **Fork the repository** and create a feature branch
-3. **Test thoroughly** on your target platform
-4. **Submit a pull request** with clear description of changes
-5. **Join the discussion** - reach out at [contact@handy.computer](mailto:contact@handy.computer)
-
-The goal is to create both a useful tool and a foundation for others to build upon—a well-patterned, simple codebase that serves the community.
-
-## Related Projects
-
-- **[Talky CLI](https://github.com/itskhalil/talky-cli)** - Python command-line version
-- **[handy.computer](https://handy.computer)** - Project website with demos and documentation
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
+- **Handy** by CJ Pais, which formed the audio + transcription core around which Talky was built
 - **Whisper** by OpenAI for the speech recognition model
 - **whisper.cpp and ggml** for amazing cross-platform whisper inference/acceleration
 - **Silero** for great lightweight VAD
 - **Tauri** team for the excellent Rust-based app framework
-- **Community contributors** helping make Talky better
-
----
-
-_"Your search for the right speech-to-text tool can end here—not because Talky is perfect, but because you can make it perfect for you."_
