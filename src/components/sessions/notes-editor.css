@@ -72,6 +72,13 @@
   margin-bottom: 0.25rem;
 }
 
+/* Remove top margin when heading is first element */
+.notes-editor .tiptap > h1:first-child,
+.notes-editor .tiptap > h2:first-child,
+.notes-editor .tiptap > h3:first-child {
+  margin-top: 0;
+}
+
 /* Find-in-note highlights */
 .notes-editor .tiptap .find-highlight {
   background-color: rgba(255, 213, 0, 0.3);
