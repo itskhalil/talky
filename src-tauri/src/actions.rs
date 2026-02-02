@@ -162,6 +162,7 @@ pub async fn run_session_transcription_loop(app: AppHandle, session_id: String, 
             }
 
             debug!("Session transcription loop ended for {}", session_id);
+            let _ = app.emit("transcription-flush-complete", &session_id);
             break;
         }
 

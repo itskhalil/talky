@@ -334,6 +334,17 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }),
     );
 
+    // Listen for transcription flush complete to trigger enhancement
+    unlisteners.push(
+      await listen<string>("transcription-flush-complete", (event) => {
+        const { selectedSessionId, enhanceNotes } = get();
+        // Only auto-enhance if this session is still selected
+        if (event.payload === selectedSessionId) {
+          enhanceNotes();
+        }
+      }),
+    );
+
     set({ _unlisteners: unlisteners });
   },
 
@@ -403,9 +414,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         sessionId: recordingSessionId,
       });
       set({ isRecording: false, amplitude: { mic: 0, speaker: 0 } });
-      // Auto-enhance after stopping and swap to enhanced view
-      const { enhanceNotes } = get();
-      enhanceNotes();
+      // Enhancement is triggered by transcription-flush-complete event listener
     } catch (e) {
       console.error("Failed to stop recording:", e);
     }

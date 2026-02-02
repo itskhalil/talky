@@ -111,6 +111,8 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
         }
     };
 
+    let app_name = MenuItem::with_id(app, "app_name", "Talky", false, None::<&str>)
+        .expect("failed to create app name item");
     let quit_i = MenuItem::with_id(app, "quit", &strings.quit, true, quit_accelerator)
         .expect("failed to create quit item");
     let separator = || PredefinedMenuItem::separator(app).expect("failed to create separator");
@@ -118,6 +120,8 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
     let menu = Menu::with_items(
         app,
         &[
+            &app_name,
+            &separator(),
             &primary_action,
             &separator(),
             &quit_i,
