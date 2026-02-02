@@ -261,8 +261,6 @@ pub struct AppSettings {
     pub experimental_enabled: bool,
     #[serde(default = "default_chat_provider_id")]
     pub chat_provider_id: String,
-    #[serde(default = "default_chat_api_keys")]
-    pub chat_api_keys: HashMap<String, String>,
     #[serde(default = "default_chat_models")]
     pub chat_models: HashMap<String, String>,
 }
@@ -441,10 +439,6 @@ fn default_chat_provider_id() -> String {
     "custom".to_string()
 }
 
-fn default_chat_api_keys() -> HashMap<String, String> {
-    HashMap::new()
-}
-
 fn default_chat_models() -> HashMap<String, String> {
     HashMap::new()
 }
@@ -523,7 +517,6 @@ pub fn get_default_settings() -> AppSettings {
         app_language: default_app_language(),
         experimental_enabled: false,
         chat_provider_id: default_chat_provider_id(),
-        chat_api_keys: default_chat_api_keys(),
         chat_models: default_chat_models(),
     }
 }

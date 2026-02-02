@@ -6,7 +6,6 @@ import { SettingContainer } from "@/components/ui";
 import { ResetButton } from "../ui/ResetButton";
 import { ProviderSelect } from "./PostProcessingSettingsApi/ProviderSelect";
 import { BaseUrlField } from "./PostProcessingSettingsApi/BaseUrlField";
-import { ApiKeyField } from "./PostProcessingSettingsApi/ApiKeyField";
 import { ModelSelect } from "./PostProcessingSettingsApi/ModelSelect";
 import { useSettings } from "../../hooks/useSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -23,7 +22,6 @@ export const ChatSettings: React.FC = () => {
   const { settings, isUpdating } = useSettings();
   const {
     setChatProvider,
-    updateChatApiKey,
     updateChatModel,
     fetchChatModels,
     chatModelOptions,
@@ -51,7 +49,6 @@ export const ChatSettings: React.FC = () => {
   const isCustomProvider = selectedProvider?.id === "custom";
   const baseUrl = selectedProvider?.base_url ?? "";
 
-  const apiKey = settings?.chat_api_keys?.[selectedProviderId] ?? "";
   const model = settings?.chat_models?.[selectedProviderId] ?? "";
 
   const providerOptions = useMemo<DropdownOption[]>(
@@ -81,16 +78,6 @@ export const ChatSettings: React.FC = () => {
       }
     },
     [selectedProviderId, setChatProvider],
-  );
-
-  const handleApiKeyChange = useCallback(
-    (value: string) => {
-      const trimmed = value.trim();
-      if (trimmed !== apiKey) {
-        void updateChatApiKey(selectedProviderId, trimmed);
-      }
-    },
-    [apiKey, selectedProviderId, updateChatApiKey],
   );
 
   const handleModelSelect = useCallback(
@@ -129,7 +116,6 @@ export const ChatSettings: React.FC = () => {
   const isFetchingModels = isUpdating(
     `chat_models_fetch:${selectedProviderId}`,
   );
-  const isApiKeyUpdating = isUpdating(`chat_api_key:${selectedProviderId}`);
   const isModelUpdating = isUpdating(`chat_model:${selectedProviderId}`);
 
   return (
@@ -171,24 +157,6 @@ export const ChatSettings: React.FC = () => {
           </div>
         </SettingContainer>
       )}
-
-      <SettingContainer
-        title={t("settings.postProcessing.api.apiKey.title")}
-        description={t("settings.chat.api.apiKey.description")}
-        descriptionMode="tooltip"
-        layout="horizontal"
-        grouped={true}
-      >
-        <div className="flex items-center gap-2">
-          <ApiKeyField
-            value={apiKey}
-            onBlur={handleApiKeyChange}
-            placeholder={t("settings.postProcessing.api.apiKey.placeholder")}
-            disabled={isApiKeyUpdating}
-            className="min-w-[320px]"
-          />
-        </div>
-      </SettingContainer>
 
       <SettingContainer
         title={t("settings.postProcessing.api.model.title")}
