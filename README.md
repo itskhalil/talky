@@ -17,15 +17,31 @@ Think [Granola](https://granola.ai) but open source and fully offline.
 2. **Type your own notes** — jot down thoughts, agenda items, or context in the built-in editor
 3. **Start recording** — hit record and Talky transcribes both your microphone and system audio (speaker) in real time
 4. **Stop and resume** — pause recording whenever you want, start again within the same note
-5. **Review** — switch between your Notes and the Transcript to see everything captured
+5. **Enhance with AI** — use AI to polish your notes, filling in details you missed from the transcript
+6. **Chat** — ask questions about your meeting and get answers based on your notes and transcript
 
-All processing happens locally:
+### Local Transcription
+
+All transcription happens on your device:
 - Mic and speaker audio are captured and transcribed separately so you can tell who said what
 - Silence is filtered using VAD (Voice Activity Detection) with Silero
 - Transcription uses your choice of models:
   - **Whisper models** (Small/Medium/Turbo/Large) with GPU acceleration when available
   - **Parakeet V3** — CPU-optimized model with excellent performance and automatic language detection
 - Works on macOS, Windows, and Linux
+
+### AI Features
+
+Talky integrates with AI providers for enhanced productivity:
+
+- **Enhanced Notes** — AI merges your rough notes with transcript details to create polished, comprehensive meeting notes. Your original notes are preserved and clearly marked alongside AI-extracted content.
+- **Chat** — Ask questions about your meeting in natural language. The AI has full context of your notes and transcript to provide relevant answers.
+
+#### Supported AI Providers
+
+- **Cloud**: OpenAI, Anthropic, OpenRouter, Groq, Cerebras
+- **Local**: Ollama, Apple Intelligence (macOS Apple Silicon)
+- **Custom**: Any OpenAI-compatible endpoint
 
 ## Quick Start
 
