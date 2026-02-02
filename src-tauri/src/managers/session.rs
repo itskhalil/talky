@@ -382,7 +382,7 @@ impl SessionManager {
              FROM transcript_segments
              WHERE session_id = ?1 AND source = ?2 AND end_ms >= ?3
              ORDER BY start_ms DESC
-             LIMIT 10",
+             LIMIT 25",
         )?;
 
         let rows = stmt.query_map(params![session_id, source, since_ms], |row| {
@@ -531,6 +531,21 @@ impl SessionManager {
     pub fn stop_speaker_capture(&self) {
         self.speaker_shutdown
             .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Get the time offset for a new recording pass by finding the max end_ms in existing segments.
+    /// This is simpler than tracking in-memory state and survives app restarts.
+    pub fn get_session_time_offset(&self, session_id: &str) -> i64 {
+        let conn = match self.get_connection() {
+            Ok(c) => c,
+            Err(_) => return 0,
+        };
+
+        conn.query_row(
+            "SELECT COALESCE(MAX(end_ms), 0) FROM transcript_segments WHERE session_id = ?1",
+            params![session_id],
+            |row| row.get(0),
+        ).unwrap_or(0)
     }
 
     pub fn reactivate_session(&self, session_id: &str) -> Result<Session> {
