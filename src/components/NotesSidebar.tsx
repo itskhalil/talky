@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus, Trash2, Settings, Search, PanelLeftClose, FolderIcon, FolderOpen, X, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Settings, Search, PanelLeftClose, FolderIcon, FolderOpen, X, ChevronRight, ChevronDown, Sparkles, Send, Loader2 } from "lucide-react";
+import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { commands } from "@/bindings";
 
@@ -51,8 +52,20 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const [sessionTagsMap, setSessionTagsMap] = useState<Record<string, string[]>>({});
   const [foldersExpanded, setFoldersExpanded] = useState(true);
   const [notesExpanded, setNotesExpanded] = useState(true);
+  const [chatExpanded, setChatExpanded] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const globalChat = useGlobalChat();
+
+  // Scroll to latest chat message
+  useEffect(() => {
+    if (chatExpanded && globalChat.messages.length > 0) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatExpanded, globalChat.messages]);
 
   const {
     folders,
@@ -370,6 +383,88 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             })}
           </div>
         )}
+      </div>
+
+      {/* Global Chat */}
+      <div className="border-t border-border">
+        {/* Chat messages (when expanded) */}
+        {chatExpanded && (
+          <div className="max-h-48 overflow-y-auto px-3 py-2 space-y-2">
+            {globalChat.messages.length === 0 ? (
+              <p className="text-xs text-text-secondary text-center py-4">
+                {t("chat.askAboutNotes", "Ask anything about your notes...")}
+              </p>
+            ) : (
+              globalChat.messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`text-xs rounded-lg px-2.5 py-1.5 ${
+                    msg.role === "user"
+                      ? "bg-accent/10 text-text ml-4"
+                      : "bg-background-secondary text-text mr-4"
+                  }`}
+                >
+                  <span className="whitespace-pre-wrap">{msg.content}</span>
+                  {msg.role === "assistant" && msg.content === "" && (
+                    <Loader2 size={12} className="animate-spin text-text-secondary" />
+                  )}
+                </div>
+              ))
+            )}
+            {globalChat.error && (
+              <div className="text-xs text-red-400 px-1">{globalChat.error}</div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+        )}
+
+        {/* Chat input bar */}
+        <div className="flex items-center gap-2 px-3 py-2">
+          <button
+            onClick={() => setChatExpanded(!chatExpanded)}
+            className={`p-1.5 rounded-md transition-colors ${
+              chatExpanded ? "bg-accent-soft text-accent" : "text-text-secondary hover:bg-accent-soft hover:text-text"
+            }`}
+          >
+            <Sparkles size={14} />
+          </button>
+          <input
+            ref={chatInputRef}
+            type="text"
+            value={globalChat.input}
+            onChange={(e) => globalChat.setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                setChatExpanded(true);
+                globalChat.handleSubmit();
+              }
+            }}
+            onFocus={() => setChatExpanded(true)}
+            placeholder={t("chat.placeholder", "Ask about your notes...")}
+            className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary min-w-0"
+          />
+          {globalChat.isLoading ? (
+            <button
+              onClick={globalChat.stop}
+              className="p-1 rounded-md text-text-secondary hover:text-text transition-colors"
+            >
+              <X size={14} />
+            </button>
+          ) : (
+            globalChat.input.trim() && (
+              <button
+                onClick={() => {
+                  setChatExpanded(true);
+                  globalChat.handleSubmit();
+                }}
+                className="p-1 rounded-md text-accent hover:text-accent/70 transition-colors"
+              >
+                <Send size={14} />
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {/* Bottom: settings + collapse */}
