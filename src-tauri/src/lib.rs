@@ -313,6 +313,23 @@ pub fn run() {
         commands::session::generate_session_summary,
         commands::session::get_session_summary,
         commands::session::flush_pending_audio,
+        // Folder commands
+        commands::session::create_folder,
+        commands::session::update_folder,
+        commands::session::delete_folder,
+        commands::session::get_folders,
+        commands::session::move_session_to_folder,
+        commands::session::get_sessions_by_folder,
+        // Tag commands
+        commands::session::create_tag,
+        commands::session::update_tag,
+        commands::session::delete_tag,
+        commands::session::get_tags,
+        commands::session::add_tag_to_session,
+        commands::session::remove_tag_from_session,
+        commands::session::get_session_tags,
+        commands::session::set_session_tags,
+        commands::session::get_sessions_by_tag,
     ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds

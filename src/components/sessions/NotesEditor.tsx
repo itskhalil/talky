@@ -43,7 +43,7 @@ export function NotesEditor({
     {
       extensions: [
         StarterKit.configure({
-          heading: { levels: [1, 2, 3] },
+          heading: { levels: [1, 2, 3, 4] },
           codeBlock: false,
           code: false,
           blockquote: false,
@@ -57,6 +57,23 @@ export function NotesEditor({
       ],
       content: "",
       editable: !disabled,
+      editorProps: {
+        handlePaste: (view, event) => {
+          // Shift+paste = paste as plain text (Cmd+Shift+V / Ctrl+Shift+V)
+          if (event.shiftKey) {
+            const text = event.clipboardData?.getData("text/plain");
+            if (text) {
+              // Insert plain text at current cursor position
+              const { state } = view;
+              const { tr } = state;
+              tr.insertText(text);
+              view.dispatch(tr);
+              return true;
+            }
+          }
+          return false; // Let default handler process
+        },
+      },
       onUpdate: ({ editor }) => {
         if (suppressUpdateRef.current) return;
         if (modeRef.current === "enhanced") {

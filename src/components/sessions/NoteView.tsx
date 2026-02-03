@@ -13,12 +13,17 @@ import {
   RotateCcw,
   PenLine,
   List,
+  FolderIcon,
+  Tag,
+  Plus,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
 import { useNoteChat, type ChatMessage } from "@/hooks/useNoteChat";
 import { useSettings } from "@/hooks/useSettings";
+import { useOrganizationStore } from "@/stores/organizationStore";
 import { JSONContent, Editor } from "@tiptap/core";
+import type { Tag as TagType } from "@/bindings";
 
 interface Session {
   id: string;
@@ -26,6 +31,7 @@ interface Session {
   started_at: number;
   ended_at: number | null;
   status: string;
+  folder_id: string | null;
 }
 
 interface TranscriptSegment {
@@ -87,7 +93,7 @@ function formatNotesForLogseq(notes: string): string {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    const headingMatch = trimmed.match(/^(#{1,3})\s+(.*)/);
+    const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)/);
     if (headingMatch) {
       result.push(`- ${headingMatch[2]}`);
       inHeading = true;
@@ -152,8 +158,14 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
       continue;
     }
 
+    // Skip horizontal rules/dividers (---, ***, ___)
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      i++;
+      continue;
+    }
+
     // Heading
-    const headingMatch = trimmed.match(/^(#{1,3})\s+(.*)/);
+    const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)/);
     if (headingMatch) {
       const level = headingMatch[1].length;
       nodes.push({
@@ -394,6 +406,96 @@ export function NoteView({
   const [bulletsCopied, setBulletsCopied] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [folderDropdownOpen, setFolderDropdownOpen] = useState(false);
+  const [sessionTags, setSessionTags] = useState<TagType[]>([]);
+  const [tagInputOpen, setTagInputOpen] = useState(false);
+  const [tagInputValue, setTagInputValue] = useState("");
+  const [localFolderId, setLocalFolderId] = useState<string | null>(session?.folder_id ?? null);
+  const folderDropdownRef = useRef<HTMLDivElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    folders,
+    tags: allTags,
+    moveSessionToFolder,
+    getSessionTags,
+    addTagToSession,
+    removeTagFromSession,
+    createTag,
+  } = useOrganizationStore();
+
+  // Fetch session tags when session changes
+  useEffect(() => {
+    if (session?.id) {
+      getSessionTags(session.id).then(setSessionTags);
+    } else {
+      setSessionTags([]);
+    }
+  }, [session?.id, getSessionTags]);
+
+  // Sync local folder state with session prop
+  useEffect(() => {
+    setLocalFolderId(session?.folder_id ?? null);
+  }, [session?.id, session?.folder_id]);
+
+  // Close folder dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (folderDropdownRef.current && !folderDropdownRef.current.contains(e.target as Node)) {
+        setFolderDropdownOpen(false);
+      }
+    };
+    if (folderDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [folderDropdownOpen]);
+
+  // Focus tag input when opened
+  useEffect(() => {
+    if (tagInputOpen && tagInputRef.current) {
+      tagInputRef.current.focus();
+    }
+  }, [tagInputOpen]);
+
+  const handleFolderSelect = async (folderId: string | null) => {
+    if (session?.id) {
+      setLocalFolderId(folderId);
+      await moveSessionToFolder(session.id, folderId);
+      setFolderDropdownOpen(false);
+    }
+  };
+
+  const handleAddTag = async (tagId: string) => {
+    if (session?.id) {
+      await addTagToSession(session.id, tagId);
+      const updated = await getSessionTags(session.id);
+      setSessionTags(updated);
+    }
+  };
+
+  const handleRemoveTag = async (tagId: string) => {
+    if (session?.id) {
+      await removeTagFromSession(session.id, tagId);
+      const updated = await getSessionTags(session.id);
+      setSessionTags(updated);
+    }
+  };
+
+  const handleCreateAndAddTag = async () => {
+    if (!tagInputValue.trim() || !session?.id) return;
+    const newTag = await createTag(tagInputValue.trim());
+    if (newTag) {
+      await addTagToSession(session.id, newTag.id);
+      const updated = await getSessionTags(session.id);
+      setSessionTags(updated);
+    }
+    setTagInputValue("");
+    setTagInputOpen(false);
+  };
+
+  const currentFolder = folders.find((f) => f.id === localFolderId);
+  const availableTags = allTags.filter((t) => !sessionTags.some((st) => st.id === t.id));
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     setActiveEditor(editor);
@@ -636,6 +738,108 @@ export function NoteView({
             placeholder={t("sessions.newNote")}
             className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden"
           />
+
+          {/* Folder and Tags */}
+          {session && (
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              {/* Folder selector */}
+              <div ref={folderDropdownRef} className="relative">
+                <button
+                  onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                >
+                  <FolderIcon size={12} style={currentFolder?.color ? { color: currentFolder.color } : undefined} />
+                  <span>{currentFolder?.name ?? t("notes.noFolder", "Notes")}</span>
+                  <ChevronDown size={10} />
+                </button>
+                {folderDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+                    <button
+                      onClick={() => handleFolderSelect(null)}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors ${!localFolderId ? "text-accent" : "text-text"}`}
+                    >
+                      {t("notes.noFolder", "Notes")}
+                    </button>
+                    {folders.map((folder) => (
+                      <button
+                        key={folder.id}
+                        onClick={() => handleFolderSelect(folder.id)}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors flex items-center gap-2 ${localFolderId === folder.id ? "text-accent" : "text-text"}`}
+                      >
+                        <FolderIcon size={12} style={folder.color ? { color: folder.color } : undefined} />
+                        {folder.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Tags */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {sessionTags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent-soft text-text"
+                    style={tag.color ? { backgroundColor: `${tag.color}20`, color: tag.color } : undefined}
+                  >
+                    {tag.name}
+                    <button
+                      onClick={() => handleRemoveTag(tag.id)}
+                      className="hover:text-red-400 transition-colors"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+
+                {/* Add tag */}
+                {tagInputOpen ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      ref={tagInputRef}
+                      type="text"
+                      value={tagInputValue}
+                      onChange={(e) => setTagInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCreateAndAddTag();
+                        if (e.key === "Escape") {
+                          setTagInputOpen(false);
+                          setTagInputValue("");
+                        }
+                      }}
+                      placeholder={t("notes.newTag", "New tag")}
+                      className="w-20 px-2 py-0.5 text-xs rounded border border-border bg-transparent focus:outline-none focus:border-accent"
+                    />
+                    {availableTags.length > 0 && (
+                      <div className="flex gap-1">
+                        {availableTags.slice(0, 3).map((tag) => (
+                          <button
+                            key={tag.id}
+                            onClick={() => {
+                              handleAddTag(tag.id);
+                              setTagInputOpen(false);
+                            }}
+                            className="px-1.5 py-0.5 rounded text-xs bg-accent-soft text-text-secondary hover:text-text transition-colors"
+                            style={tag.color ? { backgroundColor: `${tag.color}20`, color: tag.color } : undefined}
+                          >
+                            {tag.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setTagInputOpen(true)}
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                  >
+                    <Tag size={10} />
+                    <Plus size={10} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="max-w-3xl mx-auto overflow-hidden break-words">
 

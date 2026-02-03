@@ -9,6 +9,7 @@ export interface Session {
   started_at: number;
   ended_at: number | null;
   status: string;
+  folder_id: string | null;
 }
 
 export interface TranscriptSegment {
