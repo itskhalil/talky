@@ -29,19 +29,6 @@ pub async fn toggle_history_entry_saved(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_audio_file_path(
-    _app: AppHandle,
-    history_manager: State<'_, Arc<HistoryManager>>,
-    file_name: String,
-) -> Result<String, String> {
-    let path = history_manager.get_audio_file_path(&file_name);
-    path.to_str()
-        .ok_or_else(|| "Invalid file path".to_string())
-        .map(|s| s.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub async fn delete_history_entry(
     _app: AppHandle,
     history_manager: State<'_, Arc<HistoryManager>>,
