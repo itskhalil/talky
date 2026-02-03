@@ -81,7 +81,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- **Handy** by CJ Pais, which formed the audio + transcription core around which Talky was built
+- **Handy** by CJ Pais, for inspiration and the core transcription stack
 - **Whisper** by OpenAI for the speech recognition model
 - **whisper.cpp and ggml** for amazing cross-platform whisper inference/acceleration
 - **Silero** for great lightweight VAD
