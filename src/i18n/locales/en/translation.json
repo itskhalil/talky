@@ -371,6 +371,10 @@
         "title": "Version",
         "description": "Current version of Talky"
       },
+      "updates": {
+        "title": "Updates",
+        "description": "Check for and install app updates"
+      },
       "appDataDirectory": {
         "title": "App Data Directory",
         "description": "Location where Talky stores its data"

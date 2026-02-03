@@ -319,6 +319,10 @@
         "title": "Phiên bản",
         "description": "Phiên bản hiện tại của Talky"
       },
+      "updates": {
+        "title": "Cập nhật",
+        "description": "Kiểm tra và cài đặt bản cập nhật ứng dụng"
+      },
       "appDataDirectory": {
         "title": "Thư mục dữ liệu ứng dụng",
         "description": "Vị trí Talky lưu trữ dữ liệu"
