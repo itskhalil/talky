@@ -242,11 +242,7 @@ impl AEC {
         self._process_internal(mic_input, lpb_input)
     }
 
-    fn _process_internal(
-        &mut self,
-        audio: &[f32],
-        lpb: &[f32],
-    ) -> Result<Vec<f32>, Error> {
+    fn _process_internal(&mut self, audio: &[f32], lpb: &[f32]) -> Result<Vec<f32>, Error> {
         let mut out_file = vec![0.0f32; audio.len()];
         let num_blocks = audio.len() / self.block_shift;
 

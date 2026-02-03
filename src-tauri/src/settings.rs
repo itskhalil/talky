@@ -116,7 +116,6 @@ pub enum RecordingRetentionPeriod {
     Months3,
 }
 
-
 impl Default for ModelUnloadTimeout {
     fn default() -> Self {
         ModelUnloadTimeout::Never
