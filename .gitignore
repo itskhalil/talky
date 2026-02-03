@@ -29,4 +29,5 @@ dist-ssr
 /target/
 recording_*
 .crush/
-.AI/
+.AI/Examples/
+.AI/eval-runs/
