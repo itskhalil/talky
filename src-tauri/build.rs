@@ -113,13 +113,21 @@ fn escape_string(s: &str) -> String {
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 fn build_apple_intelligence_bridge() {
-    use std::env;
-    use std::path::{Path, PathBuf};
-    use std::process::Command;
+    #[cfg(feature = "skip-apple-intelligence")]
+    {
+        println!("cargo:warning=skip-apple-intelligence feature enabled - using Rust stub");
+        return;
+    }
 
-    const REAL_SWIFT_FILE: &str = "swift/apple_intelligence.swift";
-    const STUB_SWIFT_FILE: &str = "swift/apple_intelligence_stub.swift";
-    const BRIDGE_HEADER: &str = "swift/apple_intelligence_bridge.h";
+    #[cfg(not(feature = "skip-apple-intelligence"))]
+    {
+        use std::env;
+        use std::path::{Path, PathBuf};
+        use std::process::Command;
+
+        const REAL_SWIFT_FILE: &str = "swift/apple_intelligence.swift";
+        const STUB_SWIFT_FILE: &str = "swift/apple_intelligence_stub.swift";
+        const BRIDGE_HEADER: &str = "swift/apple_intelligence_bridge.h";
 
     println!("cargo:rerun-if-changed={REAL_SWIFT_FILE}");
     println!("cargo:rerun-if-changed={STUB_SWIFT_FILE}");
@@ -236,4 +244,5 @@ fn build_apple_intelligence_bridge() {
     }
 
     println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
+    }
 }
