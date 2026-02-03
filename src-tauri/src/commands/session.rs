@@ -1,6 +1,6 @@
 use crate::llm_client::ChatMessage;
 use crate::managers::audio::AudioRecordingManager;
-use crate::managers::session::{MeetingNotes, Session, SessionManager, TranscriptSegment};
+use crate::managers::session::{Folder, MeetingNotes, Session, SessionManager, Tag, TranscriptSegment};
 use crate::managers::transcription::TranscriptionManager;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -481,4 +481,145 @@ pub fn get_user_notes(app: AppHandle, session_id: String) -> Result<Option<Strin
         .get_meeting_notes(&session_id)
         .map_err(|e| e.to_string())?;
     Ok(notes.and_then(|n| n.user_notes))
+}
+
+// ==================== Folder Commands ====================
+
+#[tauri::command]
+#[specta::specta]
+pub fn create_folder(app: AppHandle, name: String, color: Option<String>) -> Result<Folder, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.create_folder(name, color).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_folder(
+    app: AppHandle,
+    folder_id: String,
+    name: String,
+    color: Option<String>,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.update_folder(&folder_id, name, color)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_folder(app: AppHandle, folder_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.delete_folder(&folder_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_folders(app: AppHandle) -> Result<Vec<Folder>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.get_folders().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn move_session_to_folder(
+    app: AppHandle,
+    session_id: String,
+    folder_id: Option<String>,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.move_session_to_folder(&session_id, folder_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_sessions_by_folder(
+    app: AppHandle,
+    folder_id: Option<String>,
+) -> Result<Vec<Session>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.get_sessions_by_folder(folder_id)
+        .map_err(|e| e.to_string())
+}
+
+// ==================== Tag Commands ====================
+
+#[tauri::command]
+#[specta::specta]
+pub fn create_tag(app: AppHandle, name: String, color: Option<String>) -> Result<Tag, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.create_tag(name, color).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_tag(
+    app: AppHandle,
+    tag_id: String,
+    name: String,
+    color: Option<String>,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.update_tag(&tag_id, name, color)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_tag(app: AppHandle, tag_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.delete_tag(&tag_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_tags(app: AppHandle) -> Result<Vec<Tag>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.get_tags().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_tag_to_session(app: AppHandle, session_id: String, tag_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.add_tag_to_session(&session_id, &tag_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn remove_tag_from_session(
+    app: AppHandle,
+    session_id: String,
+    tag_id: String,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.remove_tag_from_session(&session_id, &tag_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_session_tags(app: AppHandle, session_id: String) -> Result<Vec<Tag>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.get_session_tags(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_session_tags(
+    app: AppHandle,
+    session_id: String,
+    tag_ids: Vec<String>,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.set_session_tags(&session_id, tag_ids)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_sessions_by_tag(app: AppHandle, tag_id: String) -> Result<Vec<Session>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.get_sessions_by_tag(&tag_id).map_err(|e| e.to_string())
 }
