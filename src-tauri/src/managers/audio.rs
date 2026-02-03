@@ -171,10 +171,7 @@ impl AudioRecordingManager {
     }
 
     pub fn is_recording(&self) -> bool {
-        matches!(
-            *self.state.lock().unwrap(),
-            RecordingState::Recording
-        )
+        matches!(*self.state.lock().unwrap(), RecordingState::Recording)
     }
 
     /// Cancel any ongoing recording without returning audio samples

@@ -362,7 +362,9 @@ impl TranscriptionManager {
 
             let engine_guard = self.engine.lock().unwrap();
             if engine_guard.is_none() {
-                return Err(anyhow::anyhow!("Model is not loaded for chunk transcription."));
+                return Err(anyhow::anyhow!(
+                    "Model is not loaded for chunk transcription."
+                ));
             }
         }
 
@@ -370,9 +372,9 @@ impl TranscriptionManager {
 
         let result = {
             let mut engine_guard = self.engine.lock().unwrap();
-            let engine = engine_guard.as_mut().ok_or_else(|| {
-                anyhow::anyhow!("Model not available for chunk transcription.")
-            })?;
+            let engine = engine_guard
+                .as_mut()
+                .ok_or_else(|| anyhow::anyhow!("Model not available for chunk transcription."))?;
 
             match engine {
                 LoadedEngine::Whisper(whisper_engine) => {
