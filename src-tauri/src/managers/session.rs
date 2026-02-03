@@ -57,6 +57,38 @@ static SESSION_MIGRATIONS: &[M] = &[
         );",
     ),
     M::up("ALTER TABLE meeting_notes ADD COLUMN enhanced_notes TEXT;"),
+    // Migration 5: Create folders table
+    M::up(
+        "CREATE TABLE IF NOT EXISTS folders (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            color TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+        );",
+    ),
+    // Migration 6: Add folder_id to sessions
+    M::up("ALTER TABLE sessions ADD COLUMN folder_id TEXT REFERENCES folders(id);"),
+    // Migration 7: Create tags table
+    M::up(
+        "CREATE TABLE IF NOT EXISTS tags (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            color TEXT
+        );",
+    ),
+    // Migration 8: Create session_tags junction table
+    M::up(
+        "CREATE TABLE IF NOT EXISTS session_tags (
+            session_id TEXT NOT NULL,
+            tag_id TEXT NOT NULL,
+            PRIMARY KEY (session_id, tag_id),
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+        );",
+    ),
+    // Migration 9: Index for faster folder queries
+    M::up("CREATE INDEX IF NOT EXISTS idx_sessions_folder ON sessions(folder_id);"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -66,6 +98,29 @@ pub struct Session {
     pub started_at: i64,
     pub ended_at: Option<i64>,
     pub status: String,
+    pub folder_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct Folder {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
+    pub sort_order: i32,
+    pub created_at: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct Tag {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct SessionWithTags {
+    pub session: Session,
+    pub tags: Vec<Tag>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -181,6 +236,7 @@ impl SessionManager {
             started_at: now,
             ended_at: None,
             status: "active".to_string(),
+            folder_id: None,
         };
 
         let _ = self.app_handle.emit("session-started", &session);
@@ -264,7 +320,7 @@ impl SessionManager {
         let conn = self.get_connection()?;
         let pattern = format!("%{}%", query);
         let mut stmt = conn.prepare(
-            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status
+            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id
              FROM sessions s
              LEFT JOIN meeting_notes mn ON mn.session_id = s.id
              WHERE s.title LIKE ?1
@@ -280,6 +336,7 @@ impl SessionManager {
                 started_at: row.get("started_at")?,
                 ended_at: row.get("ended_at")?,
                 status: row.get("status")?,
+                folder_id: row.get("folder_id")?,
             })
         })?;
 
@@ -293,7 +350,7 @@ impl SessionManager {
     pub fn get_sessions(&self) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
-            "SELECT id, title, started_at, ended_at, status FROM sessions ORDER BY started_at DESC",
+            "SELECT id, title, started_at, ended_at, status, folder_id FROM sessions ORDER BY started_at DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -303,6 +360,7 @@ impl SessionManager {
                 started_at: row.get("started_at")?,
                 ended_at: row.get("ended_at")?,
                 status: row.get("status")?,
+                folder_id: row.get("folder_id")?,
             })
         })?;
 
@@ -317,7 +375,7 @@ impl SessionManager {
         let conn = self.get_connection()?;
         let session = conn
             .query_row(
-                "SELECT id, title, started_at, ended_at, status FROM sessions WHERE id = ?1",
+                "SELECT id, title, started_at, ended_at, status, folder_id FROM sessions WHERE id = ?1",
                 params![session_id],
                 |row| {
                     Ok(Session {
@@ -326,6 +384,7 @@ impl SessionManager {
                         started_at: row.get("started_at")?,
                         ended_at: row.get("ended_at")?,
                         status: row.get("status")?,
+                        folder_id: row.get("folder_id")?,
                     })
                 },
             )
@@ -554,5 +613,266 @@ impl SessionManager {
         info!("Session reactivated: {}", session_id);
 
         Ok(session)
+    }
+
+    // ==================== Folder CRUD ====================
+
+    pub fn create_folder(&self, name: String, color: Option<String>) -> Result<Folder> {
+        let id = Uuid::new_v4().to_string();
+        let now = Utc::now().timestamp();
+        let conn = self.get_connection()?;
+
+        // Get max sort_order
+        let max_order: i32 = conn
+            .query_row("SELECT COALESCE(MAX(sort_order), 0) FROM folders", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(0);
+
+        conn.execute(
+            "INSERT INTO folders (id, name, color, sort_order, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![id, name, color, max_order + 1, now],
+        )?;
+
+        Ok(Folder {
+            id,
+            name,
+            color,
+            sort_order: max_order + 1,
+            created_at: now,
+        })
+    }
+
+    pub fn update_folder(&self, folder_id: &str, name: String, color: Option<String>) -> Result<()> {
+        let conn = self.get_connection()?;
+        conn.execute(
+            "UPDATE folders SET name = ?1, color = ?2 WHERE id = ?3",
+            params![name, color, folder_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_folder(&self, folder_id: &str) -> Result<()> {
+        let conn = self.get_connection()?;
+        // Move sessions in this folder to unfiled (folder_id = NULL)
+        conn.execute(
+            "UPDATE sessions SET folder_id = NULL WHERE folder_id = ?1",
+            params![folder_id],
+        )?;
+        conn.execute("DELETE FROM folders WHERE id = ?1", params![folder_id])?;
+        Ok(())
+    }
+
+    pub fn get_folders(&self) -> Result<Vec<Folder>> {
+        let conn = self.get_connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, color, sort_order, created_at FROM folders ORDER BY sort_order ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(Folder {
+                id: row.get("id")?,
+                name: row.get("name")?,
+                color: row.get("color")?,
+                sort_order: row.get("sort_order")?,
+                created_at: row.get("created_at")?,
+            })
+        })?;
+
+        let mut folders = Vec::new();
+        for row in rows {
+            folders.push(row?);
+        }
+        Ok(folders)
+    }
+
+    pub fn move_session_to_folder(&self, session_id: &str, folder_id: Option<String>) -> Result<()> {
+        let conn = self.get_connection()?;
+        conn.execute(
+            "UPDATE sessions SET folder_id = ?1 WHERE id = ?2",
+            params![folder_id, session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_sessions_by_folder(&self, folder_id: Option<String>) -> Result<Vec<Session>> {
+        let conn = self.get_connection()?;
+
+        let query = if folder_id.is_some() {
+            "SELECT id, title, started_at, ended_at, status, folder_id
+             FROM sessions WHERE folder_id = ?1 ORDER BY started_at DESC"
+        } else {
+            "SELECT id, title, started_at, ended_at, status, folder_id
+             FROM sessions WHERE folder_id IS NULL ORDER BY started_at DESC"
+        };
+
+        let mut stmt = conn.prepare(query)?;
+        let mut sessions = Vec::new();
+
+        let map_row = |row: &rusqlite::Row| -> rusqlite::Result<Session> {
+            Ok(Session {
+                id: row.get("id")?,
+                title: row.get("title")?,
+                started_at: row.get("started_at")?,
+                ended_at: row.get("ended_at")?,
+                status: row.get("status")?,
+                folder_id: row.get("folder_id")?,
+            })
+        };
+
+        if let Some(fid) = &folder_id {
+            let rows = stmt.query_map(params![fid], map_row)?;
+            for row in rows {
+                sessions.push(row?);
+            }
+        } else {
+            let rows = stmt.query_map([], map_row)?;
+            for row in rows {
+                sessions.push(row?);
+            }
+        }
+
+        Ok(sessions)
+    }
+
+    // ==================== Tag CRUD ====================
+
+    pub fn create_tag(&self, name: String, color: Option<String>) -> Result<Tag> {
+        let id = Uuid::new_v4().to_string();
+        let conn = self.get_connection()?;
+
+        conn.execute(
+            "INSERT INTO tags (id, name, color) VALUES (?1, ?2, ?3)",
+            params![id, name, color],
+        )?;
+
+        Ok(Tag { id, name, color })
+    }
+
+    pub fn update_tag(&self, tag_id: &str, name: String, color: Option<String>) -> Result<()> {
+        let conn = self.get_connection()?;
+        conn.execute(
+            "UPDATE tags SET name = ?1, color = ?2 WHERE id = ?3",
+            params![name, color, tag_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_tag(&self, tag_id: &str) -> Result<()> {
+        let conn = self.get_connection()?;
+        // session_tags will cascade delete
+        conn.execute("DELETE FROM tags WHERE id = ?1", params![tag_id])?;
+        Ok(())
+    }
+
+    pub fn get_tags(&self) -> Result<Vec<Tag>> {
+        let conn = self.get_connection()?;
+        // Only return tags that are used by at least one session
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT t.id, t.name, t.color FROM tags t
+             INNER JOIN session_tags st ON t.id = st.tag_id
+             ORDER BY t.name ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(Tag {
+                id: row.get("id")?,
+                name: row.get("name")?,
+                color: row.get("color")?,
+            })
+        })?;
+
+        let mut tags = Vec::new();
+        for row in rows {
+            tags.push(row?);
+        }
+        Ok(tags)
+    }
+
+    pub fn add_tag_to_session(&self, session_id: &str, tag_id: &str) -> Result<()> {
+        let conn = self.get_connection()?;
+        conn.execute(
+            "INSERT OR IGNORE INTO session_tags (session_id, tag_id) VALUES (?1, ?2)",
+            params![session_id, tag_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_tag_from_session(&self, session_id: &str, tag_id: &str) -> Result<()> {
+        let conn = self.get_connection()?;
+        conn.execute(
+            "DELETE FROM session_tags WHERE session_id = ?1 AND tag_id = ?2",
+            params![session_id, tag_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_session_tags(&self, session_id: &str) -> Result<Vec<Tag>> {
+        let conn = self.get_connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.name, t.color FROM tags t
+             INNER JOIN session_tags st ON st.tag_id = t.id
+             WHERE st.session_id = ?1
+             ORDER BY t.name ASC",
+        )?;
+
+        let rows = stmt.query_map(params![session_id], |row| {
+            Ok(Tag {
+                id: row.get("id")?,
+                name: row.get("name")?,
+                color: row.get("color")?,
+            })
+        })?;
+
+        let mut tags = Vec::new();
+        for row in rows {
+            tags.push(row?);
+        }
+        Ok(tags)
+    }
+
+    pub fn set_session_tags(&self, session_id: &str, tag_ids: Vec<String>) -> Result<()> {
+        let conn = self.get_connection()?;
+        // Remove existing tags
+        conn.execute(
+            "DELETE FROM session_tags WHERE session_id = ?1",
+            params![session_id],
+        )?;
+        // Add new tags
+        for tag_id in tag_ids {
+            conn.execute(
+                "INSERT INTO session_tags (session_id, tag_id) VALUES (?1, ?2)",
+                params![session_id, tag_id],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn get_sessions_by_tag(&self, tag_id: &str) -> Result<Vec<Session>> {
+        let conn = self.get_connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id
+             FROM sessions s
+             INNER JOIN session_tags st ON st.session_id = s.id
+             WHERE st.tag_id = ?1
+             ORDER BY s.started_at DESC",
+        )?;
+
+        let rows = stmt.query_map(params![tag_id], |row| {
+            Ok(Session {
+                id: row.get("id")?,
+                title: row.get("title")?,
+                started_at: row.get("started_at")?,
+                ended_at: row.get("ended_at")?,
+                status: row.get("status")?,
+                folder_id: row.get("folder_id")?,
+            })
+        })?;
+
+        let mut sessions = Vec::new();
+        for row in rows {
+            sessions.push(row?);
+        }
+        Ok(sessions)
     }
 }
