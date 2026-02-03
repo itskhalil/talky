@@ -9,6 +9,7 @@ import { AppDataDirectory } from "../AppDataDirectory";
 import { AppLanguageSelector } from "../AppLanguageSelector";
 import { UserDataDirectory } from "../UserDataDirectory";
 import { LogDirectory } from "../debug";
+import UpdateChecker from "../../update-checker";
 
 export const AboutSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -39,6 +40,13 @@ export const AboutSettings: React.FC = () => {
         >
           {/* eslint-disable-next-line i18next/no-literal-string */}
           <span className="text-sm font-mono">v{version}</span>
+        </SettingContainer>
+        <SettingContainer
+          title={t("settings.about.updates.title")}
+          description={t("settings.about.updates.description")}
+          grouped={true}
+        >
+          <UpdateChecker />
         </SettingContainer>
 
         <AppDataDirectory descriptionMode="tooltip" grouped={true} />

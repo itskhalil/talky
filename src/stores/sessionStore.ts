@@ -337,10 +337,13 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     // Listen for transcription flush complete to trigger enhancement
     unlisteners.push(
       await listen<string>("transcription-flush-complete", (event) => {
-        const { selectedSessionId, enhanceNotes } = get();
-        // Only auto-enhance if this session is still selected
+        const { selectedSessionId, enhanceNotes, cache } = get();
+        // Only auto-enhance if this session is still selected and has a transcript
         if (event.payload === selectedSessionId) {
-          enhanceNotes();
+          const transcript = cache[selectedSessionId]?.transcript;
+          if (transcript && transcript.length > 0) {
+            enhanceNotes();
+          }
         }
       }),
     );

@@ -318,6 +318,10 @@
         "title": "Versión",
         "description": "Versión actual de Talky"
       },
+      "updates": {
+        "title": "Actualizaciones",
+        "description": "Buscar e instalar actualizaciones de la aplicación"
+      },
       "appDataDirectory": {
         "title": "Directorio de Datos de la Aplicación",
         "description": "Ubicación donde Talky almacena sus datos"
