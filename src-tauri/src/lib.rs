@@ -51,6 +51,7 @@ fn get_user_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Box<dyn std::err
     }
 }
 
+
 // Global atomic to store the file log level filter
 // We use u8 to store the log::LevelFilter as a number
 pub static FILE_LOG_LEVEL: AtomicU8 = AtomicU8::new(log::LevelFilter::Debug as u8);

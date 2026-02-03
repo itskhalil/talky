@@ -17,13 +17,19 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
     const [newWord, setNewWord] = useState("");
     const customWords = getSetting("custom_words") || [];
 
+    const MAX_WORDS_PER_PHRASE = 5;
+
     const handleAddWord = () => {
       const trimmedWord = newWord.trim();
-      const sanitizedWord = trimmedWord.replace(/[<>"'&]/g, "");
+      // Normalize multiple spaces to single space
+      const normalizedWord = trimmedWord.replace(/\s+/g, " ");
+      const sanitizedWord = normalizedWord.replace(/[<>"'&]/g, "");
+      const wordCount = sanitizedWord.split(" ").length;
+
       if (
         sanitizedWord &&
-        !sanitizedWord.includes(" ") &&
-        sanitizedWord.length <= 50 &&
+        sanitizedWord.length <= 100 &&
+        wordCount <= MAX_WORDS_PER_PHRASE &&
         !customWords.includes(sanitizedWord)
       ) {
         updateSetting("custom_words", [...customWords, sanitizedWord]);
@@ -68,8 +74,9 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
               onClick={handleAddWord}
               disabled={
                 !newWord.trim() ||
-                newWord.includes(" ") ||
-                newWord.trim().length > 50 ||
+                newWord.trim().replace(/\s+/g, " ").split(" ").length >
+                  MAX_WORDS_PER_PHRASE ||
+                newWord.trim().length > 100 ||
                 isUpdating("custom_words")
               }
               variant="primary"

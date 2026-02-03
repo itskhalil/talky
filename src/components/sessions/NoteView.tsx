@@ -506,7 +506,7 @@ export function NoteView({
       )}
       {/* Pinned toggle + copy controls */}
       {hasEnhanced && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 flex justify-end pointer-events-none z-10">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex justify-end pointer-events-none z-10">
           <div className="flex items-center gap-1.5 pointer-events-auto">
             <div className="flex bg-background-sidebar rounded-lg p-0.5">
               <button
@@ -547,7 +547,7 @@ export function NoteView({
       )}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-4 pb-32 w-full cursor-text select-text">
         {/* Editable title */}
-        <div className="max-w-2xl mx-auto mb-6">
+        <div className="max-w-3xl mx-auto mb-6">
           <textarea
             ref={textareaRef}
             rows={1}

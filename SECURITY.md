@@ -168,12 +168,6 @@ The application contains **zero telemetry, analytics, or crash reporting**:
 - No Google Analytics
 - No custom analytics endpoints
 
-**Verification:** Search the codebase for telemetry libraries:
-```bash
-grep -r "sentry\|posthog\|mixpanel\|amplitude\|analytics\|telemetry" src-tauri/Cargo.toml package.json
-# Returns: No matches
-```
-
 ---
 
 ## Local Data Storage
