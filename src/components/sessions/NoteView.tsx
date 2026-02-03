@@ -425,6 +425,12 @@ export function NoteView({
     adjustTextareaHeight();
   }, [titleValue, adjustTextareaHeight]);
 
+  // Recalculate title height on window resize (title may wrap/unwrap)
+  useEffect(() => {
+    window.addEventListener("resize", adjustTextareaHeight);
+    return () => window.removeEventListener("resize", adjustTextareaHeight);
+  }, [adjustTextareaHeight]);
+
   const handleTitleBlur = () => {
     const trimmed = titleValue.trim();
     if (trimmed && trimmed !== session?.title) {
