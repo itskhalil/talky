@@ -1,5 +1,5 @@
-mod aec;
 mod actions;
+mod aec;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 pub mod audio_toolkit;
@@ -31,9 +31,25 @@ use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKind};
 
 use crate::settings::get_settings;
+use std::path::PathBuf;
 
+/// Returns the directory where user data (sessions.db, history.db) should be stored.
+/// Uses the custom data directory from settings if set, otherwise the default app data directory.
+fn get_user_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let settings = get_settings(app_handle);
 
-
+    if let Some(custom_dir) = settings.data_directory {
+        let path = PathBuf::from(&custom_dir);
+        // Ensure the directory exists
+        if !path.exists() {
+            std::fs::create_dir_all(&path)?;
+        }
+        Ok(path)
+    } else {
+        // Use the default app data directory
+        Ok(app_handle.path().app_data_dir()?)
+    }
+}
 
 // Global atomic to store the file log level filter
 // We use u8 to store the log::LevelFilter as a number
@@ -96,6 +112,9 @@ fn show_main_window(app: &AppHandle) {
 }
 
 fn initialize_core_logic(app_handle: &AppHandle) {
+    // Get custom data directory if configured
+    let data_dir = get_user_data_dir(app_handle).ok();
+
     // Initialize the managers
     let recording_manager = Arc::new(
         AudioRecordingManager::new(app_handle).expect("Failed to initialize recording manager"),
@@ -106,10 +125,13 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         TranscriptionManager::new(app_handle, model_manager.clone())
             .expect("Failed to initialize transcription manager"),
     );
-    let history_manager =
-        Arc::new(HistoryManager::new(app_handle).expect("Failed to initialize history manager"));
-    let session_manager =
-        Arc::new(SessionManager::new(app_handle).expect("Failed to initialize session manager"));
+    let history_manager = Arc::new(
+        HistoryManager::new(app_handle, data_dir.clone())
+            .expect("Failed to initialize history manager"),
+    );
+    let session_manager = Arc::new(
+        SessionManager::new(app_handle, data_dir).expect("Failed to initialize session manager"),
+    );
 
     // Add managers to Tauri's managed state
     app_handle.manage(recording_manager.clone());
@@ -178,7 +200,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         // Disable autostart if user has opted out
         let _ = autostart_manager.disable();
     }
-
 }
 
 #[tauri::command]
@@ -232,9 +253,12 @@ pub fn run() {
         commands::get_default_settings,
         commands::get_log_dir_path,
         commands::set_log_level,
-        commands::open_recordings_folder,
         commands::open_log_dir,
         commands::open_app_data_dir,
+        commands::get_user_data_directory,
+        commands::has_custom_data_directory,
+        commands::set_data_directory,
+        commands::open_user_data_directory,
         commands::check_apple_intelligence_available,
         commands::check_ollama_available,
         commands::models::get_available_models,
@@ -264,7 +288,6 @@ pub fn run() {
         commands::transcription::unload_model_manually,
         commands::history::get_history_entries,
         commands::history::toggle_history_entry_saved,
-        commands::history::get_audio_file_path,
         commands::history::delete_history_entry,
         commands::history::update_history_limit,
         commands::history::update_recording_retention_period,
@@ -333,6 +356,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -340,7 +364,6 @@ pub fn run() {
             Some(vec![]),
         ))
         .setup(move |app| {
-
             let settings = get_settings(&app.handle());
             let tauri_log_level: tauri_plugin_log::LogLevel = settings.log_level.into();
             let file_log_level: log::Level = tauri_log_level.into();

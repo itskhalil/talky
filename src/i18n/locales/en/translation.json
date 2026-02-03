@@ -375,6 +375,19 @@
         "title": "App Data Directory",
         "description": "Location where Talky stores its data"
       },
+      "userDataDirectory": {
+        "title": "Data Location",
+        "description": "Where your notes and transcripts are stored. Change to iCloud Drive or Dropbox for backup.",
+        "usingDefault": "Using default location",
+        "usingCustom": "Using custom location",
+        "change": "Change",
+        "reset": "Reset to Default",
+        "restartRequired": "App restart required for changes to take effect.",
+        "migratePrompt": "Copy existing data to the new location?",
+        "migrating": "Copying data...",
+        "success": "Data location updated. Please restart the app.",
+        "error": "Failed to change data location: {{error}}"
+      },
       "sourceCode": {
         "title": "Source Code",
         "description": "View source code and contribute",

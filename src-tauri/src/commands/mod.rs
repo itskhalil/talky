@@ -7,6 +7,7 @@ pub mod transcription;
 
 use crate::settings::{get_settings, write_settings, AppSettings, LogLevel};
 use crate::utils::cancel_current_operation;
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
@@ -84,24 +85,6 @@ pub fn set_log_level(app: AppHandle, level: LogLevel) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.log_level = level;
     write_settings(&app, settings);
-
-    Ok(())
-}
-
-#[specta::specta]
-#[tauri::command]
-pub fn open_recordings_folder(app: AppHandle) -> Result<(), String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-
-    let recordings_dir = app_data_dir.join("recordings");
-
-    let path = recordings_dir.to_string_lossy().as_ref().to_string();
-    app.opener()
-        .open_path(path, None::<String>)
-        .map_err(|e| format!("Failed to open recordings folder: {}", e))?;
 
     Ok(())
 }
@@ -195,4 +178,151 @@ pub async fn check_ollama_available(base_url: Option<String>) -> Vec<String> {
     }
 
     models
+}
+
+/// Get the current user data directory path.
+/// Returns the custom path if set, otherwise the default app data directory.
+#[specta::specta]
+#[tauri::command]
+pub fn get_user_data_directory(app: AppHandle) -> Result<String, String> {
+    let settings = get_settings(&app);
+
+    if let Some(custom_dir) = &settings.data_directory {
+        Ok(custom_dir.clone())
+    } else {
+        let app_data_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+        Ok(app_data_dir.to_string_lossy().to_string())
+    }
+}
+
+/// Check if a custom data directory is configured.
+#[specta::specta]
+#[tauri::command]
+pub fn has_custom_data_directory(app: AppHandle) -> bool {
+    let settings = get_settings(&app);
+    settings.data_directory.is_some()
+}
+
+/// Set a new data directory and optionally migrate existing data.
+/// Returns true if migration was successful, false if the directory couldn't be used.
+/// After calling this, the app should be restarted for changes to take effect.
+#[specta::specta]
+#[tauri::command]
+pub fn set_data_directory(
+    app: AppHandle,
+    new_path: Option<String>,
+    migrate_data: bool,
+) -> Result<(), String> {
+    let current_settings = get_settings(&app);
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    // Determine source directory (current data location)
+    let source_dir = current_settings
+        .data_directory
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| app_data_dir.clone());
+
+    // Determine target directory
+    let target_dir = new_path
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| app_data_dir.clone());
+
+    // Validate the target directory
+    if let Some(ref path) = new_path {
+        let target = PathBuf::from(path);
+        // Check if we can write to this directory
+        if !target.exists() {
+            std::fs::create_dir_all(&target)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+
+        // Test write permission
+        let test_file = target.join(".talky_test");
+        std::fs::write(&test_file, "test")
+            .map_err(|e| format!("Cannot write to directory: {}", e))?;
+        std::fs::remove_file(&test_file).ok();
+    }
+
+    // Migrate data if requested
+    if migrate_data && source_dir != target_dir {
+        // Copy sessions.db
+        let source_sessions = source_dir.join("sessions.db");
+        let target_sessions = target_dir.join("sessions.db");
+        if source_sessions.exists() && !target_sessions.exists() {
+            std::fs::copy(&source_sessions, &target_sessions)
+                .map_err(|e| format!("Failed to copy sessions.db: {}", e))?;
+            log::info!(
+                "Migrated sessions.db from {:?} to {:?}",
+                source_sessions,
+                target_sessions
+            );
+        }
+
+        // Copy history.db
+        let source_history = source_dir.join("history.db");
+        let target_history = target_dir.join("history.db");
+        if source_history.exists() && !target_history.exists() {
+            std::fs::copy(&source_history, &target_history)
+                .map_err(|e| format!("Failed to copy history.db: {}", e))?;
+            log::info!(
+                "Migrated history.db from {:?} to {:?}",
+                source_history,
+                target_history
+            );
+        }
+
+        // Also copy WAL files if they exist (for SQLite)
+        for wal_ext in &["-wal", "-shm"] {
+            let source_sessions_wal = source_dir.join(format!("sessions.db{}", wal_ext));
+            let target_sessions_wal = target_dir.join(format!("sessions.db{}", wal_ext));
+            if source_sessions_wal.exists() {
+                std::fs::copy(&source_sessions_wal, &target_sessions_wal).ok();
+            }
+
+            let source_history_wal = source_dir.join(format!("history.db{}", wal_ext));
+            let target_history_wal = target_dir.join(format!("history.db{}", wal_ext));
+            if source_history_wal.exists() {
+                std::fs::copy(&source_history_wal, &target_history_wal).ok();
+            }
+        }
+    }
+
+    // Update settings
+    let mut settings = current_settings;
+    settings.data_directory = new_path;
+    write_settings(&app, settings);
+
+    log::info!("Data directory updated. App restart required.");
+    Ok(())
+}
+
+/// Open the current user data directory in Finder/Explorer.
+#[specta::specta]
+#[tauri::command]
+pub fn open_user_data_directory(app: AppHandle) -> Result<(), String> {
+    let settings = get_settings(&app);
+
+    let path = if let Some(custom_dir) = &settings.data_directory {
+        custom_dir.clone()
+    } else {
+        let app_data_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+        app_data_dir.to_string_lossy().to_string()
+    };
+
+    app.opener()
+        .open_path(path, None::<String>)
+        .map_err(|e| format!("Failed to open data directory: {}", e))?;
+
+    Ok(())
 }

@@ -256,14 +256,6 @@ async setLogLevel(level: LogLevel) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async openRecordingsFolder() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("open_recordings_folder") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async openLogDir() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("open_log_dir") };
@@ -275,6 +267,48 @@ async openLogDir() : Promise<Result<null, string>> {
 async openAppDataDir() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("open_app_data_dir") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Get the current user data directory path.
+ * Returns the custom path if set, otherwise the default app data directory.
+ */
+async getUserDataDirectory() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_user_data_directory") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Check if a custom data directory is configured.
+ */
+async hasCustomDataDirectory() : Promise<boolean> {
+    return await TAURI_INVOKE("has_custom_data_directory");
+},
+/**
+ * Set a new data directory and optionally migrate existing data.
+ * Returns true if migration was successful, false if the directory couldn't be used.
+ * After calling this, the app should be restarted for changes to take effect.
+ */
+async setDataDirectory(newPath: string | null, migrateData: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_data_directory", { newPath, migrateData }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Open the current user data directory in Finder/Explorer.
+ */
+async openUserDataDirectory() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_user_data_directory") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -499,14 +533,6 @@ async getHistoryEntries() : Promise<Result<HistoryEntry[], string>> {
 async toggleHistoryEntrySaved(id: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("toggle_history_entry_saved", { id }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getAudioFilePath(fileName: string) : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_audio_file_path", { fileName }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -738,7 +764,13 @@ async flushPendingAudio(sessionId: string) : Promise<Result<null, string>> {
 
 /** user-defined types **/
 
-export type AppSettings = { font_size?: FontSize; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: Partial<{ [key in string]: string }>; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; chat_provider_id?: string; chat_models?: Partial<{ [key in string]: string }>; copy_as_bullets_enabled?: boolean }
+export type AppSettings = { 
+/**
+ * Custom directory for user data (sessions.db, history.db).
+ * When None, uses the default app data directory.
+ * This allows storing data in iCloud Drive or other backup-friendly locations.
+ */
+data_directory?: string | null; font_size?: FontSize; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: Partial<{ [key in string]: string }>; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; chat_provider_id?: string; chat_models?: Partial<{ [key in string]: string }>; copy_as_bullets_enabled?: boolean }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
 export type FontSize = "small" | "medium" | "large"
