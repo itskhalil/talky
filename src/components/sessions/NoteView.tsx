@@ -165,28 +165,11 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
       continue;
     }
 
-    // Bullet list: collect consecutive bullet lines
+    // Bullet list: collect consecutive bullet lines with nesting support
     if (trimmed.match(/^-\s/)) {
-      const listItems: JSONContent[] = [];
-      while (i < parsed.length) {
-        const bTrimmed = parsed[i].cleaned.trimStart();
-        const bMatch = bTrimmed.match(/^-\s+(.*)/);
-        if (!bMatch) break;
-        const bSource = parsed[i].isAi ? "ai" : "user";
-        listItems.push({
-          type: "listItem",
-          attrs: { source: bSource },
-          content: [
-            {
-              type: "paragraph",
-              attrs: { source: bSource },
-              content: parseInlineContent(bMatch[1]),
-            },
-          ],
-        });
-        i++;
-      }
-      nodes.push({ type: "bulletList", content: listItems });
+      const bulletList = parseBulletList(parsed, i);
+      nodes.push(bulletList.node);
+      i = bulletList.endIndex;
       continue;
     }
 
@@ -200,6 +183,75 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
   }
 
   return { type: "doc", content: nodes };
+}
+
+interface ParsedLine {
+  cleaned: string;
+  isAi: boolean;
+  isUser: boolean;
+  hasTag: boolean;
+}
+
+/**
+ * Parse bullet list with nesting support.
+ * Indentation is detected by counting leading spaces (2 spaces = 1 level).
+ */
+function parseBulletList(
+  parsed: ParsedLine[],
+  startIndex: number,
+  baseIndent: number = 0
+): { node: JSONContent; endIndex: number } {
+  const listItems: JSONContent[] = [];
+  let i = startIndex;
+
+  while (i < parsed.length) {
+    const line = parsed[i].cleaned;
+    // Count leading spaces
+    const leadingSpaces = line.length - line.trimStart().length;
+    const indentLevel = Math.floor(leadingSpaces / 2);
+    const trimmed = line.trimStart();
+    const bulletMatch = trimmed.match(/^-\s+(.*)/);
+
+    // Not a bullet line - end the list
+    if (!bulletMatch) break;
+
+    // Less indented than our base - this bullet belongs to parent list
+    if (indentLevel < baseIndent) break;
+
+    // More indented - this is a nested list, handled by recursive call
+    if (indentLevel > baseIndent) {
+      // Attach nested list to the last list item
+      if (listItems.length > 0) {
+        const nested = parseBulletList(parsed, i, indentLevel);
+        listItems[listItems.length - 1].content!.push(nested.node);
+        i = nested.endIndex;
+      } else {
+        // Edge case: indented bullet with no parent - treat as base level
+        i++;
+      }
+      continue;
+    }
+
+    // Same indent level - add to current list
+    const source = parsed[i].isAi ? "ai" : "user";
+    listItems.push({
+      type: "listItem",
+      attrs: { source },
+      content: [
+        {
+          type: "paragraph",
+          attrs: { source },
+          content: parseInlineContent(bulletMatch[1]),
+        },
+      ],
+    });
+    i++;
+  }
+
+  return {
+    node: { type: "bulletList", content: listItems },
+    endIndex: i,
+  };
 }
 
 function parseInlineContent(text: string): JSONContent[] {
@@ -243,13 +295,7 @@ export function serializeTiptapToTagged(json: JSONContent): string {
       const text = inlineToMarkdown(node.content);
       lines.push(`${hashes} ${text}`);
     } else if (node.type === "bulletList" && node.content) {
-      for (const li of node.content) {
-        const liSource = li.attrs?.source ?? "user";
-        const liTag = `[${liSource}]`;
-        const para = li.content?.[0];
-        const text = para ? inlineToMarkdown(para.content) : "";
-        lines.push(`${liTag} - ${text}`);
-      }
+      serializeBulletList(node, lines, 0);
     } else if (node.type === "paragraph") {
       const text = inlineToMarkdown(node.content);
       if (text.trim() === "") {
@@ -261,6 +307,35 @@ export function serializeTiptapToTagged(json: JSONContent): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Recursively serialize a bullet list with proper indentation.
+ */
+function serializeBulletList(
+  node: JSONContent,
+  lines: string[],
+  depth: number
+): void {
+  if (!node.content) return;
+  const indent = "  ".repeat(depth);
+
+  for (const li of node.content) {
+    const liSource = li.attrs?.source ?? "user";
+    const liTag = `[${liSource}]`;
+
+    // Find paragraph and nested lists in the list item
+    const para = li.content?.find((c) => c.type === "paragraph");
+    const nestedList = li.content?.find((c) => c.type === "bulletList");
+
+    const text = para ? inlineToMarkdown(para.content) : "";
+    lines.push(`${liTag} ${indent}- ${text}`);
+
+    // Recursively serialize nested list
+    if (nestedList) {
+      serializeBulletList(nestedList, lines, depth + 1);
+    }
+  }
 }
 
 function inlineToMarkdown(content?: JSONContent[]): string {
