@@ -1,17 +1,17 @@
 use std::any::TypeId;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::task::Poll;
 
 use anyhow::Result;
-use futures_util::Stream;
 use futures_util::task::AtomicWaker;
+use futures_util::Stream;
 
 use super::pcm::{pcm_f32_to_f32, pcm_f64_to_f32, pcm_i16_to_f32, pcm_i32_to_f32};
 
 use ringbuf::{
-    HeapCons, HeapProd, HeapRb,
     traits::{Consumer, Producer, Split},
+    HeapCons, HeapProd, HeapRb,
 };
 
 use ca::aggregate_device_keys as agg_keys;

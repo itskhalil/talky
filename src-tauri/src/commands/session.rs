@@ -1,9 +1,7 @@
 use crate::llm_client::ChatMessage;
 use crate::managers::audio::AudioRecordingManager;
+use crate::managers::session::{MeetingNotes, Session, SessionManager, TranscriptSegment};
 use crate::managers::transcription::TranscriptionManager;
-use crate::managers::session::{
-    MeetingNotes, Session, SessionManager, TranscriptSegment,
-};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
@@ -84,7 +82,12 @@ pub async fn generate_session_summary(
             } else {
                 "[Other]"
             };
-            format!("[{}] {}: {}", format_ms_timestamp(seg.start_ms), label, seg.text)
+            format!(
+                "[{}] {}: {}",
+                format_ms_timestamp(seg.start_ms),
+                label,
+                seg.text
+            )
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -161,9 +164,10 @@ pub async fn generate_session_summary(
         },
     ];
 
-    let result = crate::llm_client::send_chat_completion_messages(&provider, api_key, &model, messages)
-        .await?
-        .ok_or_else(|| "LLM returned no content".to_string())?;
+    let result =
+        crate::llm_client::send_chat_completion_messages(&provider, api_key, &model, messages)
+            .await?
+            .ok_or_else(|| "LLM returned no content".to_string())?;
 
     sm.save_meeting_notes(&session_id, None, None, None, None, Some(result.clone()))
         .map_err(|e| e.to_string())?;
@@ -173,10 +177,7 @@ pub async fn generate_session_summary(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_session_summary(
-    app: AppHandle,
-    session_id: String,
-) -> Result<Option<String>, String> {
+pub fn get_session_summary(app: AppHandle, session_id: String) -> Result<Option<String>, String> {
     let sm = app.state::<Arc<SessionManager>>();
     let notes = sm
         .get_meeting_notes(&session_id)
@@ -213,8 +214,7 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
 
     tm.initiate_model_load();
 
-    rm.start_session_recording()
-        .map_err(|e| e.to_string())?;
+    rm.start_session_recording().map_err(|e| e.to_string())?;
 
     // Spawn speaker capture task (macOS only)
     #[cfg(target_os = "macos")]
@@ -280,18 +280,12 @@ pub fn spawn_speaker_capture(
         };
 
         let source_rate = speaker.sample_rate();
-        let mut resampler = FrameResampler::new(
-            source_rate as usize,
-            16000,
-            Duration::from_millis(30),
-        );
+        let mut resampler =
+            FrameResampler::new(source_rate as usize, 16000, Duration::from_millis(30));
 
         let mut stream = speaker.stream();
 
-        log::info!(
-            "Speaker capture started (source rate={}Hz)",
-            source_rate
-        );
+        log::info!("Speaker capture started (source rate={}Hz)", source_rate);
 
         // Use a single-threaded tokio runtime to drive the async stream
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -331,7 +325,9 @@ pub fn reactivate_session(app: AppHandle, session_id: String) -> Result<Session,
     }
 
     sm.reset_speaker_state();
-    let session = sm.reactivate_session(&session_id).map_err(|e| e.to_string())?;
+    let session = sm
+        .reactivate_session(&session_id)
+        .map_err(|e| e.to_string())?;
     Ok(session)
 }
 
@@ -424,8 +420,7 @@ pub fn get_meeting_notes(
     session_id: String,
 ) -> Result<Option<MeetingNotes>, String> {
     let sm = app.state::<Arc<SessionManager>>();
-    sm.get_meeting_notes(&session_id)
-        .map_err(|e| e.to_string())
+    sm.get_meeting_notes(&session_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -439,17 +434,20 @@ pub fn save_meeting_notes(
     user_notes: Option<String>,
 ) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
-    sm.save_meeting_notes(&session_id, summary, action_items, decisions, user_notes, None)
-        .map_err(|e| e.to_string())
+    sm.save_meeting_notes(
+        &session_id,
+        summary,
+        action_items,
+        decisions,
+        user_notes,
+        None,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn save_user_notes(
-    app: AppHandle,
-    session_id: String,
-    notes: String,
-) -> Result<(), String> {
+pub fn save_user_notes(app: AppHandle, session_id: String, notes: String) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
     sm.save_meeting_notes(&session_id, None, None, None, Some(notes), None)
         .map_err(|e| e.to_string())
@@ -469,11 +467,10 @@ pub fn save_enhanced_notes(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_user_notes(
-    app: AppHandle,
-    session_id: String,
-) -> Result<Option<String>, String> {
+pub fn get_user_notes(app: AppHandle, session_id: String) -> Result<Option<String>, String> {
     let sm = app.state::<Arc<SessionManager>>();
-    let notes = sm.get_meeting_notes(&session_id).map_err(|e| e.to_string())?;
+    let notes = sm
+        .get_meeting_notes(&session_id)
+        .map_err(|e| e.to_string())?;
     Ok(notes.and_then(|n| n.user_notes))
 }

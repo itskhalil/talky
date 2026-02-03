@@ -20,7 +20,6 @@ impl Default for RecordingIndicatorState {
     }
 }
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum TrayIconState {
     Idle,
@@ -105,10 +104,14 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
             MenuItem::with_id(app, "new_note", &strings.new_note, true, None::<&str>)
                 .expect("failed to create new note item")
         }
-        TrayIconState::Recording => {
-            MenuItem::with_id(app, "stop_recording", &strings.stop_recording, true, None::<&str>)
-                .expect("failed to create stop recording item")
-        }
+        TrayIconState::Recording => MenuItem::with_id(
+            app,
+            "stop_recording",
+            &strings.stop_recording,
+            true,
+            None::<&str>,
+        )
+        .expect("failed to create stop recording item"),
     };
 
     let app_name = MenuItem::with_id(app, "app_name", "Talky", false, None::<&str>)
@@ -178,7 +181,7 @@ pub fn start_recording_indicator(app: &AppHandle) {
         // Clear the title when the loop exits
         #[cfg(target_os = "macos")]
         if let Some(tray) = app_handle.try_state::<TrayIcon>() {
-            let _ = tray.set_title(Some(""));  // Empty string to clear
+            let _ = tray.set_title(Some("")); // Empty string to clear
         }
     });
 }
@@ -190,4 +193,3 @@ pub fn stop_recording_indicator(app: &AppHandle) {
         state.is_running.store(false, Ordering::SeqCst);
     }
 }
-

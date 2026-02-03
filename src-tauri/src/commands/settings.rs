@@ -111,9 +111,7 @@ pub fn change_post_process_api_key_setting(
     api_key: String,
 ) -> Result<(), String> {
     let mut settings = get_settings(&app);
-    settings
-        .post_process_api_keys
-        .insert(provider_id, api_key);
+    settings.post_process_api_keys.insert(provider_id, api_key);
     write_settings(&app, settings);
     Ok(())
 }
@@ -189,7 +187,11 @@ pub fn update_post_process_prompt(
     prompt: String,
 ) -> Result<(), String> {
     let mut settings = get_settings(&app);
-    if let Some(existing) = settings.post_process_prompts.iter_mut().find(|p| p.id == id) {
+    if let Some(existing) = settings
+        .post_process_prompts
+        .iter_mut()
+        .find(|p| p.id == id)
+    {
         existing.name = name;
         existing.prompt = prompt;
         write_settings(&app, settings);
@@ -288,10 +290,7 @@ pub fn change_chat_model_setting(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn fetch_chat_models(
-    app: AppHandle,
-    provider_id: String,
-) -> Result<Vec<String>, String> {
+pub async fn fetch_chat_models(app: AppHandle, provider_id: String) -> Result<Vec<String>, String> {
     let settings = get_settings(&app);
 
     let provider = settings
