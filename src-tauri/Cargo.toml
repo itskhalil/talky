@@ -33,7 +33,7 @@ skip-apple-intelligence = []
 
 [dependencies]
 once_cell = "1"
-tauri = { version = "2.9.1", features = [
+tauri = { version = "2.10", features = [
   "protocol-asset",
   "macos-private-api",
   "tray-icon",
@@ -41,6 +41,7 @@ tauri = { version = "2.9.1", features = [
 ] }
 tauri-plugin-log = "2.7.1"
 tauri-plugin-opener = "2.5.2"
+tauri-plugin-dialog = "2.6"
 tauri-plugin-store = "2.4.1"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-macos-permissions = "2.3.0"

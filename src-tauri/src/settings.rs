@@ -173,6 +173,11 @@ impl FontSize {
 /* still handy for composing the initial JSON in the store ------------- */
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct AppSettings {
+    /// Custom directory for user data (sessions.db, history.db).
+    /// When None, uses the default app data directory.
+    /// This allows storing data in iCloud Drive or other backup-friendly locations.
+    #[serde(default)]
+    pub data_directory: Option<String>,
     #[serde(default)]
     pub font_size: FontSize,
     #[serde(default = "default_start_hidden")]
@@ -457,6 +462,7 @@ pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 
 pub fn get_default_settings() -> AppSettings {
     AppSettings {
+        data_directory: None,
         font_size: FontSize::default(),
         start_hidden: default_start_hidden(),
         autostart_enabled: default_autostart_enabled(),
@@ -548,6 +554,12 @@ pub fn write_settings(app: &AppHandle, settings: AppSettings) {
 pub fn get_history_limit(app: &AppHandle) -> usize {
     let settings = get_settings(app);
     settings.history_limit
+}
+
+/// Returns the custom data directory if set, or None to use the default app data directory.
+pub fn get_data_directory(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let settings = get_settings(app);
+    settings.data_directory.map(std::path::PathBuf::from)
 }
 
 pub fn get_recording_retention_period(app: &AppHandle) -> RecordingRetentionPeriod {
