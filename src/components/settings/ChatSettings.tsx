@@ -144,6 +144,7 @@ export const ChatSettings: React.FC = () => {
             onSelect={handleModelSelect}
             onCreate={handleModelCreate}
             onBlur={() => {}}
+            onMenuOpen={handleRefreshModels}
             className="flex-1 min-w-[380px]"
           />
           <ResetButton
