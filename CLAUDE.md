@@ -134,3 +134,15 @@ Access debug features: `Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows/Linux)
 - **macOS**: Metal acceleration, accessibility permissions required
 - **Windows**: Vulkan acceleration, code signing
 - **Linux**: OpenBLAS + Vulkan, limited Wayland support, overlay disabled by default
+
+## Claude Code Build Instructions
+
+When running Rust builds (`cargo check`, `cargo build`, `cargo clippy`), always use the `skip-apple-intelligence` feature to avoid sandbox issues with Apple Intelligence SDK detection:
+
+```bash
+cd src-tauri && cargo check --features skip-apple-intelligence
+cd src-tauri && cargo build --features skip-apple-intelligence
+cd src-tauri && cargo clippy --features skip-apple-intelligence
+```
+
+This skips the Swift/xcrun compilation that gets blocked by Claude's sandbox on macOS.

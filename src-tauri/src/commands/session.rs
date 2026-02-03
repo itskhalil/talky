@@ -140,7 +140,15 @@ pub async fn generate_session_summary(
         return Err("No post-process model configured".to_string());
     }
 
-    let system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
+    let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
+
+    // Inject custom words into the prompt for vocabulary correction
+    if !settings.custom_words.is_empty() {
+        system_message.push_str(&format!(
+            "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
+            settings.custom_words.join(", ")
+        ));
+    }
 
     let notes_section = if user_notes.trim().is_empty() {
         "No notes were taken. Generate comprehensive notes from the transcript, marking all lines as [ai].".to_string()

@@ -2,7 +2,7 @@
 
 **A free, open source meeting notes app with live transcription and AI-powered note enhancement.**
 
-Talky is a cross-platform desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Transcription runs entirely on your device — your audio never leaves your computer. Optional AI features let you enhance your notes and chat with your transcript.
+Talky is a Mac application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Transcription runs entirely on your device — your audio never leaves your computer. Optional AI features let you enhance your notes and chat with your transcript.
 
 ## Quick Start
 
@@ -17,14 +17,6 @@ curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/install.sh | b
 ### Development Setup
 
 For detailed build instructions including platform-specific requirements, see [BUILD.md](BUILD.md).
-
-## Why Talky?
-
-Think [Granola](https://granola.ai) but open source and private by default.
-- **Free**: Meeting tooling belongs in everyone's hands, not behind a paywall
-- **Open Source**: Together we can build further. Extend Talky for yourself and contribute to something bigger
-- **Private**: Transcription runs entirely on your device — your audio never leaves your computer. AI features are optional and use your own API keys.
-- **Local AI**: Speech-to-text runs on-device using Whisper or Parakeet models with GPU acceleration. You can also use local LLMs via Ollama or Apple Intelligence for fully offline AI.
 
 ## How It Works
 
@@ -43,7 +35,6 @@ All transcription happens on your device:
 - Transcription uses your choice of models:
   - **Whisper models** (Small/Medium/Turbo/Large) with GPU acceleration when available
   - **Parakeet V3** — CPU-optimized model with excellent performance and automatic language detection
-- Works on macOS, Windows, and Linux
 
 ### AI Features
 
@@ -90,7 +81,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- **Handy** by CJ Pais, which formed the audio + transcription core around which Talky was built
+- **Handy** by CJ Pais, for inspiration and the core transcription stack
 - **Whisper** by OpenAI for the speech recognition model
 - **whisper.cpp and ggml** for amazing cross-platform whisper inference/acceleration
 - **Silero** for great lightweight VAD
