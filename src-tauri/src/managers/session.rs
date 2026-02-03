@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
-
 static SESSION_MIGRATIONS: &[M] = &[
     M::up(
         "CREATE TABLE IF NOT EXISTS sessions (
@@ -57,9 +56,7 @@ static SESSION_MIGRATIONS: &[M] = &[
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         );",
     ),
-    M::up(
-        "ALTER TABLE meeting_notes ADD COLUMN enhanced_notes TEXT;",
-    ),
+    M::up("ALTER TABLE meeting_notes ADD COLUMN enhanced_notes TEXT;"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -111,7 +108,6 @@ pub struct SessionAmplitudeEvent {
 pub struct SessionManager {
     app_handle: AppHandle,
     db_path: PathBuf,
-    recordings_dir: PathBuf,
     active_session: Arc<Mutex<Option<String>>>,
     session_start_time: Arc<Mutex<Option<std::time::Instant>>>,
     /// Shared buffer where the speaker capture task accumulates samples
@@ -121,19 +117,23 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    pub fn new(app_handle: &AppHandle) -> Result<Self> {
+    /// Creates a new SessionManager.
+    /// If `data_dir` is Some, uses that directory for sessions.db.
+    /// Otherwise, uses the default app data directory.
+    pub fn new(app_handle: &AppHandle, data_dir: Option<PathBuf>) -> Result<Self> {
         let app_data_dir = app_handle.path().app_data_dir()?;
-        let recordings_dir = app_data_dir.join("session_recordings");
-        let db_path = app_data_dir.join("sessions.db");
+        // Use custom data directory for the database if provided, otherwise use default
+        let db_dir = data_dir.unwrap_or_else(|| app_data_dir.clone());
+        let db_path = db_dir.join("sessions.db");
 
-        if !recordings_dir.exists() {
-            fs::create_dir_all(&recordings_dir)?;
+        // Ensure db directory exists
+        if !db_dir.exists() {
+            fs::create_dir_all(&db_dir)?;
         }
 
         let manager = Self {
             app_handle: app_handle.clone(),
             db_path,
-            recordings_dir,
             active_session: Arc::new(Mutex::new(None)),
             session_start_time: Arc::new(Mutex::new(None)),
             speaker_buffer: Arc::new(Mutex::new(Vec::new())),
@@ -407,21 +407,7 @@ impl SessionManager {
     pub fn delete_session(&self, session_id: &str) -> Result<()> {
         let conn = self.get_connection()?;
 
-        // Delete audio files
-        let mut stmt = conn.prepare(
-            "SELECT file_name FROM audio_recordings WHERE session_id = ?1",
-        )?;
-        let files: Vec<String> = stmt
-            .query_map(params![session_id], |row| row.get(0))?
-            .filter_map(|r| r.ok())
-            .collect();
-        for file_name in files {
-            let path = self.recordings_dir.join(&file_name);
-            if path.exists() {
-                let _ = fs::remove_file(&path);
-            }
-        }
-
+        // Clean up any legacy audio_recordings entries
         conn.execute(
             "DELETE FROM audio_recordings WHERE session_id = ?1",
             params![session_id],
@@ -434,10 +420,7 @@ impl SessionManager {
             "DELETE FROM transcript_segments WHERE session_id = ?1",
             params![session_id],
         )?;
-        conn.execute(
-            "DELETE FROM sessions WHERE id = ?1",
-            params![session_id],
-        )?;
+        conn.execute("DELETE FROM sessions WHERE id = ?1", params![session_id])?;
 
         let _ = self.app_handle.emit("session-deleted", session_id);
         info!("Session deleted: {}", session_id);
@@ -545,7 +528,8 @@ impl SessionManager {
             "SELECT COALESCE(MAX(end_ms), 0) FROM transcript_segments WHERE session_id = ?1",
             params![session_id],
             |row| row.get(0),
-        ).unwrap_or(0)
+        )
+        .unwrap_or(0)
     }
 
     pub fn reactivate_session(&self, session_id: &str) -> Result<Session> {
@@ -562,7 +546,8 @@ impl SessionManager {
         *self.active_session.lock().unwrap() = Some(session_id.to_string());
         *self.session_start_time.lock().unwrap() = Some(std::time::Instant::now());
 
-        let session = self.get_session(session_id)?
+        let session = self
+            .get_session(session_id)?
             .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
 
         let _ = self.app_handle.emit("session-started", &session);

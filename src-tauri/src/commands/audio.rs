@@ -15,7 +15,6 @@ pub struct AudioDevice {
     pub is_default: bool,
 }
 
-
 #[tauri::command]
 #[specta::specta]
 pub fn get_available_microphones() -> Result<Vec<AudioDevice>, String> {

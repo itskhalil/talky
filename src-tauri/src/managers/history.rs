@@ -9,7 +9,6 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 
-
 /// Database migrations for transcription history.
 /// Each migration is applied in order. The library tracks which migrations
 /// have been applied using SQLite's user_version pragma.
@@ -46,26 +45,27 @@ pub struct HistoryEntry {
 
 pub struct HistoryManager {
     app_handle: AppHandle,
-    recordings_dir: PathBuf,
     db_path: PathBuf,
 }
 
 impl HistoryManager {
-    pub fn new(app_handle: &AppHandle) -> Result<Self> {
-        // Create recordings directory in app data dir
+    /// Creates a new HistoryManager.
+    /// If `data_dir` is Some, uses that directory for history.db.
+    /// Otherwise, uses the default app data directory.
+    pub fn new(app_handle: &AppHandle, data_dir: Option<PathBuf>) -> Result<Self> {
         let app_data_dir = app_handle.path().app_data_dir()?;
-        let recordings_dir = app_data_dir.join("recordings");
-        let db_path = app_data_dir.join("history.db");
+        // Use custom data directory for the database if provided, otherwise use default
+        let db_dir = data_dir.unwrap_or_else(|| app_data_dir.clone());
+        let db_path = db_dir.join("history.db");
 
-        // Ensure recordings directory exists
-        if !recordings_dir.exists() {
-            fs::create_dir_all(&recordings_dir)?;
-            debug!("Created recordings directory: {:?}", recordings_dir);
+        // Ensure directory exists
+        if !db_dir.exists() {
+            fs::create_dir_all(&db_dir)?;
+            debug!("Created data directory: {:?}", db_dir);
         }
 
         let manager = Self {
             app_handle: app_handle.clone(),
-            recordings_dir,
             db_path,
         };
 
@@ -195,34 +195,21 @@ impl HistoryManager {
         }
     }
 
-    fn delete_entries_and_files(&self, entries: &[(i64, String)]) -> Result<usize> {
+    fn delete_entries(&self, entries: &[i64]) -> Result<usize> {
         if entries.is_empty() {
             return Ok(0);
         }
 
         let conn = self.get_connection()?;
-        let mut deleted_count = 0;
 
-        for (id, file_name) in entries {
-            // Delete database entry
+        for id in entries {
             conn.execute(
                 "DELETE FROM transcription_history WHERE id = ?1",
                 params![id],
             )?;
-
-            // Delete WAV file
-            let file_path = self.recordings_dir.join(file_name);
-            if file_path.exists() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete WAV file {}: {}", file_name, e);
-                } else {
-                    debug!("Deleted old WAV file: {}", file_name);
-                    deleted_count += 1;
-                }
-            }
         }
 
-        Ok(deleted_count)
+        Ok(entries.len())
     }
 
     fn cleanup_by_count(&self, limit: usize) -> Result<()> {
@@ -230,21 +217,19 @@ impl HistoryManager {
 
         // Get all entries that are not saved, ordered by timestamp desc
         let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 ORDER BY timestamp DESC"
+            "SELECT id FROM transcription_history WHERE saved = 0 ORDER BY timestamp DESC",
         )?;
 
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
-        })?;
+        let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
 
-        let mut entries: Vec<(i64, String)> = Vec::new();
+        let mut entries: Vec<i64> = Vec::new();
         for row in rows {
             entries.push(row?);
         }
 
         if entries.len() > limit {
             let entries_to_delete = &entries[limit..];
-            let deleted_count = self.delete_entries_and_files(entries_to_delete)?;
+            let deleted_count = self.delete_entries(entries_to_delete)?;
 
             if deleted_count > 0 {
                 debug!("Cleaned up {} old history entries by count", deleted_count);
@@ -271,19 +256,17 @@ impl HistoryManager {
 
         // Get all unsaved entries older than the cutoff timestamp
         let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 AND timestamp < ?1",
+            "SELECT id FROM transcription_history WHERE saved = 0 AND timestamp < ?1",
         )?;
 
-        let rows = stmt.query_map(params![cutoff_timestamp], |row| {
-            Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
-        })?;
+        let rows = stmt.query_map(params![cutoff_timestamp], |row| row.get::<_, i64>(0))?;
 
-        let mut entries_to_delete: Vec<(i64, String)> = Vec::new();
+        let mut entries_to_delete: Vec<i64> = Vec::new();
         for row in rows {
             entries_to_delete.push(row?);
         }
 
-        let deleted_count = self.delete_entries_and_files(&entries_to_delete)?;
+        let deleted_count = self.delete_entries(&entries_to_delete)?;
 
         if deleted_count > 0 {
             debug!(
@@ -349,10 +332,6 @@ impl HistoryManager {
         Ok(())
     }
 
-    pub fn get_audio_file_path(&self, file_name: &str) -> PathBuf {
-        self.recordings_dir.join(file_name)
-    }
-
     pub async fn get_entry_by_id(&self, id: i64) -> Result<Option<HistoryEntry>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
@@ -381,19 +360,6 @@ impl HistoryManager {
     pub async fn delete_entry(&self, id: i64) -> Result<()> {
         let conn = self.get_connection()?;
 
-        // Get the entry to find the file name
-        if let Some(entry) = self.get_entry_by_id(id).await? {
-            // Delete the audio file first
-            let file_path = self.get_audio_file_path(&entry.file_name);
-            if file_path.exists() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete audio file {}: {}", entry.file_name, e);
-                    // Continue with database deletion even if file deletion fails
-                }
-            }
-        }
-
-        // Delete from database
         conn.execute(
             "DELETE FROM transcription_history WHERE id = ?1",
             params![id],
@@ -408,6 +374,4 @@ impl HistoryManager {
 
         Ok(())
     }
-
 }
-

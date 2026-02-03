@@ -7,6 +7,7 @@ import { SettingContainer } from "../../ui/SettingContainer";
 
 import { AppDataDirectory } from "../AppDataDirectory";
 import { AppLanguageSelector } from "../AppLanguageSelector";
+import { UserDataDirectory } from "../UserDataDirectory";
 import { LogDirectory } from "../debug";
 
 export const AboutSettings: React.FC = () => {
@@ -41,6 +42,7 @@ export const AboutSettings: React.FC = () => {
         </SettingContainer>
 
         <AppDataDirectory descriptionMode="tooltip" grouped={true} />
+        <UserDataDirectory descriptionMode="tooltip" grouped={true} />
         <LogDirectory grouped={true} />
       </SettingsGroup>
 
