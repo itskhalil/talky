@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
-
 static SESSION_MIGRATIONS: &[M] = &[
     M::up(
         "CREATE TABLE IF NOT EXISTS sessions (
@@ -57,9 +56,7 @@ static SESSION_MIGRATIONS: &[M] = &[
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         );",
     ),
-    M::up(
-        "ALTER TABLE meeting_notes ADD COLUMN enhanced_notes TEXT;",
-    ),
+    M::up("ALTER TABLE meeting_notes ADD COLUMN enhanced_notes TEXT;"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -408,9 +405,8 @@ impl SessionManager {
         let conn = self.get_connection()?;
 
         // Delete audio files
-        let mut stmt = conn.prepare(
-            "SELECT file_name FROM audio_recordings WHERE session_id = ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT file_name FROM audio_recordings WHERE session_id = ?1")?;
         let files: Vec<String> = stmt
             .query_map(params![session_id], |row| row.get(0))?
             .filter_map(|r| r.ok())
@@ -434,10 +430,7 @@ impl SessionManager {
             "DELETE FROM transcript_segments WHERE session_id = ?1",
             params![session_id],
         )?;
-        conn.execute(
-            "DELETE FROM sessions WHERE id = ?1",
-            params![session_id],
-        )?;
+        conn.execute("DELETE FROM sessions WHERE id = ?1", params![session_id])?;
 
         let _ = self.app_handle.emit("session-deleted", session_id);
         info!("Session deleted: {}", session_id);
@@ -545,7 +538,8 @@ impl SessionManager {
             "SELECT COALESCE(MAX(end_ms), 0) FROM transcript_segments WHERE session_id = ?1",
             params![session_id],
             |row| row.get(0),
-        ).unwrap_or(0)
+        )
+        .unwrap_or(0)
     }
 
     pub fn reactivate_session(&self, session_id: &str) -> Result<Session> {
@@ -562,7 +556,8 @@ impl SessionManager {
         *self.active_session.lock().unwrap() = Some(session_id.to_string());
         *self.session_start_time.lock().unwrap() = Some(std::time::Instant::now());
 
-        let session = self.get_session(session_id)?
+        let session = self
+            .get_session(session_id)?
             .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
 
         let _ = self.app_handle.emit("session-started", &session);

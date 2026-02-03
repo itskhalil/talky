@@ -9,7 +9,6 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 
-
 /// Database migrations for transcription history.
 /// Each migration is applied in order. The library tracks which migrations
 /// have been applied using SQLite's user_version pragma.
@@ -408,6 +407,4 @@ impl HistoryManager {
 
         Ok(())
     }
-
 }
-

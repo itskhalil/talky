@@ -521,8 +521,12 @@ mod tests {
     #[test]
     fn test_is_duplicate_segment_empty_text() {
         // Empty text should not be duplicate
-        assert!(!is_duplicate_segment("", 1000, 2000, "Hello", 1000, 2000, 0.75, 500));
-        assert!(!is_duplicate_segment("Hello", 1000, 2000, "", 1000, 2000, 0.75, 500));
+        assert!(!is_duplicate_segment(
+            "", 1000, 2000, "Hello", 1000, 2000, 0.75, 500
+        ));
+        assert!(!is_duplicate_segment(
+            "Hello", 1000, 2000, "", 1000, 2000, 0.75, 500
+        ));
     }
 
     #[test]
