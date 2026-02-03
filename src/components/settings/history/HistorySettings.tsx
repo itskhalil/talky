@@ -1,39 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { AudioPlayer } from "../../ui/AudioPlayer";
-import { Button } from "../../ui/Button";
-import { Copy, Star, Check, Trash2, FolderOpen } from "lucide-react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { Copy, Star, Check, Trash2 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { commands, type HistoryEntry } from "@/bindings";
 import { formatDateTime } from "@/utils/dateFormat";
-import { useOsType } from "@/hooks/useOsType";
-
-interface OpenRecordingsButtonProps {
-  onClick: () => void;
-  label: string;
-}
-
-const OpenRecordingsButton: React.FC<OpenRecordingsButtonProps> = ({
-  onClick,
-  label,
-}) => (
-  <Button
-    onClick={onClick}
-    variant="secondary"
-    size="sm"
-    className="flex items-center gap-2"
-    title={label}
-  >
-    <FolderOpen className="w-4 h-4" />
-    <span>{label}</span>
-  </Button>
-);
 
 export const HistorySettings: React.FC = () => {
   const { t } = useTranslation();
-  const osType = useOsType();
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -92,40 +65,12 @@ export const HistorySettings: React.FC = () => {
     }
   };
 
-  const getAudioUrl = async (fileName: string) => {
-    try {
-      const result = await commands.getAudioFilePath(fileName);
-      if (result.status === "ok") {
-        if (osType === "linux") {
-          const fileData = await readFile(result.data);
-          const blob = new Blob([fileData], { type: "audio/wav" });
-
-          return URL.createObjectURL(blob);
-        }
-
-        return convertFileSrc(result.data, "asset");
-      }
-      return null;
-    } catch (error) {
-      console.error("Failed to get audio file path:", error);
-      return null;
-    }
-  };
-
-  const deleteAudioEntry = async (id: number) => {
+  const deleteHistoryEntry = async (id: number) => {
     try {
       await commands.deleteHistoryEntry(id);
     } catch (error) {
-      console.error("Failed to delete audio entry:", error);
+      console.error("Failed to delete history entry:", error);
       throw error;
-    }
-  };
-
-  const openRecordingsFolder = async () => {
-    try {
-      await commands.openRecordingsFolder();
-    } catch (error) {
-      console.error("Failed to open recordings folder:", error);
     }
   };
 
@@ -139,10 +84,6 @@ export const HistorySettings: React.FC = () => {
                 {t("settings.history.title")}
               </h2>
             </div>
-            <OpenRecordingsButton
-              onClick={openRecordingsFolder}
-              label={t("settings.history.openFolder")}
-            />
           </div>
           <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
             <div className="px-4 py-3 text-center text-text/60">
@@ -164,10 +105,6 @@ export const HistorySettings: React.FC = () => {
                 {t("settings.history.title")}
               </h2>
             </div>
-            <OpenRecordingsButton
-              onClick={openRecordingsFolder}
-              label={t("settings.history.openFolder")}
-            />
           </div>
           <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
             <div className="px-4 py-3 text-center text-text/60">
@@ -188,10 +125,6 @@ export const HistorySettings: React.FC = () => {
               {t("settings.history.title")}
             </h2>
           </div>
-          <OpenRecordingsButton
-            onClick={openRecordingsFolder}
-            label={t("settings.history.openFolder")}
-          />
         </div>
         <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
           <div className="divide-y divide-mid-gray/20">
@@ -201,8 +134,7 @@ export const HistorySettings: React.FC = () => {
                 entry={entry}
                 onToggleSaved={() => toggleSaved(entry.id)}
                 onCopyText={() => copyToClipboard(entry.transcription_text)}
-                getAudioUrl={getAudioUrl}
-                deleteAudio={deleteAudioEntry}
+                onDelete={() => deleteHistoryEntry(entry.id)}
               />
             ))}
           </div>
@@ -216,46 +148,17 @@ interface HistoryEntryProps {
   entry: HistoryEntry;
   onToggleSaved: () => void;
   onCopyText: () => void;
-  getAudioUrl: (fileName: string) => Promise<string | null>;
-  deleteAudio: (id: number) => Promise<void>;
+  onDelete: () => Promise<void>;
 }
 
 const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   entry,
   onToggleSaved,
   onCopyText,
-  getAudioUrl,
-  deleteAudio,
+  onDelete,
 }) => {
   const { t, i18n } = useTranslation();
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showCopied, setShowCopied] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let urlToRevoke: string | null = null;
-
-    const loadAudio = async () => {
-      const url = await getAudioUrl(entry.file_name);
-
-      if (!cancelled) {
-        urlToRevoke = url;
-        setAudioUrl(url);
-      } else if (url?.startsWith("blob:")) {
-        URL.revokeObjectURL(url);
-      }
-    };
-
-    loadAudio();
-
-    return () => {
-      cancelled = true;
-
-      if (urlToRevoke?.startsWith("blob:")) {
-        URL.revokeObjectURL(urlToRevoke);
-      }
-    };
-  }, [entry.file_name]);
 
   const handleCopyText = () => {
     onCopyText();
@@ -265,7 +168,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
 
   const handleDeleteEntry = async () => {
     try {
-      await deleteAudio(entry.id);
+      await onDelete();
     } catch (error) {
       console.error("Failed to delete entry:", error);
       alert("Failed to delete entry. Please try again.");
@@ -321,7 +224,6 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
       <p className="italic text-text/90 text-sm pb-2 select-text cursor-text">
         {entry.transcription_text}
       </p>
-      {audioUrl && <AudioPlayer src={audioUrl} className="w-full" />}
     </div>
   );
 };
