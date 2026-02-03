@@ -82,7 +82,10 @@ export function NotesEditor({
 
   // Set content from initialJSON or markdown string
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
+    // Ensure view is mounted before accessing commands
+    if (!editor.view?.dom) return;
+
     if (isEnhanced && initialJSON) {
       // Skip content sync while user is actively editing to preserve cursor position
       if (editor.isFocused) return;
@@ -94,6 +97,7 @@ export function NotesEditor({
         editor.commands.setContent(initialJSON);
         // Prevent TipTap from scrolling the container past the title
         requestAnimationFrame(() => {
+          if (!editor || editor.isDestroyed || !editor.view?.dom) return;
           const scrollParent = editor.view.dom.closest(".overflow-y-scroll");
           scrollParent?.scrollTo(0, 0);
         });
@@ -113,7 +117,7 @@ export function NotesEditor({
   }, [content, initialJSON, editor, isEnhanced]);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     suppressUpdateRef.current = true;
     editor.setEditable(!disabled);
     suppressUpdateRef.current = false;
