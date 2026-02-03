@@ -151,7 +151,7 @@ pub async fn generate_session_summary(
     }
 
     let notes_section = if user_notes.trim().is_empty() {
-        "No notes were taken. Generate comprehensive notes from the transcript, marking all lines as [ai].".to_string()
+        "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].".to_string()
     } else {
         user_notes
     };
