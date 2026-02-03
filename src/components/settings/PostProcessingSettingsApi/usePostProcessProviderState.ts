@@ -203,8 +203,6 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
 
   const isCustomProvider = selectedProvider?.id === "custom";
 
-  // No automatic fetching - user must click refresh button
-
   return {
     enabled,
     providerOptions,

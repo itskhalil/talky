@@ -94,7 +94,7 @@ export function NotesEditor({
         editor.commands.setContent(initialJSON);
         // Prevent TipTap from scrolling the container past the title
         requestAnimationFrame(() => {
-          const scrollParent = editor.view.dom.closest(".overflow-y-auto");
+          const scrollParent = editor.view.dom.closest(".overflow-y-scroll");
           scrollParent?.scrollTo(0, 0);
         });
         setSuppressSourcePromotion(false);
