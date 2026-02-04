@@ -5,6 +5,7 @@
   "permissions": [
     "autostart:default",
     "updater:default",
-    "window-state:default"
+    "window-state:default",
+    "notification:default"
   ]
 }

@@ -7,6 +7,9 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
 
+#[cfg(target_os = "macos")]
+use crate::mic_detect;
+
 const POLL_INTERVAL_MS: u64 = 500;
 const MIN_CHUNK_SAMPLES: usize = 32000; // 2s at 16kHz — reduces stuttering from short chunks
 const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe
@@ -94,6 +97,22 @@ pub async fn run_session_transcription_loop(
     let mut spk_chunk_start: Instant = session_start;
     // Track whether we have any mic samples accumulated in the pipeline
     let mut mic_has_samples = false;
+
+    // Meeting app detection: track meeting apps that use the mic during recording
+    #[cfg(target_os = "macos")]
+    let mut tracked_meeting_apps: std::collections::HashSet<String> =
+        mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
+    #[cfg(target_os = "macos")]
+    let mut last_meeting_check = Instant::now();
+    #[cfg(target_os = "macos")]
+    let mut notified_apps: std::collections::HashSet<String> = std::collections::HashSet::new();
+    #[cfg(target_os = "macos")]
+    if !tracked_meeting_apps.is_empty() {
+        log::info!(
+            "Recording started with meeting apps: {:?}",
+            tracked_meeting_apps
+        );
+    }
 
     loop {
         tick.tick().await;
@@ -219,6 +238,41 @@ pub async fn run_session_transcription_loop(
                     speaker: (amp.spk_level * 1000.0) as u16,
                 },
             );
+        }
+
+        // Check for meeting app changes (every 2 seconds)
+        #[cfg(target_os = "macos")]
+        if last_meeting_check.elapsed() >= Duration::from_secs(2) {
+            last_meeting_check = Instant::now();
+            let current_apps = mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
+
+            // Track any new meeting apps that started using the mic
+            for app_id in &current_apps {
+                if !tracked_meeting_apps.contains(app_id) {
+                    log::info!(
+                        "Meeting app {} started using microphone",
+                        mic_detect::app_name(app_id)
+                    );
+                    tracked_meeting_apps.insert(app_id.clone());
+                }
+            }
+
+            // Check which tracked meeting apps have stopped using the mic
+            for app_id in tracked_meeting_apps.clone() {
+                if !current_apps.contains(&app_id) && !notified_apps.contains(&app_id) {
+                    notified_apps.insert(app_id.clone());
+                    let name = mic_detect::app_name(&app_id);
+                    log::info!("Meeting app {} stopped using microphone", name);
+
+                    use tauri_plugin_notification::NotificationExt;
+                    let _ = app
+                        .notification()
+                        .builder()
+                        .title("Talky")
+                        .body(&format!("{} ended - still recording?", name))
+                        .show();
+                }
+            }
         }
 
         let now = session_start.elapsed().as_millis() as i64 + time_offset_ms;

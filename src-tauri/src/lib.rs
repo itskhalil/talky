@@ -3,6 +3,8 @@ mod aec;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 pub mod audio_toolkit;
+#[cfg(target_os = "macos")]
+mod mic_detect;
 mod commands;
 mod helpers;
 mod llm_client;
@@ -386,6 +388,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             let settings = get_settings(&app.handle());
             let tauri_log_level: tauri_plugin_log::LogLevel = settings.log_level.into();
