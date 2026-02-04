@@ -191,6 +191,8 @@ pub fn start_recording_indicator(app: &AppHandle) {
                 {
                     if let Ok(image) = Image::from_path(resolved) {
                         let _ = tray.set_icon(Some(image));
+                        // Disable template mode when showing dot so red color is visible
+                        let _ = tray.set_icon_as_template(!show_dot);
                     }
                 }
             }
@@ -209,6 +211,7 @@ pub fn start_recording_indicator(app: &AppHandle) {
             {
                 if let Ok(image) = Image::from_path(resolved) {
                     let _ = tray.set_icon(Some(image));
+                    let _ = tray.set_icon_as_template(true); // Restore template mode
                 }
             }
         }
