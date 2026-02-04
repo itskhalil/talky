@@ -4,6 +4,7 @@ import { useSettings } from "../../hooks/useSettings";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { SettingContainer } from "../ui/SettingContainer";
+import { ToggleSwitch } from "../ui/ToggleSwitch";
 import { commands, type WordSuggestion } from "@/bindings";
 import { Check, X } from "lucide-react";
 
@@ -19,6 +20,7 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
     const [newWord, setNewWord] = useState("");
     const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
     const customWords = getSetting("custom_words") || [];
+    const wordSuggestionsEnabled = getSetting("word_suggestions_enabled") ?? true;
 
     const MAX_WORDS_PER_PHRASE = 5;
 
@@ -115,8 +117,18 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
             </Button>
           </div>
         </SettingContainer>
+        {/* Auto-suggestions toggle */}
+        <ToggleSwitch
+          checked={wordSuggestionsEnabled}
+          onChange={(enabled) => updateSetting("word_suggestions_enabled", enabled)}
+          isUpdating={isUpdating("word_suggestions_enabled")}
+          label={t("settings.advanced.customWords.autoSuggestLabel", "Auto-suggest words")}
+          description={t("settings.advanced.customWords.autoSuggestDescription", "Suggest new words when you correct transcription errors in enhanced notes")}
+          descriptionMode={descriptionMode}
+          grouped={grouped}
+        />
         {/* Suggestions section */}
-        {suggestions.length > 0 && (
+        {wordSuggestionsEnabled && suggestions.length > 0 && (
           <div
             className={`px-4 py-3 ${grouped ? "" : "rounded-lg border border-amber-500/30 bg-amber-500/5"}`}
           >

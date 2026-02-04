@@ -53,6 +53,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const [foldersExpanded, setFoldersExpanded] = useState(true);
   const [notesExpanded, setNotesExpanded] = useState(true);
   const [chatExpanded, setChatExpanded] = useState(false);
+  const [suggestionCount, setSuggestionCount] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +90,15 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   useEffect(() => {
     loadTags();
   }, [sessions, loadTags]);
+
+  // Fetch word suggestion count for settings badge
+  useEffect(() => {
+    const fetchSuggestionCount = async () => {
+      const suggestions = await commands.getWordSuggestions();
+      setSuggestionCount(suggestions.length);
+    };
+    fetchSuggestionCount();
+  }, [sessions]); // Refresh when sessions change (might have new suggestions)
 
   // Fetch session tags when tags are selected for filtering
   useEffect(() => {
@@ -471,9 +481,12 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       <div className="flex items-center justify-between px-3 py-3 border-t border-border">
         <button
           onClick={onOpenSettings}
-          className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+          className="relative p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
         >
           <Settings size={17} />
+          {suggestionCount > 0 && (
+            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
+          )}
         </button>
         {onCollapse && (
           <button

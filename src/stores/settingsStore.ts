@@ -111,6 +111,8 @@ const settingUpdaters: {
     commands.changeExperimentalEnabledSetting(value as boolean),
   copy_as_bullets_enabled: (value) =>
     commands.changeCopyAsBulletsSetting(value as boolean),
+  word_suggestions_enabled: (value) =>
+    commands.changeWordSuggestionsEnabled(value as boolean),
 };
 
 export const useSettingsStore = create<SettingsStore>()(

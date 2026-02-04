@@ -386,3 +386,12 @@ pub fn add_word_suggestion(
     write_settings(&app, settings);
     Ok(())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_word_suggestions_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.word_suggestions_enabled = enabled;
+    write_settings(&app, settings);
+    Ok(())
+}

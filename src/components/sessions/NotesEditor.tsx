@@ -4,8 +4,23 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
 import { AiSourceExtension, setSuppressSourcePromotion } from "./AiSourceExtension";
-import { JSONContent } from "@tiptap/core";
+import { Extension, JSONContent } from "@tiptap/core";
 import "./notes-editor.css";
+
+// Custom extension for paste without formatting (Cmd+Shift+Option+V on Mac)
+const PasteUnformatted = Extension.create({
+  name: "pasteUnformatted",
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Shift-Alt-v": ({ editor }) => {
+        navigator.clipboard.readText().then((text) => {
+          if (text) editor.commands.insertContent(text);
+        });
+        return true;
+      },
+    };
+  },
+});
 
 interface NotesEditorProps {
   content: string;
@@ -50,6 +65,7 @@ export function NotesEditor({
           horizontalRule: false,
         }),
         Placeholder.configure({ placeholder }),
+        PasteUnformatted,
         ...(isEnhanced ? [AiSourceExtension] : []),
         ...(!isEnhanced
           ? [Markdown.configure({ transformPastedText: true })]
