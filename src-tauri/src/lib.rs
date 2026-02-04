@@ -5,6 +5,8 @@ mod apple_intelligence;
 pub mod audio_toolkit;
 #[cfg(target_os = "macos")]
 mod mic_detect;
+#[cfg(target_os = "macos")]
+mod power_events;
 mod commands;
 mod helpers;
 mod llm_client;
@@ -203,6 +205,10 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         // Disable autostart if user has opted out
         let _ = autostart_manager.disable();
     }
+
+    // Start power event monitoring (detects system sleep to stop recording gracefully)
+    #[cfg(target_os = "macos")]
+    power_events::start_monitoring(app_handle.clone());
 }
 
 #[tauri::command]
