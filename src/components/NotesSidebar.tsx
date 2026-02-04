@@ -422,7 +422,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                       : "bg-background-secondary text-text mr-4"
                   }`}
                 >
-                  <span className="whitespace-pre-wrap">{msg.content}</span>
+                  <span className="whitespace-pre-wrap select-text cursor-text">{msg.content}</span>
                   {msg.role === "assistant" && msg.content === "" && (
                     <Loader2 size={12} className="animate-spin text-text-secondary" />
                   )}
