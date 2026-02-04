@@ -692,14 +692,14 @@ export function NoteView({
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
                 title={t("sessions.enhancedNotes")}
               >
-                <Sparkles size={14} />
+                <Sparkles size={16} />
               </button>
               <button
                 onClick={() => onViewModeChange("notes")}
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
                 title={t("sessions.yourNotes")}
               >
-                <PenLine size={14} />
+                <PenLine size={16} />
               </button>
             </div>
             <div className="flex items-center bg-background-sidebar rounded-lg p-0.5">
@@ -708,7 +708,7 @@ export function NoteView({
                 className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
                 title={t("sessions.copyNotes")}
               >
-                {notesCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                {notesCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
               </button>
               {copyAsBulletsEnabled && (
                 <button
@@ -716,7 +716,7 @@ export function NoteView({
                   className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
                   title={t("sessions.copyAsBullets")}
                 >
-                  {bulletsCopied ? <Check size={14} className="text-green-500" /> : <List size={14} />}
+                  {bulletsCopied ? <Check size={16} className="text-green-500" /> : <List size={16} />}
                 </button>
               )}
             </div>
@@ -737,7 +737,7 @@ export function NoteView({
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             placeholder={t("sessions.newNote")}
-            className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden"
+            className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden font-display"
           />
 
           {/* Folder and Tags */}
@@ -849,7 +849,7 @@ export function NoteView({
             <>
               {enhanceLoading && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary pt-2">
-                  <Loader2 size={14} className="animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                   {t("sessions.enhancing")}
                 </div>
               )}
@@ -875,7 +875,7 @@ export function NoteView({
               {/* Summary display */}
               {summaryLoading && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary mb-5">
-                  <Loader2 size={14} className="animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                   {t("sessions.summaryLoading")}
                 </div>
               )}
@@ -996,7 +996,7 @@ export function NoteView({
                     {chat.isLoading &&
                       chat.messages[chat.messages.length - 1]?.role !== "assistant" && (
                         <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                          <Loader2 size={12} className="animate-spin" />
+                          <Loader2 size={16} className="animate-spin" />
                           {t("sessions.chat.thinking")}
                         </div>
                       )}
@@ -1055,7 +1055,7 @@ export function NoteView({
                     </svg>
                   );
                 })()}
-                {panelOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                {panelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
               {isRecording && (
                 <button
@@ -1089,7 +1089,7 @@ export function NoteView({
                     onClick={chat.stop}
                     className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors shrink-0"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 ) : (
                   chat.input.trim() && (
@@ -1097,7 +1097,7 @@ export function NoteView({
                       onClick={handleChatSubmit}
                       className="p-1 rounded-md text-accent hover:text-accent/70 transition-colors shrink-0"
                     >
-                      <Send size={14} />
+                      <Send size={16} />
                     </button>
                   )
                 )}
@@ -1155,7 +1155,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             <ReactMarkdown>{message.content}</ReactMarkdown>
           </div>
         ) : (
-          <Loader2 size={12} className="animate-spin text-text-secondary" />
+          <Loader2 size={16} className="animate-spin text-text-secondary" />
         )}
       </div>
     </div>
