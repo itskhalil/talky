@@ -129,7 +129,7 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
     const isAi = /\[ai\]/.test(line);
     const isUser = /\[user\]/.test(line);
     const cleaned = line
-      .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2}\s*/g, "")
+      .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "")
       .replace(/\*{4}/g, "");
     return { cleaned, isAi, isUser, hasTag: isAi || isUser };
   });
@@ -153,8 +153,9 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
     const trimmed = cleaned.trimStart();
     const source = isAi ? "ai" : "user";
 
-    // Skip empty lines — spacing is handled by CSS margins on headings/lists
+    // Preserve empty lines as empty paragraphs
     if (trimmed === "") {
+      nodes.push({ type: "paragraph", content: [] });
       i++;
       continue;
     }
@@ -505,11 +506,26 @@ export function NoteView({
   const handleCopyNotes = async () => {
     let text = "";
     if (viewMode === "enhanced" && enhancedNotes) {
-      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2}\s*/g, "").replace(/\*{4}/g, "");
+      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "").replace(/\*{4}/g, "");
     } else {
       text = userNotes;
     }
-    await navigator.clipboard.writeText(text);
+
+    // Get HTML from editor for rich copy (works in Outlook, Word, Google Docs)
+    const html = activeEditor?.getHTML() ?? "";
+
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        }),
+      ]);
+    } catch {
+      // Fallback to plain text if HTML copy fails
+      await navigator.clipboard.writeText(text);
+    }
+
     setNotesCopied(true);
     setTimeout(() => setNotesCopied(false), 1500);
   };
@@ -517,7 +533,7 @@ export function NoteView({
   const handleCopyAsBullets = async () => {
     let text = "";
     if (viewMode === "enhanced" && enhancedNotes) {
-      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2}\s*/g, "").replace(/\*{4}/g, "");
+      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "").replace(/\*{4}/g, "");
     } else {
       text = userNotes;
     }
