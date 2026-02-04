@@ -420,7 +420,13 @@
     "noMatches": "No matches",
     "emptyState": "Select a note or create a new one",
     "recording": "Recording",
-    "endNote": "End Note"
+    "endNote": "End Note",
+    "dateGroups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last7Days": "Last 7 Days",
+      "older": "Older"
+    }
   },
   "sessions": {
     "title": "Notes",
