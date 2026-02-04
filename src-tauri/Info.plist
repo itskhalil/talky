@@ -6,5 +6,7 @@
   <string>Request microphone access to transcribe audio locally</string>
   <key>NSAudioCaptureUsageDescription</key>
   <string>Request system audio access to transcribe meeting participants</string>
+  <key>NSUserNotificationAlertStyle</key>
+  <string>alert</string>
 </dict>
 </plist>
