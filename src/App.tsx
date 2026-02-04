@@ -125,17 +125,18 @@ function App() {
     <div className="h-screen flex flex-col select-none cursor-default">
       <Toaster
         theme="system"
+        position="bottom-right"
         toastOptions={{
           unstyled: true,
           classNames: {
             toast:
-              "bg-background border border-mid-gray/20 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 text-sm min-w-[360px]",
-            title: "font-medium",
-            description: "text-mid-gray",
+              "bg-background border border-mid-gray/20 rounded-xl shadow-lg px-5 py-4 flex items-center justify-between gap-6 text-sm min-w-[400px]",
+            title: "font-semibold text-text",
+            description: "text-text-secondary text-xs mt-1",
             actionButton:
-              "bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-primary/90 whitespace-nowrap",
+              "bg-background-ui text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-background-ui/80 transition-colors shrink-0",
             cancelButton:
-              "bg-muted text-muted-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-muted/90 whitespace-nowrap",
+              "text-text-secondary px-3 py-2 rounded-lg text-sm hover:bg-mid-gray/10 transition-colors shrink-0",
           },
         }}
       />
