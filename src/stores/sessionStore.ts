@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { MeetingNotes } from "@/bindings";
+import { commands, type MeetingNotes } from "@/bindings";
 
 export interface Session {
   id: string;
@@ -34,6 +34,52 @@ interface SessionCache {
   enhancedNotes: string | null;
   summary: string | null;
   loadedAt: number;
+}
+
+// Detect word-level corrections in enhanced notes
+// Returns words that appear to be corrections (replaced words)
+function detectWordCorrections(oldText: string | null, newText: string): string[] {
+  if (!oldText) return [];
+
+  // Extract words from both texts, keeping case
+  const extractWords = (text: string): string[] =>
+    text.match(/[A-Za-z][A-Za-z0-9'-]*/g) || [];
+
+  const oldWords = new Set(extractWords(oldText).map((w) => w.toLowerCase()));
+  const newWords = extractWords(newText);
+
+  // Find words in new text that:
+  // 1. Aren't in old text (possible corrections)
+  // 2. Look like proper nouns or technical terms (capitalized or unusual)
+  // 3. Aren't common words
+  const commonWords = new Set([
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "must", "can", "this", "that", "these", "those",
+    "it", "its", "we", "our", "you", "your", "they", "their", "he", "his",
+    "she", "her", "not", "all", "some", "any", "no", "yes", "so", "if", "then",
+  ]);
+
+  const corrections: string[] = [];
+  const seen = new Set<string>();
+
+  for (const word of newWords) {
+    const lowerWord = word.toLowerCase();
+    // Skip if already in old text, is common, or already seen
+    if (oldWords.has(lowerWord) || commonWords.has(lowerWord) || seen.has(lowerWord)) {
+      continue;
+    }
+    // Skip very short or very long words
+    if (word.length < 3 || word.length > 30) continue;
+    // Looks like a proper noun or technical term (capitalized)
+    if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
+      corrections.push(word);
+      seen.add(lowerWord);
+    }
+  }
+
+  return corrections.slice(0, 5); // Limit to 5 suggestions per save
 }
 
 const MAX_CACHE_SIZE = 20;
@@ -524,8 +570,12 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   },
 
   setEnhancedNotes: (tagged: string) => {
-    const { selectedSessionId, _saveTimers } = get();
+    const { selectedSessionId, _saveTimers, cache, sessions } = get();
     if (!selectedSessionId) return;
+
+    // Get old enhanced notes for correction detection
+    const oldEnhancedNotes = cache[selectedSessionId]?.enhancedNotes;
+
     // Update cache immediately
     set((s) => {
       const existing = s.cache[selectedSessionId];
@@ -551,6 +601,16 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           sessionId: selectedSessionId,
           notes: tagged,
         });
+
+        // Detect word corrections and add suggestions
+        const corrections = detectWordCorrections(oldEnhancedNotes, tagged);
+        if (corrections.length > 0) {
+          const session = sessions.find((s) => s.id === selectedSessionId);
+          const sessionTitle = session?.title || "Untitled";
+          for (const word of corrections) {
+            await commands.addWordSuggestion(word, sessionTitle, selectedSessionId);
+          }
+        }
       } catch (e) {
         console.error("Failed to save enhanced notes:", e);
       }
