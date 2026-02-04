@@ -44,6 +44,16 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
     setIsLoading(false);
   }, []);
 
+  const handleInputFocus = useCallback(async () => {
+    if (options.currentNoteId) {
+      try {
+        await commands.flushPendingAudio(options.currentNoteId);
+      } catch {
+        // Non-fatal
+      }
+    }
+  }, [options.currentNoteId]);
+
   const handleSubmit = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
@@ -86,38 +96,101 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
     setInput("");
     setIsLoading(true);
 
+    // Flush pending audio before getting transcript (for in-note chat)
+    if (options.currentNoteId) {
+      try {
+        await commands.flushPendingAudio(options.currentNoteId);
+      } catch {
+        // Non-fatal
+      }
+    }
+
     // Build context from current note if provided
     let currentNoteContext = "";
+    let contextInstructions = "";
     if (options.currentNoteId && options.getCurrentTranscript && options.getCurrentNotes) {
+      // Fetch current session info for title/date and enhanced notes
+      let currentTitle = "Unknown";
+      let currentDate = "";
+      let enhancedNotes = "";
+      try {
+        const [sessionResult, notesResult] = await Promise.all([
+          commands.getSession(options.currentNoteId),
+          commands.getMeetingNotes(options.currentNoteId),
+        ]);
+        if (sessionResult.status === "ok" && sessionResult.data) {
+          currentTitle = sessionResult.data.title;
+          currentDate = new Date(sessionResult.data.started_at * 1000).toLocaleDateString();
+        }
+        if (notesResult.status === "ok" && notesResult.data?.enhanced_notes) {
+          enhancedNotes = notesResult.data.enhanced_notes;
+        }
+      } catch {
+        // Non-fatal
+      }
+
       const transcript = options.getCurrentTranscript();
-      const notes = options.getCurrentNotes();
+      const userNotes = options.getCurrentNotes();
+
+      // If we have enhanced notes, use those instead of transcript (less redundant)
+      const contentSection = enhancedNotes
+        ? `### Enhanced Notes (AI Summary)\n${enhancedNotes}`
+        : `### Transcript\n${transcript || "(No transcript yet)"}`;
+
       currentNoteContext = `
-## CURRENT NOTE CONTEXT
-You are viewing a specific note. Here is its content:
+## CURRENT NOTE: "${currentTitle}" (${currentDate})
 
 ### User's Notes
-${notes || "(No notes taken)"}
+${userNotes || "(No notes taken)"}
 
-### Transcript
-${transcript || "(No transcript yet)"}
+${contentSection}
 
 ---
 `;
+      contextInstructions = `
+For questions about THIS note (${currentTitle} from ${currentDate}): Answer directly from the context.
+For questions about OTHER notes or DIFFERENT dates: Use the searchNotes tool.
+`;
     }
 
-    const systemPrompt = `You are a helpful assistant for meeting notes.
-${currentNoteContext}
+    // Fetch recent meeting titles for context
+    let recentMeetingsList = "";
+    try {
+      const sessionsResult = await commands.getSessions();
+      if (sessionsResult.status === "ok") {
+        const recentSessions = sessionsResult.data.slice(0, 20);
+        if (recentSessions.length > 0) {
+          recentMeetingsList = `
+## RECENT MEETINGS
+${recentSessions.map((s) => `- ${s.title} (${new Date(s.started_at * 1000).toLocaleDateString()})`).join("\n")}
+
+`;
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
+
+    const today = new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
+
 Tool: searchNotes
-- Search by person names, topics, or keywords using the "terms" array
-- Add dateHint for time filtering: "yesterday", "last week", "February 2nd", etc.
+- terms: Search by meeting titles, person names, or topics (e.g. "standup", "sync", "Klau"). Use words from the RECENT MEETINGS list.
+- dateHint: Use "yesterday", "last week", or unambiguous dates like "February 3" (NOT numeric formats like 03/02)
 - Returns full content for 1-3 matches, snippets for more
+${contextInstructions}
+CRITICAL: Maximum brevity. Prefer terse bullets (2-4 words). Skip names/assignees unless asked. Sentences OK when clearer, but keep short.
 
-Examples:
-- "What did Klau discuss?" → searchNotes({terms: ["Klau"]})
-- "Meetings last week?" → searchNotes({terms: [], dateHint: "last week"})
-- "Action items from testing meeting?" → searchNotes({terms: ["testing", "action items"]})
+${recentMeetingsList}${currentNoteContext}`;
 
-Be concise. Summarize content, don't dump raw transcripts. Reference note titles when relevant.`;
+    console.log("[global-chat] === REQUEST ===");
+    console.log("[global-chat] system prompt:", systemPrompt);
+    console.log("[global-chat] messages:", newMessages);
 
     const abortController = new AbortController();
     abortRef.current = abortController;
@@ -194,13 +267,37 @@ Be concise. Summarize content, don't dump raw transcripts. Reference note titles
             // Apply date filter if provided
             if (dateHint) {
               const parsed = chrono.parse(dateHint, new Date());
+              console.log("[global-chat] date filter:", {
+                dateHint,
+                parsed: parsed.map((p) => ({ start: p.start.date(), end: p.end?.date() })),
+              });
               if (parsed.length > 0) {
                 const ref = parsed[0];
-                const after = ref.start.date();
-                const before = ref.end?.date() ?? new Date(after.getTime() + 86400000);
+                // Use start of day for filtering (midnight to midnight)
+                const startDate = ref.start.date();
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = ref.end?.date() ?? new Date(startDate);
+                if (!ref.end) {
+                  endDate.setHours(23, 59, 59, 999);
+                }
+                console.log("[global-chat] filtering notes:", {
+                  startDate: startDate.toISOString(),
+                  endDate: endDate.toISOString(),
+                  noteCount: notes.length,
+                  noteDates: notes.map((n) => ({
+                    title: n.title,
+                    date: new Date(n.started_at * 1000).toISOString(),
+                  })),
+                });
                 notes = notes.filter((n) => {
                   const d = new Date(n.started_at * 1000);
-                  return d >= after && d <= before;
+                  const matches = d >= startDate && d <= endDate;
+                  console.log("[global-chat] note filter:", {
+                    title: n.title,
+                    noteDate: d.toISOString(),
+                    matches,
+                  });
+                  return matches;
                 });
               }
             }
@@ -275,11 +372,14 @@ Be concise. Summarize content, don't dump raw transcripts. Reference note titles
 
         // Collect tool results for manual multi-step
         if (part.type === "tool-result") {
+          console.log("[global-chat] tool-result:", part.toolName, part.output);
           collectedToolResults.push({
             toolCallId: part.toolCallId,
             toolName: part.toolName,
             result: part.output,
           });
+        } else if (part.type === "tool-call") {
+          console.log("[global-chat] tool-call:", part.toolName, part);
         } else if (part.type === "text-delta") {
           // Try possible property names for the text delta
           const delta =
@@ -301,8 +401,28 @@ Be concise. Summarize content, don't dump raw transcripts. Reference note titles
         }
       }
 
-      // Manual multi-step: if we got tool results but no text, make a follow-up call
+      console.log("[global-chat] === RESPONSE ===");
+      console.log("[global-chat] text:", textContent.slice(0, 500) || "(no text)");
+      console.log("[global-chat] tool results:", collectedToolResults.length);
+
+      // Strip any raw tool call JSON from the response (from middleware)
+      // This handles both "just JSON" and "JSON followed by text" cases
+      const jsonPattern = /```json\s*\{[^}]*"name"\s*:\s*"[^"]+"\s*,[^}]*\}\s*```/g;
+      const cleanedText = textContent.replace(jsonPattern, "").trim();
+
+      // Update display with cleaned text
+      if (cleanedText !== textContent) {
+        textContent = cleanedText;
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[assistantIdx] = { ...updated[assistantIdx], content: cleanedText };
+          return updated;
+        });
+      }
+
+      // Manual multi-step: if we got tool results but no meaningful text, make a follow-up call
       if (collectedToolResults.length > 0 && !textContent.trim()) {
+
         // Format tool results as text for the follow-up
         const toolResultsText = collectedToolResults
           .map((tr) => `Tool "${tr.toolName}" returned:\n${JSON.stringify(tr.result, null, 2)}`)
@@ -383,6 +503,7 @@ Be concise. Summarize content, don't dump raw transcripts. Reference note titles
     input,
     setInput,
     handleSubmit,
+    handleInputFocus,
     isLoading,
     stop,
     clearMessages,

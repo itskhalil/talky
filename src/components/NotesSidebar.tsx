@@ -53,11 +53,13 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const [foldersExpanded, setFoldersExpanded] = useState(true);
   const [notesExpanded, setNotesExpanded] = useState(true);
   const [chatExpanded, setChatExpanded] = useState(false);
+  const [chatHeight, setChatHeight] = useState(192); // default ~max-h-48
   const [suggestionCount, setSuggestionCount] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const globalChat = useGlobalChat();
 
@@ -67,6 +69,28 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatExpanded, globalChat.messages]);
+
+  // Chat resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeRef.current = { startY: e.clientY, startHeight: chatHeight };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const delta = resizeRef.current.startY - e.clientY;
+      const newHeight = Math.max(100, Math.min(500, resizeRef.current.startHeight + delta));
+      setChatHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [chatHeight]);
 
   const {
     folders,
@@ -407,7 +431,23 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       <div className="border-t border-border">
         {/* Chat messages (when expanded) */}
         {chatExpanded && (
-          <div className="max-h-48 overflow-y-auto px-3 py-2 space-y-2">
+          <>
+            {/* Resize handle with collapse button */}
+            <div className="flex items-center group">
+              <div
+                onMouseDown={handleResizeStart}
+                className="flex-1 h-2 cursor-ns-resize flex items-center justify-center"
+              >
+                <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-text-secondary transition-colors" />
+              </div>
+              <button
+                onClick={() => setChatExpanded(false)}
+                className="px-1.5 py-0.5 text-text-secondary hover:text-text transition-colors"
+              >
+                <ChevronDown size={10} />
+              </button>
+            </div>
+            <div style={{ height: chatHeight }} className="overflow-y-auto px-3 py-2 space-y-2">
             {globalChat.messages.length === 0 ? (
               <p className="text-xs text-text-secondary text-center py-4">
                 {t("chat.askAboutNotes", "Ask anything about your notes...")}
@@ -434,6 +474,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             )}
             <div ref={chatEndRef} />
           </div>
+          </>
         )}
 
         {/* Chat input bar */}
