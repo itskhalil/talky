@@ -129,13 +129,13 @@ function App() {
           unstyled: true,
           classNames: {
             toast:
-              "bg-background border border-mid-gray/20 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 text-sm",
+              "bg-background border border-mid-gray/20 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 text-sm min-w-[360px]",
             title: "font-medium",
             description: "text-mid-gray",
             actionButton:
-              "bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-primary/90",
+              "bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-primary/90 whitespace-nowrap",
             cancelButton:
-              "bg-muted text-muted-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-muted/90",
+              "bg-muted text-muted-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-muted/90 whitespace-nowrap",
           },
         }}
       />
