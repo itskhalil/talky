@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { Plus, Trash2, Settings, Search, PanelLeftClose, FolderIcon, FolderOpen, X, ChevronRight, ChevronDown, Sparkles, Send, Loader2 } from "lucide-react";
@@ -273,22 +274,11 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   }, [isAddingFolder]);
 
   return (
-    <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar">
-      <div className="px-3 pt-3 pb-2">
-        <button
-          onClick={onNewNote}
-          data-ui
-          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-base font-medium transition-colors bg-accent-soft text-accent hover:bg-accent/10 border border-border"
-        >
-          <Plus size={15} strokeWidth={1.5} />
-          {t("sessions.newNote")}
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="px-3 pb-2">
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary" />
+    <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar sidebar-gradient">
+      {/* Search bar + New Note button */}
+      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+        <div className="relative flex-1">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary" />
           <input
             type="text"
             data-search-input
@@ -298,6 +288,14 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-transparent border border-border text-text placeholder:text-text-secondary focus:outline-none focus:border-border transition-colors"
           />
         </div>
+        <button
+          onClick={onNewNote}
+          data-ui
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-background-ui text-white hover:bg-background-ui/90 transition-colors shrink-0"
+          title={t("sessions.newNote")}
+        >
+          <Plus size={16} strokeWidth={2} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -306,7 +304,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           <div className="flex items-center justify-between mb-1">
             <button
               onClick={() => setFoldersExpanded(!foldersExpanded)}
-              className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors"
+              className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors font-display"
             >
               {foldersExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               {t("notes.folders", "Folders")}
@@ -364,7 +362,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   selectedFolderId === null ? "bg-accent-soft text-accent" : "text-text hover:bg-accent-soft"
                 }`}
               >
-                <FolderOpen size={14} />
+                <FolderOpen size={16} />
                 <span className="flex-1 text-left">{t("notes.allNotes", "All Notes")}</span>
                 <span className="text-xs text-text-secondary">{folderCounts.all}</span>
               </button>
@@ -377,7 +375,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   }`}
                   onClick={() => selectFolder(folder.id)}
                 >
-                  <FolderIcon size={14} style={folder.color ? { color: folder.color } : undefined} />
+                  <FolderIcon size={16} style={folder.color ? { color: folder.color } : undefined} />
                   <span className="flex-1 text-left truncate">{folder.name}</span>
                   <span className="text-xs text-text-secondary group-hover:opacity-0 transition-opacity">{folderCounts[folder.id] || 0}</span>
                   <button
@@ -399,7 +397,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         {/* Tags section */}
         {tags.length > 0 && (
           <div className="px-3 pb-2">
-            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide block mb-1">
+            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide block mb-1 font-display">
               {t("notes.tags", "Tags")}
             </span>
             <div className="flex flex-wrap gap-1">
@@ -428,7 +426,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         <div className="px-3 pb-2">
           <button
             onClick={() => setNotesExpanded(!notesExpanded)}
-            className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors mb-1"
+            className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors mb-1 font-display"
           >
             {notesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             {t("notes.notes", "Notes")}
@@ -443,7 +441,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
 
               return (
                 <div key={group}>
-                  <div className="px-2.5 py-1.5 text-xs font-medium text-text-secondary">
+                  <div className="px-2.5 py-1.5 text-xs font-medium text-text-secondary font-display">
                     {t(`notes.dateGroups.${group}`)}
                   </div>
                   {sessionsInGroup.map((session) => {
@@ -483,7 +481,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                           }}
                           className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     );
@@ -512,7 +510,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 onClick={() => setChatExpanded(false)}
                 className="px-1.5 py-0.5 text-text-secondary hover:text-text transition-colors"
               >
-                <ChevronDown size={10} />
+                <ChevronDown size={12} />
               </button>
             </div>
             <div style={{ height: chatHeight }} className="overflow-y-auto px-3 py-2 space-y-2">
@@ -522,17 +520,17 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               </p>
             ) : (
               globalChat.messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`text-xs rounded-lg px-2.5 py-1.5 ${
-                    msg.role === "user"
-                      ? "bg-accent/10 text-text ml-4"
-                      : "bg-background-secondary text-text mr-4"
-                  }`}
-                >
-                  <span className="whitespace-pre-wrap select-text cursor-text">{msg.content}</span>
-                  {msg.role === "assistant" && msg.content === "" && (
-                    <Loader2 size={12} className="animate-spin text-text-secondary" />
+                <div key={i} className={`text-xs ${msg.role === "user" ? "flex justify-end" : ""}`}>
+                  {msg.role === "user" ? (
+                    <div className="bg-accent/10 text-text rounded-lg px-2.5 py-1.5 max-w-[85%]">
+                      <span className="whitespace-pre-wrap select-text cursor-text">{msg.content}</span>
+                    </div>
+                  ) : msg.content ? (
+                    <div className="text-text select-text cursor-text [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:my-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_code]:bg-mid-gray/10 [&_code]:px-1 [&_code]:rounded">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <Loader2 size={16} className="animate-spin text-text-secondary" />
                   )}
                 </div>
               ))
@@ -553,7 +551,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               chatExpanded ? "bg-accent-soft text-accent" : "text-text-secondary hover:bg-accent-soft hover:text-text"
             }`}
           >
-            <Sparkles size={14} />
+            <Sparkles size={16} />
           </button>
           <input
             ref={chatInputRef}
@@ -576,7 +574,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               onClick={globalChat.stop}
               className="p-1 rounded-md text-text-secondary hover:text-text transition-colors"
             >
-              <X size={14} />
+              <X size={16} />
             </button>
           ) : (
             globalChat.input.trim() && (
@@ -587,7 +585,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 }}
                 className="p-1 rounded-md text-accent hover:text-accent/70 transition-colors"
               >
-                <Send size={14} />
+                <Send size={16} />
               </button>
             )
           )}
@@ -600,7 +598,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           onClick={onOpenSettings}
           className="relative p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
         >
-          <Settings size={17} />
+          <Settings size={20} />
           {suggestionCount > 0 && (
             <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
           )}
@@ -611,7 +609,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
             title={t("notes.collapseSidebar")}
           >
-            <PanelLeftClose size={17} />
+            <PanelLeftClose size={20} />
           </button>
         )}
       </div>
