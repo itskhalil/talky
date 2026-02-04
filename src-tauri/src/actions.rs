@@ -258,19 +258,24 @@ pub async fn run_session_transcription_loop(
             }
 
             // Check which tracked meeting apps have stopped using the mic
+            // Deduplicate by app name (not bundle ID) since apps like Teams have multiple processes
             for app_id in tracked_meeting_apps.clone() {
-                if !current_apps.contains(&app_id) && !notified_apps.contains(&app_id) {
-                    notified_apps.insert(app_id.clone());
+                if !current_apps.contains(&app_id) {
                     let name = mic_detect::app_name(&app_id);
-                    log::info!("Meeting app {} stopped using microphone", name);
+                    // Use app name for deduplication (e.g., "Teams" not bundle ID)
+                    if !notified_apps.contains(name) {
+                        notified_apps.insert(name.to_string());
+                        log::info!(
+                            "Meeting app {} ({}) stopped using microphone",
+                            name,
+                            app_id
+                        );
 
-                    use tauri_plugin_notification::NotificationExt;
-                    let _ = app
-                        .notification()
-                        .builder()
-                        .title("Talky")
-                        .body(&format!("{} ended - still recording?", name))
-                        .show();
+                        // Emit event for frontend to handle (show window + toast to stop recording)
+                        let _ = app.emit("meeting-ended", name);
+                    }
+                    // Remove from tracked to stop checking (already notified or will be)
+                    tracked_meeting_apps.remove(&app_id);
                 }
             }
         }
