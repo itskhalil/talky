@@ -386,6 +386,18 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }),
     );
 
+    // Listen for system sleep notification (backend already stopped recording)
+    unlisteners.push(
+      await listen("system-will-sleep", () => {
+        console.log("[system-will-sleep] Recording stopped due to system sleep");
+        set({
+          isRecording: false,
+          recordingSessionId: null,
+          amplitude: { mic: 0, speaker: 0 },
+        });
+      }),
+    );
+
     // Listen for meeting ended notification (when meeting app stops using mic)
     // Shows window and toast with option to stop recording
     unlisteners.push(

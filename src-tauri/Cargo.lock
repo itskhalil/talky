@@ -5534,6 +5534,7 @@ name = "talky"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "block2 0.6.2",
  "chrono",
  "cidre",
  "cpal",
@@ -5545,6 +5546,9 @@ dependencies = [
  "log",
  "natural",
  "ndarray",
+ "objc2 0.6.3",
+ "objc2-app-kit",
+ "objc2-foundation 0.3.2",
  "once_cell",
  "ort",
  "realfft",
