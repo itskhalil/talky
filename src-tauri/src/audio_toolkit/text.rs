@@ -225,7 +225,14 @@ pub fn filter_transcription_output(text: &str) -> String {
     filtered = MULTI_SPACE_PATTERN.replace_all(&filtered, " ").to_string();
 
     // Trim leading/trailing whitespace
-    filtered.trim().to_string()
+    let trimmed = filtered.trim();
+
+    // Reject very short outputs (likely hallucinations from silent audio)
+    if trimmed.len() < 2 {
+        return String::new();
+    }
+
+    trimmed.to_string()
 }
 
 /// Checks if two transcript segments are likely duplicates based on time overlap and text similarity.
