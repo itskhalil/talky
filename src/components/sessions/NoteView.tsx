@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import {
   ChevronUp,
@@ -19,7 +20,7 @@ import {
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
-import { useNoteChat, type ChatMessage } from "@/hooks/useNoteChat";
+import { useGlobalChat, type ChatMessage } from "@/hooks/useGlobalChat";
 import { useSettings } from "@/hooks/useSettings";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { JSONContent, Editor } from "@tiptap/core";
@@ -642,10 +643,10 @@ export function NoteView({
     return userNotes;
   }, [userNotes]);
 
-  const chat = useNoteChat({
-    sessionId: session?.id ?? "",
-    getTranscript: getTranscriptText,
-    getUserNotes: getUserNotesText,
+  const chat = useGlobalChat({
+    currentNoteId: session?.id ?? "",
+    getCurrentTranscript: getTranscriptText,
+    getCurrentNotes: getUserNotesText,
   });
 
   useEffect(() => {
@@ -1147,8 +1148,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           : "bg-background-secondary text-text"
           }`}
       >
-        <span className="whitespace-pre-wrap">{message.content}</span>
-        {!isUser && message.content === "" && (
+        {isUser ? (
+          <span className="whitespace-pre-wrap select-text cursor-text">{message.content}</span>
+        ) : message.content ? (
+          <div className="select-text cursor-text [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:my-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_code]:bg-background/50 [&_code]:px-1 [&_code]:rounded">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          </div>
+        ) : (
           <Loader2 size={12} className="animate-spin text-text-secondary" />
         )}
       </div>
