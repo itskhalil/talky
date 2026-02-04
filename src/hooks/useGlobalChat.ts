@@ -231,7 +231,7 @@ ${recentMeetingsList}${currentNoteContext}`;
         searchNotes: tool({
           description:
             "Search meeting notes. Returns full content for few matches, snippets for many. Use for any question about note content.",
-          parameters: z.object({
+          inputSchema: z.object({
             terms: z
               .array(z.string())
               .describe(
@@ -349,7 +349,6 @@ ${recentMeetingsList}${currentNoteContext}`;
         system: systemPrompt,
         messages: apiMessages,
         tools,
-        maxSteps: 5,
         abortSignal: abortController.signal,
       });
 
