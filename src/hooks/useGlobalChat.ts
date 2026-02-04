@@ -224,8 +224,9 @@ When answering:
         model: aiModel,
         system: systemPrompt,
         messages: apiMessages,
-        tools,
-        maxSteps: 5, // Allow multiple tool calls
+        // Tools disabled - some endpoints don't support function calling
+        // tools,
+        // maxSteps: 5,
         abortSignal: abortController.signal,
       });
 

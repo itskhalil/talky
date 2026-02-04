@@ -98,7 +98,15 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       setSuggestionCount(suggestions.length);
     };
     fetchSuggestionCount();
-  }, [sessions]); // Refresh when sessions change (might have new suggestions)
+    // Refetch when suggestions change or window regains focus
+    const handleChange = () => fetchSuggestionCount();
+    window.addEventListener("word-suggestions-changed", handleChange);
+    window.addEventListener("focus", handleChange);
+    return () => {
+      window.removeEventListener("word-suggestions-changed", handleChange);
+      window.removeEventListener("focus", handleChange);
+    };
+  }, []);
 
   // Fetch session tags when tags are selected for filtering
   useEffect(() => {
