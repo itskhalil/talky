@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { toast } from "sonner";
 import { commands, type MeetingNotes } from "@/bindings";
 import { useSettingsStore } from "./settingsStore";
 
@@ -132,6 +134,7 @@ interface SessionStore {
   _fetchSessionData: (sessionId: string) => Promise<void>;
   _saveTimers: Map<string, SaveTimers>;
   _unlisteners: UnlistenFn[];
+  _listenersInitialized: boolean;
   _setupListeners: () => Promise<void>;
   _evictCache: () => void;
   cleanup: () => void;
@@ -155,6 +158,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
   _saveTimers: new Map(),
   _unlisteners: [],
+  _listenersInitialized: false,
 
   selectSession: (id: string) => {
     const state = get();
@@ -299,6 +303,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   },
 
   _setupListeners: async () => {
+    // Guard against double-registration (can happen with React Strict Mode)
+    // Must be synchronous check BEFORE any async operations
+    if (get()._listenersInitialized) {
+      return;
+    }
+    // Set flag synchronously to prevent race conditions
+    set({ _listenersInitialized: true });
+
     const unlisteners: UnlistenFn[] = [];
 
     unlisteners.push(
@@ -371,6 +383,38 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       await listen("tray-stop-recording", () => {
         const { stopRecording } = get();
         stopRecording();
+      }),
+    );
+
+    // Listen for meeting ended notification (when meeting app stops using mic)
+    // Shows window and toast with option to stop recording
+    unlisteners.push(
+      await listen<string>("meeting-ended", async (event) => {
+        const appName = event.payload;
+        // Show and focus the window (wrapped in try-catch so toast still shows)
+        try {
+          const win = getCurrentWindow();
+          await win.show();
+          await win.setFocus();
+        } catch {
+          // Window operations may fail if permissions not granted
+        }
+        // Show toast with stop recording action (persists until dismissed)
+        toast(`${appName} ended`, {
+          description: "Still recording - stop now?",
+          action: {
+            label: "Stop",
+            onClick: () => {
+              const { stopRecording } = get();
+              stopRecording();
+            },
+          },
+          cancel: {
+            label: "Dismiss",
+            onClick: () => {},
+          },
+          duration: Infinity,
+        });
       }),
     );
 
@@ -720,7 +764,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     for (const fn of state._unlisteners) {
       fn();
     }
-    set({ _unlisteners: [] });
+    set({ _unlisteners: [], _listenersInitialized: false });
   },
 }));
 
