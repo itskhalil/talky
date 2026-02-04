@@ -339,6 +339,13 @@ pub async fn run_session_transcription_loop(
                 && spk_silent_polls >= SILENCE_FLUSH_POLLS);
 
         if spk_should_transcribe {
+            // Skip transcription if accumulated speaker audio is silent (prevents hallucinations like "T.")
+            if is_silence(&pending_spk_samples) {
+                pending_spk_samples.clear();
+                spk_silent_polls = 0;
+                continue;
+            }
+
             let start_ms =
                 spk_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
 
