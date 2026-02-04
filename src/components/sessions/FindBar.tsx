@@ -250,20 +250,20 @@ export function FindBar({ editor, onClose }: FindBarProps) {
         disabled={totalMatches === 0}
         className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
       >
-        <ChevronUp size={14} />
+        <ChevronUp size={16} />
       </button>
       <button
         onClick={goNext}
         disabled={totalMatches === 0}
         className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
       >
-        <ChevronDown size={14} />
+        <ChevronDown size={16} />
       </button>
       <button
         onClick={handleClose}
         className="p-1 rounded text-text-secondary hover:text-text transition-colors"
       >
-        <X size={14} />
+        <X size={16} />
       </button>
     </div>
   );

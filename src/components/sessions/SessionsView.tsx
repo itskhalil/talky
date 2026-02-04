@@ -168,14 +168,14 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
               onClick={onOpenSettings}
               className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
             >
-              <Settings size={17} />
+              <Settings size={20} />
             </button>
             <button
               onClick={() => setSidebarCollapsed(false)}
               className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
               title={t("notes.expandSidebar")}
             >
-              <PanelLeftOpen size={17} />
+              <PanelLeftOpen size={20} />
             </button>
           </div>
         </div>

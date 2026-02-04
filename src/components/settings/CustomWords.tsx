@@ -156,14 +156,14 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
                       className="p-1 rounded hover:bg-green-500/10 text-green-600 dark:text-green-400 transition-colors"
                       title={t("settings.advanced.customWords.approve", "Add to custom words")}
                     >
-                      <Check size={14} />
+                      <Check size={16} />
                     </button>
                     <button
                       onClick={() => handleDismissSuggestion(suggestion.word)}
                       className="p-1 rounded hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-colors"
                       title={t("settings.advanced.customWords.dismiss", "Dismiss")}
                     >
-                      <X size={14} />
+                      <X size={16} />
                     </button>
                   </div>
                 </div>
