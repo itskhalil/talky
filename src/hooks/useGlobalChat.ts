@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef } from "react";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { streamText, tool } from "ai";
+import { streamText, tool, wrapLanguageModel } from "ai";
+import { hermesToolMiddleware } from "@ai-sdk-tool/parser";
 import { z } from "zod";
+import * as chrono from "chrono-node";
 import { commands } from "@/bindings";
 import { useSettingsStore } from "@/stores/settingsStore";
 
@@ -48,7 +50,6 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
 
     const settings = useSettingsStore.getState().settings;
     if (!settings) {
-      console.log("[global-chat] no settings found");
       return;
     }
 
@@ -57,12 +58,6 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
     const provider = settings.post_process_providers?.find(
       (p) => p.id === providerId,
     );
-
-    console.log("[global-chat] starting submit", {
-      providerId,
-      providerFound: !!provider,
-      hasApiKey: !!(settings.post_process_api_keys?.[providerId]),
-    });
 
     if (!provider) {
       setError("No provider configured. Go to Chat settings to set one up.");
@@ -74,13 +69,6 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
       settings.chat_models?.[providerId] ??
       settings.post_process_models?.[providerId] ??
       "";
-
-    console.log("[global-chat] provider config", {
-      providerId,
-      model,
-      baseUrl: provider.base_url,
-      hasApiKey: !!apiKey,
-    });
 
     if (!model) {
       setError("No model configured. Go to Chat settings to set one up.");
@@ -117,22 +105,25 @@ ${transcript || "(No transcript yet)"}
 `;
     }
 
-    const systemPrompt = `You are a helpful assistant that can answer questions about the user's meeting notes.
+    const systemPrompt = `You are a helpful assistant for meeting notes.
 ${currentNoteContext}
-You have access to tools to search across all notes and retrieve note content. Use them when needed.
+Tool: searchNotes
+- Search by person names, topics, or keywords using the "terms" array
+- Add dateHint for time filtering: "yesterday", "last week", "February 2nd", etc.
+- Returns full content for 1-3 matches, snippets for more
 
-When answering:
-- Be concise and helpful
-- If you search for notes, summarize what you found
-- If you retrieve a note's content, reference the note title
-- If information isn't available, say so`;
+Examples:
+- "What did budget discuss?" → searchNotes({terms: ["budget"]})
+- "Meetings last week?" → searchNotes({terms: [], dateHint: "last week"})
+- "Action items from testing meeting?" → searchNotes({terms: ["testing", "action items"]})
+
+Be concise. Summarize content, don't dump raw transcripts. Reference note titles when relevant.`;
 
     const abortController = new AbortController();
     abortRef.current = abortController;
 
     try {
       // Build the AI SDK provider
-      console.log("[global-chat] building AI model...", { providerId });
       let aiModel;
       if (providerId === "anthropic") {
         const anthropic = createAnthropic({
@@ -147,86 +138,121 @@ When answering:
         });
         aiModel = openai.chat(model);
       }
-      console.log("[global-chat] AI model built successfully");
+
+      // Wrap model with tool middleware for providers that don't support native tools
+      const supportsNativeTools = ["anthropic", "openai"].includes(providerId);
+      const finalModel = supportsNativeTools
+        ? aiModel
+        : wrapLanguageModel({
+            model: aiModel,
+            middleware: hermesToolMiddleware,
+          });
 
       const apiMessages = newMessages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
 
-      // Define tools for searching and retrieving notes
+      // Single smart tool that adapts based on result count
       const tools = {
         searchNotes: tool({
-          description: "Search across all notes by keyword. Returns matching note titles and IDs.",
+          description:
+            "Search meeting notes. Returns full content for few matches, snippets for many. Use for any question about note content.",
           parameters: z.object({
-            query: z.string().describe("The search query to find relevant notes"),
+            terms: z
+              .array(z.string())
+              .describe(
+                "Search terms - person names, topics, keywords. Matches notes containing ANY of these.",
+              ),
+            dateHint: z
+              .string()
+              .optional()
+              .describe("Date filter: 'yesterday', 'last week', 'February 2nd', etc."),
           }),
-          execute: async ({ query }) => {
-            const result = await commands.searchSessions(query);
-            if (result.status === "ok") {
-              return result.data.slice(0, 10).map((s) => ({
-                id: s.id,
-                title: s.title,
-                date: new Date(s.started_at * 1000).toLocaleDateString(),
-              }));
-            }
-            return [];
-          },
-        }),
-        getNoteContent: tool({
-          description: "Get the full content of a specific note including transcript and user notes.",
-          parameters: z.object({
-            noteId: z.string().describe("The ID of the note to retrieve"),
-          }),
-          execute: async ({ noteId }) => {
-            const [notesResult, transcriptResult, sessionResult] = await Promise.all([
-              commands.getMeetingNotes(noteId),
-              commands.getSessionTranscript(noteId),
-              commands.getSession(noteId),
-            ]);
+          execute: async ({ terms, dateHint }: { terms: string[]; dateHint?: string }) => {
+            // Search for each term and merge results
+            const allResults = new Map<string, { id: string; title: string; started_at: number }>();
 
-            const title = sessionResult.status === "ok" ? sessionResult.data?.title : "Unknown";
-            const userNotes = notesResult.status === "ok" ? notesResult.data?.user_notes : "";
-            const enhancedNotes = notesResult.status === "ok" ? notesResult.data?.enhanced_notes : "";
-            const transcript = transcriptResult.status === "ok"
-              ? transcriptResult.data.map((seg) => `[${seg.source}] ${seg.text}`).join("\n")
-              : "";
-
-            return {
-              title,
-              userNotes: userNotes || "(No notes)",
-              enhancedNotes: enhancedNotes || "(No enhanced notes)",
-              transcript: transcript || "(No transcript)",
-            };
-          },
-        }),
-        listRecentNotes: tool({
-          description: "List the most recent notes.",
-          parameters: z.object({
-            limit: z.number().optional().describe("Number of notes to return (default 10)"),
-          }),
-          execute: async ({ limit = 10 }) => {
-            const result = await commands.getSessions();
-            if (result.status === "ok") {
-              return result.data.slice(0, limit).map((s) => ({
-                id: s.id,
-                title: s.title,
-                date: new Date(s.started_at * 1000).toLocaleDateString(),
-              }));
+            if (terms.length === 0) {
+              // No terms - get all recent notes
+              const result = await commands.getSessions();
+              if (result.status === "ok") {
+                result.data.forEach((note) => allResults.set(note.id, note));
+              }
+            } else {
+              // Search for each term
+              for (const term of terms) {
+                const result = await commands.searchSessions(term);
+                if (result.status === "ok") {
+                  result.data.forEach((note) => allResults.set(note.id, note));
+                }
+              }
             }
-            return [];
+
+            let notes = Array.from(allResults.values());
+
+            // Apply date filter if provided
+            if (dateHint) {
+              const parsed = chrono.parse(dateHint, new Date());
+              if (parsed.length > 0) {
+                const ref = parsed[0];
+                const after = ref.start.date();
+                const before = ref.end?.date() ?? new Date(after.getTime() + 86400000);
+                notes = notes.filter((n) => {
+                  const d = new Date(n.started_at * 1000);
+                  return d >= after && d <= before;
+                });
+              }
+            }
+
+            if (notes.length === 0) {
+              return { message: "No matching notes found." };
+            }
+
+            // Adaptive response based on count
+            if (notes.length <= 3) {
+              // Few matches → return FULL content
+              return Promise.all(
+                notes.map(async (note) => {
+                  const [notesResult, transcriptResult] = await Promise.all([
+                    commands.getMeetingNotes(note.id),
+                    commands.getSessionTranscript(note.id),
+                  ]);
+                  return {
+                    title: note.title,
+                    date: new Date(note.started_at * 1000).toLocaleDateString(),
+                    userNotes:
+                      notesResult.status === "ok" ? notesResult.data?.user_notes || "" : "",
+                    enhancedNotes:
+                      notesResult.status === "ok" ? notesResult.data?.enhanced_notes || "" : "",
+                    transcript:
+                      transcriptResult.status === "ok"
+                        ? transcriptResult.data.map((seg) => `[${seg.source}] ${seg.text}`).join("\n")
+                        : "",
+                  };
+                }),
+              );
+            } else {
+              // Many matches → return snippets only
+              return {
+                message: `Found ${notes.length} matching notes. Here are the titles:`,
+                notes: notes.slice(0, 10).map((n) => ({
+                  title: n.title,
+                  date: new Date(n.started_at * 1000).toLocaleDateString(),
+                })),
+                hint: "Ask about a specific note for full details.",
+              };
+            }
           },
         }),
       };
 
-      console.log("[global-chat] calling streamText...");
       const result = streamText({
-        model: aiModel,
+        model: finalModel,
         system: systemPrompt,
         messages: apiMessages,
-        // Tools disabled - some endpoints don't support function calling
-        // tools,
-        // maxSteps: 5,
+        tools,
+        maxSteps: 5,
         abortSignal: abortController.signal,
       });
 
@@ -234,28 +260,101 @@ When answering:
       const assistantIdx = newMessages.length;
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      console.log("[global-chat] awaiting result...");
       const resolved = await result;
-      console.log("[global-chat] result resolved, starting stream...");
 
-      let chunkCount = 0;
-      for await (const chunk of resolved.textStream) {
+      // Collect tool results for manual multi-step
+      const collectedToolResults: Array<{
+        toolCallId: string;
+        toolName: string;
+        result: unknown;
+      }> = [];
+
+      let textContent = "";
+      for await (const part of resolved.fullStream) {
         if (abortController.signal.aborted) break;
-        chunkCount++;
-        if (chunkCount === 1) console.log("[global-chat] received first chunk");
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[assistantIdx] = {
-            ...updated[assistantIdx],
-            content: updated[assistantIdx].content + chunk,
-          };
-          return updated;
-        });
+
+        // Collect tool results for manual multi-step
+        if (part.type === "tool-result") {
+          collectedToolResults.push({
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            result: part.output,
+          });
+        } else if (part.type === "text-delta") {
+          // Try possible property names for the text delta
+          const delta =
+            (part as { textDelta?: string }).textDelta ??
+            (part as { delta?: string }).delta ??
+            (part as { text?: string }).text ??
+            "";
+          if (delta) {
+            textContent += delta;
+            setMessages((prev) => {
+              const updated = [...prev];
+              updated[assistantIdx] = {
+                ...updated[assistantIdx],
+                content: textContent,
+              };
+              return updated;
+            });
+          }
+        }
       }
-      console.log("[global-chat] stream complete, total chunks:", chunkCount);
+
+      // Manual multi-step: if we got tool results but no text, make a follow-up call
+      if (collectedToolResults.length > 0 && !textContent.trim()) {
+        // Format tool results as text for the follow-up
+        const toolResultsText = collectedToolResults
+          .map((tr) => `Tool "${tr.toolName}" returned:\n${JSON.stringify(tr.result, null, 2)}`)
+          .join("\n\n");
+
+        // Build follow-up messages with tool results as assistant context
+        const followUpMessages = [
+          ...apiMessages,
+          {
+            role: "assistant" as const,
+            content: `I searched your notes. Here are the results:\n\n${toolResultsText}`,
+          },
+          {
+            role: "user" as const,
+            content: "Based on those results, please answer my original question.",
+          },
+        ];
+
+        // Make follow-up call with base model (no middleware) for plain text response
+        const followUp = streamText({
+          model: aiModel,
+          system: systemPrompt,
+          messages: followUpMessages,
+          abortSignal: abortController.signal,
+        });
+
+        const followUpResolved = await followUp;
+        for await (const part of followUpResolved.fullStream) {
+          if (abortController.signal.aborted) break;
+
+          if (part.type === "text-delta") {
+            const delta =
+              (part as { textDelta?: string }).textDelta ??
+              (part as { delta?: string }).delta ??
+              (part as { text?: string }).text ??
+              "";
+            if (delta) {
+                textContent += delta;
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[assistantIdx] = {
+                  ...updated[assistantIdx],
+                  content: textContent,
+                };
+                return updated;
+              });
+            }
+          }
+        }
+      }
     } catch (err: unknown) {
       console.error("[global-chat] error:", err);
-      console.error("[global-chat] error details:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       if (err instanceof Error && err.name === "AbortError") {
         // User aborted
       } else {
