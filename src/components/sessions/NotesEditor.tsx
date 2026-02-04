@@ -76,7 +76,8 @@ export function NotesEditor({
       editorProps: {
         handlePaste: (view, event) => {
           // Shift+paste = paste as plain text (Cmd+Shift+V / Ctrl+Shift+V)
-          if (event.shiftKey) {
+          // Cast to access keyboard modifiers from the original event
+          if ((event as ClipboardEvent & { shiftKey?: boolean }).shiftKey) {
             const text = event.clipboardData?.getData("text/plain");
             if (text) {
               // Insert plain text at current cursor position
