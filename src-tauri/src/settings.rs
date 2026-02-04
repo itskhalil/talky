@@ -93,6 +93,13 @@ pub struct PostProcessProvider {
     pub models_endpoint: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Type)]
+pub struct WordSuggestion {
+    pub word: String,
+    pub source_session_title: String,
+    pub source_session_id: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelUnloadTimeout {
@@ -238,6 +245,10 @@ pub struct AppSettings {
     pub chat_models: HashMap<String, String>,
     #[serde(default)]
     pub copy_as_bullets_enabled: bool,
+    #[serde(default)]
+    pub word_suggestions: Vec<WordSuggestion>,
+    #[serde(default)]
+    pub dismissed_suggestions: Vec<String>,
 }
 
 fn default_model() -> String {
@@ -493,6 +504,8 @@ pub fn get_default_settings() -> AppSettings {
         chat_provider_id: default_chat_provider_id(),
         chat_models: default_chat_models(),
         copy_as_bullets_enabled: false,
+        word_suggestions: Vec::new(),
+        dismissed_suggestions: Vec::new(),
     }
 }
 
