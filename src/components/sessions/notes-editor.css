@@ -52,21 +52,21 @@
 
 /* Enhanced mode heading styles */
 .notes-editor .tiptap h1 {
-  font-size: 1.145rem;
+  font-size: 1.07rem;
   font-weight: 600;
   margin-top: 1.25rem;
   margin-bottom: 0.25rem;
 }
 
 .notes-editor .tiptap h2 {
-  font-size: 1.07rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-top: 1rem;
   margin-bottom: 0.25rem;
 }
 
 .notes-editor .tiptap h3 {
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   margin-top: 1rem;
   margin-bottom: 0.25rem;

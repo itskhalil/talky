@@ -68,7 +68,7 @@ export function NotesEditor({
         PasteUnformatted,
         ...(isEnhanced ? [AiSourceExtension] : []),
         ...(!isEnhanced
-          ? [Markdown.configure({ transformPastedText: true })]
+          ? [Markdown.configure({ transformPastedText: true, breaks: true })]
           : []),
       ],
       content: "",
@@ -89,6 +89,57 @@ export function NotesEditor({
             }
           }
           return false; // Let default handler process
+        },
+        // Clean text serialization for native Cmd+C copy
+        clipboardTextSerializer: (slice) => {
+          const lines: string[] = [];
+
+          // Recursive function to serialize nodes with proper indentation
+          const serializeNode = (node: typeof slice.content.firstChild, indent: number = 0): void => {
+            if (!node) return;
+            const prefix = "  ".repeat(indent);
+
+            if (node.type.name === "heading") {
+              const level = node.attrs?.level ?? 2;
+              lines.push("#".repeat(level) + " " + node.textContent);
+            } else if (node.type.name === "paragraph") {
+              lines.push(prefix + node.textContent);
+            } else if (node.type.name === "bulletList") {
+              node.content.forEach((li) => {
+                // Get the paragraph text from list item
+                const para = li.content.firstChild;
+                if (para && para.type.name === "paragraph") {
+                  lines.push(prefix + "- " + para.textContent);
+                }
+                // Handle nested lists within the list item
+                li.content.forEach((child) => {
+                  if (child.type.name === "bulletList" || child.type.name === "orderedList") {
+                    serializeNode(child, indent + 1);
+                  }
+                });
+              });
+            } else if (node.type.name === "orderedList") {
+              let idx = 1;
+              node.content.forEach((li) => {
+                const para = li.content.firstChild;
+                if (para && para.type.name === "paragraph") {
+                  lines.push(prefix + `${idx}. ` + para.textContent);
+                }
+                li.content.forEach((child) => {
+                  if (child.type.name === "bulletList" || child.type.name === "orderedList") {
+                    serializeNode(child, indent + 1);
+                  }
+                });
+                idx++;
+              });
+            } else if (node.content) {
+              // Generic fallback for other block nodes
+              node.content.forEach((child) => serializeNode(child, indent));
+            }
+          };
+
+          slice.content.forEach((node) => serializeNode(node, 0));
+          return lines.join("\n");
         },
       },
       onUpdate: ({ editor }) => {
