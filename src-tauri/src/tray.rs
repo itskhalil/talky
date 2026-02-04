@@ -67,15 +67,6 @@ pub fn get_icon_path(theme: AppTheme, state: TrayIconState) -> &'static str {
     }
 }
 
-/// Gets the recording icon path with red dot for the given theme
-pub fn get_recording_dot_icon_path(theme: AppTheme) -> &'static str {
-    match theme {
-        AppTheme::Dark => "resources/tray_recording_dot.png",
-        AppTheme::Light => "resources/tray_recording_dot_dark.png",
-        AppTheme::Colored => "resources/recording.png", // No dot variant for Linux
-    }
-}
-
 pub fn change_tray_icon(app: &AppHandle, icon: TrayIconState) {
     let tray = app.state::<TrayIcon>();
     let theme = get_current_theme(app);
@@ -168,7 +159,7 @@ pub fn start_recording_indicator(app: &AppHandle) {
 
     // Spawn the animation task
     tauri::async_runtime::spawn(async move {
-        let mut show_dot = true;
+        let mut toggle = true;
 
         loop {
             // Check FIRST if we should stop
@@ -176,44 +167,21 @@ pub fn start_recording_indicator(app: &AppHandle) {
                 break;
             }
 
-            // Flash between recording icon with and without red dot
+            // Update the tray title with pulsing dot indicator
+            #[cfg(target_os = "macos")]
             if let Some(tray) = app_handle.try_state::<TrayIcon>() {
-                let theme = get_current_theme(&app_handle);
-                let icon_path = if show_dot {
-                    get_recording_dot_icon_path(theme)
-                } else {
-                    get_icon_path(theme, TrayIconState::Recording)
-                };
-
-                if let Ok(resolved) = app_handle
-                    .path()
-                    .resolve(icon_path, tauri::path::BaseDirectory::Resource)
-                {
-                    if let Ok(image) = Image::from_path(resolved) {
-                        let _ = tray.set_icon(Some(image));
-                        // Disable template mode when showing dot so red color is visible
-                        let _ = tray.set_icon_as_template(!show_dot);
-                    }
-                }
+                let title = if toggle { "●" } else { "○" };
+                let _ = tray.set_title(Some(title));
             }
 
-            show_dot = !show_dot;
-            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            toggle = !toggle;
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
 
-        // Reset to regular recording icon when the loop exits
+        // Clear the title when the loop exits
+        #[cfg(target_os = "macos")]
         if let Some(tray) = app_handle.try_state::<TrayIcon>() {
-            let theme = get_current_theme(&app_handle);
-            let icon_path = get_icon_path(theme, TrayIconState::Recording);
-            if let Ok(resolved) = app_handle
-                .path()
-                .resolve(icon_path, tauri::path::BaseDirectory::Resource)
-            {
-                if let Ok(image) = Image::from_path(resolved) {
-                    let _ = tray.set_icon(Some(image));
-                    let _ = tray.set_icon_as_template(true); // Restore template mode
-                }
-            }
+            let _ = tray.set_title(Some(""));
         }
     });
 }
