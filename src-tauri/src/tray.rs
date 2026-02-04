@@ -167,10 +167,10 @@ pub fn start_recording_indicator(app: &AppHandle) {
                 break;
             }
 
-            // Update the tray title with pulsing indicator
+            // Update the tray title with pulsing red indicator
             #[cfg(target_os = "macos")]
             if let Some(tray) = app_handle.try_state::<TrayIcon>() {
-                let title = if toggle { "●" } else { "○" };
+                let title = if toggle { "🔴" } else { "" };
                 let _ = tray.set_title(Some(title));
             }
 
