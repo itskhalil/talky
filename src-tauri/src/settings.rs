@@ -249,6 +249,12 @@ pub struct AppSettings {
     pub word_suggestions: Vec<WordSuggestion>,
     #[serde(default)]
     pub dismissed_suggestions: Vec<String>,
+    #[serde(default = "default_word_suggestions_enabled")]
+    pub word_suggestions_enabled: bool,
+}
+
+fn default_word_suggestions_enabled() -> bool {
+    true
 }
 
 fn default_model() -> String {
@@ -506,6 +512,7 @@ pub fn get_default_settings() -> AppSettings {
         copy_as_bullets_enabled: false,
         word_suggestions: Vec::new(),
         dismissed_suggestions: Vec::new(),
+        word_suggestions_enabled: true,
     }
 }
 

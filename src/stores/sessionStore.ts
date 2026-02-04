@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { commands, type MeetingNotes } from "@/bindings";
+import { useSettingsStore } from "./settingsStore";
 
 export interface Session {
   id: string;
@@ -602,13 +603,16 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           notes: tagged,
         });
 
-        // Detect word corrections and add suggestions
-        const corrections = detectWordCorrections(oldEnhancedNotes, tagged);
-        if (corrections.length > 0) {
-          const session = sessions.find((s) => s.id === selectedSessionId);
-          const sessionTitle = session?.title || "Untitled";
-          for (const word of corrections) {
-            await commands.addWordSuggestion(word, sessionTitle, selectedSessionId);
+        // Detect word corrections and add suggestions (if enabled)
+        const settings = useSettingsStore.getState().settings;
+        if (settings?.word_suggestions_enabled !== false) {
+          const corrections = detectWordCorrections(oldEnhancedNotes, tagged);
+          if (corrections.length > 0) {
+            const session = sessions.find((s) => s.id === selectedSessionId);
+            const sessionTitle = session?.title || "Untitled";
+            for (const word of corrections) {
+              await commands.addWordSuggestion(word, sessionTitle, selectedSessionId);
+            }
           }
         }
       } catch (e) {
