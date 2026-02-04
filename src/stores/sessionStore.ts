@@ -613,6 +613,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             for (const word of corrections) {
               await commands.addWordSuggestion(word, sessionTitle, selectedSessionId);
             }
+            // Notify sidebar that suggestions changed
+            window.dispatchEvent(new CustomEvent("word-suggestions-changed"));
           }
         }
       } catch (e) {
