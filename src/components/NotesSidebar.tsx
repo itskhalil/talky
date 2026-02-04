@@ -33,6 +33,54 @@ function formatDate(timestamp: number): string {
   });
 }
 
+type DateGroup = "today" | "yesterday" | "last7Days" | "older";
+
+function getDateGroup(timestamp: number): DateGroup {
+  const now = new Date();
+  const date = new Date(timestamp * 1000);
+
+  // Reset to start of day for comparison
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (dateStart >= today) {
+    return "today";
+  } else if (dateStart >= yesterday) {
+    return "yesterday";
+  } else if (dateStart >= weekAgo) {
+    return "last7Days";
+  }
+  return "older";
+}
+
+interface GroupedSessions {
+  today: Session[];
+  yesterday: Session[];
+  last7Days: Session[];
+  older: Session[];
+}
+
+function groupSessionsByDate(sessions: Session[]): GroupedSessions {
+  const groups: GroupedSessions = {
+    today: [],
+    yesterday: [],
+    last7Days: [],
+    older: [],
+  };
+
+  for (const session of sessions) {
+    const group = getDateGroup(session.started_at);
+    groups[group].push(session);
+  }
+
+  return groups;
+}
+
 
 export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   sessions,
@@ -201,6 +249,14 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     }
     return counts;
   }, [sessions]);
+
+  // Group filtered sessions by date
+  const groupedSessions = useMemo(
+    () => groupSessionsByDate(filteredSessions),
+    [filteredSessions]
+  );
+
+  const dateGroupOrder: DateGroup[] = ["today", "yesterday", "last7Days", "older"];
 
   const handleAddFolder = async () => {
     if (newFolderName.trim()) {
@@ -381,47 +437,59 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         </div>
         {notesExpanded && (
           <div className="px-2">
-            {filteredSessions.map((session) => {
-            const isSelected = selectedId === session.id;
-            const isRecordingThis = recordingSessionId === session.id;
+            {dateGroupOrder.map((group) => {
+              const sessionsInGroup = groupedSessions[group];
+              if (sessionsInGroup.length === 0) return null;
 
-            return (
-              <div
-                key={session.id}
-                className={`group flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${isSelected
-                  ? "bg-accent-soft"
-                  : "hover:bg-accent-soft"
-                  }`}
-                onClick={() => onSelect(session.id)}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    {isRecordingThis && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
-                    )}
-                    <span
-                      data-ui
-                      className={`text-sm line-clamp-2 break-words ${isSelected ? "font-medium text-text" : "text-text"
+              return (
+                <div key={group}>
+                  <div className="px-2.5 py-1.5 text-xs font-medium text-text-secondary">
+                    {t(`notes.dateGroups.${group}`)}
+                  </div>
+                  {sessionsInGroup.map((session) => {
+                    const isSelected = selectedId === session.id;
+                    const isRecordingThis = recordingSessionId === session.id;
+
+                    return (
+                      <div
+                        key={session.id}
+                        className={`group flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                          isSelected ? "bg-accent-soft" : "hover:bg-accent-soft"
                         }`}
-                    >
-                      {session.title}
-                    </span>
-                  </div>
-                  <div data-ui className="text-xs text-text-secondary mt-0.5">
-                    {formatDate(session.started_at)}
-                  </div>
+                        onClick={() => onSelect(session.id)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {isRecordingThis && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
+                            )}
+                            <span
+                              data-ui
+                              className={`text-sm line-clamp-2 break-words ${
+                                isSelected ? "font-medium text-text" : "text-text"
+                              }`}
+                            >
+                              {session.title}
+                            </span>
+                          </div>
+                          <div data-ui className="text-xs text-text-secondary mt-0.5">
+                            {formatDate(session.started_at)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(session.id);
+                          }}
+                          className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(session.id);
-                  }}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            );
+              );
             })}
           </div>
         )}
