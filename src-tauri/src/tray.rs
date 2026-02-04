@@ -175,7 +175,7 @@ pub fn start_recording_indicator(app: &AppHandle) {
             }
 
             toggle = !toggle;
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
         }
 
         // Clear the title when the loop exits
