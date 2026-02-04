@@ -1,4 +1,4 @@
-use crate::settings::{get_settings, write_settings, FontSize, LLMPrompt};
+use crate::settings::{get_settings, write_settings, FontSize, LLMPrompt, WordSuggestion};
 use crate::tray::update_tray_menu;
 use crate::utils::TrayIconState;
 use log::info;
@@ -312,6 +312,77 @@ pub async fn fetch_chat_models(app: AppHandle, provider_id: String) -> Result<Ve
 pub fn change_copy_as_bullets_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.copy_as_bullets_enabled = enabled;
+    write_settings(&app, settings);
+    Ok(())
+}
+
+// Word Suggestions
+#[tauri::command]
+#[specta::specta]
+pub fn get_word_suggestions(app: AppHandle) -> Vec<WordSuggestion> {
+    let settings = get_settings(&app);
+    settings.word_suggestions
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn approve_word_suggestion(app: AppHandle, word: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+
+    // Add to custom words if not already present
+    if !settings.custom_words.contains(&word) {
+        settings.custom_words.push(word.clone());
+    }
+
+    // Remove from suggestions
+    settings.word_suggestions.retain(|s| s.word != word);
+
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn dismiss_word_suggestion(app: AppHandle, word: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+
+    // Add to dismissed list to prevent re-suggesting
+    if !settings.dismissed_suggestions.contains(&word) {
+        settings.dismissed_suggestions.push(word.clone());
+    }
+
+    // Remove from suggestions
+    settings.word_suggestions.retain(|s| s.word != word);
+
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_word_suggestion(
+    app: AppHandle,
+    word: String,
+    session_title: String,
+    session_id: String,
+) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+
+    // Skip if already in custom words, dismissed, or suggestions
+    if settings.custom_words.contains(&word)
+        || settings.dismissed_suggestions.contains(&word)
+        || settings.word_suggestions.iter().any(|s| s.word == word)
+    {
+        return Ok(());
+    }
+
+    // Add new suggestion
+    settings.word_suggestions.push(WordSuggestion {
+        word,
+        source_session_title: session_title,
+        source_session_id: session_id,
+    });
+
     write_settings(&app, settings);
     Ok(())
 }
