@@ -47,13 +47,23 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
     if (!trimmed || isLoading) return;
 
     const settings = useSettingsStore.getState().settings;
-    if (!settings) return;
+    if (!settings) {
+      console.log("[global-chat] no settings found");
+      return;
+    }
 
     const providerId =
       settings.chat_provider_id || settings.post_process_provider_id || "openai";
     const provider = settings.post_process_providers?.find(
       (p) => p.id === providerId,
     );
+
+    console.log("[global-chat] starting submit", {
+      providerId,
+      providerFound: !!provider,
+      hasApiKey: !!(settings.post_process_api_keys?.[providerId]),
+    });
+
     if (!provider) {
       setError("No provider configured. Go to Chat settings to set one up.");
       return;
@@ -64,6 +74,13 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
       settings.chat_models?.[providerId] ??
       settings.post_process_models?.[providerId] ??
       "";
+
+    console.log("[global-chat] provider config", {
+      providerId,
+      model,
+      baseUrl: provider.base_url,
+      hasApiKey: !!apiKey,
+    });
 
     if (!model) {
       setError("No model configured. Go to Chat settings to set one up.");
@@ -115,6 +132,7 @@ When answering:
 
     try {
       // Build the AI SDK provider
+      console.log("[global-chat] building AI model...", { providerId });
       let aiModel;
       if (providerId === "anthropic") {
         const anthropic = createAnthropic({
@@ -129,6 +147,7 @@ When answering:
         });
         aiModel = openai.chat(model);
       }
+      console.log("[global-chat] AI model built successfully");
 
       const apiMessages = newMessages.map((m) => ({
         role: m.role as "user" | "assistant",
@@ -200,6 +219,7 @@ When answering:
         }),
       };
 
+      console.log("[global-chat] calling streamText...");
       const result = streamText({
         model: aiModel,
         system: systemPrompt,
@@ -213,10 +233,15 @@ When answering:
       const assistantIdx = newMessages.length;
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
+      console.log("[global-chat] awaiting result...");
       const resolved = await result;
+      console.log("[global-chat] result resolved, starting stream...");
 
+      let chunkCount = 0;
       for await (const chunk of resolved.textStream) {
         if (abortController.signal.aborted) break;
+        chunkCount++;
+        if (chunkCount === 1) console.log("[global-chat] received first chunk");
         setMessages((prev) => {
           const updated = [...prev];
           updated[assistantIdx] = {
@@ -226,8 +251,10 @@ When answering:
           return updated;
         });
       }
+      console.log("[global-chat] stream complete, total chunks:", chunkCount);
     } catch (err: unknown) {
       console.error("[global-chat] error:", err);
+      console.error("[global-chat] error details:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       if (err instanceof Error && err.name === "AbortError") {
         // User aborted
       } else {
