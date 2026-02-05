@@ -1,11 +1,10 @@
-use crate::audio_toolkit::{list_input_devices, vad::SmoothedVad, AudioRecorder, SileroVad};
+use crate::audio_toolkit::{list_input_devices, AudioRecorder};
 use crate::helpers::clamshell;
 use crate::settings::{get_settings, AppSettings};
 use crate::utils;
 use log::{debug, error, info};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::Manager;
 
 /* ──────────────────────────────────────────────────────────────── */
 
@@ -17,19 +16,11 @@ pub enum RecordingState {
 
 /* ──────────────────────────────────────────────────────────────── */
 
-fn create_audio_recorder(
-    vad_path: &str,
-    app_handle: &tauri::AppHandle,
-) -> Result<AudioRecorder, anyhow::Error> {
-    let silero = SileroVad::new(vad_path, 0.3)
-        .map_err(|e| anyhow::anyhow!("Failed to create SileroVad: {}", e))?;
-    let smoothed_vad = SmoothedVad::new(Box::new(silero), 15, 15, 2);
-
-    // Recorder with VAD plus a spectrum-level callback that forwards updates to
-    // the frontend.
+fn create_audio_recorder(app_handle: &tauri::AppHandle) -> Result<AudioRecorder, anyhow::Error> {
+    // Recorder without VAD - we do VAD-based segmentation in the pipeline instead
+    // to avoid double-VAD filtering that causes missed words.
     let recorder = AudioRecorder::new()
         .map_err(|e| anyhow::anyhow!("Failed to create AudioRecorder: {}", e))?
-        .with_vad(Box::new(smoothed_vad))
         .with_level_callback({
             let app_handle = app_handle.clone();
             move |levels| {
@@ -108,21 +99,10 @@ impl AudioRecordingManager {
 
         let start_time = Instant::now();
 
-        let vad_path = self
-            .app_handle
-            .path()
-            .resolve(
-                "resources/models/silero_vad_v4.onnx",
-                tauri::path::BaseDirectory::Resource,
-            )
-            .map_err(|e| anyhow::anyhow!("Failed to resolve VAD path: {}", e))?;
         let mut recorder_opt = self.recorder.lock().unwrap();
 
         if recorder_opt.is_none() {
-            *recorder_opt = Some(create_audio_recorder(
-                vad_path.to_str().unwrap(),
-                &self.app_handle,
-            )?);
+            *recorder_opt = Some(create_audio_recorder(&self.app_handle)?);
         }
 
         // Get the selected device from settings, considering clamshell mode
@@ -232,15 +212,11 @@ impl AudioRecordingManager {
     }
 
     /// Get a snapshot of current accumulated samples without stopping recording.
-    /// Returns samples collected since last snapshot/start.
+    /// Uses gap-free extraction to avoid losing audio during the transition.
     pub fn take_session_chunk(&self) -> Vec<f32> {
         if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
-            match rec.stop() {
-                Ok(buf) => {
-                    // Restart recording immediately
-                    let _ = rec.start();
-                    buf
-                }
+            match rec.take() {
+                Ok(buf) => buf,
                 Err(e) => {
                     error!("take_session_chunk failed: {e}");
                     Vec::new()

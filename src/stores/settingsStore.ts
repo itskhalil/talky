@@ -113,6 +113,8 @@ const settingUpdaters: {
     commands.changeCopyAsBulletsSetting(value as boolean),
   word_suggestions_enabled: (value) =>
     commands.changeWordSuggestionsEnabled(value as boolean),
+  speaker_energy_threshold: (value) =>
+    commands.changeSpeakerEnergyThresholdSetting(value as number),
 };
 
 export const useSettingsStore = create<SettingsStore>()(

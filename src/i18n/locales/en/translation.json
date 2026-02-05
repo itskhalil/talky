@@ -322,6 +322,10 @@
         "title": "Word Correction Threshold",
         "description": "Sensitivity for custom word corrections"
       },
+      "speakerEnergyThreshold": {
+        "title": "Speaker Energy Threshold",
+        "description": "Skip mic transcription when speaker audio exceeds this level (echo suppression)"
+      },
       "historyLimit": {
         "title": "History Limit",
         "description": "Maximum number of history entries to keep",

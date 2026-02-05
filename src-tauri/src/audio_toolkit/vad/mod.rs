@@ -1,32 +1,47 @@
 use anyhow::Result;
 
-pub enum VadFrame<'a> {
-    /// Speech – may aggregate several frames (prefill + current + hangover)
-    Speech(&'a [f32]),
-    /// Non-speech (silence, noise). Down-stream code can ignore it.
-    Noise,
+/// Represents a transition in voice activity state
+#[derive(Clone, Debug, PartialEq)]
+pub enum VadTransition {
+    /// Speech has started - contains samples leading up to and including speech onset
+    SpeechStart,
+    /// Speech has ended - contains the final speech samples
+    SpeechEnd,
+    /// No transition occurred
+    None,
 }
 
-impl<'a> VadFrame<'a> {
-    #[inline]
-    pub fn is_speech(&self) -> bool {
-        matches!(self, VadFrame::Speech(_))
-    }
+/// Voice activity state for tracking speech segments
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum VadState {
+    Silence,
+    Speech,
 }
 
+/// Trait for voice activity detection with transition-based API
 pub trait VoiceActivityDetector: Send + Sync {
-    /// Primary streaming API: feed one 30-ms frame, get keep/drop decision.
-    fn push_frame<'a>(&'a mut self, frame: &'a [f32]) -> Result<VadFrame<'a>>;
+    /// Process a frame of audio and check for speech/silence transitions.
+    /// Returns the transition type if a state change occurred.
+    ///
+    /// Unlike the old API, this does NOT modify or filter the audio -
+    /// it only detects transitions for segmentation purposes.
+    fn process_frame(&mut self, frame: &[f32]) -> Result<VadTransition>;
 
-    fn is_voice(&mut self, frame: &[f32]) -> Result<bool> {
-        Ok(self.push_frame(frame)?.is_speech())
+    /// Get the current VAD state (speaking or silent)
+    fn state(&self) -> VadState;
+
+    /// Get the current speech probability (0.0-1.0)
+    fn probability(&self) -> f32;
+
+    /// Check if currently in speech state
+    fn is_speaking(&self) -> bool {
+        self.state() == VadState::Speech
     }
 
-    fn reset(&mut self) {}
+    /// Reset the detector state
+    fn reset(&mut self);
 }
 
 mod silero;
-mod smoothed;
 
-pub use silero::SileroVad;
-pub use smoothed::SmoothedVad;
+pub use silero::{SileroVad, VAD_CHUNK_SIZE};

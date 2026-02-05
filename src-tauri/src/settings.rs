@@ -251,10 +251,16 @@ pub struct AppSettings {
     pub dismissed_suggestions: Vec<String>,
     #[serde(default = "default_word_suggestions_enabled")]
     pub word_suggestions_enabled: bool,
+    #[serde(default = "default_speaker_energy_threshold")]
+    pub speaker_energy_threshold: f32,
 }
 
 fn default_word_suggestions_enabled() -> bool {
     true
+}
+
+fn default_speaker_energy_threshold() -> f32 {
+    0.02
 }
 
 fn default_model() -> String {
@@ -513,6 +519,7 @@ pub fn get_default_settings() -> AppSettings {
         word_suggestions: Vec::new(),
         dismissed_suggestions: Vec::new(),
         word_suggestions_enabled: true,
+        speaker_energy_threshold: default_speaker_energy_threshold(),
     }
 }
 
