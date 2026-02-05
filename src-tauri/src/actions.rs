@@ -85,9 +85,6 @@ pub async fn run_session_transcription_loop(
         ChannelMode::MicAndSpeaker,
     );
 
-    // Reset transcript context for new session
-    tm.reset_context();
-
     let session_start = Instant::now();
     let mut tick = interval(Duration::from_millis(POLL_INTERVAL_MS));
     let mut pending_spk_samples: Vec<f32> = Vec::new();
@@ -153,7 +150,10 @@ pub async fn run_session_transcription_loop(
                 }
             }
 
-            // Transcribe remaining mic (AEC-cleaned via pipeline) with deduplication
+            // Apply AEC to accumulated audio before final flush
+            pipeline.apply_aec_to_accumulated();
+
+            // Transcribe remaining mic (AEC-cleaned) with deduplication
             let (remaining_mic, _remaining_spk) = pipeline.take_all_accumulated();
             if !remaining_mic.is_empty() {
                 let start_ms = mic_chunk_start.duration_since(session_start).as_millis() as i64
@@ -172,7 +172,7 @@ pub async fn run_session_transcription_loop(
                                         &seg.text,
                                         seg.start_ms,
                                         seg.end_ms,
-                                        0.80, // similarity threshold (tighter dedup per plan)
+                                        0.80, // similarity threshold
                                         300,  // time overlap threshold in ms
                                     )
                                 })
@@ -206,6 +206,14 @@ pub async fn run_session_transcription_loop(
         // Poll speaker samples and push into pipeline
         let new_spk = sm.take_speaker_samples();
         if !new_spk.is_empty() {
+            let spk_elapsed = session_start.elapsed().as_secs_f32();
+            debug!(
+                "[{:.1}s] Speaker batch: {} samples ({:.2}s), pending_total={:.2}s",
+                spk_elapsed,
+                new_spk.len(),
+                new_spk.len() as f32 / 16000.0,
+                (pending_spk_samples.len() + new_spk.len()) as f32 / 16000.0
+            );
             if pending_spk_samples.is_empty() {
                 spk_chunk_start = Instant::now();
             }
@@ -312,8 +320,41 @@ pub async fn run_session_transcription_loop(
                 accumulated as f32 / WHISPER_RATE as f32,
                 trigger_reason
             );
+
+            // Flush pending speaker audio FIRST so we can dedupe mic against it.
+            // This is critical: speaker audio arrives in delayed batches, so by the time
+            // mic VAD triggers, speaker hasn't transcribed yet. Flush speaker first to
+            // create segments that deduplication can find.
+            if pending_spk_samples.len() >= MIN_CHUNK_SAMPLES / 4 {
+                let spk_start_ms = spk_chunk_start.duration_since(session_start).as_millis() as i64
+                    + time_offset_ms;
+                if !is_silence(&pending_spk_samples) {
+                    if let Ok(spk_text) =
+                        tm.transcribe_chunk(std::mem::take(&mut pending_spk_samples))
+                    {
+                        if !spk_text.is_empty() {
+                            info!(
+                                "Pre-flushed speaker audio for dedup: '{}'",
+                                if spk_text.len() > 50 {
+                                    &spk_text[..50]
+                                } else {
+                                    &spk_text
+                                }
+                            );
+                            let _ = sm.add_segment(&session_id, spk_text, "speaker", spk_start_ms, now);
+                        }
+                    }
+                } else {
+                    pending_spk_samples.clear();
+                }
+                spk_silent_polls = 0;
+            }
+
             let start_ms =
                 mic_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
+
+            // Apply AEC to the accumulated chunk (both streams now available and aligned)
+            pipeline.apply_aec_to_accumulated();
 
             // Take mic audio with overlap for context continuity
             let (mic_audio, _spk_audio) = pipeline.take_with_overlap(OVERLAP_SAMPLES);
@@ -349,7 +390,7 @@ pub async fn run_session_transcription_loop(
                                             &seg.text,
                                             seg.start_ms,
                                             seg.end_ms,
-                                            0.80, // similarity threshold (tighter dedup per plan)
+                                            0.80, // similarity threshold
                                             300,  // time overlap threshold in ms
                                         )
                                     })
