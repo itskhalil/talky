@@ -33,10 +33,19 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (mod && (e.key === "k" || e.key === "/")) {
+      if (mod && e.key === "k") {
         e.preventDefault();
         const input = document.querySelector<HTMLInputElement>(
           "[data-search-input]",
+        );
+        input?.focus();
+        return;
+      }
+
+      if (mod && e.key === "/") {
+        e.preventDefault();
+        const input = document.querySelector<HTMLInputElement>(
+          "[data-chat-input]",
         );
         input?.focus();
         return;
