@@ -262,7 +262,7 @@ fn default_word_suggestions_enabled() -> bool {
 }
 
 fn default_speaker_energy_threshold() -> f32 {
-    0.02
+    0.04
 }
 
 fn default_skip_mic_on_speaker_energy() -> bool {
