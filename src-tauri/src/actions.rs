@@ -361,32 +361,40 @@ pub async fn run_session_transcription_loop(
                 spk_chunk_start = Instant::now();
             }
 
-            // Check if speaker was active during this chunk - if so, mic is likely just echo
-            // This check can be disabled via settings to test if AEC alone is sufficient
-            if skip_mic_on_speaker_energy {
-                let spk_energy = pipeline.accumulated_spk_energy();
-                if spk_energy > speaker_energy_threshold {
-                    info!(
-                        "Skipping mic transcription - speaker was active (energy={:.4} > threshold={:.4}, {:.2}s of audio)",
-                        spk_energy,
-                        speaker_energy_threshold,
-                        pipeline.accumulated_mic_len() as f32 / 16000.0
-                    );
-                    // Clear mic buffer but don't transcribe
-                    pipeline.take_with_overlap(OVERLAP_SAMPLES);
-                    mic_has_samples = false;
-                    continue; // Skip to next loop iteration
-                }
-            }
-
             let start_ms =
                 mic_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
 
             // Apply AEC to the accumulated chunk (both streams now available and aligned)
             pipeline.apply_aec_to_accumulated();
 
-            // Take mic audio with overlap for context continuity
-            let (mic_audio, _spk_audio) = pipeline.take_with_overlap(OVERLAP_SAMPLES);
+            // Take mic audio with time-windowed speaker energy filtering
+            // This zeros out mic portions where speaker was active, preserving user speech in gaps
+            let mic_audio = if skip_mic_on_speaker_energy {
+                const WINDOW_MS: usize = 200; // 200ms windows for fine-grained filtering
+                let (filtered_mic, windows_zeroed) = pipeline.take_filtered_mic(
+                    speaker_energy_threshold,
+                    WINDOW_MS,
+                    OVERLAP_SAMPLES,
+                );
+
+                // If all windows were zeroed, skip transcription entirely
+                let total_windows = (filtered_mic.len().saturating_sub(1) / (WINDOW_MS * 16) + 1).max(1);
+                if windows_zeroed == total_windows && total_windows > 1 {
+                    info!(
+                        "Skipping mic transcription - all {} windows had speaker activity",
+                        total_windows
+                    );
+                    mic_has_samples = false;
+                    mic_chunk_start = Instant::now();
+                    continue;
+                }
+
+                filtered_mic
+            } else {
+                // AEC only mode - take mic audio without speaker energy filtering
+                let (mic, _spk) = pipeline.take_with_overlap(OVERLAP_SAMPLES);
+                mic
+            };
 
             let audio_len = mic_audio.len();
             match tm.transcribe_chunk(mic_audio) {
