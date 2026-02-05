@@ -84,10 +84,14 @@ fn build_console_filter() -> env_filter::Filter {
                     err
                 );
                 builder.filter_level(log::LevelFilter::Info);
+                // Suppress noisy whisper/ggml logs by default
+                builder.filter_module("whisper_rs", log::LevelFilter::Warn);
             }
         }
         _ => {
             builder.filter_level(log::LevelFilter::Info);
+            // Suppress noisy whisper/ggml logs by default
+            builder.filter_module("whisper_rs", log::LevelFilter::Warn);
         }
     }
 
@@ -225,6 +229,9 @@ fn trigger_update_check(app: AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Install whisper logging hooks to route C++ logs through Rust's log crate
+    whisper_rs::install_logging_hooks();
+
     // Parse console logging directives from RUST_LOG, falling back to info-level logging
     // when the variable is unset
     let console_filter = build_console_filter();
