@@ -992,7 +992,7 @@ export function NoteView({
       </div>
 
       {/* Floating recording panel — always show for any note */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex items-stretch gap-2">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex items-end gap-2">
         <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
           {/* Expandable area — transcript or chat */}
           {panelOpen && (
