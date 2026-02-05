@@ -396,6 +396,14 @@ pub async fn run_session_transcription_loop(
                 mic
             };
 
+            // Skip transcription if mic audio is silent (prevents hallucinations)
+            if is_silence(&mic_audio) {
+                info!("Skipping mic transcription - audio is silent");
+                mic_has_samples = false;
+                mic_chunk_start = Instant::now();
+                continue;
+            }
+
             let audio_len = mic_audio.len();
             match tm.transcribe_chunk(mic_audio) {
                 Ok(text) => {
