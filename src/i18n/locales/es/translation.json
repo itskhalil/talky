@@ -391,5 +391,10 @@
   },
   "overlay": {
     "transcribing": "Transcribiendo..."
+  },
+  "sessions": {
+    "chat": {
+      "whatDidIMiss": "¿Qué me perdí?"
+    }
   }
 }
