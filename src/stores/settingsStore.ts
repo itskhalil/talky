@@ -115,6 +115,8 @@ const settingUpdaters: {
     commands.changeWordSuggestionsEnabled(value as boolean),
   speaker_energy_threshold: (value) =>
     commands.changeSpeakerEnergyThresholdSetting(value as number),
+  skip_mic_on_speaker_energy: (value) =>
+    commands.changeSkipMicOnSpeakerEnergySetting(value as boolean),
 };
 
 export const useSettingsStore = create<SettingsStore>()(
