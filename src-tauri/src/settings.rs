@@ -253,6 +253,8 @@ pub struct AppSettings {
     pub word_suggestions_enabled: bool,
     #[serde(default = "default_speaker_energy_threshold")]
     pub speaker_energy_threshold: f32,
+    #[serde(default = "default_skip_mic_on_speaker_energy")]
+    pub skip_mic_on_speaker_energy: bool,
 }
 
 fn default_word_suggestions_enabled() -> bool {
@@ -261,6 +263,10 @@ fn default_word_suggestions_enabled() -> bool {
 
 fn default_speaker_energy_threshold() -> f32 {
     0.02
+}
+
+fn default_skip_mic_on_speaker_energy() -> bool {
+    true
 }
 
 fn default_model() -> String {
@@ -520,6 +526,7 @@ pub fn get_default_settings() -> AppSettings {
         dismissed_suggestions: Vec::new(),
         word_suggestions_enabled: true,
         speaker_energy_threshold: default_speaker_energy_threshold(),
+        skip_mic_on_speaker_energy: default_skip_mic_on_speaker_energy(),
     }
 }
 

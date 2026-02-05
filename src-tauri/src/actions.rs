@@ -38,9 +38,14 @@ pub async fn run_session_transcription_loop(
     let rm = app.state::<Arc<AudioRecordingManager>>();
     let tm = app.state::<Arc<TranscriptionManager>>();
 
-    // Read speaker energy threshold setting
-    let speaker_energy_threshold = crate::settings::get_settings(&app).speaker_energy_threshold;
-    info!("Speaker energy threshold: {:.4}", speaker_energy_threshold);
+    // Read speaker energy settings
+    let settings = crate::settings::get_settings(&app);
+    let speaker_energy_threshold = settings.speaker_energy_threshold;
+    let skip_mic_on_speaker_energy = settings.skip_mic_on_speaker_energy;
+    info!(
+        "Speaker energy threshold: {:.4}, skip_mic_on_speaker_energy: {}",
+        speaker_energy_threshold, skip_mic_on_speaker_energy
+    );
 
     let aec = match crate::aec::AEC::new() {
         Ok(a) => {
@@ -357,18 +362,21 @@ pub async fn run_session_transcription_loop(
             }
 
             // Check if speaker was active during this chunk - if so, mic is likely just echo
-            let spk_energy = pipeline.accumulated_spk_energy();
-            if spk_energy > speaker_energy_threshold {
-                info!(
-                    "Skipping mic transcription - speaker was active (energy={:.4} > threshold={:.4}, {:.2}s of audio)",
-                    spk_energy,
-                    speaker_energy_threshold,
-                    pipeline.accumulated_mic_len() as f32 / 16000.0
-                );
-                // Clear mic buffer but don't transcribe
-                pipeline.take_with_overlap(OVERLAP_SAMPLES);
-                mic_has_samples = false;
-                continue; // Skip to next loop iteration
+            // This check can be disabled via settings to test if AEC alone is sufficient
+            if skip_mic_on_speaker_energy {
+                let spk_energy = pipeline.accumulated_spk_energy();
+                if spk_energy > speaker_energy_threshold {
+                    info!(
+                        "Skipping mic transcription - speaker was active (energy={:.4} > threshold={:.4}, {:.2}s of audio)",
+                        spk_energy,
+                        speaker_energy_threshold,
+                        pipeline.accumulated_mic_len() as f32 / 16000.0
+                    );
+                    // Clear mic buffer but don't transcribe
+                    pipeline.take_with_overlap(OVERLAP_SAMPLES);
+                    mic_has_samples = false;
+                    continue; // Skip to next loop iteration
+                }
             }
 
             let start_ms =
