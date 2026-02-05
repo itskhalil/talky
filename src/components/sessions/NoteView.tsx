@@ -213,7 +213,7 @@ interface ParsedLine {
 function parseBulletList(
   parsed: ParsedLine[],
   startIndex: number,
-  baseIndent: number = 0
+  baseIndent: number = 0,
 ): { node: JSONContent; endIndex: number } {
   const listItems: JSONContent[] = [];
   let i = startIndex;
@@ -329,7 +329,7 @@ export function serializeTiptapToTagged(json: JSONContent): string {
 function serializeBulletList(
   node: JSONContent,
   lines: string[],
-  depth: number
+  depth: number,
 ): void {
   if (!node.content) return;
   const indent = "  ".repeat(depth);
@@ -396,7 +396,9 @@ export function NoteView({
   const { getSetting } = useSettings();
   const copyAsBulletsEnabled = getSetting("copy_as_bullets_enabled") ?? false;
   const [panelOpen, setPanelOpen] = useState(false);
-  const [panelMode, setPanelMode] = useState<"transcript" | "chat">("transcript");
+  const [panelMode, setPanelMode] = useState<"transcript" | "chat">(
+    "transcript",
+  );
   const [titleValue, setTitleValue] = useState(session?.title ?? "");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -412,7 +414,9 @@ export function NoteView({
   const [sessionTags, setSessionTags] = useState<TagType[]>([]);
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [tagInputValue, setTagInputValue] = useState("");
-  const [localFolderId, setLocalFolderId] = useState<string | null>(session?.folder_id ?? null);
+  const [localFolderId, setLocalFolderId] = useState<string | null>(
+    session?.folder_id ?? null,
+  );
   const folderDropdownRef = useRef<HTMLDivElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
 
@@ -443,13 +447,17 @@ export function NoteView({
   // Close folder dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (folderDropdownRef.current && !folderDropdownRef.current.contains(e.target as Node)) {
+      if (
+        folderDropdownRef.current &&
+        !folderDropdownRef.current.contains(e.target as Node)
+      ) {
         setFolderDropdownOpen(false);
       }
     };
     if (folderDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [folderDropdownOpen]);
 
@@ -497,7 +505,9 @@ export function NoteView({
   };
 
   const currentFolder = folders.find((f) => f.id === localFolderId);
-  const availableTags = allTags.filter((t) => !sessionTags.some((st) => st.id === t.id));
+  const availableTags = allTags.filter(
+    (t) => !sessionTags.some((st) => st.id === t.id),
+  );
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     setActiveEditor(editor);
@@ -506,7 +516,9 @@ export function NoteView({
   const handleCopyNotes = async () => {
     let text = "";
     if (viewMode === "enhanced" && enhancedNotes) {
-      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "").replace(/\*{4}/g, "");
+      text = enhancedNotes
+        .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "")
+        .replace(/\*{4}/g, "");
     } else {
       text = userNotes;
     }
@@ -533,7 +545,9 @@ export function NoteView({
   const handleCopyAsBullets = async () => {
     let text = "";
     if (viewMode === "enhanced" && enhancedNotes) {
-      text = enhancedNotes.replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "").replace(/\*{4}/g, "");
+      text = enhancedNotes
+        .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "")
+        .replace(/\*{4}/g, "");
     } else {
       text = userNotes;
     }
@@ -688,8 +702,15 @@ export function NoteView({
     [handleChatSubmit],
   );
 
+  const handleWhatDidIMiss = useCallback(() => {
+    setPanelOpen(true);
+    setPanelMode("chat");
+    chat.handleSubmit("What did I miss?");
+  }, [chat]);
+
   const hasTranscript = transcript.length > 0;
-  const hasEnhanced = enhancedNotes != null || enhanceLoading || enhanceError != null;
+  const hasEnhanced =
+    enhancedNotes != null || enhanceLoading || enhanceError != null;
 
   return (
     <div className="flex flex-col h-full relative">
@@ -724,7 +745,11 @@ export function NoteView({
                 className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
                 title={t("sessions.copyNotes")}
               >
-                {notesCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                {notesCopied ? (
+                  <Check size={16} className="text-green-500" />
+                ) : (
+                  <Copy size={16} />
+                )}
               </button>
               {copyAsBulletsEnabled && (
                 <button
@@ -732,14 +757,21 @@ export function NoteView({
                   className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
                   title={t("sessions.copyAsBullets")}
                 >
-                  {bulletsCopied ? <Check size={16} className="text-green-500" /> : <List size={16} />}
+                  {bulletsCopied ? (
+                    <Check size={16} className="text-green-500" />
+                  ) : (
+                    <List size={16} />
+                  )}
                 </button>
               )}
             </div>
           </div>
         </div>
       )}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-4 pb-32 w-full cursor-text select-text">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-4 pb-32 w-full cursor-text select-text"
+      >
         {/* Editable title */}
         <div className="max-w-3xl mx-auto mb-6">
           <textarea
@@ -765,8 +797,17 @@ export function NoteView({
                   onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
                   className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
                 >
-                  <FolderIcon size={12} style={currentFolder?.color ? { color: currentFolder.color } : undefined} />
-                  <span>{currentFolder?.name ?? t("notes.noFolder", "Notes")}</span>
+                  <FolderIcon
+                    size={12}
+                    style={
+                      currentFolder?.color
+                        ? { color: currentFolder.color }
+                        : undefined
+                    }
+                  />
+                  <span>
+                    {currentFolder?.name ?? t("notes.noFolder", "Notes")}
+                  </span>
                   <ChevronDown size={10} />
                 </button>
                 {folderDropdownOpen && (
@@ -783,7 +824,12 @@ export function NoteView({
                         onClick={() => handleFolderSelect(folder.id)}
                         className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors flex items-center gap-2 ${localFolderId === folder.id ? "text-accent" : "text-text"}`}
                       >
-                        <FolderIcon size={12} style={folder.color ? { color: folder.color } : undefined} />
+                        <FolderIcon
+                          size={12}
+                          style={
+                            folder.color ? { color: folder.color } : undefined
+                          }
+                        />
                         {folder.name}
                       </button>
                     ))}
@@ -797,7 +843,14 @@ export function NoteView({
                   <span
                     key={tag.id}
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent-soft text-text"
-                    style={tag.color ? { backgroundColor: `${tag.color}20`, color: tag.color } : undefined}
+                    style={
+                      tag.color
+                        ? {
+                            backgroundColor: `${tag.color}20`,
+                            color: tag.color,
+                          }
+                        : undefined
+                    }
                   >
                     {tag.name}
                     <button
@@ -837,7 +890,14 @@ export function NoteView({
                               setTagInputOpen(false);
                             }}
                             className="px-1.5 py-0.5 rounded text-xs bg-accent-soft text-text-secondary hover:text-text transition-colors"
-                            style={tag.color ? { backgroundColor: `${tag.color}20`, color: tag.color } : undefined}
+                            style={
+                              tag.color
+                                ? {
+                                    backgroundColor: `${tag.color}20`,
+                                    color: tag.color,
+                                  }
+                                : undefined
+                            }
                           >
                             {tag.name}
                           </button>
@@ -859,7 +919,6 @@ export function NoteView({
           )}
         </div>
         <div className="max-w-3xl mx-auto overflow-hidden break-words">
-
           {/* Content area */}
           {hasEnhanced && viewMode === "enhanced" ? (
             <>
@@ -872,13 +931,15 @@ export function NoteView({
               {enhanceError && !enhanceLoading && (
                 <div className="text-xs pt-2">
                   <p className="text-red-400">{t("sessions.enhanceError")}</p>
-                  <p className="text-xs text-text-secondary mt-1">{enhanceError}</p>
+                  <p className="text-xs text-text-secondary mt-1">
+                    {enhanceError}
+                  </p>
                 </div>
               )}
               {enhancedJSON && !enhanceLoading && (
                 <NotesEditor
                   content=""
-                  onChange={() => { }}
+                  onChange={() => {}}
                   mode="enhanced"
                   initialJSON={enhancedJSON}
                   onJSONChange={handleEnhancedJSONChange}
@@ -898,7 +959,9 @@ export function NoteView({
               {summaryError && !summaryLoading && (
                 <div className="text-xs mb-5">
                   <p className="text-red-400">{t("sessions.summaryError")}</p>
-                  <p className="text-xs text-text-secondary mt-1">{summaryError}</p>
+                  <p className="text-xs text-text-secondary mt-1">
+                    {summaryError}
+                  </p>
                 </div>
               )}
               {summary && !summaryLoading && (
@@ -951,7 +1014,11 @@ export function NoteView({
                     className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
                     title={t("sessions.copyTranscript")}
                   >
-                    {transcriptCopied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                    {transcriptCopied ? (
+                      <Check size={12} className="text-green-500" />
+                    ) : (
+                      <Copy size={12} />
+                    )}
                   </button>
                 )}
                 {panelMode === "chat" && chat.messages.length > 0 && (
@@ -993,7 +1060,9 @@ export function NoteView({
                               data-ui
                               className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
                             >
-                              {seg.source === "mic" ? t("sessions.sourceMe") : t("sessions.sourceThem")}
+                              {seg.source === "mic"
+                                ? t("sessions.sourceMe")
+                                : t("sessions.sourceThem")}
                             </span>
                             <span className="text-xs leading-relaxed text-text">
                               {seg.text}
@@ -1010,7 +1079,8 @@ export function NoteView({
                       <MessageBubble key={i} message={msg} />
                     ))}
                     {chat.isLoading &&
-                      chat.messages[chat.messages.length - 1]?.role !== "assistant" && (
+                      chat.messages[chat.messages.length - 1]?.role !==
+                        "assistant" && (
                         <div className="flex items-center gap-1.5 text-xs text-text-secondary">
                           <Loader2 size={16} className="animate-spin" />
                           {t("sessions.chat.thinking")}
@@ -1038,9 +1108,9 @@ export function NoteView({
           )}
 
           {/* Bottom bar */}
-          <div data-ui className="flex items-center gap-2 px-3 py-2">
-            {/* Left: audio icon + chevron + stop */}
-            <div className="flex items-center gap-0.5 shrink-0">
+          <div data-ui className="flex items-center px-3 py-2">
+            {/* Section 1: Audio controls */}
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => setPanelOpen(!panelOpen)}
                 className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-green-500" : "text-text-secondary/60"}`}
@@ -1048,7 +1118,8 @@ export function NoteView({
                 {(() => {
                   const cy = 12;
                   if (isRecording) {
-                    const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
+                    const amp =
+                      Math.max(amplitude.mic, amplitude.speaker) / 1000;
                     const clamped = Math.min(Math.max(amp * 3, 0), 1);
                     const minH = 4;
                     const maxH = 16;
@@ -1057,23 +1128,74 @@ export function NoteView({
                     const h3 = minH + clamped * (maxH - minH) * 0.5;
                     return (
                       <svg width="22" height="22" viewBox="0 0 24 24">
-                        <rect x="4" y={cy - h1 / 2} width="3" height={h1} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                        <rect x="10.5" y={cy - h2 / 2} width="3" height={h2} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
-                        <rect x="17" y={cy - h3 / 2} width="3" height={h3} rx="1.5" fill="currentColor" style={{ transition: "y 0.1s ease, height 0.1s ease" }} />
+                        <rect
+                          x="4"
+                          y={cy - h1 / 2}
+                          width="3"
+                          height={h1}
+                          rx="1.5"
+                          fill="currentColor"
+                          style={{
+                            transition: "y 0.1s ease, height 0.1s ease",
+                          }}
+                        />
+                        <rect
+                          x="10.5"
+                          y={cy - h2 / 2}
+                          width="3"
+                          height={h2}
+                          rx="1.5"
+                          fill="currentColor"
+                          style={{
+                            transition: "y 0.1s ease, height 0.1s ease",
+                          }}
+                        />
+                        <rect
+                          x="17"
+                          y={cy - h3 / 2}
+                          width="3"
+                          height={h3}
+                          rx="1.5"
+                          fill="currentColor"
+                          style={{
+                            transition: "y 0.1s ease, height 0.1s ease",
+                          }}
+                        />
                       </svg>
                     );
                   }
                   return (
                     <svg width="22" height="22" viewBox="0 0 24 24">
-                      <rect x="4" y={cy - 5} width="3" height={10} rx="1.5" fill="currentColor" />
-                      <rect x="10.5" y={cy - 7} width="3" height={14} rx="1.5" fill="currentColor" />
-                      <rect x="17" y={cy - 4} width="3" height={8} rx="1.5" fill="currentColor" />
+                      <rect
+                        x="4"
+                        y={cy - 5}
+                        width="3"
+                        height={10}
+                        rx="1.5"
+                        fill="currentColor"
+                      />
+                      <rect
+                        x="10.5"
+                        y={cy - 7}
+                        width="3"
+                        height={14}
+                        rx="1.5"
+                        fill="currentColor"
+                      />
+                      <rect
+                        x="17"
+                        y={cy - 4}
+                        width="3"
+                        height={8}
+                        rx="1.5"
+                        fill="currentColor"
+                      />
                     </svg>
                   );
                 })()}
                 {panelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
-              {isRecording && (
+              {isRecording ? (
                 <button
                   onClick={onStopRecording}
                   className="p-1.5 rounded-md bg-text/8 hover:bg-text/12 transition-colors text-text-secondary/60"
@@ -1081,12 +1203,23 @@ export function NoteView({
                 >
                   <Square size={11} fill="currentColor" />
                 </button>
+              ) : (
+                <button
+                  onClick={onStartRecording}
+                  className="text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
+                >
+                  {hasTranscript
+                    ? t("sessions.resumeRecording")
+                    : t("sessions.startRecording")}
+                </button>
               )}
             </div>
 
-            {/* Center: chat input */}
+            <span className="w-px h-3.5 bg-border-strong mx-4 shrink-0" />
+
+            {/* Section 2: Chat */}
             {session && (
-              <div className="flex-1 flex items-center gap-1.5 min-w-0">
+              <div className="flex-1 flex items-center gap-2 min-w-0">
                 <input
                   ref={chatInputRef}
                   type="text"
@@ -1118,36 +1251,32 @@ export function NoteView({
                     </button>
                   )
                 )}
+                {!isRecording && hasTranscript && (
+                  <button
+                    onClick={handleWhatDidIMiss}
+                    className="hidden md:block px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent-soft transition-colors whitespace-nowrap shrink-0"
+                  >
+                    {t("sessions.chat.whatDidIMiss")}
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Right: resume / start recording / enhance */}
-            <div className="flex items-center gap-3 shrink-0">
-              {!isRecording && (
+            {/* Section 3: Enhancement */}
+            {!isRecording && hasTranscript && !enhanceLoading && (
+              <>
+                <span className="w-px h-3.5 bg-border-strong mx-4 shrink-0" />
                 <button
-                  onClick={onStartRecording}
-                  className="text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
+                  onClick={onEnhanceNotes}
+                  className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap shrink-0"
                 >
-                  {hasTranscript
-                    ? t("sessions.resumeRecording")
-                    : t("sessions.startRecording")}
+                  <Sparkles size={12} />
+                  {enhancedNotes
+                    ? t("sessions.reenhance")
+                    : t("sessions.enhanceNotes")}
                 </button>
-              )}
-              {!isRecording && hasTranscript && !enhanceLoading && (
-                <>
-                  <span className="w-px h-3.5 bg-border-strong" />
-                  <button
-                    onClick={onEnhanceNotes}
-                    className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
-                  >
-                    <Sparkles size={12} />
-                    {enhancedNotes
-                      ? t("sessions.reenhance")
-                      : t("sessions.enhanceNotes")}
-                  </button>
-                </>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1160,13 +1289,16 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed ${isUser
-          ? "bg-accent/10 text-text"
-          : "bg-background-secondary text-text"
-          }`}
+        className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed ${
+          isUser
+            ? "bg-accent/10 text-text"
+            : "bg-background-secondary text-text"
+        }`}
       >
         {isUser ? (
-          <span className="whitespace-pre-wrap select-text cursor-text">{message.content}</span>
+          <span className="whitespace-pre-wrap select-text cursor-text">
+            {message.content}
+          </span>
         ) : message.content ? (
           <div className="select-text cursor-text [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:my-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_code]:bg-background/50 [&_code]:px-1 [&_code]:rounded">
             <ReactMarkdown>{message.content}</ReactMarkdown>

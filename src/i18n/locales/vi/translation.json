@@ -392,5 +392,10 @@
   },
   "overlay": {
     "transcribing": "Đang chuyển đổi..."
+  },
+  "sessions": {
+    "chat": {
+      "whatDidIMiss": "Tôi đã bỏ lỡ gì?"
+    }
   }
 }

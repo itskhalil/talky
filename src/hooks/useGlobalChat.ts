@@ -54,8 +54,8 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
     }
   }, [options.currentNoteId]);
 
-  const handleSubmit = useCallback(async () => {
-    const trimmed = input.trim();
+  const handleSubmit = useCallback(async (messageOverride?: string) => {
+    const trimmed = (messageOverride ?? input).trim();
     if (!trimmed || isLoading) return;
 
     const settings = useSettingsStore.getState().settings;
