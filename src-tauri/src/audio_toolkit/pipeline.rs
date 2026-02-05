@@ -50,6 +50,9 @@ pub struct Pipeline {
     mic_smoothed: f32,
     spk_smoothed: f32,
     last_amplitude_emit: Instant,
+    // Track whether new samples arrived (for bursty speaker audio)
+    mic_has_new_samples: bool,
+    spk_has_new_samples: bool,
 }
 
 impl Pipeline {
@@ -80,93 +83,66 @@ impl Pipeline {
             mic_smoothed: 0.0,
             spk_smoothed: 0.0,
             last_amplitude_emit: Instant::now() - AMPLITUDE_THROTTLE,
+            mic_has_new_samples: false,
+            spk_has_new_samples: false,
         }
     }
 
     /// Push mic samples into the pipeline.
-    /// Preprocesses audio, applies AEC if available, runs VAD, and accumulates.
+    /// Accumulates raw audio for AEC processing later. VAD runs on raw audio.
+    /// Preprocessing is applied after AEC in apply_aec_to_accumulated().
     pub fn push_mic(&mut self, samples: &[f32]) {
         if samples.is_empty() {
             return;
         }
 
-        // Keep raw audio for VAD (preprocessing can affect detection)
-        let raw_samples = samples.to_vec();
+        self.mic_has_new_samples = true;
 
-        // Preprocess mic audio for transcription
-        let mut preprocessed = samples.to_vec();
-        self.mic_preprocessor.process(&mut preprocessed);
+        // VAD uses raw audio
+        self.process_vad_samples(samples);
 
-        // Apply AEC if available
-        let cleaned = if let Some(ref mut aec) = self.aec {
-            // Use accumulated speaker as reference for echo cancellation
-            let spk_ref = if self.accumulated_spk.len() >= preprocessed.len() {
-                // Use most recent speaker samples as reference
-                let start = self.accumulated_spk.len() - preprocessed.len();
-                &self.accumulated_spk[start..]
-            } else if !self.accumulated_spk.is_empty() {
-                // Pad with zeros if speaker buffer is smaller
-                &self.accumulated_spk[..]
-            } else {
-                // No speaker reference available
-                &[]
-            };
+        // Amplitude tracking uses preprocessed (for consistent display)
+        let mut for_amplitude = samples.to_vec();
+        self.mic_preprocessor.process(&mut for_amplitude);
+        self.mic_amplitude = Self::amplitude_from_chunk(&for_amplitude);
 
-            if !spk_ref.is_empty() {
-                match aec.process_streaming(&preprocessed, spk_ref) {
-                    Ok(result) => result,
-                    Err(e) => {
-                        log::warn!("AEC failed: {}", e);
-                        preprocessed
-                    }
-                }
-            } else {
-                preprocessed
-            }
-        } else {
-            preprocessed
-        };
-
-        // Update amplitude tracking
-        self.mic_amplitude = Self::amplitude_from_chunk(&cleaned);
-
-        // Process VAD for segmentation using RAW audio (preprocessing affects VAD)
-        self.process_vad_samples(&raw_samples);
-
-        // Accumulate preprocessed audio
-        self.accumulated_mic.extend_from_slice(&cleaned);
+        // Accumulate RAW audio (AEC needs unmodified samples to preserve amplitude relationship)
+        self.accumulated_mic.extend_from_slice(samples);
     }
 
     /// Push speaker samples into the pipeline.
-    /// Preprocesses and accumulates for AEC reference.
+    /// Accumulates raw audio for AEC reference. Preprocessing is applied after AEC.
     pub fn push_spk(&mut self, samples: &[f32]) {
         if samples.is_empty() {
             return;
         }
 
-        // Preprocess speaker audio
-        let mut preprocessed = samples.to_vec();
-        self.spk_preprocessor.process(&mut preprocessed);
+        self.spk_has_new_samples = true;
 
-        // Update amplitude tracking
-        self.spk_amplitude = Self::amplitude_from_chunk(&preprocessed);
+        // Amplitude tracking uses preprocessed (for consistent display)
+        let mut for_amplitude = samples.to_vec();
+        self.spk_preprocessor.process(&mut for_amplitude);
+        self.spk_amplitude = Self::amplitude_from_chunk(&for_amplitude);
 
-        // Accumulate for transcription and AEC reference
-        self.accumulated_spk.extend_from_slice(&preprocessed);
+        // Accumulate RAW audio (AEC needs unmodified samples to preserve amplitude relationship)
+        self.accumulated_spk.extend_from_slice(samples);
     }
 
     /// Poll for pipeline events.
     /// Returns the current state including whether speech ended.
     pub fn poll_event(&mut self) -> PipelineEvent {
-        // Apply smoothing for amplitude
-        self.mic_smoothed = (1.0 - Self::SMOOTHING_ALPHA) * self.mic_smoothed
-            + Self::SMOOTHING_ALPHA * self.mic_amplitude;
-        self.spk_smoothed = (1.0 - Self::SMOOTHING_ALPHA) * self.spk_smoothed
-            + Self::SMOOTHING_ALPHA * self.spk_amplitude;
-
-        // Reset amplitude after reading (they'll be updated on next push)
-        self.mic_amplitude = 0.0;
-        self.spk_amplitude = 0.0;
+        // Only apply amplitude smoothing when new samples arrived
+        // (speaker audio is bursty, so we don't want to decay to 0 between batches)
+        if self.mic_has_new_samples {
+            self.mic_smoothed = (1.0 - Self::SMOOTHING_ALPHA) * self.mic_smoothed
+                + Self::SMOOTHING_ALPHA * self.mic_amplitude;
+            self.mic_has_new_samples = false;
+        }
+        if self.spk_has_new_samples {
+            self.spk_smoothed = (1.0 - Self::SMOOTHING_ALPHA) * self.spk_smoothed
+                + Self::SMOOTHING_ALPHA * self.spk_amplitude;
+            self.spk_has_new_samples = false;
+        }
 
         let event = PipelineEvent {
             mic_speech_ended: self.speech_ended_flag,
@@ -236,6 +212,15 @@ impl Pipeline {
         self.accumulated_mic.len()
     }
 
+    /// Get RMS energy of accumulated speaker audio
+    pub fn accumulated_spk_energy(&self) -> f32 {
+        if self.accumulated_spk.is_empty() {
+            return 0.0;
+        }
+        let sum_sq: f32 = self.accumulated_spk.iter().map(|x| x * x).sum();
+        (sum_sq / self.accumulated_spk.len() as f32).sqrt()
+    }
+
     pub fn take_accumulated(&mut self, min_samples: usize) -> Option<(Vec<f32>, Vec<f32>)> {
         if self.accumulated_mic.len() >= min_samples {
             let mic = std::mem::take(&mut self.accumulated_mic);
@@ -280,9 +265,92 @@ impl Pipeline {
         self.spk_amplitude = 0.0;
         self.mic_smoothed = 0.0;
         self.spk_smoothed = 0.0;
+        self.mic_has_new_samples = false;
+        self.spk_has_new_samples = false;
         if let Some(vad) = &mut self.vad {
             vad.reset();
         }
+    }
+
+    /// Apply AEC to accumulated audio before transcription.
+    /// This is called once per chunk when both streams are aligned.
+    /// After AEC, preprocessing is applied to both mic and speaker audio.
+    pub fn apply_aec_to_accumulated(&mut self) {
+        let mic_len = self.accumulated_mic.len();
+        let spk_len = self.accumulated_spk.len();
+
+        if let Some(ref mut aec) = self.aec {
+            log::info!(
+                "AEC: mic_samples={} ({:.2}s), spk_samples={} ({:.2}s)",
+                mic_len,
+                mic_len as f32 / 16000.0,
+                spk_len,
+                spk_len as f32 / 16000.0
+            );
+
+            if spk_len == 0 {
+                log::warn!("AEC skipped: no speaker samples available");
+                // Still preprocess mic audio even without AEC
+                self.mic_preprocessor.process(&mut self.accumulated_mic);
+                return;
+            }
+            if mic_len == 0 {
+                // Preprocess speaker audio
+                self.spk_preprocessor.process(&mut self.accumulated_spk);
+                return;
+            }
+
+            // Use whichever is shorter to ensure alignment
+            let len = mic_len.min(spk_len);
+
+            // Calculate energy levels for debugging (raw audio, before normalization)
+            let mic_energy: f32 = self.accumulated_mic[..len]
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                / len as f32;
+            let spk_energy: f32 = self.accumulated_spk[..len]
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                / len as f32;
+
+            log::info!(
+                "AEC processing {} samples, mic_rms={:.4}, spk_rms={:.4}",
+                len,
+                mic_energy.sqrt(),
+                spk_energy.sqrt()
+            );
+
+            match aec.process_streaming(
+                &self.accumulated_mic[..len],
+                &self.accumulated_spk[..len],
+            ) {
+                Ok(cleaned) => {
+                    // Calculate cleaned energy
+                    let cleaned_energy: f32 =
+                        cleaned.iter().map(|x| x * x).sum::<f32>() / cleaned.len().max(1) as f32;
+                    log::info!(
+                        "AEC result: cleaned_rms={:.4}, reduction={:.1}dB",
+                        cleaned_energy.sqrt(),
+                        if mic_energy > 0.0 && cleaned_energy > 0.0 {
+                            10.0 * (mic_energy / cleaned_energy).log10()
+                        } else {
+                            0.0
+                        }
+                    );
+                    // Replace mic audio with AEC-cleaned version
+                    self.accumulated_mic.splice(..len, cleaned);
+                }
+                Err(e) => {
+                    log::warn!("AEC failed: {}", e);
+                }
+            }
+        }
+
+        // After AEC (or if no AEC), preprocess both streams for transcription
+        self.mic_preprocessor.process(&mut self.accumulated_mic);
+        self.spk_preprocessor.process(&mut self.accumulated_spk);
     }
 
     /// Get channel mode

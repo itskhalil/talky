@@ -146,3 +146,5 @@ cd src-tauri && cargo clippy --features skip-apple-intelligence
 ```
 
 This skips the Swift/xcrun compilation that gets blocked by Claude's sandbox on macOS.
+
+**Important:** Never change implementation plans to work around sandbox limitations. Ask the user to run blocked commands manually instead.

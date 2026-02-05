@@ -260,6 +260,7 @@ pub fn run() {
         commands::settings::dismiss_word_suggestion,
         commands::settings::add_word_suggestion,
         commands::settings::change_word_suggestions_enabled,
+        commands::settings::change_speaker_energy_threshold_setting,
         commands::settings::change_app_language_setting,
         commands::settings::change_update_checks_setting,
         commands::settings::set_chat_provider,

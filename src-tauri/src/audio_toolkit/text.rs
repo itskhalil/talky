@@ -147,6 +147,151 @@ const FILLER_WORDS: &[&str] = &[
 
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
 
+/// Common hallucination patterns that Whisper produces on silent/noisy audio
+static HALLUCINATION_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
+    vec![
+        // Single character or punctuation-only output
+        Regex::new(r#"^[.!?…,;:'"]+$"#).unwrap(),
+        // "Thank you" spam (common hallucination)
+        Regex::new(r#"(?i)^(thank\s*you[.!,]?\s*)+$"#).unwrap(),
+        // Repeated phrases like "Hello"
+        Regex::new(r#"(?i)^(hello[.!,]?\s*){2,}$"#).unwrap(),
+        Regex::new(r#"(?i)^(okay[.!,]?\s*){3,}$"#).unwrap(),
+        // Music/sound descriptions (shouldn't appear in speech transcription)
+        Regex::new(r#"(?i)^\[.*\]$"#).unwrap(),
+        // Subtitle artifacts
+        Regex::new(r#"(?i)^(subtitles|captions|transcribed|translated)\s*(by|:)"#).unwrap(),
+        // URL-like patterns
+        Regex::new(r#"(?i)^(www\.|https?://|\.com|\.org)"#).unwrap(),
+    ]
+});
+
+/// Detects highly repetitive text (same phrase repeated 3+ times)
+fn is_repetitive_hallucination(text: &str) -> bool {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.len() < 6 {
+        return false;
+    }
+
+    // Check for phrase repetition (2-4 word phrases)
+    for phrase_len in 2..=4 {
+        if words.len() < phrase_len * 3 {
+            continue;
+        }
+
+        let mut repetition_count = 0;
+        let mut i = 0;
+        while i + phrase_len <= words.len() {
+            let phrase: Vec<&str> = words[i..i + phrase_len].to_vec();
+            let phrase_lower: Vec<String> = phrase.iter().map(|w| w.to_lowercase()).collect();
+
+            // Count how many times this phrase repeats consecutively
+            let mut j = i + phrase_len;
+            let mut consecutive = 1;
+            while j + phrase_len <= words.len() {
+                let next_phrase: Vec<String> =
+                    words[j..j + phrase_len].iter().map(|w| w.to_lowercase()).collect();
+                if next_phrase == phrase_lower {
+                    consecutive += 1;
+                    j += phrase_len;
+                } else {
+                    break;
+                }
+            }
+
+            if consecutive >= 3 {
+                repetition_count += consecutive;
+            }
+            i = j;
+        }
+
+        // If most of the text is repetitive phrases, it's likely a hallucination
+        if repetition_count * phrase_len >= words.len() / 2 {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Checks if text matches known hallucination patterns
+pub fn is_hallucination(text: &str) -> bool {
+    let trimmed = text.trim();
+
+    // Empty or very short text
+    if trimmed.len() < 2 {
+        return true;
+    }
+
+    // Single word that's not meaningful
+    if !trimmed.contains(' ') && trimmed.len() < 3 {
+        return true;
+    }
+
+    // Check against known patterns
+    for pattern in HALLUCINATION_PATTERNS.iter() {
+        if pattern.is_match(trimmed) {
+            debug!("Hallucination pattern detected: '{}'", trimmed);
+            return true;
+        }
+    }
+
+    // Check for repetitive hallucinations
+    if is_repetitive_hallucination(trimmed) {
+        debug!("Repetitive hallucination detected: '{}'", trimmed);
+        return true;
+    }
+
+    false
+}
+
+/// Removes overlapping prefix text from a new transcription.
+/// When using audio overlap for context continuity, the beginning of the new
+/// transcription may duplicate the end of the previous transcription.
+///
+/// # Arguments
+/// * `new_text` - The newly transcribed text
+/// * `previous_text` - The previous transcription to check for overlap
+/// * `min_overlap_words` - Minimum words to consider as overlap (typically 2-3)
+///
+/// # Returns
+/// The new text with overlapping prefix removed
+pub fn remove_prefix_overlap(new_text: &str, previous_text: &str, min_overlap_words: usize) -> String {
+    let new_words: Vec<&str> = new_text.split_whitespace().collect();
+    let prev_words: Vec<&str> = previous_text.split_whitespace().collect();
+
+    if new_words.is_empty() || prev_words.is_empty() {
+        return new_text.to_string();
+    }
+
+    // Look for overlap at the end of previous_text matching start of new_text
+    // Check overlaps from longest possible to min_overlap_words
+    let max_overlap = new_words.len().min(prev_words.len()).min(10); // Limit to 10 words
+
+    for overlap_len in (min_overlap_words..=max_overlap).rev() {
+        let prev_suffix: Vec<String> = prev_words[prev_words.len() - overlap_len..]
+            .iter()
+            .map(|w| w.to_lowercase())
+            .collect();
+        let new_prefix: Vec<String> = new_words[..overlap_len]
+            .iter()
+            .map(|w| w.to_lowercase())
+            .collect();
+
+        // Check if they match (allowing for minor differences)
+        if prev_suffix == new_prefix {
+            debug!(
+                "Removed prefix overlap ({} words): '{}'",
+                overlap_len,
+                new_words[..overlap_len].join(" ")
+            );
+            return new_words[overlap_len..].join(" ");
+        }
+    }
+
+    new_text.to_string()
+}
+
 /// Collapses repeated short words (3+ repetitions) to a single instance.
 /// E.g., "wh wh wh wh" -> "wh", "I I I I" -> "I", "Yeah Yeah Yeah Yeah" -> "Yeah"
 fn collapse_stutters(text: &str) -> String {
@@ -198,19 +343,25 @@ static FILLER_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
         .collect()
 });
 
-/// Filters transcription output by removing filler words and stutter artifacts.
+/// Filters transcription output by removing filler words, stutter artifacts, and hallucinations.
 ///
 /// This function cleans up raw transcription text by:
-/// 1. Removing filler words (uh, um, hmm, etc.)
-/// 2. Collapsing repeated short word stutters (e.g., "wh wh wh" -> "wh", "Yeah Yeah Yeah" -> "Yeah")
-/// 3. Cleaning up excess whitespace
+/// 1. Detecting and rejecting hallucination patterns
+/// 2. Removing filler words (uh, um, hmm, etc.)
+/// 3. Collapsing repeated short word stutters (e.g., "wh wh wh" -> "wh", "Yeah Yeah Yeah" -> "Yeah")
+/// 4. Cleaning up excess whitespace
 ///
 /// # Arguments
 /// * `text` - The raw transcription text to filter
 ///
 /// # Returns
-/// The filtered text with filler words and stutters removed
+/// The filtered text with filler words, stutters, and hallucinations removed
 pub fn filter_transcription_output(text: &str) -> String {
+    // Early rejection of hallucinations
+    if is_hallucination(text) {
+        return String::new();
+    }
+
     let mut filtered = text.to_string();
 
     // Remove filler words
@@ -229,6 +380,11 @@ pub fn filter_transcription_output(text: &str) -> String {
 
     // Reject very short outputs (likely hallucinations from silent audio)
     if trimmed.len() < 2 {
+        return String::new();
+    }
+
+    // Final hallucination check after processing
+    if is_hallucination(trimmed) {
         return String::new();
     }
 

@@ -395,3 +395,13 @@ pub fn change_word_suggestions_enabled(app: AppHandle, enabled: bool) -> Result<
     write_settings(&app, settings);
     Ok(())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_speaker_energy_threshold_setting(app: AppHandle, threshold: f32) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    // Clamp to valid range: 0.001 to 0.5
+    settings.speaker_energy_threshold = threshold.clamp(0.001, 0.5);
+    write_settings(&app, settings);
+    Ok(())
+}

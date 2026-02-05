@@ -1,6 +1,6 @@
 use std::{
     io::Error,
-    sync::{mpsc, Arc, Mutex},
+    sync::{mpsc, Arc},
     time::Duration,
 };
 
@@ -12,13 +12,13 @@ use cpal::{
 use crate::audio_toolkit::{
     audio::{AudioVisualiser, FrameResampler},
     constants,
-    vad::{self, VadFrame},
-    VoiceActivityDetector,
 };
 
 enum Cmd {
     Start,
     Stop(mpsc::Sender<Vec<f32>>),
+    /// Take accumulated samples without stopping the stream (gap-free extraction)
+    Take(mpsc::Sender<Vec<f32>>),
     Shutdown,
 }
 
@@ -26,7 +26,6 @@ pub struct AudioRecorder {
     device: Option<Device>,
     cmd_tx: Option<mpsc::Sender<Cmd>>,
     worker_handle: Option<std::thread::JoinHandle<()>>,
-    vad: Option<Arc<Mutex<Box<dyn vad::VoiceActivityDetector>>>>,
     level_cb: Option<Arc<dyn Fn(Vec<f32>) + Send + Sync + 'static>>,
 }
 
@@ -36,14 +35,8 @@ impl AudioRecorder {
             device: None,
             cmd_tx: None,
             worker_handle: None,
-            vad: None,
             level_cb: None,
         })
-    }
-
-    pub fn with_vad(mut self, vad: Box<dyn VoiceActivityDetector>) -> Self {
-        self.vad = Some(Arc::new(Mutex::new(vad)));
-        self
     }
 
     pub fn with_level_callback<F>(mut self, cb: F) -> Self
@@ -71,7 +64,6 @@ impl AudioRecorder {
         };
 
         let thread_device = device.clone();
-        let vad = self.vad.clone();
         // Move the optional level callback into the worker thread
         let level_cb = self.level_cb.clone();
 
@@ -117,7 +109,7 @@ impl AudioRecorder {
             stream.play().expect("failed to start stream");
 
             // keep the stream alive while we process samples
-            run_consumer(sample_rate, vad, sample_rx, cmd_rx, level_cb);
+            run_consumer(sample_rate, sample_rx, cmd_rx, level_cb);
             // stream is dropped here, after run_consumer returns
         });
 
@@ -143,6 +135,18 @@ impl AudioRecorder {
             return Ok(Vec::new()); // already closed
         }
         Ok(resp_rx.recv()?) // wait for the samples
+    }
+
+    /// Take accumulated samples without stopping the stream.
+    /// This allows gap-free chunk extraction during continuous recording.
+    pub fn take(&self) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+        let (resp_tx, resp_rx) = mpsc::channel();
+        if let Some(tx) = &self.cmd_tx {
+            tx.send(Cmd::Take(resp_tx))?;
+        } else {
+            return Ok(Vec::new()); // not recording
+        }
+        Ok(resp_rx.recv()?)
     }
 
     pub fn close(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -243,7 +247,6 @@ impl AudioRecorder {
 
 fn run_consumer(
     in_sample_rate: u32,
-    vad: Option<Arc<Mutex<Box<dyn vad::VoiceActivityDetector>>>>,
     sample_rx: mpsc::Receiver<Vec<f32>>,
     cmd_rx: mpsc::Receiver<Cmd>,
     level_cb: Option<Arc<dyn Fn(Vec<f32>) + Send + Sync + 'static>>,
@@ -268,27 +271,6 @@ fn run_consumer(
         4000.0, // vocal_max_hz
     );
 
-    fn handle_frame(
-        samples: &[f32],
-        recording: bool,
-        vad: &Option<Arc<Mutex<Box<dyn vad::VoiceActivityDetector>>>>,
-        out_buf: &mut Vec<f32>,
-    ) {
-        if !recording {
-            return;
-        }
-
-        if let Some(vad_arc) = vad {
-            let mut det = vad_arc.lock().unwrap();
-            match det.push_frame(samples).unwrap_or(VadFrame::Speech(samples)) {
-                VadFrame::Speech(buf) => out_buf.extend_from_slice(buf),
-                VadFrame::Noise => {}
-            }
-        } else {
-            out_buf.extend_from_slice(samples);
-        }
-    }
-
     loop {
         let raw = match sample_rx.recv() {
             Ok(s) => s,
@@ -302,9 +284,13 @@ fn run_consumer(
             }
         }
 
-        // ---------- existing pipeline ------------------------------------ //
+        // ---------- resample and accumulate -------------------------------- //
+        // No VAD filtering here - we capture all audio and do VAD-based
+        // segmentation in the pipeline instead to avoid double-VAD issues.
         frame_resampler.push(&raw, &mut |frame: &[f32]| {
-            handle_frame(frame, recording, &vad, &mut processed_samples)
+            if recording {
+                processed_samples.extend_from_slice(frame);
+            }
         });
 
         // non-blocking check for a command
@@ -314,19 +300,25 @@ fn run_consumer(
                     processed_samples.clear();
                     recording = true;
                     visualizer.reset(); // Reset visualization buffer
-                    if let Some(v) = &vad {
-                        v.lock().unwrap().reset();
-                    }
                 }
                 Cmd::Stop(reply_tx) => {
                     recording = false;
 
                     frame_resampler.finish(&mut |frame: &[f32]| {
                         // we still want to process the last few frames
-                        handle_frame(frame, true, &vad, &mut processed_samples)
+                        processed_samples.extend_from_slice(frame);
                     });
 
                     let _ = reply_tx.send(std::mem::take(&mut processed_samples));
+                }
+                Cmd::Take(reply_tx) => {
+                    // Take accumulated samples without stopping - gap-free extraction
+                    // Recording continues, we just extract what we have so far
+                    if recording {
+                        let _ = reply_tx.send(std::mem::take(&mut processed_samples));
+                    } else {
+                        let _ = reply_tx.send(Vec::new());
+                    }
                 }
                 Cmd::Shutdown => return,
             }
