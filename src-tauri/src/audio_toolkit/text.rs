@@ -67,9 +67,14 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
             // Calculate phonetic similarity using Soundex
             let phonetic_match = soundex(&cleaned_word, custom_word_lower);
 
-            // Combine scores: favor phonetic matches, but also consider string similarity
-            let combined_score = if phonetic_match {
-                levenshtein_score * 0.3 // Give significant boost to phonetic matches
+            // Only apply phonetic boost when words are similar length.
+            // This prevents false positives like "order" -> "Ohrdruf" where
+            // phonetic similarity exists but lengths differ significantly.
+            let len_ratio = cleaned_word.len().min(custom_word_lower.len()) as f64
+                / cleaned_word.len().max(custom_word_lower.len()) as f64;
+
+            let combined_score = if phonetic_match && len_ratio > 0.8 {
+                levenshtein_score * 0.5 // Moderate boost for phonetic matches with similar length
             } else {
                 levenshtein_score
             };
@@ -711,5 +716,37 @@ mod tests {
             0.75,
             500
         ));
+    }
+
+    #[test]
+    fn test_rejects_common_word_to_different_length_custom() {
+        // "order" (5 chars) should NOT become "Ohrdruf" (7 chars)
+        // Length ratio 5/7 = 0.71 < 0.8, so phonetic boost doesn't apply
+        let result = apply_custom_words("we placed an order", &vec!["Ohrdruf".to_string()], 0.21);
+        assert_eq!(result, "we placed an order");
+    }
+
+    #[test]
+    fn test_rejects_argument_to_arcane() {
+        // "argument" (8 chars) should NOT become "ARCANE" (6 chars)
+        // Length ratio 6/8 = 0.75 < 0.8, so phonetic boost doesn't apply
+        let result = apply_custom_words("valid argument", &vec!["ARCANE".to_string()], 0.21);
+        assert_eq!(result, "valid argument");
+    }
+
+    #[test]
+    fn test_matches_similar_length_typo() {
+        // "ordruuf" (7 chars) SHOULD become "Ohrdruf" (7 chars)
+        // Length ratio 7/7 = 1.0 > 0.8, phonetic boost applies
+        let result = apply_custom_words("meeting in ordruuf", &vec!["Ohrdruf".to_string()], 0.21);
+        assert_eq!(result, "meeting in Ohrdruf");
+    }
+
+    #[test]
+    fn test_matches_arcain_to_arcane() {
+        // "arcain" (6 chars) SHOULD become "ARCANE" (6 chars)
+        // Length ratio 6/6 = 1.0 > 0.8, phonetic boost applies
+        let result = apply_custom_words("the arcain system", &vec!["ARCANE".to_string()], 0.21);
+        assert_eq!(result, "the ARCANE system");
     }
 }
