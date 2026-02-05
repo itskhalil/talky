@@ -254,6 +254,90 @@ impl Pipeline {
         (mic, spk)
     }
 
+    /// Take mic audio with time-windowed speaker energy filtering.
+    /// Divides audio into windows and zeros out mic windows where speaker energy exceeded threshold.
+    /// Returns filtered mic audio and clears accumulated buffers (keeping overlap).
+    ///
+    /// # Arguments
+    /// * `threshold` - RMS energy threshold above which speaker is considered active
+    /// * `window_ms` - Window size in milliseconds (e.g., 200ms)
+    /// * `overlap_samples` - Number of samples to keep for context continuity
+    ///
+    /// # Returns
+    /// Filtered mic audio with speaker-active portions zeroed, and the number of windows zeroed
+    pub fn take_filtered_mic(
+        &mut self,
+        threshold: f32,
+        window_ms: usize,
+        overlap_samples: usize,
+    ) -> (Vec<f32>, usize) {
+        const SAMPLE_RATE: usize = 16000;
+        let window_samples = (window_ms * SAMPLE_RATE) / 1000;
+
+        let mic = std::mem::take(&mut self.accumulated_mic);
+        let spk = std::mem::take(&mut self.accumulated_spk);
+
+        // Keep overlap for next chunk
+        if mic.len() > overlap_samples {
+            self.accumulated_mic = mic[mic.len() - overlap_samples..].to_vec();
+        }
+        if spk.len() > overlap_samples {
+            self.accumulated_spk = spk[spk.len() - overlap_samples..].to_vec();
+        }
+
+        // If no speaker audio, return mic as-is
+        if spk.is_empty() {
+            return (mic, 0);
+        }
+
+        let mut filtered = mic.clone();
+        let mut windows_zeroed = 0;
+        let num_windows = mic.len().saturating_sub(1) / window_samples + 1;
+
+        for i in 0..num_windows {
+            let mic_start = i * window_samples;
+            let mic_end = ((i + 1) * window_samples).min(mic.len());
+
+            // Calculate corresponding speaker window
+            // Speaker audio may be shorter or longer, so clamp indices
+            let spk_start = mic_start.min(spk.len());
+            let spk_end = mic_end.min(spk.len());
+
+            if spk_end > spk_start {
+                // Calculate RMS energy for this speaker window
+                let spk_window = &spk[spk_start..spk_end];
+                let sum_sq: f32 = spk_window.iter().map(|x| x * x).sum();
+                let rms = (sum_sq / spk_window.len() as f32).sqrt();
+
+                if rms > threshold {
+                    // Zero out this mic window (speaker was active)
+                    for sample in &mut filtered[mic_start..mic_end] {
+                        *sample = 0.0;
+                    }
+                    windows_zeroed += 1;
+                    log::debug!(
+                        "Window {}/{}: speaker active (rms={:.4} > {:.4}), zeroing mic",
+                        i + 1,
+                        num_windows,
+                        rms,
+                        threshold
+                    );
+                }
+            }
+        }
+
+        if windows_zeroed > 0 {
+            log::info!(
+                "Windowed filtering: zeroed {}/{} windows ({:.0}% of audio)",
+                windows_zeroed,
+                num_windows,
+                (windows_zeroed as f32 / num_windows as f32) * 100.0
+            );
+        }
+
+        (filtered, windows_zeroed)
+    }
+
     pub fn reset(&mut self) {
         self.mic_preprocessor.reset();
         self.spk_preprocessor.reset();
