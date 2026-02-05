@@ -8,7 +8,7 @@
   --color-background-sidebar: #edeae3;
   --color-background-ui: #7a7a5f;
   --color-accent: #5c5c42;
-  --color-accent-soft: rgba(107, 107, 86, 0.12);
+  --color-accent-soft: #e7e5e0;
   --color-border: rgba(0, 0, 0, 0.06);
   --color-border-strong: rgba(0, 0, 0, 0.1);
   --color-logo-primary: #7a7a5f;
@@ -53,7 +53,7 @@
     --color-background-sidebar: #24231f;
     --color-background-ui: #8b8b73;
     --color-accent: #a3a38a;
-    --color-accent-soft: rgba(163, 163, 138, 0.12);
+    --color-accent-soft: #393830;
     --color-border: rgba(255, 255, 255, 0.06);
     --color-border-strong: rgba(255, 255, 255, 0.1);
     --color-logo-primary: #a3a38a;
