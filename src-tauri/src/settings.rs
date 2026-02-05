@@ -163,7 +163,7 @@ pub enum FontSize {
 
 impl Default for FontSize {
     fn default() -> Self {
-        FontSize::Medium
+        FontSize::Large
     }
 }
 
