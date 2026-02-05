@@ -713,7 +713,7 @@ export function NoteView({
   const handleWhatDidIMiss = useCallback(() => {
     setPanelOpen(true);
     setPanelMode("chat");
-    chat.handleSubmit("What did I miss?");
+    chat.handleSubmit("Briefly summarize just the last 2 minutes of the transcript.");
   }, [chat]);
 
   const hasTranscript = transcript.length > 0;
@@ -1259,7 +1259,7 @@ export function NoteView({
                     </button>
                   )
                 )}
-                {!isRecording && hasTranscript && (
+                {hasTranscript && (
                   <button
                     onClick={handleWhatDidIMiss}
                     className="hidden md:block px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent-soft transition-colors whitespace-nowrap shrink-0"
