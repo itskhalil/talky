@@ -22,8 +22,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     try {
       const result = await commands.getAvailableModels();
       if (result.status === "ok") {
-        // Only show downloadable models for onboarding
-        setAvailableModels(result.data.filter((m) => !m.is_downloaded));
+        // Only show downloadable Whisper models for onboarding
+        // (Parakeet/Moonshine are not currently working)
+        setAvailableModels(
+          result.data.filter(
+            (m) => !m.is_downloaded && m.engine_type === "Whisper"
+          )
+        );
       } else {
         setError(t("onboarding.errors.loadModels"));
       }
@@ -55,7 +60,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   };
 
   const getRecommendedBadge = (modelId: string): boolean => {
-    return modelId === "parakeet-tdt-0.6b-v3";
+    return modelId === "turbo";
   };
 
   return (
