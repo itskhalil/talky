@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -6,13 +7,18 @@ import { listen } from "@tauri-apps/api/event";
 import { ProgressBar } from "../shared";
 import { useSettings } from "../../hooks/useSettings";
 
-interface UpdateCheckerProps {
-  className?: string;
+export interface UseUpdateCheckerReturn {
+  isChecking: boolean;
+  updateAvailable: boolean;
+  isInstalling: boolean;
+  downloadProgress: number;
+  showUpToDate: boolean;
+  updateChecksEnabled: boolean;
+  checkForUpdates: () => void;
+  installUpdate: () => Promise<void>;
 }
 
-const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
-  const { t } = useTranslation();
-  // Update checking state
+export const useUpdateChecker = (): UseUpdateCheckerReturn => {
   const [isChecking, setIsChecking] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
@@ -28,37 +34,7 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const downloadedBytesRef = useRef(0);
   const contentLengthRef = useRef(0);
 
-  useEffect(() => {
-    // Wait for settings to load before doing anything
-    if (!settingsLoaded) return;
-
-    if (!updateChecksEnabled) {
-      if (upToDateTimeoutRef.current) {
-        clearTimeout(upToDateTimeoutRef.current);
-      }
-      setIsChecking(false);
-      setUpdateAvailable(false);
-      setShowUpToDate(false);
-      return;
-    }
-
-    checkForUpdates();
-
-    // Listen for update check events
-    const updateUnlisten = listen("check-for-updates", () => {
-      handleManualUpdateCheck();
-    });
-
-    return () => {
-      if (upToDateTimeoutRef.current) {
-        clearTimeout(upToDateTimeoutRef.current);
-      }
-      updateUnlisten.then((fn) => fn());
-    };
-  }, [settingsLoaded, updateChecksEnabled]);
-
-  // Update checking functions
-  const checkForUpdates = async () => {
+  const checkForUpdatesInternal = async () => {
     if (!updateChecksEnabled || isChecking) return;
 
     try {
@@ -89,10 +65,37 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
     }
   };
 
+  useEffect(() => {
+    if (!settingsLoaded) return;
+
+    if (!updateChecksEnabled) {
+      if (upToDateTimeoutRef.current) {
+        clearTimeout(upToDateTimeoutRef.current);
+      }
+      setIsChecking(false);
+      setUpdateAvailable(false);
+      setShowUpToDate(false);
+      return;
+    }
+
+    checkForUpdatesInternal();
+
+    const updateUnlisten = listen("check-for-updates", () => {
+      handleManualUpdateCheck();
+    });
+
+    return () => {
+      if (upToDateTimeoutRef.current) {
+        clearTimeout(upToDateTimeoutRef.current);
+      }
+      updateUnlisten.then((fn) => fn());
+    };
+  }, [settingsLoaded, updateChecksEnabled]);
+
   const handleManualUpdateCheck = () => {
     if (!updateChecksEnabled) return;
     isManualCheckRef.current = true;
-    checkForUpdates();
+    checkForUpdatesInternal();
   };
 
   const installUpdate = async () => {
@@ -139,6 +142,35 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
     }
   };
 
+  return {
+    isChecking,
+    updateAvailable,
+    isInstalling,
+    downloadProgress,
+    showUpToDate,
+    updateChecksEnabled,
+    checkForUpdates: handleManualUpdateCheck,
+    installUpdate,
+  };
+};
+
+interface UpdateCheckerProps {
+  className?: string;
+}
+
+const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
+  const { t } = useTranslation();
+  const {
+    isChecking,
+    updateAvailable,
+    isInstalling,
+    downloadProgress,
+    showUpToDate,
+    updateChecksEnabled,
+    checkForUpdates,
+    installUpdate,
+  } = useUpdateChecker();
+
   // Update status functions
   const getUpdateStatusText = () => {
     if (!updateChecksEnabled) {
@@ -162,8 +194,7 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const getUpdateStatusAction = () => {
     if (!updateChecksEnabled) return undefined;
     if (updateAvailable && !isInstalling) return installUpdate;
-    if (!isChecking && !isInstalling && !updateAvailable)
-      return handleManualUpdateCheck;
+    if (!isChecking && !isInstalling && !updateAvailable) return checkForUpdates;
     return undefined;
   };
 
