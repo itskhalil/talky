@@ -112,6 +112,10 @@
     "title": "Settings",
     "general": {
       "title": "General",
+      "updateBanner": {
+        "message": "A new version is available",
+        "install": "Install Update"
+      },
       "language": {
         "title": "Language",
         "description": "Select the language for speech recognition. Auto will automatically determine the language, while selecting a specific language can improve accuracy for that language.",
@@ -484,6 +488,11 @@
     "generateSummary": "Generate Summary",
     "enhanceNotes": "Enhance Notes",
     "reenhance": "Re-enhance",
+    "transcriptReady": "Transcript updated",
+    "deleteConfirmTitle": "Delete Note?",
+    "deleteConfirmMessage": "Are you sure you want to delete this note? This can't be undone.",
+    "reenhanceWarningTitle": "Regenerate Notes?",
+    "reenhanceWarningMessage": "You've edited these notes. Regenerating notes will replace any edits you've made, and this can't be undone.",
     "yourNotes": "Your Notes",
     "enhancedNotes": "Enhanced Notes",
     "enhancing": "Enhancing notes...",
@@ -544,7 +553,8 @@
     "off": "Off",
     "yes": "Yes",
     "no": "No",
-    "noOptionsFound": "No options found"
+    "noOptionsFound": "No options found",
+    "continue": "Continue"
   },
   "errors": {
     "loadDirectory": "Error loading directory: {{error}}"

@@ -9,6 +9,7 @@ import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
 import { PostProcessingSettingsApi } from "../PostProcessingSettingsApi";
 import { ChatSettings } from "../ChatSettings";
+import { UpdateBanner } from "../../update-checker";
 
 export const GeneralSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ export const GeneralSettings: React.FC = () => {
   const showLanguageSelector = currentModelInfo?.engine_type === "Whisper";
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
+      <UpdateBanner />
       <SettingsGroup title={t("settings.appearance.title")}>
         <FontSizeSetting descriptionMode="tooltip" grouped />
       </SettingsGroup>
