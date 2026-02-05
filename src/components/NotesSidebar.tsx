@@ -361,7 +361,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               <button
                 onClick={() => selectFolder(null)}
                 className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                  selectedFolderId === null ? "bg-accent-soft text-accent" : "text-text hover:bg-accent-soft"
+                  selectedFolderId === null ? "bg-accent/10 text-accent" : "text-text hover:bg-accent-soft"
                 }`}
               >
                 <FolderOpen size={16} />
@@ -373,7 +373,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 <div
                   key={folder.id}
                   className={`group relative flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
-                    selectedFolderId === folder.id ? "bg-accent-soft text-accent" : "text-text hover:bg-accent-soft"
+                    selectedFolderId === folder.id ? "bg-accent/10 text-accent" : "text-text hover:bg-accent-soft"
                   }`}
                   onClick={() => selectFolder(folder.id)}
                 >
@@ -409,7 +409,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   onClick={() => toggleTagFilter(tag.id)}
                   className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
                     selectedTagIds.includes(tag.id)
-                      ? "bg-accent text-white"
+                      ? "bg-background-ui text-white"
                       : "bg-accent-soft text-text hover:bg-accent/20"
                   }`}
                   style={tag.color && !selectedTagIds.includes(tag.id) ? { backgroundColor: `${tag.color}20`, color: tag.color } : undefined}
@@ -454,7 +454,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                       <div
                         key={session.id}
                         className={`group flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                          isSelected ? "bg-accent-soft" : "hover:bg-accent-soft"
+                          isSelected ? "bg-accent/10" : "hover:bg-accent-soft"
                         }`}
                         onClick={() => onSelect(session.id)}
                       >
