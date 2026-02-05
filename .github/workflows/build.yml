@@ -73,6 +73,13 @@ jobs:
       - name: Add Rust target
         run: rustup target add ${{ inputs.target }}
 
+      - name: Set ARM64 whisper.cpp build flags
+        if: inputs.target == 'aarch64-apple-darwin'
+        run: |
+          echo "GGML_NATIVE=OFF" >> $GITHUB_ENV
+          echo "CMAKE_C_FLAGS=-march=armv8.5-a" >> $GITHUB_ENV
+          echo "CMAKE_CXX_FLAGS=-march=armv8.5-a" >> $GITHUB_ENV
+
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
         env:
