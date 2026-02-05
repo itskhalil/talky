@@ -163,6 +163,12 @@ static HALLUCINATION_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
         Regex::new(r#"(?i)^(subtitles|captions|transcribed|translated)\s*(by|:)"#).unwrap(),
         // URL-like patterns
         Regex::new(r#"(?i)^(www\.|https?://|\.com|\.org)"#).unwrap(),
+        // Single "thank you" and multilingual equivalents (common Whisper silence hallucinations)
+        Regex::new(r#"(?i)^(thank\s*you|thanks|gracias|merci|danke|grazie|obrigado|obrigada|спасибо|ありがとう|謝謝|감사합니다)[.!,]?$"#).unwrap(),
+        // Goodbye variants
+        Regex::new(r#"(?i)^(bye|goodbye|bye-bye|adios|ciao|au revoir)[.!,]?$"#).unwrap(),
+        // Common single-word hallucinations
+        Regex::new(r#"(?i)^(yes|no|yeah|yep|nope|hmm|huh|oh|ah)[.!,]?$"#).unwrap(),
     ]
 });
 
