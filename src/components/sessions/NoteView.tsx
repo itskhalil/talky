@@ -1091,6 +1091,7 @@ export function NoteView({
                   ref={chatInputRef}
                   type="text"
                   data-ui
+                  data-chat-input
                   value={chat.input}
                   onChange={(e) => chat.setInput(e.target.value)}
                   onKeyDown={handleChatKeyDown}
