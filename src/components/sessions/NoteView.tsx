@@ -713,7 +713,7 @@ export function NoteView({
   const handleWhatDidIMiss = useCallback(() => {
     setPanelOpen(true);
     setPanelMode("chat");
-    chat.handleSubmit("Briefly summarize just the last 2 minutes of the transcript.");
+    chat.handleSubmit("I lost focus for a moment during this meeting. Quickly scan the latest portion of the transcript and get me back on track.\n- Skip any preamble and go straight to the summary\n- Only cover what was just discussed, not earlier topics\n- Keep it to 1-3 bullet points max\n- Avoid using direct quotes\n- Make sure to include the last thing that was said\n- Be brief—I need to rejoin the conversation seamlessly");
   }, [chat]);
 
   const hasTranscript = transcript.length > 0;
@@ -1259,7 +1259,7 @@ export function NoteView({
                     </button>
                   )
                 )}
-                {hasTranscript && (
+                {isRecording && hasTranscript && (
                   <button
                     onClick={handleWhatDidIMiss}
                     className="hidden md:block px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent-soft transition-colors whitespace-nowrap shrink-0"
@@ -1311,6 +1311,7 @@ export function NoteView({
 }
 
 function MessageBubble({ message }: { message: ChatMessage }) {
+  const { t } = useTranslation();
   const isUser = message.role === "user";
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -1330,7 +1331,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             <ReactMarkdown>{message.content}</ReactMarkdown>
           </div>
         ) : (
-          <Loader2 size={16} className="animate-spin text-text-secondary" />
+          <div className="flex items-center gap-1.5 text-text-secondary">
+            <Loader2 size={16} className="animate-spin" />
+            {t("sessions.chat.thinking")}
+          </div>
         )}
       </div>
     </div>
