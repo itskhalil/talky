@@ -972,7 +972,7 @@ export function NoteView({
               </div>
 
               {/* Panel content */}
-              <div className="max-h-64 overflow-y-auto px-5 pt-2 pb-2">
+              <div className="max-h-64 overflow-y-auto px-5 pt-2 pb-2 select-text">
                 {panelMode === "transcript" ? (
                   <>
                     {transcript.length === 0 ? (
@@ -985,13 +985,13 @@ export function NoteView({
                           <div key={seg.id} className="flex gap-3 text-xs">
                             <span
                               data-ui
-                              className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums"
+                              className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums select-none"
                             >
                               {formatMs(seg.start_ms)}
                             </span>
                             <span
                               data-ui
-                              className={`text-xs shrink-0 pt-0.5 w-8 ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
+                              className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
                             >
                               {seg.source === "mic" ? t("sessions.sourceMe") : t("sessions.sourceThem")}
                             </span>
