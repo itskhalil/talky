@@ -370,7 +370,7 @@ pub async fn run_session_transcription_loop(
             // Take mic audio with time-windowed speaker energy filtering
             // This zeros out mic portions where speaker was active, preserving user speech in gaps
             let mic_audio = if skip_mic_on_speaker_energy {
-                const WINDOW_MS: usize = 200; // 200ms windows for fine-grained filtering
+                const WINDOW_MS: usize = 400; // 400ms windows for speaker energy filtering
                 let (filtered_mic, windows_zeroed) = pipeline.take_filtered_mic(
                     speaker_energy_threshold,
                     WINDOW_MS,
