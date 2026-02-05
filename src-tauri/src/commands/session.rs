@@ -177,7 +177,7 @@ pub async fn generate_session_summary(
             .await?
             .ok_or_else(|| "LLM returned no content".to_string())?;
 
-    sm.save_meeting_notes(&session_id, None, None, None, None, Some(result.clone()))
+    sm.save_meeting_notes(&session_id, None, None, None, None, Some(result.clone()), Some(false))
         .map_err(|e| e.to_string())?;
 
     Ok(result)
@@ -449,6 +449,7 @@ pub fn save_meeting_notes(
         decisions,
         user_notes,
         None,
+        None,
     )
     .map_err(|e| e.to_string())
 }
@@ -457,7 +458,7 @@ pub fn save_meeting_notes(
 #[specta::specta]
 pub fn save_user_notes(app: AppHandle, session_id: String, notes: String) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
-    sm.save_meeting_notes(&session_id, None, None, None, Some(notes), None)
+    sm.save_meeting_notes(&session_id, None, None, None, Some(notes), None, None)
         .map_err(|e| e.to_string())
 }
 
@@ -469,7 +470,7 @@ pub fn save_enhanced_notes(
     notes: String,
 ) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
-    sm.save_meeting_notes(&session_id, None, None, None, None, Some(notes))
+    sm.save_meeting_notes(&session_id, None, None, None, None, Some(notes), Some(true))
         .map_err(|e| e.to_string())
 }
 

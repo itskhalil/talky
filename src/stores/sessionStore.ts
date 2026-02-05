@@ -205,7 +205,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         transcript,
         userNotes: meetingNotes?.user_notes ?? "",
         enhancedNotes,
-        enhancedNotesEdited: false,
+        enhancedNotesEdited: meetingNotes?.enhanced_notes_edited ?? false,
         summary: meetingNotes?.summary || null,
         loadedAt: Date.now(),
       };
