@@ -5,10 +5,11 @@ import { useSettings } from "../hooks/useSettings";
 import {
   GeneralSettings,
   DebugSettings,
+  KeyboardShortcutsSettings,
   AboutSettings,
 } from "./settings";
 
-type SettingsTab = "general" | "debug" | "about";
+type SettingsTab = "general" | "debug" | "keyboard" | "about";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -26,6 +27,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
       labelKey: "sidebar.debug",
       enabled: settings?.debug_mode ?? false,
     },
+    { id: "keyboard", labelKey: "sidebar.keyboard", enabled: true },
     { id: "about", labelKey: "sidebar.about", enabled: true },
   ];
 
@@ -66,6 +68,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
         <div className="flex flex-col items-center p-4 gap-4">
           {activeTab === "general" && <GeneralSettings />}
           {activeTab === "debug" && <DebugSettings />}
+          {activeTab === "keyboard" && <KeyboardShortcutsSettings />}
           {activeTab === "about" && <AboutSettings />}
         </div>
       </div>

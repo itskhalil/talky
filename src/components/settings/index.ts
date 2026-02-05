@@ -1,6 +1,7 @@
 // Settings section components
 export { GeneralSettings } from "./general/GeneralSettings";
 export { DebugSettings } from "./debug/DebugSettings";
+export { KeyboardShortcutsSettings } from "./keyboard/KeyboardShortcutsSettings";
 export { AboutSettings } from "./about/AboutSettings";
 
 // Individual setting components
