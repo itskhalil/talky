@@ -12,6 +12,7 @@
     "postProcessing": "Post Process",
     "history": "History",
     "debug": "Debug",
+    "keyboard": "Shortcuts",
     "about": "About",
     "chat": "Chat"
   },
@@ -373,6 +374,21 @@
         "large": "Large"
       }
     },
+    "keyboard": {
+      "title": "Keyboard Shortcuts",
+      "actions": {
+        "newNote": "Create new note",
+        "search": "Search",
+        "focusChat": "Chat",
+        "openSettings": "Open settings",
+        "notesView": "Switch to notes view",
+        "enhancedView": "Switch to enhanced view",
+        "find": "Find in note",
+        "toggleDebug": "Toggle debug mode",
+        "navigateNotes": "Navigate notes",
+        "escape": "Close / deselect"
+      }
+    },
     "about": {
       "title": "About",
       "version": {
@@ -490,7 +506,8 @@
       "send": "Send",
       "thinking": "Thinking...",
       "chatTab": "Chat",
-      "transcriptTab": "Transcript"
+      "transcriptTab": "Transcript",
+      "whatDidIMiss": "What did I miss?"
     }
   },
   "footer": {
