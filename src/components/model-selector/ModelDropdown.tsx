@@ -35,9 +35,11 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
   onError,
 }) => {
   const { t } = useTranslation();
-  const availableModels = models.filter((m) => m.is_downloaded);
-  const downloadableModels = models.filter((m) => !m.is_downloaded);
-  const isFirstRun = availableModels.length === 0 && models.length > 0;
+  // Only show Whisper models (Parakeet/Moonshine are not currently working)
+  const whisperModels = models.filter((m) => m.engine_type === "Whisper");
+  const availableModels = whisperModels.filter((m) => m.is_downloaded);
+  const downloadableModels = whisperModels.filter((m) => !m.is_downloaded);
+  const isFirstRun = availableModels.length === 0 && whisperModels.length > 0;
 
   const handleDeleteClick = async (e: React.MouseEvent, modelId: string) => {
     e.preventDefault();
@@ -184,7 +186,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
                   <div>
                     <div className="text-sm">
                       {getTranslatedModelName(model, t)}
-                      {model.id === "parakeet-tdt-0.6b-v3" && isFirstRun && (
+                      {model.id === "turbo" && isFirstRun && (
                         <span className="ml-2 text-xs bg-logo-primary/20 text-logo-primary px-1.5 py-0.5 rounded">
                           {t("onboarding.recommended")}
                         </span>
