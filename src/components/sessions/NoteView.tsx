@@ -992,7 +992,7 @@ export function NoteView({
       </div>
 
       {/* Floating recording panel — always show for any note */}
-      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex gap-2 ${panelOpen ? "items-end" : "items-stretch"}`}>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex gap-2 items-end">
         <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
           {/* Expandable area — transcript or chat */}
           {panelOpen && (
@@ -1116,7 +1116,7 @@ export function NoteView({
           )}
 
           {/* Bottom bar */}
-          <div data-ui className="flex items-center px-3 py-2.5">
+          <div data-ui className="flex items-center px-3 h-[50px]">
             {/* Section 1: Audio controls */}
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -1284,7 +1284,7 @@ export function NoteView({
                 onEnhanceNotes();
               }
             }}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-background border border-border-strong rounded-2xl shadow-sm hover:bg-accent-soft transition-colors text-xs font-medium text-accent shrink-0"
+            className="flex items-center gap-1.5 px-4 h-[50px] bg-background border border-border-strong rounded-2xl shadow-sm hover:bg-accent-soft transition-colors text-xs font-medium text-accent shrink-0"
           >
             <Sparkles size={14} />
             {enhancedNotes ? t("sessions.reenhance") : t("sessions.enhanceNotes")}
