@@ -50,6 +50,9 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const enhanceLoading = useEnhanceLoading();
   const enhanceError = useEnhanceError();
   const viewMode = useSessionStore((s) => s.viewMode);
+  const showEnhancePrompt = useSessionStore((s) =>
+    s.selectedSessionId ? s.showEnhancePrompt[s.selectedSessionId] ?? false : false
+  );
 
   const session = useSelectedSession();
   const transcript = useTranscript();
@@ -70,6 +73,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     setEnhancedNotes,
     generateSummary,
     enhanceNotes,
+    dismissEnhancePrompt,
     setViewMode,
     cleanup,
   } = useSessionStore.getState();
@@ -221,7 +225,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             onStopRecording={stopRecording}
             onGenerateSummary={generateSummary}
             enhancedNotes={enhancedNotes}
+            enhancedNotesEdited={selectedCache?.enhancedNotesEdited ?? false}
+            showEnhancePrompt={showEnhancePrompt}
             onEnhanceNotes={enhanceNotes}
+            onDismissEnhancePrompt={() => dismissEnhancePrompt(selectedSessionId)}
             enhanceLoading={enhanceLoading}
             enhanceError={enhanceError}
             viewMode={viewMode}

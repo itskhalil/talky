@@ -35,6 +35,7 @@ interface SessionCache {
   transcript: TranscriptSegment[];
   userNotes: string;
   enhancedNotes: string | null;
+  enhancedNotesEdited: boolean; // true if user edited after AI generation
   summary: string | null;
   loadedAt: number;
 }
@@ -110,6 +111,7 @@ interface SessionStore {
   summaryError: string | null;
   enhanceLoading: Record<string, boolean>;
   enhanceError: Record<string, string | null>;
+  showEnhancePrompt: Record<string, boolean>;
   viewMode: "notes" | "enhanced";
 
   // Actions
@@ -125,6 +127,7 @@ interface SessionStore {
   setEnhancedNotes: (tagged: string) => void;
   generateSummary: () => Promise<void>;
   enhanceNotes: () => Promise<void>;
+  dismissEnhancePrompt: (sessionId: string) => void;
   setViewMode: (mode: "notes" | "enhanced") => void;
   selectNextSession: () => void;
   selectPreviousSession: () => void;
@@ -154,6 +157,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   summaryError: null,
   enhanceLoading: {},
   enhanceError: {},
+  showEnhancePrompt: {},
   viewMode: "enhanced",
 
   _saveTimers: new Map(),
@@ -201,6 +205,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         transcript,
         userNotes: meetingNotes?.user_notes ?? "",
         enhancedNotes,
+        enhancedNotesEdited: false,
         summary: meetingNotes?.summary || null,
         loadedAt: Date.now(),
       };
@@ -215,6 +220,10 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           }
           if (prev.summary && !entry.summary) {
             entry.summary = prev.summary;
+          }
+          // Preserve the edited flag if we preserved the enhanced notes
+          if (prev.enhancedNotesEdited) {
+            entry.enhancedNotesEdited = prev.enhancedNotesEdited;
           }
         }
         const newCache = { ...s.cache, [sessionId]: entry };
@@ -438,15 +447,18 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }),
     );
 
-    // Listen for transcription flush complete to trigger enhancement
+    // Listen for transcription flush complete to show enhancement prompt
     unlisteners.push(
       await listen<string>("transcription-flush-complete", (event) => {
-        const { selectedSessionId, enhanceNotes, cache } = get();
-        // Only auto-enhance if this session is still selected and has a transcript
-        if (event.payload === selectedSessionId) {
+        const { selectedSessionId, cache } = get();
+        const sessionId = event.payload;
+        // Only show prompt if this session is still selected and has a transcript
+        if (sessionId === selectedSessionId) {
           const transcript = cache[selectedSessionId]?.transcript;
           if (transcript && transcript.length > 0) {
-            enhanceNotes();
+            set((s) => ({
+              showEnhancePrompt: { ...s.showEnhancePrompt, [sessionId]: true },
+            }));
           }
         }
       }),
@@ -484,6 +496,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             transcript: [],
             userNotes: "",
             enhancedNotes: null,
+            enhancedNotesEdited: false,
             summary: null,
             loadedAt: Date.now(),
           },
@@ -633,14 +646,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     // Get old enhanced notes for correction detection
     const oldEnhancedNotes = cache[selectedSessionId]?.enhancedNotes;
 
-    // Update cache immediately
+    // Update cache immediately and mark as edited by user
     set((s) => {
       const existing = s.cache[selectedSessionId];
       if (!existing) return s;
       return {
         cache: {
           ...s.cache,
-          [selectedSessionId]: { ...existing, enhancedNotes: tagged },
+          [selectedSessionId]: { ...existing, enhancedNotes: tagged, enhancedNotesEdited: true },
         },
       };
     });
@@ -710,11 +723,15 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     if (!selectedSessionId) return;
     const sessionId = selectedSessionId; // Capture for closure
 
-    set((s) => ({
-      enhanceLoading: { ...s.enhanceLoading, [sessionId]: true },
-      enhanceError: { ...s.enhanceError, [sessionId]: null },
-      viewMode: "enhanced" as const,
-    }));
+    set((s) => {
+      const { [sessionId]: _, ...restPrompt } = s.showEnhancePrompt;
+      return {
+        enhanceLoading: { ...s.enhanceLoading, [sessionId]: true },
+        enhanceError: { ...s.enhanceError, [sessionId]: null },
+        showEnhancePrompt: restPrompt,
+        viewMode: "enhanced" as const,
+      };
+    });
 
     try {
       console.log("[enhanceNotes] sending sessionId:", sessionId);
@@ -733,7 +750,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
           cache: {
             ...s.cache,
-            [sessionId]: { ...existing, enhancedNotes: result },
+            [sessionId]: { ...existing, enhancedNotes: result, enhancedNotesEdited: false },
           },
         };
       });
@@ -744,6 +761,13 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         enhanceError: { ...s.enhanceError, [sessionId]: String(e) },
       }));
     }
+  },
+
+  dismissEnhancePrompt: (sessionId: string) => {
+    set((s) => {
+      const { [sessionId]: _, ...rest } = s.showEnhancePrompt;
+      return { showEnhancePrompt: rest };
+    });
   },
 
   setViewMode: (mode) => set({ viewMode: mode }),

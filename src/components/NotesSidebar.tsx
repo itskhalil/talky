@@ -6,6 +6,7 @@ import { Plus, Trash2, Settings, Search, PanelLeftClose, FolderIcon, FolderOpen,
 import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { commands } from "@/bindings";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface Session {
   id: string;
@@ -98,6 +99,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const [searchResults, setSearchResults] = useState<Session[] | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isAddingFolder, setIsAddingFolder] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [sessionTagsMap, setSessionTagsMap] = useState<Record<string, string[]>>({});
   const [foldersExpanded, setFoldersExpanded] = useState(true);
   const [notesExpanded, setNotesExpanded] = useState(true);
@@ -477,7 +479,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onDelete(session.id);
+                            setDeleteConfirmId(session.id);
                           }}
                           className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
                         >
@@ -613,6 +615,21 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           </button>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        title={t("sessions.deleteConfirmTitle")}
+        message={t("sessions.deleteConfirmMessage")}
+        variant="danger"
+        onConfirm={() => {
+          if (deleteConfirmId) {
+            onDelete(deleteConfirmId);
+          }
+          setDeleteConfirmId(null);
+        }}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
     </div>
   );
 };
