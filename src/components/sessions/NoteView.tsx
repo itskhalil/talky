@@ -25,6 +25,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { JSONContent, Editor } from "@tiptap/core";
 import type { Tag as TagType } from "@/bindings";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface Session {
   id: string;
@@ -56,6 +57,8 @@ interface NoteViewProps {
   summaryLoading: boolean;
   summaryError: string | null;
   enhancedNotes: string | null;
+  enhancedNotesEdited: boolean;
+  showEnhancePrompt: boolean;
   onNotesChange: (notes: string) => void;
   onEnhancedNotesChange?: (tagged: string) => void;
   onTitleChange: (title: string) => void;
@@ -63,6 +66,7 @@ interface NoteViewProps {
   onStopRecording: () => void;
   onGenerateSummary: () => void;
   onEnhanceNotes: () => void;
+  onDismissEnhancePrompt: () => void;
   enhanceLoading: boolean;
   enhanceError: string | null;
   viewMode: "notes" | "enhanced";
@@ -378,6 +382,8 @@ export function NoteView({
   summaryLoading,
   summaryError,
   enhancedNotes,
+  enhancedNotesEdited,
+  showEnhancePrompt,
   onNotesChange,
   onEnhancedNotesChange,
   onTitleChange,
@@ -385,6 +391,7 @@ export function NoteView({
   onStopRecording,
   onGenerateSummary,
   onEnhanceNotes,
+  onDismissEnhancePrompt,
   enhanceLoading,
   enhanceError,
   viewMode,
@@ -396,6 +403,7 @@ export function NoteView({
   const { getSetting } = useSettings();
   const copyAsBulletsEnabled = getSetting("copy_as_bullets_enabled") ?? false;
   const [panelOpen, setPanelOpen] = useState(false);
+  const [showReenhanceWarning, setShowReenhanceWarning] = useState(false);
   const [panelMode, setPanelMode] = useState<"transcript" | "chat">(
     "transcript",
   );
@@ -984,8 +992,8 @@ export function NoteView({
       </div>
 
       {/* Floating recording panel — always show for any note */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4">
-        <div className="bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex items-stretch gap-2">
+        <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
           {/* Expandable area — transcript or chat */}
           {panelOpen && (
             <div className="border-b border-border">
@@ -1262,24 +1270,42 @@ export function NoteView({
               </div>
             )}
 
-            {/* Section 3: Enhancement */}
-            {!isRecording && hasTranscript && !enhanceLoading && (
-              <>
-                <span className="w-px h-3.5 bg-border-strong mx-4 shrink-0" />
-                <button
-                  onClick={onEnhanceNotes}
-                  className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap shrink-0"
-                >
-                  <Sparkles size={12} />
-                  {enhancedNotes
-                    ? t("sessions.reenhance")
-                    : t("sessions.enhanceNotes")}
-                </button>
-              </>
-            )}
           </div>
         </div>
+
+        {/* Enhance/Re-enhance button */}
+        {!isRecording && hasTranscript && !enhanceLoading && (
+          <button
+            onClick={() => {
+              if (enhancedNotes && enhancedNotesEdited) {
+                setShowReenhanceWarning(true);
+              } else {
+                onDismissEnhancePrompt();
+                onEnhanceNotes();
+              }
+            }}
+            className="flex items-center gap-1.5 px-4 bg-background border border-border-strong rounded-2xl shadow-sm hover:bg-accent-soft transition-colors text-xs font-medium text-accent shrink-0"
+          >
+            <Sparkles size={14} />
+            {enhancedNotes ? t("sessions.reenhance") : t("sessions.enhanceNotes")}
+          </button>
+        )}
       </div>
+
+      {/* Re-enhance warning dialog */}
+      <ConfirmDialog
+        open={showReenhanceWarning}
+        title={t("sessions.reenhanceWarningTitle")}
+        message={t("sessions.reenhanceWarningMessage")}
+        confirmLabel={t("common.continue")}
+        variant="warning"
+        onConfirm={() => {
+          setShowReenhanceWarning(false);
+          onDismissEnhancePrompt();
+          onEnhanceNotes();
+        }}
+        onCancel={() => setShowReenhanceWarning(false)}
+      />
     </div>
   );
 }
