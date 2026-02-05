@@ -1,6 +1,6 @@
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::transcription::TranscriptionManager;
-use log::{debug, error};
+use log::{debug, error, info};
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::AppHandle;
@@ -10,10 +10,11 @@ use tauri::Manager;
 #[cfg(target_os = "macos")]
 use crate::mic_detect;
 
-const POLL_INTERVAL_MS: u64 = 500;
-const MIN_CHUNK_SAMPLES: usize = 32000; // 2s at 16kHz — reduces stuttering from short chunks
-const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe
-const SILENCE_FLUSH_POLLS: u32 = 4; // 4 polls of silence (~2s) → flush pending audio
+const POLL_INTERVAL_MS: u64 = 250; // Faster polling for responsive VAD-based triggers
+const MIN_CHUNK_SAMPLES: usize = 16000; // 1s minimum at 16kHz
+const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe (safety net)
+const OVERLAP_SAMPLES: usize = 3200; // 200ms overlap at 16kHz for context continuity
+const SPK_SILENCE_FLUSH_POLLS: u32 = 8; // 8 polls of silence (~2s at 250ms) → flush speaker audio
 const WHISPER_RATE: usize = 16000;
 
 /// Runs the session transcription loop, processing audio from mic and speaker channels.
@@ -28,8 +29,8 @@ pub async fn run_session_transcription_loop(
     time_offset_ms: i64,
 ) {
     use crate::audio_toolkit::pipeline::{ChannelMode, Pipeline};
-    use crate::audio_toolkit::text::is_duplicate_segment;
-    use crate::audio_toolkit::vad::{SileroVad, SmoothedVad};
+    use crate::audio_toolkit::text::{is_duplicate_segment, remove_prefix_overlap};
+    use crate::audio_toolkit::vad::SileroVad;
     use crate::managers::session::{SessionAmplitudeEvent, SessionManager};
     use tokio::time::{interval, Duration};
 
@@ -48,21 +49,17 @@ pub async fn run_session_transcription_loop(
         }
     };
 
-    // Initialize VAD for filtering residual echo on mic channel
+    // Initialize VAD for segmentation (does NOT filter audio, only detects speech transitions)
     let vad: Option<Box<dyn crate::audio_toolkit::VoiceActivityDetector>> =
         match app.path().resolve(
             "resources/models/silero_vad_v4.onnx",
             tauri::path::BaseDirectory::Resource,
         ) {
-            Ok(vad_path) => match SileroVad::new(&vad_path, 0.5) {
+            Ok(vad_path) => match SileroVad::new(&vad_path, 0.15) {
                 Ok(silero) => {
                     log::info!("VAD initialized successfully");
-                    Some(Box::new(SmoothedVad::new(
-                        Box::new(silero),
-                        1, // prefill_frames: ~30ms context (reduced from 3 to avoid stuttering)
-                        5, // hangover_frames: ~150ms after speech ends
-                        2, // onset_frames: require 2 consecutive voice frames
-                    )))
+                    // SileroVad now has built-in smoothing (onset_frames=2, hangover_frames=5)
+                    Some(Box::new(silero))
                 }
                 Err(e) => {
                     log::warn!(
@@ -88,15 +85,19 @@ pub async fn run_session_transcription_loop(
         ChannelMode::MicAndSpeaker,
     );
 
+    // Reset transcript context for new session
+    tm.reset_context();
+
     let session_start = Instant::now();
     let mut tick = interval(Duration::from_millis(POLL_INTERVAL_MS));
     let mut pending_spk_samples: Vec<f32> = Vec::new();
-    let mut mic_silent_polls: u32 = 0;
     let mut spk_silent_polls: u32 = 0;
     let mut mic_chunk_start: Instant = session_start;
     let mut spk_chunk_start: Instant = session_start;
     // Track whether we have any mic samples accumulated in the pipeline
     let mut mic_has_samples = false;
+    // Track previous mic transcription for prefix overlap removal
+    let mut previous_mic_text = String::new();
 
     // Meeting app detection: track meeting apps that use the mic during recording
     #[cfg(target_os = "macos")]
@@ -127,20 +128,19 @@ pub async fn run_session_transcription_loop(
             if rm.is_recording() {
                 let final_chunk = rm.take_session_chunk();
                 if !final_chunk.is_empty() {
-                    pipeline.push_mic_samples(&final_chunk);
+                    pipeline.push_mic(&final_chunk);
                 }
             }
 
             // Flush remaining speaker audio
             let final_spk = sm.take_speaker_samples();
             if !final_spk.is_empty() {
-                pipeline.push_spk_samples(&final_spk);
+                pipeline.push_spk(&final_spk);
                 pending_spk_samples.extend_from_slice(&final_spk);
             }
 
-            // Process remaining pairs through AEC
-            let pairs = pipeline.flush();
-            pipeline.process_pairs(pairs);
+            // Poll final pipeline state
+            pipeline.poll_event();
 
             // Transcribe remaining speaker first (so we can dedupe mic against it)
             if !pending_spk_samples.is_empty() {
@@ -172,7 +172,7 @@ pub async fn run_session_transcription_loop(
                                         &seg.text,
                                         seg.start_ms,
                                         seg.end_ms,
-                                        0.60, // similarity threshold (lowered for stricter dedup)
+                                        0.80, // similarity threshold (tighter dedup per plan)
                                         300,  // time overlap threshold in ms
                                     )
                                 })
@@ -195,15 +195,12 @@ pub async fn run_session_transcription_loop(
 
         // Poll mic samples and push into pipeline
         let new_mic = rm.take_session_chunk();
-        if new_mic.is_empty() {
-            mic_silent_polls += 1;
-        } else {
+        if !new_mic.is_empty() {
             if !mic_has_samples {
                 mic_chunk_start = Instant::now();
             }
-            mic_silent_polls = 0;
             mic_has_samples = true;
-            pipeline.push_mic_samples(&new_mic);
+            pipeline.push_mic(&new_mic);
         }
 
         // Poll speaker samples and push into pipeline
@@ -212,7 +209,7 @@ pub async fn run_session_transcription_loop(
             if pending_spk_samples.is_empty() {
                 spk_chunk_start = Instant::now();
             }
-            pipeline.push_spk_samples(&new_spk);
+            pipeline.push_spk(&new_spk);
             pending_spk_samples.extend_from_slice(&new_spk);
 
             if is_silence(&new_spk) {
@@ -224,9 +221,27 @@ pub async fn run_session_transcription_loop(
             spk_silent_polls += 1;
         }
 
-        // Flush joiner and process pairs (AEC applied per-pair inside pipeline)
-        let pairs = pipeline.flush();
-        pipeline.process_pairs(pairs);
+        // Poll pipeline for events (VAD transitions, amplitude updates)
+        let pipeline_event = pipeline.poll_event();
+
+        // Log VAD state changes (not every frame)
+        let elapsed_secs = session_start.elapsed().as_secs_f32();
+        let accumulated_secs = pipeline.accumulated_mic_len() as f32 / 16000.0;
+
+        if pipeline_event.mic_speech_ended {
+            info!(
+                "[{:.1}s] SPEECH ENDED - vad_prob={:.2}, buffered={:.1}s audio",
+                elapsed_secs, pipeline_event.mic_vad_prob, accumulated_secs
+            );
+        } else if pipeline_event.mic_is_speaking && !pipeline_event.mic_speech_ended {
+            // Only log occasionally while speaking
+            if pipeline.accumulated_mic_len() % 8000 < 500 {
+                info!(
+                    "[{:.1}s] SPEAKING - vad_prob={:.2}, buffered={:.1}s",
+                    elapsed_secs, pipeline_event.mic_vad_prob, accumulated_secs
+                );
+            }
+        }
 
         // Emit amplitude event for UI visualization
         if let Some(amp) = pipeline.get_amplitude() {
@@ -283,45 +298,71 @@ pub async fn run_session_transcription_loop(
         let now = session_start.elapsed().as_millis() as i64 + time_offset_ms;
 
         // Check if mic audio is ready to transcribe
-        let mic_should_transcribe = mic_has_samples
-            && (pipeline.accumulated_mic_len() >= MAX_CHUNK_SAMPLES
-                || (pipeline.accumulated_mic_len() >= MIN_CHUNK_SAMPLES
-                    && mic_silent_polls >= SILENCE_FLUSH_POLLS));
+        // Event-driven: trigger on VAD speech end or force-flush at 15s
+        let accumulated = pipeline.accumulated_mic_len();
+        let force_flush = accumulated >= MAX_CHUNK_SAMPLES;
+        let vad_trigger = accumulated >= MIN_CHUNK_SAMPLES && pipeline_event.mic_speech_ended;
+        let mic_should_transcribe = mic_has_samples && (force_flush || vad_trigger);
 
         if mic_should_transcribe {
+            let trigger_reason = if force_flush { "15s limit" } else { "speech ended" };
+            info!(
+                "[{:.1}s] TRANSCRIBING - {:.1}s of audio (reason: {})",
+                elapsed_secs,
+                accumulated as f32 / WHISPER_RATE as f32,
+                trigger_reason
+            );
             let start_ms =
                 mic_chunk_start.duration_since(session_start).as_millis() as i64 + time_offset_ms;
 
-            // Take only mic from pipeline; speaker is tracked separately
-            let (mic_audio, _spk_audio) = pipeline.take_all_accumulated();
+            // Take mic audio with overlap for context continuity
+            let (mic_audio, _spk_audio) = pipeline.take_with_overlap(OVERLAP_SAMPLES);
 
+            let audio_len = mic_audio.len();
             match tm.transcribe_chunk(mic_audio) {
                 Ok(text) => {
+                    info!(
+                        "Transcription result: {} samples -> '{}' ({} chars)",
+                        audio_len,
+                        if text.len() > 100 { &text[..100] } else { &text },
+                        text.len()
+                    );
                     if !text.is_empty() {
-                        // Check if this mic segment duplicates a recent speaker segment
-                        // Speaker channel is authoritative - skip mic if it's just echo
-                        let is_dup = sm
-                            .get_recent_segments(&session_id, "speaker", start_ms - 5000)
-                            .map(|segments| {
-                                segments.iter().any(|seg| {
-                                    is_duplicate_segment(
-                                        &text,
-                                        start_ms,
-                                        now,
-                                        &seg.text,
-                                        seg.start_ms,
-                                        seg.end_ms,
-                                        0.60, // similarity threshold (lowered for stricter dedup)
-                                        300,  // time overlap threshold in ms
-                                    )
-                                })
-                            })
-                            .unwrap_or(false);
-
-                        if !is_dup {
-                            let _ = sm.add_segment(&session_id, text, "mic", start_ms, now);
+                        // Remove prefix overlap from 200ms audio overlap
+                        let deduped_text = if !previous_mic_text.is_empty() {
+                            remove_prefix_overlap(&text, &previous_mic_text, 2)
                         } else {
-                            debug!("Skipping duplicate mic segment");
+                            text.clone()
+                        };
+
+                        if !deduped_text.is_empty() {
+                            // Check if this mic segment duplicates a recent speaker segment
+                            // Speaker channel is authoritative - skip mic if it's just echo
+                            let is_dup = sm
+                                .get_recent_segments(&session_id, "speaker", start_ms - 5000)
+                                .map(|segments| {
+                                    segments.iter().any(|seg| {
+                                        is_duplicate_segment(
+                                            &deduped_text,
+                                            start_ms,
+                                            now,
+                                            &seg.text,
+                                            seg.start_ms,
+                                            seg.end_ms,
+                                            0.80, // similarity threshold (tighter dedup per plan)
+                                            300,  // time overlap threshold in ms
+                                        )
+                                    })
+                                })
+                                .unwrap_or(false);
+
+                            if !is_dup {
+                                let _ = sm.add_segment(&session_id, deduped_text.clone(), "mic", start_ms, now);
+                                // Update previous text for next overlap removal
+                                previous_mic_text = text;
+                            } else {
+                                debug!("Skipping duplicate mic segment");
+                            }
                         }
                     }
                 }
@@ -329,14 +370,13 @@ pub async fn run_session_transcription_loop(
                     error!("Mic chunk transcription error: {}", e);
                 }
             }
-            mic_silent_polls = 0;
             mic_has_samples = false;
         }
 
-        // Transcribe speaker if ready
+        // Transcribe speaker if ready (energy-based silence detection)
         let spk_should_transcribe = pending_spk_samples.len() >= MAX_CHUNK_SAMPLES
             || (pending_spk_samples.len() >= MIN_CHUNK_SAMPLES
-                && spk_silent_polls >= SILENCE_FLUSH_POLLS);
+                && spk_silent_polls >= SPK_SILENCE_FLUSH_POLLS);
 
         if spk_should_transcribe {
             // Skip transcription if accumulated speaker audio is silent (prevents hallucinations like "T.")
