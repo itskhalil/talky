@@ -1156,7 +1156,7 @@ export function NoteView({
                   if (isRecording) {
                     const amp =
                       Math.max(amplitude.mic, amplitude.speaker) / 1000;
-                    const clamped = Math.min(Math.max(amp * 3, 0), 1);
+                    const clamped = Math.min(Math.max(amp * 1.5, 0), 1);
                     const minH = 4;
                     const maxH = 16;
                     const h1 = minH + clamped * (maxH - minH) * 0.7;
@@ -1315,7 +1315,7 @@ export function NoteView({
                 onEnhanceNotes();
               }
             }}
-            className="flex items-center gap-1.5 px-4 h-[50px] bg-background border border-border-strong rounded-2xl shadow-sm hover:bg-accent-soft transition-colors text-xs font-medium text-accent shrink-0"
+            className={`flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium text-accent border border-border-strong shrink-0 ${!enhancedNotes ? "bg-accent/10 hover:bg-accent/15" : "bg-background hover:bg-accent-soft"}`}
           >
             <Sparkles size={14} />
             {enhancedNotes
