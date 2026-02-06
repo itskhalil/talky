@@ -33,8 +33,7 @@ All transcription happens on your device:
 
 - Mic and speaker audio are captured and transcribed separately so you can tell who said what
 - Silence is filtered using VAD (Voice Activity Detection) with Silero
-- Transcription uses **Whisper models** (Small/Medium/Turbo/Large) with GPU acceleration when available
-- **Whisper Turbo** is recommended for the best balance of speed and accuracy
+- Transcription uses **Parakeet models**
 
 ### AI Features
 
@@ -56,7 +55,7 @@ Talky is built as a Tauri application combining:
 - **Frontend**: React + TypeScript with Tailwind CSS for the notes and settings UI
 - **Backend**: Rust for system integration, audio processing, and ML inference
 - **Core Libraries**:
-  - `transcribe-rs`: Local speech recognition with Whisper models
+  - `transcribe-rs`: Local speech recognition with Whisper and Parakeet models
   - `cpal`: Cross-platform audio I/O
   - `vad-rs`: Voice Activity Detection
   - `rubato`: Audio resampling
