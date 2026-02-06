@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import {
@@ -73,6 +73,9 @@ interface NoteViewProps {
   onViewModeChange: (mode: "notes" | "enhanced") => void;
   findBarOpen?: boolean;
   onCloseFindBar?: () => void;
+  // Streaming props
+  streamingEnhancedNotes?: string | null;
+  enhanceStreaming?: boolean;
 }
 
 function formatMs(ms: number): string {
@@ -159,7 +162,7 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
 
     // Preserve empty lines as empty paragraphs
     if (trimmed === "") {
-      nodes.push({ type: "paragraph", content: [] });
+      nodes.push({ type: "paragraph", attrs: { source }, content: [] });
       i++;
       continue;
     }
@@ -398,6 +401,8 @@ export function NoteView({
   onViewModeChange,
   findBarOpen,
   onCloseFindBar,
+  streamingEnhancedNotes,
+  enhanceStreaming,
 }: NoteViewProps) {
   const { t } = useTranslation();
   const { getSetting } = useSettings();
@@ -629,6 +634,14 @@ export function NoteView({
     }
   }, [enhancedNotes]);
 
+  // Compute streaming JSON for TipTap rendering during enhance streaming
+  const streamingJSON = useMemo(() => {
+    if (enhanceStreaming && streamingEnhancedNotes) {
+      return parseEnhancedToTiptapJSON(streamingEnhancedNotes);
+    }
+    return null;
+  }, [enhanceStreaming, streamingEnhancedNotes]);
+
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -713,12 +726,17 @@ export function NoteView({
   const handleWhatDidIMiss = useCallback(() => {
     setPanelOpen(true);
     setPanelMode("chat");
-    chat.handleSubmit("I lost focus for a moment during this meeting. Quickly scan the latest portion of the transcript and get me back on track.\n- Skip any preamble and go straight to the summary\n- Only cover what was just discussed, not earlier topics\n- Keep it to 1-3 bullet points max\n- Avoid using direct quotes\n- Make sure to include the last thing that was said\n- Be brief—I need to rejoin the conversation seamlessly");
+    chat.handleSubmit(
+      "I lost focus for a moment during this meeting. Quickly scan the latest portion of the transcript and get me back on track.\n- Skip any preamble and go straight to the summary\n- Only cover what was just discussed, not earlier topics\n- Keep it to 1-3 bullet points max\n- Avoid using direct quotes\n- Make sure to include the last thing that was said\n- Be brief—I need to rejoin the conversation seamlessly",
+    );
   }, [chat]);
 
   const hasTranscript = transcript.length > 0;
   const hasEnhanced =
-    enhancedNotes != null || enhanceLoading || enhanceError != null;
+    enhancedNotes != null ||
+    enhanceLoading ||
+    enhanceError != null ||
+    enhanceStreaming;
 
   return (
     <div className="flex flex-col h-full relative">
@@ -932,11 +950,22 @@ export function NoteView({
           {/* Content area */}
           {hasEnhanced && viewMode === "enhanced" ? (
             <>
-              {enhanceLoading && (
+              {/* Show loading spinner only before first chunk arrives */}
+              {enhanceLoading && !streamingEnhancedNotes && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary pt-2">
                   <Loader2 size={16} className="animate-spin" />
                   {t("sessions.enhancing")}
                 </div>
+              )}
+              {/* Show streaming text progressively using TipTap */}
+              {enhanceStreaming && streamingJSON && (
+                <NotesEditor
+                  content=""
+                  onChange={() => {}}
+                  mode="enhanced"
+                  disabled={true}
+                  initialJSON={streamingJSON}
+                />
               )}
               {enhanceError && !enhanceLoading && (
                 <div className="text-xs pt-2">
@@ -946,7 +975,7 @@ export function NoteView({
                   </p>
                 </div>
               )}
-              {enhancedJSON && !enhanceLoading && (
+              {enhancedJSON && !enhanceLoading && !enhanceStreaming && (
                 <NotesEditor
                   content=""
                   onChange={() => {}}
@@ -1203,7 +1232,11 @@ export function NoteView({
                     </svg>
                   );
                 })()}
-                {panelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                {panelOpen ? (
+                  <ChevronDown size={16} />
+                ) : (
+                  <ChevronUp size={16} />
+                )}
               </button>
               {isRecording ? (
                 <button
@@ -1271,7 +1304,6 @@ export function NoteView({
                 )}
               </div>
             )}
-
           </div>
         </div>
 
@@ -1289,7 +1321,9 @@ export function NoteView({
             className="flex items-center gap-1.5 px-4 h-[50px] bg-background border border-border-strong rounded-2xl shadow-sm hover:bg-accent-soft transition-colors text-xs font-medium text-accent shrink-0"
           >
             <Sparkles size={14} />
-            {enhancedNotes ? t("sessions.reenhance") : t("sessions.enhanceNotes")}
+            {enhancedNotes
+              ? t("sessions.reenhance")
+              : t("sessions.enhanceNotes")}
           </button>
         )}
       </div>
