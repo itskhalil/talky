@@ -277,8 +277,10 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
 
   return (
     <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar sidebar-gradient">
+      {/* macOS title bar drag region */}
+      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
       {/* Search bar + New Note button */}
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+      <div className="flex items-center gap-2 px-3 pt-1 pb-2">
         <div className="relative flex-1">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary" />
           <input
