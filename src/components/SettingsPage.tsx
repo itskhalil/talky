@@ -36,7 +36,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 pt-5 pb-3 border-b border-mid-gray/20">
+      <div className="flex items-center gap-3 px-6 pt-7 pb-3 border-b border-mid-gray/20">
         <button
           onClick={onBack}
           className="p-1.5 rounded-lg hover:bg-mid-gray/20 transition-colors"
