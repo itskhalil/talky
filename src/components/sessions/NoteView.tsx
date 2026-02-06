@@ -124,7 +124,7 @@ function formatNotesForLogseq(notes: string): string {
 }
 
 /**
- * Parse enhanced notes (tagged markdown with [ai]/[user] markers) into
+ * Parse enhanced notes (tagged markdown with [ai]/[noted] markers) into
  * a tiptap JSON document with `source` attributes on each block.
  */
 export function parseEnhancedToTiptapJSON(content: string): JSONContent {
@@ -134,9 +134,9 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
   // For lines without a tag (headers), inherit from next tagged line
   const parsed = lines.map((line) => {
     const isAi = /\[ai\]/.test(line);
-    const isUser = /\[user\]/.test(line);
+    const isUser = /\[noted\]/.test(line);
     const cleaned = line
-      .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "")
+      .replace(/\*{0,2}\[(?:noted|ai)\]\*{0,2} /g, "")
       .replace(/\*{4}/g, "");
     return { cleaned, isAi, isUser, hasTag: isAi || isUser };
   });
