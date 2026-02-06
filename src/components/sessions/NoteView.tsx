@@ -141,16 +141,13 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
     return { cleaned, isAi, isUser, hasTag: isAi || isUser };
   });
 
-  // Inherit source for untagged headers
+  // Inherit source for untagged lines from previous tagged line
+  let lastIsAi = false;
   for (let i = 0; i < parsed.length; i++) {
-    if (!parsed[i].hasTag && parsed[i].cleaned.trimStart().match(/^#{1,3}\s/)) {
-      for (let j = i + 1; j < parsed.length; j++) {
-        if (parsed[j].hasTag) {
-          parsed[i].isAi = parsed[j].isAi;
-          break;
-        }
-        if (parsed[j].cleaned.trim() === "") continue;
-      }
+    if (parsed[i].hasTag) {
+      lastIsAi = parsed[i].isAi;
+    } else {
+      parsed[i].isAi = lastIsAi;
     }
   }
 
