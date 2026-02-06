@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/window";
 import { StickyNote, PanelLeftOpen, Settings } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { NotesSidebar } from "../NotesSidebar";
@@ -102,6 +103,8 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
+  const wasAutoCollapsed = useRef(false);
+  const isManuallyExpanding = useRef(false);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarWidth));
@@ -111,11 +114,18 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
-  // Auto-collapse sidebar when window gets too narrow
+  // Auto-collapse/expand sidebar based on window width
   useEffect(() => {
     const handleResize = () => {
+      // Skip auto-collapse if we're in the middle of a manual expand
+      if (isManuallyExpanding.current) return;
+
       if (window.innerWidth < AUTO_COLLAPSE_THRESHOLD && !sidebarCollapsed) {
+        wasAutoCollapsed.current = true;
         setSidebarCollapsed(true);
+      } else if (window.innerWidth >= AUTO_COLLAPSE_THRESHOLD && sidebarCollapsed && wasAutoCollapsed.current) {
+        wasAutoCollapsed.current = false;
+        setSidebarCollapsed(false);
       }
     };
 
@@ -156,9 +166,40 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     [sidebarWidth],
   );
 
-  const handleDragDoubleClick = useCallback(() => {
-    setSidebarCollapsed((prev) => !prev);
+  // Handle manual sidebar expand - resize window if needed
+  const handleExpandSidebar = useCallback(async () => {
+    isManuallyExpanding.current = true;
+    wasAutoCollapsed.current = false;
+    if (window.innerWidth < AUTO_COLLAPSE_THRESHOLD) {
+      try {
+        const appWindow = getCurrentWindow();
+        const scaleFactor = await appWindow.scaleFactor();
+        const physicalSize = await appWindow.innerSize();
+        const physicalPosition = await appWindow.outerPosition();
+        const logicalWidth = physicalSize.width / scaleFactor;
+        const logicalHeight = physicalSize.height / scaleFactor;
+        const logicalX = physicalPosition.x / scaleFactor;
+        const logicalY = physicalPosition.y / scaleFactor;
+        const widthDelta = AUTO_COLLAPSE_THRESHOLD - logicalWidth;
+        // Move window left by the amount we're expanding
+        await appWindow.setPosition(new LogicalPosition(logicalX - widthDelta, logicalY));
+        await appWindow.setSize(new LogicalSize(AUTO_COLLAPSE_THRESHOLD, logicalHeight));
+      } catch (e) {
+        console.error("Failed to resize window:", e);
+      }
+    }
+    setSidebarCollapsed(false);
+    isManuallyExpanding.current = false;
   }, []);
+
+  const handleDragDoubleClick = useCallback(() => {
+    if (sidebarCollapsed) {
+      handleExpandSidebar();
+    } else {
+      wasAutoCollapsed.current = false;
+      setSidebarCollapsed(true);
+    }
+  }, [sidebarCollapsed, handleExpandSidebar]);
 
   const toggleFindBar = useCallback(() => {
     setFindBarOpen((prev) => !prev);
@@ -186,19 +227,13 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   return (
     <div className="flex h-full">
       {sidebarCollapsed ? (
-        <div className="flex flex-col items-center justify-end pb-3 px-1 border-r border-t border-border bg-background-sidebar h-full">
+        <div className="flex flex-col items-center justify-end pb-3 px-1 h-full">
           {/* macOS title bar drag region */}
           <div data-tauri-drag-region className="h-7 w-full shrink-0" />
           <div className="flex-1" />
           <div className="flex flex-col items-center gap-1">
             <button
-              onClick={onOpenSettings}
-              className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
-            >
-              <Settings size={20} />
-            </button>
-            <button
-              onClick={() => setSidebarCollapsed(false)}
+              onClick={handleExpandSidebar}
               className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
               title={t("notes.expandSidebar")}
             >
@@ -217,7 +252,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
               onNewNote={createNote}
               onDelete={deleteSession}
               onOpenSettings={onOpenSettings}
-              onCollapse={() => setSidebarCollapsed(true)}
+              onCollapse={() => {
+                wasAutoCollapsed.current = false;
+                setSidebarCollapsed(true);
+              }}
             />
           </div>
           {/* Drag handle */}
