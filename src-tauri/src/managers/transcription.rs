@@ -9,7 +9,15 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use transcribe_rs::{
+    engines::{
+        parakeet::{
+            ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
+        },
+        whisper::{WhisperEngine, WhisperInferenceParams},
+    },
+    TranscriptionEngine,
+};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ModelStateEvent {
@@ -19,97 +27,9 @@ pub struct ModelStateEvent {
     pub error: Option<String>,
 }
 
-/// Loaded whisper context with its state
-struct WhisperEngine {
-    context: WhisperContext,
-}
-
-impl WhisperEngine {
-    fn new(model_path: &std::path::Path) -> Result<Self> {
-        let params = WhisperContextParameters::default();
-        let model_path_str = model_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid model path"))?;
-        let context = WhisperContext::new_with_params(model_path_str, params)
-            .map_err(|e| anyhow::anyhow!("Failed to create whisper context: {}", e))?;
-        Ok(Self { context })
-    }
-
-    fn transcribe(
-        &self,
-        audio: &[f32],
-        language: Option<&str>,
-        translate: bool,
-        initial_prompt: Option<&str>,
-    ) -> Result<String> {
-        // Create state for this transcription
-        let mut state = self
-            .context
-            .create_state()
-            .map_err(|e| anyhow::anyhow!("Failed to create whisper state: {}", e))?;
-
-        // Configure parameters per the plan:
-        // Greedy decoding, temp=0.0, single_segment=true
-        // entropy_thold=2.4, logprob_thold=-1.0
-        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-
-        // Temperature 0 for deterministic decoding
-        params.set_temperature(0.0);
-
-        // Single segment mode for lower latency
-        params.set_single_segment(true);
-
-        // Quality thresholds to reject hallucinations
-        params.set_entropy_thold(2.4);
-        params.set_logprob_thold(-1.0);
-
-        // Suppress non-speech tokens
-        params.set_suppress_nst(true);
-
-        // Language setting
-        if let Some(lang) = language {
-            params.set_language(Some(lang));
-        } else {
-            params.set_language(None); // Auto-detect
-        }
-
-        // Translation
-        params.set_translate(translate);
-
-        // Initial prompt for context continuity (per the plan)
-        if let Some(prompt) = initial_prompt {
-            params.set_initial_prompt(prompt);
-        }
-
-        // Disable timestamps for lower latency
-        params.set_token_timestamps(false);
-
-        // Run transcription
-        state
-            .full(params, audio)
-            .map_err(|e| anyhow::anyhow!("Whisper transcription failed: {}", e))?;
-
-        // Collect segments
-        let num_segments = state.full_n_segments();
-        let mut text = String::new();
-        for i in 0..num_segments {
-            if let Some(segment) = state.get_segment(i) {
-                // Use to_str_lossy to handle any invalid UTF-8 gracefully
-                if let Ok(segment_text) = segment.to_str_lossy() {
-                    text.push_str(&segment_text);
-                    text.push(' ');
-                }
-            }
-        }
-
-        Ok(text.trim().to_string())
-    }
-}
-
 enum LoadedEngine {
     Whisper(WhisperEngine),
-    // Parakeet support removed per plan - requires parakeet-rs with ort rc.11
-    // Moonshine support removed per plan - lowest accuracy, no context mechanism
+    Parakeet(ParakeetEngine),
 }
 
 #[derive(Clone)]
@@ -218,6 +138,12 @@ impl TranscriptionManager {
 
         {
             let mut engine = self.engine.lock().unwrap();
+            if let Some(ref mut loaded_engine) = *engine {
+                match loaded_engine {
+                    LoadedEngine::Whisper(ref mut e) => e.unload_model(),
+                    LoadedEngine::Parakeet(ref mut e) => e.unload_model(),
+                }
+            }
             *engine = None; // Drop the engine to free memory
         }
         {
@@ -296,7 +222,8 @@ impl TranscriptionManager {
         // Create appropriate engine based on model type
         let loaded_engine = match model_info.engine_type {
             EngineType::Whisper => {
-                let engine = WhisperEngine::new(&model_path).map_err(|e| {
+                let mut engine = WhisperEngine::new();
+                engine.load_model(&model_path).map_err(|e| {
                     let error_msg = format!("Failed to load whisper model {}: {}", model_id, e);
                     let _ = self.app_handle.emit(
                         "model-state-changed",
@@ -312,20 +239,27 @@ impl TranscriptionManager {
                 LoadedEngine::Whisper(engine)
             }
             EngineType::Parakeet => {
-                let error_msg = "Parakeet models temporarily unavailable - use Whisper models";
-                let _ = self.app_handle.emit(
-                    "model-state-changed",
-                    ModelStateEvent {
-                        event_type: "loading_failed".to_string(),
-                        model_id: Some(model_id.to_string()),
-                        model_name: Some(model_info.name.clone()),
-                        error: Some(error_msg.to_string()),
-                    },
-                );
-                return Err(anyhow::anyhow!(error_msg));
+                let mut engine = ParakeetEngine::new();
+                engine
+                    .load_model_with_params(&model_path, ParakeetModelParams::int8())
+                    .map_err(|e| {
+                        let error_msg =
+                            format!("Failed to load parakeet model {}: {}", model_id, e);
+                        let _ = self.app_handle.emit(
+                            "model-state-changed",
+                            ModelStateEvent {
+                                event_type: "loading_failed".to_string(),
+                                model_id: Some(model_id.to_string()),
+                                model_name: Some(model_info.name.clone()),
+                                error: Some(error_msg.clone()),
+                            },
+                        );
+                        anyhow::anyhow!(error_msg)
+                    })?;
+                LoadedEngine::Parakeet(engine)
             }
             EngineType::Moonshine => {
-                let error_msg = "Moonshine models no longer supported - use Whisper models";
+                let error_msg = "Moonshine models no longer supported - use Whisper or Parakeet";
                 let _ = self.app_handle.emit(
                     "model-state-changed",
                     ModelStateEvent {
@@ -436,9 +370,9 @@ impl TranscriptionManager {
         let settings = get_settings(&self.app_handle);
 
         let result = {
-            let engine_guard = self.engine.lock().unwrap();
+            let mut engine_guard = self.engine.lock().unwrap();
             let engine = engine_guard
-                .as_ref()
+                .as_mut()
                 .ok_or_else(|| anyhow::anyhow!("Model not available for chunk transcription."))?;
 
             match engine {
@@ -463,24 +397,54 @@ impl TranscriptionManager {
                         settings.translate_to_english
                     );
 
+                    let params = WhisperInferenceParams {
+                        language: whisper_language,
+                        translate: settings.translate_to_english,
+                        ..Default::default()
+                    };
+
                     let start = std::time::Instant::now();
-                    let result = whisper_engine.transcribe(
-                        &audio,
-                        whisper_language.as_deref(),
-                        settings.translate_to_english,
-                        None,
-                    )?;
+                    let result = whisper_engine
+                        .transcribe_samples(audio, Some(params))
+                        .map_err(|e| anyhow::anyhow!("Whisper transcription failed: {}", e))?;
                     info!(
                         "Whisper transcription completed in {:?}: '{}' ({} chars)",
                         start.elapsed(),
-                        if result.len() > 80 {
-                            &result[..80]
+                        if result.text.len() > 80 {
+                            &result.text[..80]
                         } else {
-                            &result
+                            &result.text
                         },
-                        result.len()
+                        result.text.len()
                     );
-                    result
+                    result.text
+                }
+                LoadedEngine::Parakeet(parakeet_engine) => {
+                    debug!(
+                        "Calling parakeet.transcribe: {} samples",
+                        audio.len()
+                    );
+
+                    let params = ParakeetInferenceParams {
+                        timestamp_granularity: TimestampGranularity::Segment,
+                        ..Default::default()
+                    };
+
+                    let start = std::time::Instant::now();
+                    let result = parakeet_engine
+                        .transcribe_samples(audio, Some(params))
+                        .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))?;
+                    info!(
+                        "Parakeet transcription completed in {:?}: '{}' ({} chars)",
+                        start.elapsed(),
+                        if result.text.len() > 80 {
+                            &result.text[..80]
+                        } else {
+                            &result.text
+                        },
+                        result.text.len()
+                    );
+                    result.text
                 }
             }
         };
