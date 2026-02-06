@@ -1,6 +1,6 @@
 [package]
 name = "talky"
-version = "0.4.3"
+version = "0.5.0"
 description = "Talky"
 authors = ["Khalil Mair"]
 edition = "2021"
