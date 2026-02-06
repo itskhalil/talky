@@ -91,10 +91,10 @@ impl AudioPreprocessor {
         let sample_rate_f = sample_rate as f32;
         Self {
             sample_rate: sample_rate_f,
-            hpf_cutoff: 80.0,               // 80Hz high-pass to remove rumble
-            target_rms: 0.1,                // Target RMS level
+            hpf_cutoff: 80.0, // 80Hz high-pass to remove rumble
+            target_rms: 0.1,  // Target RMS level
             hpf_state: BiquadState::new_highpass(80.0, sample_rate_f, 0.707), // Butterworth Q
-            dc_alpha: 0.995,                // DC blocking filter coefficient
+            dc_alpha: 0.995,  // DC blocking filter coefficient
             dc_offset: 0.0,
         }
     }
@@ -185,7 +185,9 @@ mod tests {
     fn test_dc_removal() {
         let mut preprocessor = AudioPreprocessor::new(16000);
         // Create signal with DC offset
-        let mut samples: Vec<f32> = (0..1600).map(|i| 0.5 + 0.1 * (i as f32 * 0.1).sin()).collect();
+        let mut samples: Vec<f32> = (0..1600)
+            .map(|i| 0.5 + 0.1 * (i as f32 * 0.1).sin())
+            .collect();
         preprocessor.process(&mut samples);
         // After processing, mean should be close to 0
         let mean: f32 = samples.iter().sum::<f32>() / samples.len() as f32;
@@ -201,7 +203,8 @@ mod tests {
             .collect();
         let input_rms = (samples.iter().map(|&x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
         preprocessor.process(&mut samples);
-        let output_rms = (samples.iter().map(|&x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
+        let output_rms =
+            (samples.iter().map(|&x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
         // 40Hz should be attenuated (output RMS lower than input after normalization adjustment)
         // Since we normalize, the key is that the filter was applied
         assert!(output_rms > 0.0, "Output should not be zero");

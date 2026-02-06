@@ -20,7 +20,9 @@
 
 :root {
   --font-size-base: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+    system-ui, sans-serif;
   font-size: var(--font-size-base);
   line-height: 1.5;
   font-weight: 400;
@@ -89,7 +91,11 @@ body::before {
 
 /* Sidebar gradient background */
 .sidebar-gradient {
-  background: linear-gradient(180deg, var(--color-background-sidebar) 0%, color-mix(in srgb, var(--color-background-sidebar) 92%, black) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--color-background-sidebar) 0%,
+    color-mix(in srgb, var(--color-background-sidebar) 92%, black) 100%
+  );
 }
 
 .logo-primary {
@@ -101,7 +107,6 @@ body::before {
   stroke: var(--color-logo-stroke);
   stroke-width: 1;
 }
-
 
 /* Smooth scrollbar styling */
 ::-webkit-scrollbar {

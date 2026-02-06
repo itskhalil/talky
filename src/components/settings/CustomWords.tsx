@@ -20,7 +20,8 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
     const [newWord, setNewWord] = useState("");
     const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
     const customWords = getSetting("custom_words") || [];
-    const wordSuggestionsEnabled = getSetting("word_suggestions_enabled") ?? true;
+    const wordSuggestionsEnabled =
+      getSetting("word_suggestions_enabled") ?? true;
 
     const MAX_WORDS_PER_PHRASE = 5;
 
@@ -120,10 +121,18 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
         {/* Auto-suggestions toggle */}
         <ToggleSwitch
           checked={wordSuggestionsEnabled}
-          onChange={(enabled) => updateSetting("word_suggestions_enabled", enabled)}
+          onChange={(enabled) =>
+            updateSetting("word_suggestions_enabled", enabled)
+          }
           isUpdating={isUpdating("word_suggestions_enabled")}
-          label={t("settings.advanced.customWords.autoSuggestLabel", "Auto-suggest words")}
-          description={t("settings.advanced.customWords.autoSuggestDescription", "Suggest new words when you correct transcription errors in enhanced notes")}
+          label={t(
+            "settings.advanced.customWords.autoSuggestLabel",
+            "Auto-suggest words",
+          )}
+          description={t(
+            "settings.advanced.customWords.autoSuggestDescription",
+            "Suggest new words when you correct transcription errors in enhanced notes",
+          )}
           descriptionMode={descriptionMode}
           grouped={grouped}
         />
@@ -135,7 +144,9 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
                 {t("settings.advanced.customWords.suggestions", "Suggestions")}
-                <span className="ml-1.5 text-text-secondary">({suggestions.length})</span>
+                <span className="ml-1.5 text-text-secondary">
+                  ({suggestions.length})
+                </span>
               </span>
             </div>
             <div className="space-y-1.5">
@@ -145,23 +156,32 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
                   className="flex items-center justify-between gap-2 py-1"
                 >
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium">{suggestion.word}</span>
+                    <span className="text-sm font-medium">
+                      {suggestion.word}
+                    </span>
                     <span className="text-xs text-text-secondary ml-2">
-                      {t("settings.advanced.customWords.from", "from")} {suggestion.source_session_title}
+                      {t("settings.advanced.customWords.from", "from")}{" "}
+                      {suggestion.source_session_title}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleApproveSuggestion(suggestion.word)}
                       className="p-1 rounded hover:bg-green-500/10 text-green-600 dark:text-green-400 transition-colors"
-                      title={t("settings.advanced.customWords.approve", "Add to custom words")}
+                      title={t(
+                        "settings.advanced.customWords.approve",
+                        "Add to custom words",
+                      )}
                     >
                       <Check size={16} />
                     </button>
                     <button
                       onClick={() => handleDismissSuggestion(suggestion.word)}
                       className="p-1 rounded hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-colors"
-                      title={t("settings.advanced.customWords.dismiss", "Dismiss")}
+                      title={t(
+                        "settings.advanced.customWords.dismiss",
+                        "Dismiss",
+                      )}
                     >
                       <X size={16} />
                     </button>

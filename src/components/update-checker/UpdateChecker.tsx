@@ -194,7 +194,8 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const getUpdateStatusAction = () => {
     if (!updateChecksEnabled) return undefined;
     if (updateAvailable && !isInstalling) return installUpdate;
-    if (!isChecking && !isInstalling && !updateAvailable) return checkForUpdates;
+    if (!isChecking && !isInstalling && !updateAvailable)
+      return checkForUpdates;
     return undefined;
   };
 

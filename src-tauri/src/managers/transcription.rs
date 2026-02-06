@@ -473,7 +473,11 @@ impl TranscriptionManager {
                     info!(
                         "Whisper transcription completed in {:?}: '{}' ({} chars)",
                         start.elapsed(),
-                        if result.len() > 80 { &result[..80] } else { &result },
+                        if result.len() > 80 {
+                            &result[..80]
+                        } else {
+                            &result
+                        },
                         result.len()
                     );
                     result

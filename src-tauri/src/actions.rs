@@ -297,11 +297,7 @@ pub async fn run_session_transcription_loop(
                     // Use app name for deduplication (e.g., "Teams" not bundle ID)
                     if !notified_apps.contains(name) {
                         notified_apps.insert(name.to_string());
-                        log::info!(
-                            "Meeting app {} ({}) stopped using microphone",
-                            name,
-                            app_id
-                        );
+                        log::info!("Meeting app {} ({}) stopped using microphone", name, app_id);
 
                         // Emit event for frontend to handle (show window + toast to stop recording)
                         let _ = app.emit("meeting-ended", name);
@@ -322,7 +318,11 @@ pub async fn run_session_transcription_loop(
         let mic_should_transcribe = mic_has_samples && (force_flush || vad_trigger);
 
         if mic_should_transcribe {
-            let trigger_reason = if force_flush { "15s limit" } else { "speech ended" };
+            let trigger_reason = if force_flush {
+                "15s limit"
+            } else {
+                "speech ended"
+            };
             info!(
                 "[{:.1}s] TRANSCRIBING - {:.1}s of audio (reason: {})",
                 elapsed_secs,
@@ -350,7 +350,8 @@ pub async fn run_session_transcription_loop(
                                     &spk_text
                                 }
                             );
-                            let _ = sm.add_segment(&session_id, spk_text, "speaker", spk_start_ms, now);
+                            let _ =
+                                sm.add_segment(&session_id, spk_text, "speaker", spk_start_ms, now);
                         }
                     }
                 } else {
@@ -378,7 +379,8 @@ pub async fn run_session_transcription_loop(
                 );
 
                 // If all windows were zeroed, skip transcription entirely
-                let total_windows = (filtered_mic.len().saturating_sub(1) / (WINDOW_MS * 16) + 1).max(1);
+                let total_windows =
+                    (filtered_mic.len().saturating_sub(1) / (WINDOW_MS * 16) + 1).max(1);
                 if windows_zeroed == total_windows && total_windows > 1 {
                     info!(
                         "Skipping mic transcription - all {} windows had speaker activity",
@@ -410,7 +412,11 @@ pub async fn run_session_transcription_loop(
                     info!(
                         "Transcription result: {} samples -> '{}' ({} chars)",
                         audio_len,
-                        if text.len() > 100 { &text[..100] } else { &text },
+                        if text.len() > 100 {
+                            &text[..100]
+                        } else {
+                            &text
+                        },
                         text.len()
                     );
                     if !text.is_empty() {
@@ -443,7 +449,13 @@ pub async fn run_session_transcription_loop(
                                 .unwrap_or(false);
 
                             if !is_dup {
-                                let _ = sm.add_segment(&session_id, deduped_text.clone(), "mic", start_ms, now);
+                                let _ = sm.add_segment(
+                                    &session_id,
+                                    deduped_text.clone(),
+                                    "mic",
+                                    start_ms,
+                                    now,
+                                );
                                 // Update previous text for next overlap removal
                                 previous_mic_text = text;
                             } else {

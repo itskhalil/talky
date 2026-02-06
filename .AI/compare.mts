@@ -38,8 +38,17 @@ function main() {
   const scores1 = loadScores(dir1);
   const scores2 = loadScores(dir2);
 
-  const dims = ["voice", "density", "clarity", "readability", "additions", "tagging"];
-  const allExamples = [...new Set([...Object.keys(scores1), ...Object.keys(scores2)])].sort();
+  const dims = [
+    "voice",
+    "density",
+    "clarity",
+    "readability",
+    "additions",
+    "tagging",
+  ];
+  const allExamples = [
+    ...new Set([...Object.keys(scores1), ...Object.keys(scores2)]),
+  ].sort();
 
   console.log(`\nComparing: ${run1} → ${run2}\n`);
 
@@ -58,7 +67,9 @@ function main() {
       const delta = s1 != null && s2 != null ? s2 - s1 : NaN;
       const deltaStr = isNaN(delta) ? "?" : (delta > 0 ? "+" : "") + delta;
       if (!isNaN(delta)) deltas[d].push(delta);
-      console.log(`| ${ex} | ${d} | ${s1 ?? "?"} | ${s2 ?? "?"} | ${deltaStr} |`);
+      console.log(
+        `| ${ex} | ${d} | ${s1 ?? "?"} | ${s2 ?? "?"} | ${deltaStr} |`,
+      );
     }
   }
 
@@ -75,7 +86,9 @@ function main() {
   // Text diff hint
   console.log("\n**To diff outputs:**");
   for (const ex of allExamples) {
-    console.log(`  diff "${join(dir1, ex + ".md")}" "${join(dir2, ex + ".md")}"`);
+    console.log(
+      `  diff "${join(dir1, ex + ".md")}" "${join(dir2, ex + ".md")}"`,
+    );
   }
 }
 

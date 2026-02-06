@@ -255,9 +255,8 @@ impl HistoryManager {
         };
 
         // Get all unsaved entries older than the cutoff timestamp
-        let mut stmt = conn.prepare(
-            "SELECT id FROM transcription_history WHERE saved = 0 AND timestamp < ?1",
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT id FROM transcription_history WHERE saved = 0 AND timestamp < ?1")?;
 
         let rows = stmt.query_map(params![cutoff_timestamp], |row| row.get::<_, i64>(0))?;
 

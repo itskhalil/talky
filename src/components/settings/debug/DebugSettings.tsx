@@ -22,7 +22,10 @@ export const DebugSettings: React.FC = () => {
         <CopyAsBulletsToggle descriptionMode="tooltip" grouped={true} />
         <WordCorrectionThreshold descriptionMode="tooltip" grouped={true} />
         <SpeakerEnergyThreshold descriptionMode="tooltip" grouped={true} />
-        <SkipMicOnSpeakerEnergyToggle descriptionMode="tooltip" grouped={true} />
+        <SkipMicOnSpeakerEnergyToggle
+          descriptionMode="tooltip"
+          grouped={true}
+        />
         <ClamshellMicrophoneSelector descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
     </div>

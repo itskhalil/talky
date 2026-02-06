@@ -35,7 +35,8 @@ export const ChatSettings: React.FC = () => {
         // Always exclude Apple Intelligence from chat providers
         if (p.id === APPLE_PROVIDER_ID) return false;
         // If hide_cloud_models is enabled, show Custom and Ollama (local providers)
-        if (hideCloudModels) return p.id === "custom" || p.id === OLLAMA_PROVIDER_ID;
+        if (hideCloudModels)
+          return p.id === "custom" || p.id === OLLAMA_PROVIDER_ID;
         return true;
       }),
     [providers, hideCloudModels],
@@ -136,9 +137,7 @@ export const ChatSettings: React.FC = () => {
             isLoading={isFetchingModels}
             placeholder={
               modelOptions.length > 0
-                ? t(
-                    "settings.postProcessing.api.model.placeholderWithOptions",
-                  )
+                ? t("settings.postProcessing.api.model.placeholderWithOptions")
                 : t("settings.postProcessing.api.model.placeholderNoOptions")
             }
             onSelect={handleModelSelect}

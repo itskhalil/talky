@@ -30,6 +30,7 @@ For detailed build instructions including platform-specific requirements, see [B
 ### Local Transcription
 
 All transcription happens on your device:
+
 - Mic and speaker audio are captured and transcribed separately so you can tell who said what
 - Silence is filtered using VAD (Voice Activity Detection) with Silero
 - Transcription uses **Whisper models** (Small/Medium/Turbo/Large) with GPU acceleration when available
@@ -66,7 +67,6 @@ Talky includes a debug pane for development, troubleshooting, and advanced setti
 
 - **macOS**: `Cmd+Shift+D`
 - **Windows/Linux**: `Ctrl+Shift+D`
-
 
 ### Platform Support
 

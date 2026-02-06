@@ -26,8 +26,8 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
         // (Parakeet/Moonshine are not currently working)
         setAvailableModels(
           result.data.filter(
-            (m) => !m.is_downloaded && m.engine_type === "Whisper"
-          )
+            (m) => !m.is_downloaded && m.engine_type === "Whisper",
+          ),
         );
       } else {
         setError(t("onboarding.errors.loadModels"));

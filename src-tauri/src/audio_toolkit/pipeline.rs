@@ -406,10 +406,8 @@ impl Pipeline {
                 spk_energy.sqrt()
             );
 
-            match aec.process_streaming(
-                &self.accumulated_mic[..len],
-                &self.accumulated_spk[..len],
-            ) {
+            match aec.process_streaming(&self.accumulated_mic[..len], &self.accumulated_spk[..len])
+            {
                 Ok(cleaned) => {
                     // Calculate cleaned energy
                     let cleaned_energy: f32 =

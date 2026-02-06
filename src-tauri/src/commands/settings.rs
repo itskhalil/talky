@@ -398,7 +398,10 @@ pub fn change_word_suggestions_enabled(app: AppHandle, enabled: bool) -> Result<
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_speaker_energy_threshold_setting(app: AppHandle, threshold: f32) -> Result<(), String> {
+pub fn change_speaker_energy_threshold_setting(
+    app: AppHandle,
+    threshold: f32,
+) -> Result<(), String> {
     let mut settings = get_settings(&app);
     // Clamp to valid range: 0.001 to 0.5
     settings.speaker_energy_threshold = threshold.clamp(0.001, 0.5);
@@ -408,7 +411,10 @@ pub fn change_speaker_energy_threshold_setting(app: AppHandle, threshold: f32) -
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_skip_mic_on_speaker_energy_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+pub fn change_skip_mic_on_speaker_energy_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.skip_mic_on_speaker_energy = enabled;
     write_settings(&app, settings);
