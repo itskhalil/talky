@@ -280,13 +280,13 @@ function parseInlineContent(text: string): JSONContent[] {
   const result: JSONContent[] = [];
   for (const part of parts) {
     if (!part) continue;
-    if (part.startsWith("**") && part.endsWith("**")) {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
       result.push({
         type: "text",
         text: part.slice(2, -2),
         marks: [{ type: "bold" }],
       });
-    } else if (part.startsWith("*") && part.endsWith("*")) {
+    } else if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
       result.push({
         type: "text",
         text: part.slice(1, -1),
