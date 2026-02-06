@@ -10,15 +10,15 @@ export function setSuppressSourcePromotion(v: boolean) {
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     aiSource: {
-      setSource: (source: "ai" | "user") => ReturnType;
+      setSource: (source: "ai" | "noted") => ReturnType;
     };
   }
 }
 
 /**
- * Adds a `data-source` attribute ("ai" | "user") to paragraph, heading,
+ * Adds a `data-source` attribute ("ai" | "noted") to paragraph, heading,
  * bulletList/listItem nodes. When a user edits inside an ai-sourced block
- * the source is promoted to "user".
+ * the source is promoted to "noted".
  */
 export const AiSourceExtension = Extension.create({
   name: "aiSource",
@@ -29,11 +29,11 @@ export const AiSourceExtension = Extension.create({
         types: ["paragraph", "heading", "listItem"],
         attributes: {
           source: {
-            default: "user",
+            default: "noted",
             parseHTML: (element) =>
-              element.getAttribute("data-source") || "user",
+              element.getAttribute("data-source") || "noted",
             renderHTML: (attributes) => ({
-              "data-source": attributes.source || "user",
+              "data-source": attributes.source || "noted",
             }),
           },
         },
@@ -54,13 +54,13 @@ export const AiSourceExtension = Extension.create({
           const { tr } = newState;
           let modified = false;
 
-          // Walk through the selection range and promote any ai blocks to user
+          // Walk through the selection range and promote any ai blocks to noted
           const { from, to } = newState.selection;
           newState.doc.nodesBetween(from, to, (node, pos) => {
             if (node.attrs.source === "ai") {
               tr.setNodeMarkup(pos, undefined, {
                 ...node.attrs,
-                source: "user",
+                source: "noted",
               });
               modified = true;
             }
