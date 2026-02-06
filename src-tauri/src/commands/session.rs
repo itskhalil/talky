@@ -6,33 +6,26 @@ use crate::managers::session::{
 use crate::managers::transcription::TranscriptionManager;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
-/// Strip consecutive blank lines from model output, keeping at most one.
-/// Also removes horizontal rules (---, ***, ___).
+/// Strip all blank lines from model output.
 fn strip_model_blank_lines(input: &str) -> String {
-    let mut result = Vec::new();
-    let mut prev_blank = false;
-
-    for line in input.lines() {
-        let trimmed = line.trim();
-
-        // Skip horizontal rules
-        if trimmed.len() >= 3 && trimmed.chars().all(|c| c == '-' || c == '*' || c == '_') {
-            continue;
-        }
-
-        // Skip consecutive blank lines (keep max 1)
-        let is_blank = trimmed.is_empty() || trimmed == "[ai]" || trimmed == "[user]";
-        if is_blank && prev_blank {
-            continue;
-        }
-        prev_blank = is_blank;
-
-        result.push(line);
-    }
-
-    result.join("\n")
+    input
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            // Skip blank lines
+            if trimmed.is_empty() || trimmed == "[ai]" || trimmed == "[noted]" {
+                return false;
+            }
+            // Skip horizontal rules
+            if trimmed.len() >= 3 && trimmed.chars().all(|c| c == '-' || c == '*' || c == '_') {
+                return false;
+            }
+            true
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Force-flush any buffered audio through the transcription pipeline.

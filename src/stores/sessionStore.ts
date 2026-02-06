@@ -150,6 +150,19 @@ function detectWordCorrections(
   return corrections.slice(0, 5); // Limit to 5 suggestions per save
 }
 
+/** Strip blank lines and standalone tags from LLM-generated enhanced notes */
+function stripBlankLines(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === "[ai]" || trimmed === "[noted]") return false;
+      if (trimmed.length >= 3 && /^[-*_]+$/.test(trimmed)) return false;
+      return true;
+    })
+    .join("\n");
+}
+
 const MAX_CACHE_SIZE = 20;
 
 interface SaveTimers {
@@ -552,7 +565,9 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         if (done) {
           // Stream complete - move accumulated text to cache and clear streaming state
           set((s) => {
-            const accumulatedText = s.streamingEnhancedNotes[session_id] || "";
+            const accumulatedText = stripBlankLines(
+              s.streamingEnhancedNotes[session_id] || "",
+            );
             const existing = s.cache[session_id];
             const { [session_id]: _stream, ...restStreaming } =
               s.streamingEnhancedNotes;
@@ -576,12 +591,13 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             };
           });
         } else {
-          // Accumulate chunk
+          // Accumulate chunk, stripping blank lines in real-time
           set((s) => ({
             streamingEnhancedNotes: {
               ...s.streamingEnhancedNotes,
-              [session_id]:
+              [session_id]: stripBlankLines(
                 (s.streamingEnhancedNotes[session_id] || "") + chunk,
+              ),
             },
             enhanceStreaming: {
               ...s.enhanceStreaming,
