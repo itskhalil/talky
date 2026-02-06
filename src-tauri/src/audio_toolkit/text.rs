@@ -200,8 +200,10 @@ fn is_repetitive_hallucination(text: &str) -> bool {
             let mut j = i + phrase_len;
             let mut consecutive = 1;
             while j + phrase_len <= words.len() {
-                let next_phrase: Vec<String> =
-                    words[j..j + phrase_len].iter().map(|w| w.to_lowercase()).collect();
+                let next_phrase: Vec<String> = words[j..j + phrase_len]
+                    .iter()
+                    .map(|w| w.to_lowercase())
+                    .collect();
                 if next_phrase == phrase_lower {
                     consecutive += 1;
                     j += phrase_len;
@@ -267,7 +269,11 @@ pub fn is_hallucination(text: &str) -> bool {
 ///
 /// # Returns
 /// The new text with overlapping prefix removed
-pub fn remove_prefix_overlap(new_text: &str, previous_text: &str, min_overlap_words: usize) -> String {
+pub fn remove_prefix_overlap(
+    new_text: &str,
+    previous_text: &str,
+    min_overlap_words: usize,
+) -> String {
     let new_words: Vec<&str> = new_text.split_whitespace().collect();
     let prev_words: Vec<&str> = previous_text.split_whitespace().collect();
 

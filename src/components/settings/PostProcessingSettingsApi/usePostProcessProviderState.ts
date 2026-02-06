@@ -55,7 +55,9 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
   const providers = useMemo(() => {
     if (hideCloudModels) {
       // Show local providers: Custom and Ollama
-      return allProviders.filter((p) => p.id === "custom" || p.id === OLLAMA_PROVIDER_ID);
+      return allProviders.filter(
+        (p) => p.id === "custom" || p.id === OLLAMA_PROVIDER_ID,
+      );
     }
     return allProviders;
   }, [allProviders, hideCloudModels]);
@@ -114,7 +116,11 @@ export const usePostProcessProviderState = (): PostProcessProviderState => {
   const handleBaseUrlChange = useCallback(
     (value: string) => {
       // Allow base URL editing for Custom and Ollama providers
-      if (!selectedProvider || (selectedProvider.id !== "custom" && selectedProvider.id !== OLLAMA_PROVIDER_ID)) {
+      if (
+        !selectedProvider ||
+        (selectedProvider.id !== "custom" &&
+          selectedProvider.id !== OLLAMA_PROVIDER_ID)
+      ) {
         return;
       }
       const trimmed = value.trim();

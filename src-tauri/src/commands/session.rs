@@ -1,10 +1,39 @@
 use crate::llm_client::ChatMessage;
 use crate::managers::audio::AudioRecordingManager;
-use crate::managers::session::{Folder, MeetingNotes, Session, SessionManager, Tag, TranscriptSegment};
+use crate::managers::session::{
+    Folder, MeetingNotes, Session, SessionManager, Tag, TranscriptSegment,
+};
 use crate::managers::transcription::TranscriptionManager;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+
+/// Strip consecutive blank lines from model output, keeping at most one.
+/// Also removes horizontal rules (---, ***, ___).
+fn strip_model_blank_lines(input: &str) -> String {
+    let mut result = Vec::new();
+    let mut prev_blank = false;
+
+    for line in input.lines() {
+        let trimmed = line.trim();
+
+        // Skip horizontal rules
+        if trimmed.len() >= 3 && trimmed.chars().all(|c| c == '-' || c == '*' || c == '_') {
+            continue;
+        }
+
+        // Skip consecutive blank lines (keep max 1)
+        let is_blank = trimmed.is_empty() || trimmed == "[ai]" || trimmed == "[user]";
+        if is_blank && prev_blank {
+            continue;
+        }
+        prev_blank = is_blank;
+
+        result.push(line);
+    }
+
+    result.join("\n")
+}
 
 /// Force-flush any buffered audio through the transcription pipeline.
 /// Called before chat so the transcript is as up-to-date as possible.
@@ -177,10 +206,21 @@ pub async fn generate_session_summary(
             .await?
             .ok_or_else(|| "LLM returned no content".to_string())?;
 
-    sm.save_meeting_notes(&session_id, None, None, None, None, Some(result.clone()), Some(false))
-        .map_err(|e| e.to_string())?;
+    // Strip blank lines from model output before saving
+    let cleaned = strip_model_blank_lines(&result);
 
-    Ok(result)
+    sm.save_meeting_notes(
+        &session_id,
+        None,
+        None,
+        None,
+        None,
+        Some(cleaned.clone()),
+        Some(false),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(cleaned)
 }
 
 #[tauri::command]
@@ -191,6 +231,151 @@ pub fn get_session_summary(app: AppHandle, session_id: String) -> Result<Option<
         .get_meeting_notes(&session_id)
         .map_err(|e| e.to_string())?;
     Ok(notes.and_then(|n| n.summary))
+}
+
+/// Streaming version of generate_session_summary
+/// Emits enhance-notes-chunk events for progressive UI updates
+#[tauri::command]
+#[specta::specta]
+pub async fn generate_session_summary_stream(
+    app: AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let segments = sm
+        .get_session_transcript(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    if segments.is_empty() {
+        return Err("No transcript segments to summarize".to_string());
+    }
+
+    // Build timestamped transcript
+    let transcript_text: String = segments
+        .iter()
+        .map(|seg| {
+            let label = if seg.source == "mic" {
+                "[You]"
+            } else {
+                "[Other]"
+            };
+            format!(
+                "[{}] {}: {}",
+                format_ms_timestamp(seg.start_ms),
+                label,
+                seg.text
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Compute duration from transcript span
+    let duration = if let (Some(first), Some(last)) = (segments.first(), segments.last()) {
+        let total_ms = last.end_ms - first.start_ms;
+        let total_secs = total_ms / 1000;
+        let mins = total_secs / 60;
+        let secs = total_secs % 60;
+        format!("{}m {}s", mins, secs)
+    } else {
+        "Unknown".to_string()
+    };
+
+    // Fetch session title
+    let session_title = sm
+        .get_session(&session_id)
+        .map_err(|e| e.to_string())?
+        .map(|s| s.title)
+        .unwrap_or_default();
+
+    // Fetch user notes
+    let user_notes = sm
+        .get_meeting_notes(&session_id)
+        .map_err(|e| e.to_string())?
+        .and_then(|n| n.user_notes)
+        .unwrap_or_default();
+
+    let settings = crate::settings::get_settings(&app);
+
+    let provider = settings
+        .active_post_process_provider()
+        .ok_or_else(|| "No post-process provider configured".to_string())?
+        .clone();
+
+    let api_key = settings
+        .post_process_api_keys
+        .get(&provider.id)
+        .cloned()
+        .unwrap_or_default();
+
+    let model = settings
+        .post_process_models
+        .get(&provider.id)
+        .cloned()
+        .unwrap_or_default();
+
+    if model.is_empty() {
+        return Err("No post-process model configured".to_string());
+    }
+
+    let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
+
+    // Inject custom words into the prompt for vocabulary correction
+    if !settings.custom_words.is_empty() {
+        system_message.push_str(&format!(
+            "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
+            settings.custom_words.join(", ")
+        ));
+    }
+
+    let notes_section = if user_notes.trim().is_empty() {
+        "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].".to_string()
+    } else {
+        user_notes
+    };
+
+    let user_message = format!(
+        "## MEETING CONTEXT\nTitle: {}\nDuration: {}\n\n## USER'S NOTES\n{}\n\n## TRANSCRIPT\n{}",
+        session_title, duration, notes_section, transcript_text
+    );
+
+    let messages = vec![
+        ChatMessage {
+            role: "system".to_string(),
+            content: system_message,
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: user_message,
+        },
+    ];
+
+    // Use streaming API
+    let result = crate::llm_client::stream_chat_completion_messages(
+        &app,
+        &session_id,
+        &provider,
+        api_key,
+        &model,
+        messages,
+    )
+    .await?;
+
+    // Strip blank lines from model output before saving
+    let cleaned = strip_model_blank_lines(&result);
+
+    // Save the complete result to database
+    sm.save_meeting_notes(
+        &session_id,
+        None,
+        None,
+        None,
+        None,
+        Some(cleaned),
+        Some(false),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 /// Create a new session (Note) without starting recording.
@@ -488,7 +673,11 @@ pub fn get_user_notes(app: AppHandle, session_id: String) -> Result<Option<Strin
 
 #[tauri::command]
 #[specta::specta]
-pub fn create_folder(app: AppHandle, name: String, color: Option<String>) -> Result<Folder, String> {
+pub fn create_folder(
+    app: AppHandle,
+    name: String,
+    color: Option<String>,
+) -> Result<Folder, String> {
     let sm = app.state::<Arc<SessionManager>>();
     sm.create_folder(name, color).map_err(|e| e.to_string())
 }
@@ -581,7 +770,11 @@ pub fn get_tags(app: AppHandle) -> Result<Vec<Tag>, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn add_tag_to_session(app: AppHandle, session_id: String, tag_id: String) -> Result<(), String> {
+pub fn add_tag_to_session(
+    app: AppHandle,
+    session_id: String,
+    tag_id: String,
+) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
     sm.add_tag_to_session(&session_id, &tag_id)
         .map_err(|e| e.to_string())

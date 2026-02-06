@@ -783,6 +783,18 @@ async generateSessionSummary(sessionId: string) : Promise<Result<string, string>
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Streaming version of generate_session_summary
+ * Emits enhance-notes-chunk events for progressive UI updates
+ */
+async generateSessionSummaryStream(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("generate_session_summary_stream", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getSessionSummary(sessionId: string) : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_session_summary", { sessionId }) };

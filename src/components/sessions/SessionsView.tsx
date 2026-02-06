@@ -1,6 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/window";
+import {
+  getCurrentWindow,
+  LogicalSize,
+  LogicalPosition,
+} from "@tauri-apps/api/window";
 import { StickyNote, PanelLeftOpen, Settings } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { NotesSidebar } from "../NotesSidebar";
@@ -15,6 +19,8 @@ import {
   useSelectedCache,
   useEnhanceLoading,
   useEnhanceError,
+  useStreamingEnhancedNotes,
+  useEnhanceStreaming,
 } from "@/stores/sessionStore";
 
 interface SessionsViewProps {
@@ -54,9 +60,13 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const summaryError = useSessionStore((s) => s.summaryError);
   const enhanceLoading = useEnhanceLoading();
   const enhanceError = useEnhanceError();
+  const streamingEnhancedNotes = useStreamingEnhancedNotes();
+  const enhanceStreaming = useEnhanceStreaming();
   const viewMode = useSessionStore((s) => s.viewMode);
   const showEnhancePrompt = useSessionStore((s) =>
-    s.selectedSessionId ? s.showEnhancePrompt[s.selectedSessionId] ?? false : false
+    s.selectedSessionId
+      ? (s.showEnhancePrompt[s.selectedSessionId] ?? false)
+      : false,
   );
 
   const session = useSelectedSession();
@@ -95,7 +105,9 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    return stored ? Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, Number(stored))) : SIDEBAR_DEFAULT;
+    return stored
+      ? Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, Number(stored)))
+      : SIDEBAR_DEFAULT;
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
@@ -123,7 +135,11 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       if (window.innerWidth < AUTO_COLLAPSE_THRESHOLD && !sidebarCollapsed) {
         wasAutoCollapsed.current = true;
         setSidebarCollapsed(true);
-      } else if (window.innerWidth >= AUTO_COLLAPSE_THRESHOLD && sidebarCollapsed && wasAutoCollapsed.current) {
+      } else if (
+        window.innerWidth >= AUTO_COLLAPSE_THRESHOLD &&
+        sidebarCollapsed &&
+        wasAutoCollapsed.current
+      ) {
         wasAutoCollapsed.current = false;
         setSidebarCollapsed(false);
       }
@@ -146,7 +162,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
       const onMouseMove = (ev: MouseEvent) => {
         if (!isDragging.current) return;
         const delta = ev.clientX - dragStartX.current;
-        const newWidth = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, dragStartWidth.current + delta));
+        const newWidth = Math.max(
+          SIDEBAR_MIN,
+          Math.min(SIDEBAR_MAX, dragStartWidth.current + delta),
+        );
         setSidebarWidth(newWidth);
       };
 
@@ -182,8 +201,12 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
         const logicalY = physicalPosition.y / scaleFactor;
         const widthDelta = AUTO_COLLAPSE_THRESHOLD - logicalWidth;
         // Move window left by the amount we're expanding
-        await appWindow.setPosition(new LogicalPosition(logicalX - widthDelta, logicalY));
-        await appWindow.setSize(new LogicalSize(AUTO_COLLAPSE_THRESHOLD, logicalHeight));
+        await appWindow.setPosition(
+          new LogicalPosition(logicalX - widthDelta, logicalY),
+        );
+        await appWindow.setSize(
+          new LogicalSize(AUTO_COLLAPSE_THRESHOLD, logicalHeight),
+        );
       } catch (e) {
         console.error("Failed to resize window:", e);
       }
@@ -289,13 +312,17 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             enhancedNotesEdited={selectedCache?.enhancedNotesEdited ?? false}
             showEnhancePrompt={showEnhancePrompt}
             onEnhanceNotes={enhanceNotes}
-            onDismissEnhancePrompt={() => dismissEnhancePrompt(selectedSessionId)}
+            onDismissEnhancePrompt={() =>
+              dismissEnhancePrompt(selectedSessionId)
+            }
             enhanceLoading={enhanceLoading}
             enhanceError={enhanceError}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             findBarOpen={findBarOpen}
             onCloseFindBar={closeFindBar}
+            streamingEnhancedNotes={streamingEnhancedNotes}
+            enhanceStreaming={enhanceStreaming}
           />
         ) : (
           <EmptyState onNewNote={createNote} />

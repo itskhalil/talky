@@ -71,15 +71,16 @@ The following is a **complete enumeration** of all network endpoints the applica
 
 ### 1. Model Downloads
 
-| Endpoint | `https://blob.handy.computer/*` |
-|----------|--------------------------------|
-| **Purpose** | Download speech-to-text models (Whisper, Parakeet, Moonshine) |
-| **When Called** | Only when user explicitly clicks "Download" in model selector |
-| **Data Sent** | HTTP GET request with Range header (for resume support) |
-| **Data Received** | Binary model files (.bin, .tar.gz) |
-| **User Control** | Manual trigger only; no automatic downloads |
+| Endpoint          | `https://blob.handy.computer/*`                               |
+| ----------------- | ------------------------------------------------------------- |
+| **Purpose**       | Download speech-to-text models (Whisper, Parakeet, Moonshine) |
+| **When Called**   | Only when user explicitly clicks "Download" in model selector |
+| **Data Sent**     | HTTP GET request with Range header (for resume support)       |
+| **Data Received** | Binary model files (.bin, .tar.gz)                            |
+| **User Control**  | Manual trigger only; no automatic downloads                   |
 
 **Available Models:**
+
 - `ggml-small.bin` (487 MB)
 - `whisper-medium-q4_1.bin` (492 MB)
 - `ggml-large-v3-turbo.bin` (1.6 GB)
@@ -94,13 +95,13 @@ The following is a **complete enumeration** of all network endpoints the applica
 
 ### 2. Update Checking
 
-| Endpoint | `https://github.com/itskhalil/talky/releases/latest/download/latest.json` |
-|----------|--------------------------------------------------------------------------|
-| **Purpose** | Check for application updates |
-| **When Called** | Periodically when update checking is enabled |
-| **Data Sent** | HTTP GET request (no user data) |
-| **Data Received** | JSON manifest with version info and download URLs |
-| **User Control** | Can be disabled in Settings → General → "Check for updates" |
+| Endpoint          | `https://github.com/itskhalil/talky/releases/latest/download/latest.json` |
+| ----------------- | ------------------------------------------------------------------------- |
+| **Purpose**       | Check for application updates                                             |
+| **When Called**   | Periodically when update checking is enabled                              |
+| **Data Sent**     | HTTP GET request (no user data)                                           |
+| **Data Received** | JSON manifest with version info and download URLs                         |
+| **User Control**  | Can be disabled in Settings → General → "Check for updates"               |
 
 **Code Reference:** `tauri.conf.json` (updater configuration)
 
@@ -108,15 +109,16 @@ The following is a **complete enumeration** of all network endpoints the applica
 
 ### 3. LLM API (Optional Summarization)
 
-| Endpoint | User-configured (e.g., `https://api.openai.com/v1`) |
-|----------|-----------------------------------------------------|
-| **Purpose** | Optional transcript improvement and meeting summaries |
-| **When Called** | Only when user triggers summarization |
-| **Data Sent** | Transcript text, session title, user notes (NOT audio) |
-| **Data Received** | Improved/summarized text |
-| **User Control** | User configures endpoint; can use local LLMs (Ollama) or private endpoints |
+| Endpoint          | User-configured (e.g., `https://api.openai.com/v1`)                        |
+| ----------------- | -------------------------------------------------------------------------- |
+| **Purpose**       | Optional transcript improvement and meeting summaries                      |
+| **When Called**   | Only when user triggers summarization                                      |
+| **Data Sent**     | Transcript text, session title, user notes (NOT audio)                     |
+| **Data Received** | Improved/summarized text                                                   |
+| **User Control**  | User configures endpoint; can use local LLMs (Ollama) or private endpoints |
 
 **Supported Providers:**
+
 - OpenAI (`https://api.openai.com/v1`)
 - Anthropic (`https://api.anthropic.com/v1`)
 - OpenRouter (`https://openrouter.ai/api/v1`)
@@ -132,13 +134,13 @@ The following is a **complete enumeration** of all network endpoints the applica
 
 ### 4. Ollama Detection
 
-| Endpoint | `http://localhost:11434/api/tags` |
-|----------|-----------------------------------|
-| **Purpose** | Detect locally-running Ollama instance |
-| **When Called** | When user selects Ollama as provider |
-| **Data Sent** | HTTP GET request to localhost only |
-| **Data Received** | List of available local models |
-| **User Control** | Only triggered when Ollama provider is selected |
+| Endpoint          | `http://localhost:11434/api/tags`               |
+| ----------------- | ----------------------------------------------- |
+| **Purpose**       | Detect locally-running Ollama instance          |
+| **When Called**   | When user selects Ollama as provider            |
+| **Data Sent**     | HTTP GET request to localhost only              |
+| **Data Received** | List of available local models                  |
+| **User Control**  | Only triggered when Ollama provider is selected |
 
 **Code Reference:** `src-tauri/src/commands/mod.rs` (lines 156-198)
 
@@ -148,12 +150,12 @@ The following is a **complete enumeration** of all network endpoints the applica
 
 The following data **never leaves the user's device**:
 
-| Data Type | Storage Location | Network Transmission |
-|-----------|------------------|---------------------|
-| Raw audio | In-memory only (not persisted) | **Never transmitted** |
-| Transcripts | `{app_data}/sessions.db` | Only if summarization used |
-| User settings | `{app_data}/settings_store.json` | **Never transmitted** |
-| Transcription models | `{app_data}/models/` | **Never transmitted** (downloaded once) |
+| Data Type            | Storage Location                 | Network Transmission                    |
+| -------------------- | -------------------------------- | --------------------------------------- |
+| Raw audio            | In-memory only (not persisted)   | **Never transmitted**                   |
+| Transcripts          | `{app_data}/sessions.db`         | Only if summarization used              |
+| User settings        | `{app_data}/settings_store.json` | **Never transmitted**                   |
+| Transcription models | `{app_data}/models/`             | **Never transmitted** (downloaded once) |
 
 **Important:** Audio recordings are processed in real-time and are **not stored to disk**. Only the resulting text transcripts are persisted.
 
@@ -174,11 +176,11 @@ The application contains **zero telemetry, analytics, or crash reporting**:
 
 All application data is stored locally in the platform-specific app data directory:
 
-| Platform | Location |
-|----------|----------|
-| macOS | `~/Library/Application Support/com.handy.talky/` |
-| Windows | `%APPDATA%\com.handy.talky\` |
-| Linux | `~/.config/com.handy.talky/` |
+| Platform | Location                                         |
+| -------- | ------------------------------------------------ |
+| macOS    | `~/Library/Application Support/com.handy.talky/` |
+| Windows  | `%APPDATA%\com.handy.talky\`                     |
+| Linux    | `~/.config/com.handy.talky/`                     |
 
 ### Storage Contents
 
@@ -224,6 +226,7 @@ sudo lsof -i -n -P | grep -i talky
 ```
 
 **Expected Results:**
+
 - During transcription: **Zero network activity**
 - During model download: Connections to `blob.handy.computer` only
 - With post-processing enabled: Connections to user-configured endpoint only
@@ -286,14 +289,14 @@ No device identifiers, hardware IDs, or tracking cookies are transmitted.
 
 ## Technology Stack
 
-| Component | Technology | Security Relevance |
-|-----------|------------|-------------------|
-| Application Framework | Tauri 2.x | Rust-based, memory-safe |
-| Transcription | Whisper/Parakeet/Moonshine | Local ONNX inference |
-| Audio Processing | CPAL + custom VAD | No external dependencies |
-| Database | SQLite (rusqlite) | Local file-based storage |
-| Settings | tauri-plugin-store | JSON file in app data |
-| HTTP Client | reqwest | Used only for documented endpoints |
+| Component             | Technology                 | Security Relevance                 |
+| --------------------- | -------------------------- | ---------------------------------- |
+| Application Framework | Tauri 2.x                  | Rust-based, memory-safe            |
+| Transcription         | Whisper/Parakeet/Moonshine | Local ONNX inference               |
+| Audio Processing      | CPAL + custom VAD          | No external dependencies           |
+| Database              | SQLite (rusqlite)          | Local file-based storage           |
+| Settings              | tauri-plugin-store         | JSON file in app data              |
+| HTTP Client           | reqwest                    | Used only for documented endpoints |
 
 ---
 
@@ -311,5 +314,5 @@ For organizations requiring strict data sovereignty, Talky can operate in a comp
 
 ---
 
-*Document generated: February 2026*
-*Codebase version: See git commit hash*
+_Document generated: February 2026_
+_Codebase version: See git commit hash_

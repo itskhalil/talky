@@ -634,9 +634,11 @@ impl SessionManager {
 
         // Get max sort_order
         let max_order: i32 = conn
-            .query_row("SELECT COALESCE(MAX(sort_order), 0) FROM folders", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT COALESCE(MAX(sort_order), 0) FROM folders",
+                [],
+                |row| row.get(0),
+            )
             .unwrap_or(0);
 
         conn.execute(
@@ -653,7 +655,12 @@ impl SessionManager {
         })
     }
 
-    pub fn update_folder(&self, folder_id: &str, name: String, color: Option<String>) -> Result<()> {
+    pub fn update_folder(
+        &self,
+        folder_id: &str,
+        name: String,
+        color: Option<String>,
+    ) -> Result<()> {
         let conn = self.get_connection()?;
         conn.execute(
             "UPDATE folders SET name = ?1, color = ?2 WHERE id = ?3",
@@ -696,7 +703,11 @@ impl SessionManager {
         Ok(folders)
     }
 
-    pub fn move_session_to_folder(&self, session_id: &str, folder_id: Option<String>) -> Result<()> {
+    pub fn move_session_to_folder(
+        &self,
+        session_id: &str,
+        folder_id: Option<String>,
+    ) -> Result<()> {
         let conn = self.get_connection()?;
         conn.execute(
             "UPDATE sessions SET folder_id = ?1 WHERE id = ?2",

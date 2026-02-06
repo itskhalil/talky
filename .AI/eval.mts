@@ -1,4 +1,10 @@
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  existsSync,
+} from "fs";
 import { join, basename } from "path";
 import { homedir } from "os";
 import { parseArgs } from "util";
@@ -8,10 +14,13 @@ import { review } from "./review.mts";
 
 const SETTINGS_PATH = join(
   homedir(),
-  "Library/Application Support/com.khalil.talky/settings_store.json"
+  "Library/Application Support/com.khalil.talky/settings_store.json",
 );
 const AI_DIR = import.meta.dirname!;
-const PROMPT_PATH = join(AI_DIR, "../src-tauri/resources/prompts/enhance_notes.txt");
+const PROMPT_PATH = join(
+  AI_DIR,
+  "../src-tauri/resources/prompts/enhance_notes.txt",
+);
 const EXAMPLES_DIR = join(AI_DIR, "Examples");
 
 interface Provider {
@@ -24,7 +33,7 @@ function loadSettings() {
   const s = raw.settings;
   const providerId: string = s.post_process_provider_id;
   const provider: Provider = s.post_process_providers.find(
-    (p: Provider) => p.id === providerId
+    (p: Provider) => p.id === providerId,
   );
   const apiKey: string = s.post_process_api_keys[providerId] ?? "";
   const model: string = s.post_process_models[providerId] ?? "";
@@ -38,7 +47,7 @@ async function callLLM(
   apiKey: string,
   model: string,
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
 ): Promise<string> {
   if (provider.id === "anthropic") {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -55,8 +64,9 @@ async function callLLM(
         messages: [{ role: "user", content: userMessage }],
       }),
     });
-    if (!res.ok) throw new Error(`Anthropic API error: ${res.status} ${await res.text()}`);
-    const data = await res.json() as any;
+    if (!res.ok)
+      throw new Error(`Anthropic API error: ${res.status} ${await res.text()}`);
+    const data = (await res.json()) as any;
     return data.content[0].text;
   }
 
@@ -77,7 +87,7 @@ async function callLLM(
     }),
   });
   if (!res.ok) throw new Error(`API error: ${res.status} ${await res.text()}`);
-  const data = await res.json() as any;
+  const data = (await res.json()) as any;
   return data.choices[0].message.content;
 }
 
@@ -137,7 +147,7 @@ function buildJudgeMessage(
   userNotes: string | null,
   transcript: string,
   golden: string,
-  output: string
+  output: string,
 ): string {
   return `## USER'S ORIGINAL NOTES
 ${userNotes ?? "(no notes taken)"}
@@ -166,9 +176,13 @@ function loadExamples(): ExampleData[] {
   for (const dir of readdirSync(EXAMPLES_DIR)) {
     const exDir = join(EXAMPLES_DIR, dir);
     const files = readdirSync(exDir);
-    const transcriptFile = files.find((f) => f.includes("transcript") && !f.endsWith(".png"));
+    const transcriptFile = files.find(
+      (f) => f.includes("transcript") && !f.endsWith(".png"),
+    );
     const enhancedFile = files.find((f) => f.includes("enhanced"));
-    const notesFile = files.find((f) => f.includes("notes") && !f.endsWith(".png"));
+    const notesFile = files.find(
+      (f) => f.includes("notes") && !f.endsWith(".png"),
+    );
 
     if (!transcriptFile || !enhancedFile) {
       console.warn(`Skipping ${dir}: missing transcript or enhanced file`);
@@ -185,7 +199,14 @@ function loadExamples(): ExampleData[] {
   return examples;
 }
 
-const DIMS = ["voice", "density", "clarity", "readability", "additions", "tagging"] as const;
+const DIMS = [
+  "voice",
+  "density",
+  "clarity",
+  "readability",
+  "additions",
+  "tagging",
+] as const;
 
 function parseScores(judgeRaw: string, label: string): any {
   try {
@@ -210,7 +231,9 @@ async function main() {
   const prompt = readFileSync(PROMPT_PATH, "utf-8");
   const examples = loadExamples();
 
-  console.log(`Provider: ${provider.id} | Model: ${model} | Samples: ${numSamples}`);
+  console.log(
+    `Provider: ${provider.id} | Model: ${model} | Samples: ${numSamples}`,
+  );
   console.log(`Examples: ${examples.map((e) => e.name).join(", ")}\n`);
 
   // Create run directory
@@ -222,43 +245,74 @@ async function main() {
   writeFileSync(join(runDir, "prompt.txt"), prompt);
   writeFileSync(
     join(runDir, "meta.json"),
-    JSON.stringify({ model, provider: provider.id, samples: numSamples, timestamp }, null, 2)
+    JSON.stringify(
+      { model, provider: provider.id, samples: numSamples, timestamp },
+      null,
+      2,
+    ),
   );
 
   // allScores[exName][sampleIdx] = scores object
   const allScores: Record<string, any[]> = {};
 
   // Run all examples in parallel
-  await Promise.all(examples.map(async (ex) => {
-    console.log(`--- ${ex.name} ---`);
-    allScores[ex.name] = [];
+  await Promise.all(
+    examples.map(async (ex) => {
+      console.log(`--- ${ex.name} ---`);
+      allScores[ex.name] = [];
 
-    const notesSection =
-      ex.notes?.trim()
+      const notesSection = ex.notes?.trim()
         ? ex.notes
         : "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].";
-    const userMessage = `## MEETING CONTEXT\nTitle: ${ex.name}\nDuration: unknown\n\n## USER'S NOTES\n${notesSection}\n\n## TRANSCRIPT\n${ex.transcript}`;
+      const userMessage = `## MEETING CONTEXT\nTitle: ${ex.name}\nDuration: unknown\n\n## USER'S NOTES\n${notesSection}\n\n## TRANSCRIPT\n${ex.transcript}`;
 
-    for (let s = 1; s <= numSamples; s++) {
-      const suffix = numSamples > 1 ? `_${s}` : "";
-      const label = `${ex.name}${suffix}`;
+      for (let s = 1; s <= numSamples; s++) {
+        const suffix = numSamples > 1 ? `_${s}` : "";
+        const label = `${ex.name}${suffix}`;
 
-      console.log(`  [${ex.name}] Generating${numSamples > 1 ? ` sample ${s}/${numSamples}` : ""}...`);
-      const output = await callLLM(provider, apiKey, model, prompt, userMessage);
-      writeFileSync(join(runDir, `${label}.md`), output);
+        console.log(
+          `  [${ex.name}] Generating${numSamples > 1 ? ` sample ${s}/${numSamples}` : ""}...`,
+        );
+        const output = await callLLM(
+          provider,
+          apiKey,
+          model,
+          prompt,
+          userMessage,
+        );
+        writeFileSync(join(runDir, `${label}.md`), output);
 
-      console.log(`  [${ex.name}] Judging${numSamples > 1 ? ` sample ${s}` : ""}...`);
-      const judgeMsg = buildJudgeMessage(ex.notes, ex.transcript, ex.golden, output);
-      const judgeRaw = await callLLM(provider, apiKey, model, JUDGE_SYSTEM, judgeMsg);
-      const scores = parseScores(judgeRaw, label);
+        console.log(
+          `  [${ex.name}] Judging${numSamples > 1 ? ` sample ${s}` : ""}...`,
+        );
+        const judgeMsg = buildJudgeMessage(
+          ex.notes,
+          ex.transcript,
+          ex.golden,
+          output,
+        );
+        const judgeRaw = await callLLM(
+          provider,
+          apiKey,
+          model,
+          JUDGE_SYSTEM,
+          judgeMsg,
+        );
+        const scores = parseScores(judgeRaw, label);
 
-      writeFileSync(join(runDir, `${label}.scores.json`), JSON.stringify(scores, null, 2));
-      allScores[ex.name].push(scores);
+        writeFileSync(
+          join(runDir, `${label}.scores.json`),
+          JSON.stringify(scores, null, 2),
+        );
+        allScores[ex.name].push(scores);
 
-      const scoreStr = DIMS.map((d) => `${d}=${scores[d]?.score ?? "?"}`).join(" ");
-      console.log(`  [${ex.name}] Scores: ${scoreStr}\n`);
-    }
-  }));
+        const scoreStr = DIMS.map(
+          (d) => `${d}=${scores[d]?.score ?? "?"}`,
+        ).join(" ");
+        console.log(`  [${ex.name}] Scores: ${scoreStr}\n`);
+      }
+    }),
+  );
 
   // Write summary
   let summary = `# Eval Run: ${timestamp}\n\n`;
@@ -287,8 +341,12 @@ async function main() {
   for (const ex of examples) {
     const samples = allScores[ex.name];
     const row = DIMS.map((d) => {
-      const vals = samples.map((sc) => sc[d]?.score).filter((v) => typeof v === "number");
-      return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : "?";
+      const vals = samples
+        .map((sc) => sc[d]?.score)
+        .filter((v) => typeof v === "number");
+      return vals.length
+        ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)
+        : "?";
     }).join(" | ");
     summary += `| ${ex.name} | ${row} |\n`;
   }
@@ -296,9 +354,13 @@ async function main() {
   // Grand averages
   const grandAvgs = DIMS.map((d) => {
     const vals = examples.flatMap((e) =>
-      allScores[e.name].map((sc) => sc[d]?.score).filter((v) => typeof v === "number")
+      allScores[e.name]
+        .map((sc) => sc[d]?.score)
+        .filter((v) => typeof v === "number"),
     );
-    return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : "?";
+    return vals.length
+      ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)
+      : "?";
   });
   summary += `| **Average** | ${grandAvgs.join(" | ")} |\n`;
 

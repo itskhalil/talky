@@ -44,9 +44,8 @@ export function useKeyboardShortcuts({
 
       if (mod && e.key === "/") {
         e.preventDefault();
-        const input = document.querySelector<HTMLInputElement>(
-          "[data-chat-input]",
-        );
+        const input =
+          document.querySelector<HTMLInputElement>("[data-chat-input]");
         input?.focus();
         return;
       }

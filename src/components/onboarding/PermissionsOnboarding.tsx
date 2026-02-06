@@ -149,9 +149,15 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
       } else {
         // The command failed - this usually means the permission was denied previously
         // or there's a system issue. Mark as requested anyway so user can proceed.
-        console.error("Error requesting system audio permission:", result.error);
+        console.error(
+          "Error requesting system audio permission:",
+          result.error,
+        );
         setSystemAudioError(
-          t("onboarding.permissions.systemAudio.error", "Enable in System Settings → Privacy & Security → Screen & System Audio Recording")
+          t(
+            "onboarding.permissions.systemAudio.error",
+            "Enable in System Settings → Privacy & Security → Screen & System Audio Recording",
+          ),
         );
         // Still mark as requested so user isn't blocked
         setSystemAudioRequested(true);
@@ -159,7 +165,10 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
     } catch (error) {
       console.error("Error requesting system audio permission:", error);
       setSystemAudioError(
-        t("onboarding.permissions.systemAudio.error", "Enable in System Settings → Privacy & Security → Screen & System Audio Recording")
+        t(
+          "onboarding.permissions.systemAudio.error",
+          "Enable in System Settings → Privacy & Security → Screen & System Audio Recording",
+        ),
       );
       // Still mark as requested so user isn't blocked
       setSystemAudioRequested(true);

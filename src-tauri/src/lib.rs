@@ -3,14 +3,14 @@ mod aec;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 pub mod audio_toolkit;
-#[cfg(target_os = "macos")]
-mod mic_detect;
-#[cfg(target_os = "macos")]
-mod power_events;
 mod commands;
 mod helpers;
 mod llm_client;
 mod managers;
+#[cfg(target_os = "macos")]
+mod mic_detect;
+#[cfg(target_os = "macos")]
+mod power_events;
 mod settings;
 mod tray;
 mod tray_i18n;
@@ -54,7 +54,6 @@ fn get_user_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Box<dyn std::err
         Ok(app_handle.path().app_data_dir()?)
     }
 }
-
 
 // Global atomic to store the file log level filter
 // We use u8 to store the log::LevelFilter as a number
@@ -333,6 +332,7 @@ pub fn run() {
         commands::session::save_enhanced_notes,
         commands::session::get_user_notes,
         commands::session::generate_session_summary,
+        commands::session::generate_session_summary_stream,
         commands::session::get_session_summary,
         commands::session::flush_pending_audio,
         // Folder commands

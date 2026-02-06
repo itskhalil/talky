@@ -8,18 +8,20 @@ interface SkipMicOnSpeakerEnergyToggleProps {
   grouped?: boolean;
 }
 
-export const SkipMicOnSpeakerEnergyToggle: React.FC<SkipMicOnSpeakerEnergyToggleProps> = ({
-  descriptionMode = "tooltip",
-  grouped = false,
-}) => {
+export const SkipMicOnSpeakerEnergyToggle: React.FC<
+  SkipMicOnSpeakerEnergyToggleProps
+> = ({ descriptionMode = "tooltip", grouped = false }) => {
   const { t } = useTranslation();
   const { getSetting, updateSetting, isUpdating } = useSettings();
-  const skipMicOnSpeakerEnergy = getSetting("skip_mic_on_speaker_energy") ?? true;
+  const skipMicOnSpeakerEnergy =
+    getSetting("skip_mic_on_speaker_energy") ?? true;
 
   return (
     <ToggleSwitch
       checked={skipMicOnSpeakerEnergy}
-      onChange={(enabled) => updateSetting("skip_mic_on_speaker_energy", enabled)}
+      onChange={(enabled) =>
+        updateSetting("skip_mic_on_speaker_energy", enabled)
+      }
       isUpdating={isUpdating("skip_mic_on_speaker_energy")}
       label={t("settings.debug.skipMicOnSpeakerEnergy.label")}
       description={t("settings.debug.skipMicOnSpeakerEnergy.description")}
