@@ -722,14 +722,16 @@ export function NoteView({
 
   return (
     <div className="flex flex-col h-full relative">
+      {/* macOS title bar drag region */}
+      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
       {findBarOpen && onCloseFindBar && (
-        <div className="absolute top-2 right-4 z-20 w-80">
+        <div className="absolute top-8 right-4 z-20 w-80">
           <FindBar editor={activeEditor} onClose={onCloseFindBar} />
         </div>
       )}
       {/* Pinned toggle + copy controls */}
       {hasEnhanced && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex justify-end pointer-events-none z-10">
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex justify-end pointer-events-none z-10">
           <div className="flex items-center gap-1.5 pointer-events-auto">
             <div className="flex bg-background-sidebar rounded-lg p-0.5">
               <button
@@ -778,7 +780,7 @@ export function NoteView({
       )}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-4 pb-32 w-full cursor-text select-text"
+        className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-1 pb-32 w-full cursor-text select-text"
       >
         {/* Editable title */}
         <div className="max-w-3xl mx-auto mb-6">

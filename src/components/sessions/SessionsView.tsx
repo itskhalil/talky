@@ -23,16 +23,20 @@ interface SessionsViewProps {
 function EmptyState({ onNewNote }: { onNewNote: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-center justify-center h-full text-text-secondary gap-4">
-      <StickyNote size={40} strokeWidth={1} className="opacity-25" />
-      <p className="text-sm">{t("notes.emptyState")}</p>
-      <button
-        onClick={onNewNote}
-        data-ui
-        className="text-sm px-4 py-2 bg-accent-soft rounded-lg hover:bg-accent/10 transition-colors text-accent border border-border"
-      >
-        {t("sessions.newNote")}
-      </button>
+    <div className="flex flex-col h-full text-text-secondary">
+      {/* macOS title bar drag region */}
+      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
+      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+        <StickyNote size={40} strokeWidth={1} className="opacity-25" />
+        <p className="text-sm">{t("notes.emptyState")}</p>
+        <button
+          onClick={onNewNote}
+          data-ui
+          className="text-sm px-4 py-2 bg-accent-soft rounded-lg hover:bg-accent/10 transition-colors text-accent border border-border"
+        >
+          {t("sessions.newNote")}
+        </button>
+      </div>
     </div>
   );
 }
@@ -86,6 +90,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const SIDEBAR_DEFAULT = 260;
   const SIDEBAR_STORAGE_KEY = "talky-sidebar-width";
   const SIDEBAR_COLLAPSED_KEY = "talky-sidebar-collapsed";
+  const AUTO_COLLAPSE_THRESHOLD = 750;
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
@@ -104,6 +109,21 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  // Auto-collapse sidebar when window gets too narrow
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < AUTO_COLLAPSE_THRESHOLD && !sidebarCollapsed) {
+        setSidebarCollapsed(true);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    // Check on mount as well
+    handleResize();
+
+    return () => window.removeEventListener("resize", handleResize);
   }, [sidebarCollapsed]);
 
   const handleDragStart = useCallback(
@@ -166,7 +186,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   return (
     <div className="flex h-full">
       {sidebarCollapsed ? (
-        <div className="flex flex-col items-center justify-end py-3 px-1 border-r border-t border-border bg-background-sidebar h-full">
+        <div className="flex flex-col items-center justify-end pb-3 px-1 border-r border-t border-border bg-background-sidebar h-full">
+          {/* macOS title bar drag region */}
+          <div data-tauri-drag-region className="h-7 w-full shrink-0" />
+          <div className="flex-1" />
           <div className="flex flex-col items-center gap-1">
             <button
               onClick={onOpenSettings}
