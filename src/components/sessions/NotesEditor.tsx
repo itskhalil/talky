@@ -3,7 +3,10 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
-import { AiSourceExtension, setSuppressSourcePromotion } from "./AiSourceExtension";
+import {
+  AiSourceExtension,
+  setSuppressSourcePromotion,
+} from "./AiSourceExtension";
 import { Extension, JSONContent } from "@tiptap/core";
 import "./notes-editor.css";
 
@@ -95,7 +98,10 @@ export function NotesEditor({
           const lines: string[] = [];
 
           // Recursive function to serialize nodes with proper indentation
-          const serializeNode = (node: typeof slice.content.firstChild, indent: number = 0): void => {
+          const serializeNode = (
+            node: typeof slice.content.firstChild,
+            indent: number = 0,
+          ): void => {
             if (!node) return;
             const prefix = "  ".repeat(indent);
 
@@ -113,7 +119,10 @@ export function NotesEditor({
                 }
                 // Handle nested lists within the list item
                 li.content.forEach((child) => {
-                  if (child.type.name === "bulletList" || child.type.name === "orderedList") {
+                  if (
+                    child.type.name === "bulletList" ||
+                    child.type.name === "orderedList"
+                  ) {
                     serializeNode(child, indent + 1);
                   }
                 });
@@ -126,7 +135,10 @@ export function NotesEditor({
                   lines.push(prefix + `${idx}. ` + para.textContent);
                 }
                 li.content.forEach((child) => {
-                  if (child.type.name === "bulletList" || child.type.name === "orderedList") {
+                  if (
+                    child.type.name === "bulletList" ||
+                    child.type.name === "orderedList"
+                  ) {
                     serializeNode(child, indent + 1);
                   }
                 });
@@ -147,7 +159,9 @@ export function NotesEditor({
         if (modeRef.current === "enhanced") {
           onJSONChangeRef.current?.(editor.getJSON());
         } else {
-          const md = (editor.storage as Record<string, any>).markdown?.getMarkdown() ?? "";
+          const md =
+            (editor.storage as Record<string, any>).markdown?.getMarkdown() ??
+            "";
           onChangeRef.current(md);
         }
       },
@@ -190,7 +204,8 @@ export function NotesEditor({
         suppressUpdateRef.current = false;
       }
     } else if (!isEnhanced) {
-      const current = (editor.storage as Record<string, any>).markdown?.getMarkdown() ?? "";
+      const current =
+        (editor.storage as Record<string, any>).markdown?.getMarkdown() ?? "";
       if (current !== content) {
         suppressUpdateRef.current = true;
         setSuppressSourcePromotion(true);
@@ -211,7 +226,9 @@ export function NotesEditor({
   if (!editor) return null;
 
   return (
-    <div className={`notes-editor ${isEnhanced ? "notes-editor--enhanced" : ""}`}>
+    <div
+      className={`notes-editor ${isEnhanced ? "notes-editor--enhanced" : ""}`}
+    >
       <EditorContent editor={editor} />
     </div>
   );

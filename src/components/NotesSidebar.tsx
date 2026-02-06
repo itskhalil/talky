@@ -1,8 +1,28 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus, Trash2, Settings, Search, PanelLeftClose, FolderIcon, FolderOpen, X, ChevronRight, ChevronDown, Sparkles, Send, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Settings,
+  Search,
+  PanelLeftClose,
+  FolderIcon,
+  FolderOpen,
+  X,
+  ChevronRight,
+  ChevronDown,
+  Sparkles,
+  Send,
+  Loader2,
+} from "lucide-react";
 import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { commands } from "@/bindings";
@@ -48,7 +68,11 @@ function getDateGroup(timestamp: number): DateGroup {
   const weekAgo = new Date(today);
   weekAgo.setDate(weekAgo.getDate() - 7);
 
-  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dateStart = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
 
   if (dateStart >= today) {
     return "today";
@@ -83,7 +107,6 @@ function groupSessionsByDate(sessions: Session[]): GroupedSessions {
   return groups;
 }
 
-
 export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   sessions,
   selectedId,
@@ -100,7 +123,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const [newFolderName, setNewFolderName] = useState("");
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [sessionTagsMap, setSessionTagsMap] = useState<Record<string, string[]>>({});
+  const [sessionTagsMap, setSessionTagsMap] = useState<
+    Record<string, string[]>
+  >({});
   const [foldersExpanded, setFoldersExpanded] = useState(true);
   const [notesExpanded, setNotesExpanded] = useState(true);
   const [chatExpanded, setChatExpanded] = useState(false);
@@ -110,7 +135,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const folderInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const resizeRef = useRef<{ startY: number; startHeight: number } | null>(
+    null,
+  );
 
   const globalChat = useGlobalChat();
 
@@ -122,26 +149,32 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   }, [chatExpanded, globalChat.messages]);
 
   // Chat resize handlers
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizeRef.current = { startY: e.clientY, startHeight: chatHeight };
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      resizeRef.current = { startY: e.clientY, startHeight: chatHeight };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!resizeRef.current) return;
-      const delta = resizeRef.current.startY - e.clientY;
-      const newHeight = Math.max(100, Math.min(500, resizeRef.current.startHeight + delta));
-      setChatHeight(newHeight);
-    };
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!resizeRef.current) return;
+        const delta = resizeRef.current.startY - e.clientY;
+        const newHeight = Math.max(
+          100,
+          Math.min(500, resizeRef.current.startHeight + delta),
+        );
+        setChatHeight(newHeight);
+      };
 
-    const handleMouseUp = () => {
-      resizeRef.current = null;
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
+      const handleMouseUp = () => {
+        resizeRef.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  }, [chatHeight]);
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [chatHeight],
+  );
 
   const {
     folders,
@@ -206,7 +239,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       return;
     }
     try {
-      const results = await invoke<Session[]>("search_sessions", { query: query.trim() });
+      const results = await invoke<Session[]>("search_sessions", {
+        query: query.trim(),
+      });
       setSearchResults(results);
     } catch (e) {
       console.error("Search failed:", e);
@@ -240,7 +275,13 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     }
 
     return result;
-  }, [searchResults, sessions, selectedFolderId, selectedTagIds, sessionTagsMap]);
+  }, [
+    searchResults,
+    sessions,
+    selectedFolderId,
+    selectedTagIds,
+    sessionTagsMap,
+  ]);
 
   // Count sessions per folder
   const folderCounts = useMemo(() => {
@@ -256,10 +297,15 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   // Group filtered sessions by date
   const groupedSessions = useMemo(
     () => groupSessionsByDate(filteredSessions),
-    [filteredSessions]
+    [filteredSessions],
   );
 
-  const dateGroupOrder: DateGroup[] = ["today", "yesterday", "last7Days", "older"];
+  const dateGroupOrder: DateGroup[] = [
+    "today",
+    "yesterday",
+    "last7Days",
+    "older",
+  ];
 
   const handleAddFolder = async () => {
     if (newFolderName.trim()) {
@@ -282,7 +328,10 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       {/* Search bar + New Note button */}
       <div className="flex items-center gap-2 px-3 pt-1 pb-2">
         <div className="relative flex-1">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary" />
+          <Search
+            size={12}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary"
+          />
           <input
             type="text"
             data-search-input
@@ -310,7 +359,11 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               onClick={() => setFoldersExpanded(!foldersExpanded)}
               className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors font-display"
             >
-              {foldersExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              {foldersExpanded ? (
+                <ChevronDown size={12} />
+              ) : (
+                <ChevronRight size={12} />
+              )}
               {t("notes.folders", "Folders")}
             </button>
             <button
@@ -363,25 +416,40 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               <button
                 onClick={() => selectFolder(null)}
                 className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                  selectedFolderId === null ? "bg-accent/10 text-accent" : "text-text hover:bg-accent-soft"
+                  selectedFolderId === null
+                    ? "bg-accent/10 text-accent"
+                    : "text-text hover:bg-accent-soft"
                 }`}
               >
                 <FolderOpen size={16} />
-                <span className="flex-1 text-left">{t("notes.allNotes", "All Notes")}</span>
-                <span className="text-xs text-text-secondary">{folderCounts.all}</span>
+                <span className="flex-1 text-left">
+                  {t("notes.allNotes", "All Notes")}
+                </span>
+                <span className="text-xs text-text-secondary">
+                  {folderCounts.all}
+                </span>
               </button>
 
               {folders.map((folder) => (
                 <div
                   key={folder.id}
                   className={`group relative flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
-                    selectedFolderId === folder.id ? "bg-accent/10 text-accent" : "text-text hover:bg-accent-soft"
+                    selectedFolderId === folder.id
+                      ? "bg-accent/10 text-accent"
+                      : "text-text hover:bg-accent-soft"
                   }`}
                   onClick={() => selectFolder(folder.id)}
                 >
-                  <FolderIcon size={16} style={folder.color ? { color: folder.color } : undefined} />
-                  <span className="flex-1 text-left truncate">{folder.name}</span>
-                  <span className="text-xs text-text-secondary group-hover:opacity-0 transition-opacity">{folderCounts[folder.id] || 0}</span>
+                  <FolderIcon
+                    size={16}
+                    style={folder.color ? { color: folder.color } : undefined}
+                  />
+                  <span className="flex-1 text-left truncate">
+                    {folder.name}
+                  </span>
+                  <span className="text-xs text-text-secondary group-hover:opacity-0 transition-opacity">
+                    {folderCounts[folder.id] || 0}
+                  </span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -414,7 +482,11 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                       ? "bg-background-ui text-white"
                       : "bg-accent-soft text-text hover:bg-accent/20"
                   }`}
-                  style={tag.color && !selectedTagIds.includes(tag.id) ? { backgroundColor: `${tag.color}20`, color: tag.color } : undefined}
+                  style={
+                    tag.color && !selectedTagIds.includes(tag.id)
+                      ? { backgroundColor: `${tag.color}20`, color: tag.color }
+                      : undefined
+                  }
                 >
                   {tag.name}
                 </button>
@@ -432,9 +504,15 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             onClick={() => setNotesExpanded(!notesExpanded)}
             className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors mb-1 font-display"
           >
-            {notesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            {notesExpanded ? (
+              <ChevronDown size={12} />
+            ) : (
+              <ChevronRight size={12} />
+            )}
             {t("notes.notes", "Notes")}
-            <span className="text-text-secondary/50 ml-1">({filteredSessions.length})</span>
+            <span className="text-text-secondary/50 ml-1">
+              ({filteredSessions.length})
+            </span>
           </button>
         </div>
         {notesExpanded && (
@@ -468,7 +546,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                             <span
                               data-ui
                               className={`text-sm truncate ${
-                                isSelected ? "font-medium text-text" : "text-text"
+                                isSelected
+                                  ? "font-medium text-text"
+                                  : "text-text"
                               }`}
                             >
                               {session.title}
@@ -517,33 +597,46 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 <ChevronDown size={12} />
               </button>
             </div>
-            <div style={{ height: chatHeight }} className="overflow-y-auto px-3 py-2 space-y-2">
-            {globalChat.messages.length === 0 ? (
-              <p className="text-xs text-text-secondary text-center py-4">
-                {t("chat.askAboutNotes", "Ask anything about your notes...")}
-              </p>
-            ) : (
-              globalChat.messages.map((msg, i) => (
-                <div key={i} className={`text-xs ${msg.role === "user" ? "flex justify-end" : ""}`}>
-                  {msg.role === "user" ? (
-                    <div className="bg-accent/10 text-text rounded-lg px-2.5 py-1.5 max-w-[85%]">
-                      <span className="whitespace-pre-wrap select-text cursor-text">{msg.content}</span>
-                    </div>
-                  ) : msg.content ? (
-                    <div className="text-text select-text cursor-text [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:my-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_code]:bg-mid-gray/10 [&_code]:px-1 [&_code]:rounded">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <Loader2 size={16} className="animate-spin text-text-secondary" />
-                  )}
+            <div
+              style={{ height: chatHeight }}
+              className="overflow-y-auto px-3 py-2 space-y-2"
+            >
+              {globalChat.messages.length === 0 ? (
+                <p className="text-xs text-text-secondary text-center py-4">
+                  {t("chat.askAboutNotes", "Ask anything about your notes...")}
+                </p>
+              ) : (
+                globalChat.messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`text-xs ${msg.role === "user" ? "flex justify-end" : ""}`}
+                  >
+                    {msg.role === "user" ? (
+                      <div className="bg-accent/10 text-text rounded-lg px-2.5 py-1.5 max-w-[85%]">
+                        <span className="whitespace-pre-wrap select-text cursor-text">
+                          {msg.content}
+                        </span>
+                      </div>
+                    ) : msg.content ? (
+                      <div className="text-text select-text cursor-text [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:my-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_code]:bg-mid-gray/10 [&_code]:px-1 [&_code]:rounded">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <Loader2
+                        size={16}
+                        className="animate-spin text-text-secondary"
+                      />
+                    )}
+                  </div>
+                ))
+              )}
+              {globalChat.error && (
+                <div className="text-xs text-red-400 px-1">
+                  {globalChat.error}
                 </div>
-              ))
-            )}
-            {globalChat.error && (
-              <div className="text-xs text-red-400 px-1">{globalChat.error}</div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
           </>
         )}
 
@@ -552,7 +645,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           <button
             onClick={() => setChatExpanded(!chatExpanded)}
             className={`p-1.5 rounded-md transition-colors ${
-              chatExpanded ? "bg-accent-soft text-accent" : "text-text-secondary hover:bg-accent-soft hover:text-text"
+              chatExpanded
+                ? "bg-accent-soft text-accent"
+                : "text-text-secondary hover:bg-accent-soft hover:text-text"
             }`}
           >
             <Sparkles size={16} />

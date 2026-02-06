@@ -42,7 +42,10 @@ interface SessionCache {
 
 // Detect word-level corrections in enhanced notes
 // Returns words that appear to be corrections (replaced words)
-function detectWordCorrections(oldText: string | null, newText: string): string[] {
+function detectWordCorrections(
+  oldText: string | null,
+  newText: string,
+): string[] {
   if (!oldText) return [];
 
   // Extract words from both texts, keeping case
@@ -57,12 +60,66 @@ function detectWordCorrections(oldText: string | null, newText: string): string[
   // 2. Look like proper nouns or technical terms (capitalized or unusual)
   // 3. Aren't common words
   const commonWords = new Set([
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "must", "can", "this", "that", "these", "those",
-    "it", "its", "we", "our", "you", "your", "they", "their", "he", "his",
-    "she", "her", "not", "all", "some", "any", "no", "yes", "so", "if", "then",
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "must",
+    "can",
+    "this",
+    "that",
+    "these",
+    "those",
+    "it",
+    "its",
+    "we",
+    "our",
+    "you",
+    "your",
+    "they",
+    "their",
+    "he",
+    "his",
+    "she",
+    "her",
+    "not",
+    "all",
+    "some",
+    "any",
+    "no",
+    "yes",
+    "so",
+    "if",
+    "then",
   ]);
 
   const corrections: string[] = [];
@@ -71,13 +128,20 @@ function detectWordCorrections(oldText: string | null, newText: string): string[
   for (const word of newWords) {
     const lowerWord = word.toLowerCase();
     // Skip if already in old text, is common, or already seen
-    if (oldWords.has(lowerWord) || commonWords.has(lowerWord) || seen.has(lowerWord)) {
+    if (
+      oldWords.has(lowerWord) ||
+      commonWords.has(lowerWord) ||
+      seen.has(lowerWord)
+    ) {
       continue;
     }
     // Skip very short or very long words
     if (word.length < 3 || word.length > 30) continue;
     // Looks like a proper noun or technical term (capitalized)
-    if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
+    if (
+      word[0] === word[0].toUpperCase() &&
+      word[0] !== word[0].toLowerCase()
+    ) {
       corrections.push(word);
       seen.add(lowerWord);
     }
@@ -96,6 +160,12 @@ interface SaveTimers {
 // Stable defaults for selectors — never create new references
 const EMPTY_TRANSCRIPT: TranscriptSegment[] = [];
 
+interface EnhanceNotesChunkEvent {
+  session_id: string;
+  chunk: string;
+  done: boolean;
+}
+
 interface SessionStore {
   sessions: Session[];
   selectedSessionId: string | null;
@@ -113,6 +183,10 @@ interface SessionStore {
   enhanceError: Record<string, string | null>;
   showEnhancePrompt: Record<string, boolean>;
   viewMode: "notes" | "enhanced";
+
+  // Streaming state
+  streamingEnhancedNotes: Record<string, string>;
+  enhanceStreaming: Record<string, boolean>;
 
   // Actions
   selectSession: (id: string) => void;
@@ -159,6 +233,10 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   enhanceError: {},
   showEnhancePrompt: {},
   viewMode: "enhanced",
+
+  // Streaming state
+  streamingEnhancedNotes: {},
+  enhanceStreaming: {},
 
   _saveTimers: new Map(),
   _unlisteners: [],
@@ -398,7 +476,9 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     // Listen for system sleep notification (backend already stopped recording)
     unlisteners.push(
       await listen("system-will-sleep", () => {
-        console.log("[system-will-sleep] Recording stopped due to system sleep");
+        console.log(
+          "[system-will-sleep] Recording stopped due to system sleep",
+        );
         set({
           isRecording: false,
           recordingSessionId: null,
@@ -460,6 +540,54 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
               showEnhancePrompt: { ...s.showEnhancePrompt, [sessionId]: true },
             }));
           }
+        }
+      }),
+    );
+
+    // Listen for streaming enhanced notes chunks
+    unlisteners.push(
+      await listen<EnhanceNotesChunkEvent>("enhance-notes-chunk", (event) => {
+        const { session_id, chunk, done } = event.payload;
+
+        if (done) {
+          // Stream complete - move accumulated text to cache and clear streaming state
+          set((s) => {
+            const accumulatedText = s.streamingEnhancedNotes[session_id] || "";
+            const existing = s.cache[session_id];
+            const { [session_id]: _stream, ...restStreaming } =
+              s.streamingEnhancedNotes;
+            const { [session_id]: _flag, ...restEnhanceStreaming } =
+              s.enhanceStreaming;
+
+            return {
+              streamingEnhancedNotes: restStreaming,
+              enhanceStreaming: restEnhanceStreaming,
+              enhanceLoading: { ...s.enhanceLoading, [session_id]: false },
+              cache: existing
+                ? {
+                    ...s.cache,
+                    [session_id]: {
+                      ...existing,
+                      enhancedNotes: accumulatedText,
+                      enhancedNotesEdited: false,
+                    },
+                  }
+                : s.cache,
+            };
+          });
+        } else {
+          // Accumulate chunk
+          set((s) => ({
+            streamingEnhancedNotes: {
+              ...s.streamingEnhancedNotes,
+              [session_id]:
+                (s.streamingEnhancedNotes[session_id] || "") + chunk,
+            },
+            enhanceStreaming: {
+              ...s.enhanceStreaming,
+              [session_id]: true,
+            },
+          }));
         }
       }),
     );
@@ -555,7 +683,9 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
       set((s) => {
         const { [sessionId]: _, ...restCache } = s.cache;
-        const deletedIndex = s.sessions.findIndex((sess) => sess.id === sessionId);
+        const deletedIndex = s.sessions.findIndex(
+          (sess) => sess.id === sessionId,
+        );
         const newSessions = s.sessions.filter((sess) => sess.id !== sessionId);
         const updates: Partial<SessionStore> = {
           cache: restCache,
@@ -653,7 +783,11 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       return {
         cache: {
           ...s.cache,
-          [selectedSessionId]: { ...existing, enhancedNotes: tagged, enhancedNotesEdited: true },
+          [selectedSessionId]: {
+            ...existing,
+            enhancedNotes: tagged,
+            enhancedNotesEdited: true,
+          },
         },
       };
     });
@@ -680,7 +814,11 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             const session = sessions.find((s) => s.id === selectedSessionId);
             const sessionTitle = session?.title || "Untitled";
             for (const word of corrections) {
-              await commands.addWordSuggestion(word, sessionTitle, selectedSessionId);
+              await commands.addWordSuggestion(
+                word,
+                sessionTitle,
+                selectedSessionId,
+              );
             }
             // Notify sidebar that suggestions changed
             window.dispatchEvent(new CustomEvent("word-suggestions-changed"));
@@ -730,36 +868,37 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         enhanceError: { ...s.enhanceError, [sessionId]: null },
         showEnhancePrompt: restPrompt,
         viewMode: "enhanced" as const,
+        // Initialize streaming state
+        streamingEnhancedNotes: {
+          ...s.streamingEnhancedNotes,
+          [sessionId]: "",
+        },
+        enhanceStreaming: { ...s.enhanceStreaming, [sessionId]: true },
       };
     });
 
     try {
-      console.log("[enhanceNotes] sending sessionId:", sessionId);
-      const result = await invoke<string>("generate_session_summary", {
+      console.log(
+        "[enhanceNotes] starting streaming for sessionId:",
         sessionId,
-      });
-      console.log("[enhanceNotes] result:", result);
-      set((s) => {
-        const existing = s.cache[sessionId];
-        if (!existing) {
-          return {
-            enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
-          };
-        }
-        return {
-          enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
-          cache: {
-            ...s.cache,
-            [sessionId]: { ...existing, enhancedNotes: result, enhancedNotesEdited: false },
-          },
-        };
-      });
+      );
+      // Use streaming command - results come via enhance-notes-chunk events
+      await invoke("generate_session_summary_stream", { sessionId });
+      // The event listener handles updating cache and clearing loading state
     } catch (e) {
       console.error("Failed to enhance notes:", e);
-      set((s) => ({
-        enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
-        enhanceError: { ...s.enhanceError, [sessionId]: String(e) },
-      }));
+      set((s) => {
+        const { [sessionId]: _stream, ...restStreaming } =
+          s.streamingEnhancedNotes;
+        const { [sessionId]: _flag, ...restEnhanceStreaming } =
+          s.enhanceStreaming;
+        return {
+          enhanceLoading: { ...s.enhanceLoading, [sessionId]: false },
+          enhanceError: { ...s.enhanceError, [sessionId]: String(e) },
+          streamingEnhancedNotes: restStreaming,
+          enhanceStreaming: restEnhanceStreaming,
+        };
+      });
     }
   },
 
@@ -885,7 +1024,21 @@ export function useEnhanceLoading() {
 
 export function useEnhanceError() {
   return useSessionStore(
+    (s) => (s.selectedSessionId && s.enhanceError[s.selectedSessionId]) || null,
+  );
+}
+
+export function useStreamingEnhancedNotes() {
+  return useSessionStore(
     (s) =>
-      (s.selectedSessionId && s.enhanceError[s.selectedSessionId]) || null,
+      (s.selectedSessionId && s.streamingEnhancedNotes[s.selectedSessionId]) ||
+      null,
+  );
+}
+
+export function useEnhanceStreaming() {
+  return useSessionStore(
+    (s) =>
+      (s.selectedSessionId && s.enhanceStreaming[s.selectedSessionId]) || false,
   );
 }

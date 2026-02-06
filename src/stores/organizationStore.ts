@@ -18,7 +18,11 @@ interface OrganizationStore {
 
   // Folder actions
   createFolder: (name: string, color?: string) => Promise<Folder | null>;
-  updateFolder: (folderId: string, name: string, color?: string) => Promise<void>;
+  updateFolder: (
+    folderId: string,
+    name: string,
+    color?: string,
+  ) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
   selectFolder: (folderId: string | null) => void;
 
@@ -30,7 +34,10 @@ interface OrganizationStore {
   clearTagFilters: () => void;
 
   // Session organization
-  moveSessionToFolder: (sessionId: string, folderId: string | null) => Promise<void>;
+  moveSessionToFolder: (
+    sessionId: string,
+    folderId: string | null,
+  ) => Promise<void>;
   setSessionTags: (sessionId: string, tagIds: string[]) => Promise<void>;
   addTagToSession: (sessionId: string, tagId: string) => Promise<void>;
   removeTagFromSession: (sessionId: string, tagId: string) => Promise<void>;
@@ -84,7 +91,7 @@ export const useOrganizationStore = create<OrganizationStore>((set, get) => ({
     if (result.status === "ok") {
       set((s) => ({
         folders: s.folders.map((f) =>
-          f.id === folderId ? { ...f, name, color: color ?? null } : f
+          f.id === folderId ? { ...f, name, color: color ?? null } : f,
         ),
       }));
     }
@@ -95,7 +102,8 @@ export const useOrganizationStore = create<OrganizationStore>((set, get) => ({
     if (result.status === "ok") {
       set((s) => ({
         folders: s.folders.filter((f) => f.id !== folderId),
-        selectedFolderId: s.selectedFolderId === folderId ? null : s.selectedFolderId,
+        selectedFolderId:
+          s.selectedFolderId === folderId ? null : s.selectedFolderId,
       }));
       // Refresh sessions since deleted folder's sessions become unfiled
       await useSessionStore.getState().loadSessions();
@@ -120,7 +128,7 @@ export const useOrganizationStore = create<OrganizationStore>((set, get) => ({
     if (result.status === "ok") {
       set((s) => ({
         tags: s.tags.map((t) =>
-          t.id === tagId ? { ...t, name, color: color ?? null } : t
+          t.id === tagId ? { ...t, name, color: color ?? null } : t,
         ),
       }));
     }
@@ -175,7 +183,10 @@ export const useOrganizationStore = create<OrganizationStore>((set, get) => ({
     if (result.status === "ok") {
       // Check if any sessions still use this tag
       const sessionsWithTag = await commands.getSessionsByTag(tagId);
-      if (sessionsWithTag.status === "ok" && sessionsWithTag.data.length === 0) {
+      if (
+        sessionsWithTag.status === "ok" &&
+        sessionsWithTag.data.length === 0
+      ) {
         // No sessions use this tag anymore, delete it
         await commands.deleteTag(tagId);
         set((s) => ({

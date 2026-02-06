@@ -16,7 +16,7 @@ pub struct SileroVad {
     state: VadState,
     current_prob: f32,
     // Smoothing parameters to avoid spurious transitions
-    onset_frames: usize,    // consecutive speech frames needed to trigger speech start
+    onset_frames: usize, // consecutive speech frames needed to trigger speech start
     hangover_frames: usize, // consecutive silence frames needed to trigger speech end
     onset_counter: usize,
     hangover_counter: usize,
@@ -41,8 +41,8 @@ impl SileroVad {
             threshold,
             state: VadState::Silence,
             current_prob: 0.0,
-            onset_frames: 2,     // ~60ms of speech to trigger
-            hangover_frames: 5,  // ~150ms of silence to end
+            onset_frames: 2,    // ~60ms of speech to trigger
+            hangover_frames: 5, // ~150ms of silence to end
             onset_counter: 0,
             hangover_counter: 0,
         })
@@ -64,11 +64,7 @@ impl SileroVad {
 impl VoiceActivityDetector for SileroVad {
     fn process_frame(&mut self, frame: &[f32]) -> Result<VadTransition> {
         if frame.len() != VAD_CHUNK_SIZE {
-            anyhow::bail!(
-                "expected {} samples, got {}",
-                VAD_CHUNK_SIZE,
-                frame.len()
-            );
+            anyhow::bail!("expected {} samples, got {}", VAD_CHUNK_SIZE, frame.len());
         }
 
         // Get probability from detector

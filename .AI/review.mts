@@ -1,9 +1,4 @@
-import {
-  readFileSync,
-  writeFileSync,
-  readdirSync,
-  existsSync,
-} from "fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { createInterface } from "readline";
@@ -12,7 +7,7 @@ import { createInterface } from "readline";
 
 const SETTINGS_PATH = join(
   homedir(),
-  "Library/Application Support/com.khalil.talky/settings_store.json"
+  "Library/Application Support/com.khalil.talky/settings_store.json",
 );
 const AI_DIR = import.meta.dirname!;
 const RUNS_DIR = join(AI_DIR, "eval-runs");
@@ -27,7 +22,7 @@ function loadSettings() {
   const s = raw.settings;
   const providerId: string = s.post_process_provider_id;
   const provider: Provider = s.post_process_providers.find(
-    (p: Provider) => p.id === providerId
+    (p: Provider) => p.id === providerId,
   );
   const apiKey: string = s.post_process_api_keys[providerId] ?? "";
   const model: string = s.post_process_models[providerId] ?? "";
@@ -39,7 +34,7 @@ async function callLLM(
   apiKey: string,
   model: string,
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
 ): Promise<string> {
   if (provider.id === "anthropic") {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -56,7 +51,8 @@ async function callLLM(
         messages: [{ role: "user", content: userMessage }],
       }),
     });
-    if (!res.ok) throw new Error(`Anthropic API error: ${res.status} ${await res.text()}`);
+    if (!res.ok)
+      throw new Error(`Anthropic API error: ${res.status} ${await res.text()}`);
     const data = (await res.json()) as any;
     return data.content[0].text;
   }
@@ -87,7 +83,10 @@ function createRL() {
   return createInterface({ input: process.stdin, output: process.stdout });
 }
 
-function ask(rl: ReturnType<typeof createRL>, question: string): Promise<string> {
+function ask(
+  rl: ReturnType<typeof createRL>,
+  question: string,
+): Promise<string> {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
@@ -106,7 +105,14 @@ interface RunData {
   examples: Map<string, { outputs: string[]; scores: any[] }>;
 }
 
-const DIMS = ["voice", "density", "clarity", "readability", "additions", "tagging"] as const;
+const DIMS = [
+  "voice",
+  "density",
+  "clarity",
+  "readability",
+  "additions",
+  "tagging",
+] as const;
 
 function loadRun(runName: string): RunData {
   const runDir = join(RUNS_DIR, runName);
@@ -116,7 +122,9 @@ function loadRun(runName: string): RunData {
     : { model: "unknown", provider: "unknown", samples: 1, timestamp: runName };
 
   const files = readdirSync(runDir);
-  const mdFiles = files.filter((f) => f.endsWith(".md") && f !== "summary.md" && f !== "feedback.md");
+  const mdFiles = files.filter(
+    (f) => f.endsWith(".md") && f !== "summary.md" && f !== "feedback.md",
+  );
 
   // Group by example name (strip _N suffix and .md)
   const examples = new Map<string, { outputs: string[]; scores: any[] }>();
@@ -140,7 +148,9 @@ function loadRun(runName: string): RunData {
     // Read scores
     const scoresFile = `${base}.scores.json`;
     if (files.includes(scoresFile)) {
-      ex.scores[sampleIdx] = JSON.parse(readFileSync(join(runDir, scoresFile), "utf-8"));
+      ex.scores[sampleIdx] = JSON.parse(
+        readFileSync(join(runDir, scoresFile), "utf-8"),
+      );
     }
   }
 
@@ -152,7 +162,9 @@ function formatScoreLine(scores: any): string {
 }
 
 function avgScore(scoresList: any[], dim: string): number | null {
-  const vals = scoresList.map((s) => s[dim]?.score).filter((v) => typeof v === "number");
+  const vals = scoresList
+    .map((s) => s[dim]?.score)
+    .filter((v) => typeof v === "number");
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
 
@@ -170,14 +182,21 @@ export async function review(runNameOverride?: string) {
   const run = loadRun(runName);
   const numSamples = run.meta.samples;
 
-  console.log(`\nReviewing run: ${run.name} (${numSamples} sample${numSamples > 1 ? "s" : ""}/example)`);
+  console.log(
+    `\nReviewing run: ${run.name} (${numSamples} sample${numSamples > 1 ? "s" : ""}/example)`,
+  );
   console.log(`Model: ${run.meta.model} | Provider: ${run.meta.provider}\n`);
 
   const rl = createRL();
-  const humanReview: Record<string, { score: number | null; notes: string; aiAvg: number | null }> = {};
+  const humanReview: Record<
+    string,
+    { score: number | null; notes: string; aiAvg: number | null }
+  > = {};
 
   for (const [exName, data] of run.examples) {
-    console.log(`\n${"━".repeat(3)} ${exName} ${"━".repeat(Math.max(1, 40 - exName.length))}`);
+    console.log(
+      `\n${"━".repeat(3)} ${exName} ${"━".repeat(Math.max(1, 40 - exName.length))}`,
+    );
 
     for (let i = 0; i < data.outputs.length; i++) {
       if (numSamples > 1) {
@@ -188,7 +207,8 @@ export async function review(runNameOverride?: string) {
       const lines = data.outputs[i].split("\n");
       const preview = lines.slice(0, 60).join("\n");
       console.log(preview);
-      if (lines.length > 60) console.log(`  ... (${lines.length - 60} more lines)`);
+      if (lines.length > 60)
+        console.log(`  ... (${lines.length - 60} more lines)`);
 
       if (data.scores[i]) {
         console.log(`  AI: ${formatScoreLine(data.scores[i])}`);
@@ -196,7 +216,9 @@ export async function review(runNameOverride?: string) {
     }
 
     const aiAvg = avgScore(data.scores, "overall");
-    console.log(`\n  AI avg overall: ${aiAvg !== null ? aiAvg.toFixed(1) : "?"}`);
+    console.log(
+      `\n  AI avg overall: ${aiAvg !== null ? aiAvg.toFixed(1) : "?"}`,
+    );
 
     const scoreInput = await ask(rl, "Your score (1-5, enter to skip): ");
     const score = scoreInput.trim() ? parseInt(scoreInput.trim(), 10) : null;
@@ -224,7 +246,9 @@ export async function review(runNameOverride?: string) {
     const prevReviewPath = join(RUNS_DIR, prevRunName, "human-review.json");
     if (existsSync(prevReviewPath)) {
       const prevReview = JSON.parse(readFileSync(prevReviewPath, "utf-8"));
-      const prevScores = Object.values(prevReview.reviews as Record<string, any>)
+      const prevScores = Object.values(
+        prevReview.reviews as Record<string, any>,
+      )
         .map((r: any) => r.score)
         .filter((v) => typeof v === "number");
       const curScores = Object.values(humanReview)
@@ -232,16 +256,22 @@ export async function review(runNameOverride?: string) {
         .filter((v): v is number => v !== null);
 
       if (prevScores.length && curScores.length) {
-        const prevAvg = prevScores.reduce((a, b) => a + b, 0) / prevScores.length;
+        const prevAvg =
+          prevScores.reduce((a, b) => a + b, 0) / prevScores.length;
         const curAvg = curScores.reduce((a, b) => a + b, 0) / curScores.length;
         const delta = curAvg - prevAvg;
-        console.log(`\nvs previous run (${prevRunName}): overall Δ ${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`);
+        console.log(
+          `\nvs previous run (${prevRunName}): overall Δ ${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`,
+        );
       }
     }
   }
 
   // Prompt suggestions
-  const suggestInput = await ask(rl, "\nWant Claude to suggest prompt edits based on your feedback? (y/n): ");
+  const suggestInput = await ask(
+    rl,
+    "\nWant Claude to suggest prompt edits based on your feedback? (y/n): ",
+  );
 
   let suggestions: string | null = null;
 
@@ -273,7 +303,13 @@ export async function review(runNameOverride?: string) {
     const suggestSystem = `You are a prompt engineering expert. Given the current system prompt and human review feedback, suggest specific edits to improve the prompt. Be concrete: quote the exact lines to change and provide replacement text. Keep suggestions focused and actionable.`;
     const suggestMessage = `## Current Prompt\n${currentPrompt}\n\n## Human Review Feedback\n${feedbackContext}`;
 
-    suggestions = await callLLM(provider, apiKey, model, suggestSystem, suggestMessage);
+    suggestions = await callLLM(
+      provider,
+      apiKey,
+      model,
+      suggestSystem,
+      suggestMessage,
+    );
     console.log(suggestions);
   }
 

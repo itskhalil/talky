@@ -42,7 +42,7 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
       setIsCustom(customResult);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to load data directory"
+        err instanceof Error ? err.message : "Failed to load data directory",
       );
     } finally {
       setLoading(false);
@@ -87,7 +87,7 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
       setError(
         err instanceof Error
           ? err.message
-          : t("settings.about.userDataDirectory.error", { error: "Unknown" })
+          : t("settings.about.userDataDirectory.error", { error: "Unknown" }),
       );
     } finally {
       setChanging(false);
@@ -114,7 +114,7 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
       setError(
         err instanceof Error
           ? err.message
-          : t("settings.about.userDataDirectory.error", { error: "Unknown" })
+          : t("settings.about.userDataDirectory.error", { error: "Unknown" }),
       );
     } finally {
       setChanging(false);

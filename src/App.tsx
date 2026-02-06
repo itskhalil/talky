@@ -41,7 +41,12 @@ function App() {
         setView("settings");
       }
     }
-  }, [onboardingStep, refreshAudioDevices, refreshOutputDevices, fromOnboarding]);
+  }, [
+    onboardingStep,
+    refreshAudioDevices,
+    refreshOutputDevices,
+    fromOnboarding,
+  ]);
 
   // Apply font size setting
   useEffect(() => {

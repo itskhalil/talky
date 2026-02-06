@@ -107,8 +107,9 @@ const findPlugin = new Plugin({
   },
   props: {
     decorations(state) {
-      const { searchTerm, currentIndex } =
-        FIND_PLUGIN_KEY.getState(state) as FindMeta;
+      const { searchTerm, currentIndex } = FIND_PLUGIN_KEY.getState(
+        state,
+      ) as FindMeta;
       return buildDecorations(state.doc, searchTerm, currentIndex);
     },
   },
@@ -236,10 +237,7 @@ export function FindBar({ editor, onClose }: FindBarProps) {
         className="flex-1 text-sm bg-transparent border-none outline-none text-text placeholder:text-text-secondary min-w-0"
       />
       {query && (
-        <span
-          className="text-xs text-text-secondary whitespace-nowrap"
-          data-ui
-        >
+        <span className="text-xs text-text-secondary whitespace-nowrap" data-ui>
           {totalMatches > 0
             ? `${currentMatch + 1} of ${totalMatches}`
             : t("notes.noMatches", "No matches")}
