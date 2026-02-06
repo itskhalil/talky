@@ -40,25 +40,59 @@ interface SessionCache {
   loadedAt: number;
 }
 
-// Detect word-level corrections in enhanced notes
-// Returns words that appear to be corrections (replaced words)
+// Detect word-level corrections in enhanced notes.
+// Only detects words that REPLACE similar words (typo corrections like "Smithe" -> "Smith").
+// Pure additions (new words, new lines) are ignored.
 function detectWordCorrections(
   oldText: string | null,
   newText: string,
 ): string[] {
   if (!oldText) return [];
 
-  // Extract words from both texts, keeping case
+  const oldLines = oldText.split("\n");
+  const newLines = newText.split("\n");
+
+  // Find modified line pairs using LCS-based diff
+  const modifiedLinePairs = findModifiedLines(oldLines, newLines);
+
+  // For each modified line pair, find words that appear to be corrections
+  // (new word that replaces a similar old word)
+  const corrections: string[] = [];
+  const seen = new Set<string>();
+
+  for (const [oldLine, newLine] of modifiedLinePairs) {
+    const lineCorrections = findWordCorrectionsInLine(oldLine, newLine);
+    for (const word of lineCorrections) {
+      const lowerWord = word.toLowerCase();
+      if (!seen.has(lowerWord)) {
+        corrections.push(word);
+        seen.add(lowerWord);
+      }
+    }
+  }
+
+  return corrections.slice(0, 5); // Limit to 5 suggestions per save
+}
+
+// Find word corrections within a single modified line pair.
+// Simple rule: if words were removed AND a capitalized word was added, it's a correction.
+function findWordCorrectionsInLine(oldLine: string, newLine: string): string[] {
   const extractWords = (text: string): string[] =>
     text.match(/[A-Za-z][A-Za-z0-9'-]*/g) || [];
 
-  const oldWords = new Set(extractWords(oldText).map((w) => w.toLowerCase()));
-  const newWords = extractWords(newText);
+  const oldWords = extractWords(oldLine);
+  const newWords = extractWords(newLine);
 
-  // Find words in new text that:
-  // 1. Aren't in old text (possible corrections)
-  // 2. Look like proper nouns or technical terms (capitalized or unusual)
-  // 3. Aren't common words
+  const oldWordSet = new Set(oldWords.map((w) => w.toLowerCase()));
+  const newWordSet = new Set(newWords.map((w) => w.toLowerCase()));
+
+  const removedWords = oldWords.filter((w) => !newWordSet.has(w.toLowerCase()));
+  const addedWords = newWords.filter((w) => !oldWordSet.has(w.toLowerCase()));
+
+  // Must have removed at least one word (actual replacement, not just appending)
+  if (removedWords.length === 0) return [];
+
+  // Common words to ignore
   const commonWords = new Set([
     "the",
     "a",
@@ -123,31 +157,144 @@ function detectWordCorrections(
   ]);
 
   const corrections: string[] = [];
-  const seen = new Set<string>();
 
-  for (const word of newWords) {
+  for (const word of addedWords) {
     const lowerWord = word.toLowerCase();
-    // Skip if already in old text, is common, or already seen
-    if (
-      oldWords.has(lowerWord) ||
-      commonWords.has(lowerWord) ||
-      seen.has(lowerWord)
-    ) {
-      continue;
-    }
-    // Skip very short or very long words
+
+    // Skip common words, short words, long words
+    if (commonWords.has(lowerWord)) continue;
     if (word.length < 3 || word.length > 30) continue;
-    // Looks like a proper noun or technical term (capitalized)
+
+    // Must be capitalized (proper noun or technical term)
     if (
       word[0] === word[0].toUpperCase() &&
       word[0] !== word[0].toLowerCase()
     ) {
       corrections.push(word);
-      seen.add(lowerWord);
     }
   }
 
-  return corrections.slice(0, 5); // Limit to 5 suggestions per save
+  return corrections;
+}
+
+// Find lines that were modified (changed) rather than purely added or removed.
+// Returns pairs of [oldLine, newLine] for lines that were modified.
+function findModifiedLines(
+  oldLines: string[],
+  newLines: string[],
+): [string, string][] {
+  // Compute LCS to identify unchanged lines
+  const lcs = computeLCS(oldLines, newLines);
+
+  // Find unmatched lines
+  const unmatchedOld: { index: number; line: string }[] = [];
+  const unmatchedNew: { index: number; line: string }[] = [];
+
+  for (let i = 0; i < oldLines.length; i++) {
+    const isMatched = lcs.some(([oi]) => oi === i);
+    if (!isMatched) {
+      unmatchedOld.push({ index: i, line: oldLines[i] });
+    }
+  }
+
+  for (let j = 0; j < newLines.length; j++) {
+    const isMatched = lcs.some(([, nj]) => nj === j);
+    if (!isMatched) {
+      unmatchedNew.push({ index: j, line: newLines[j] });
+    }
+  }
+
+  // Match unmatched lines to find modifications (vs pure additions/deletions)
+  // A modification is when an old line was replaced by a new line with significant overlap
+  const modifiedPairs: [string, string][] = [];
+  const usedOld = new Set<number>();
+
+  for (const newItem of unmatchedNew) {
+    let bestMatch: { index: number; line: string; score: number } | null = null;
+
+    for (const oldItem of unmatchedOld) {
+      if (usedOld.has(oldItem.index)) continue;
+
+      // Calculate word overlap score
+      const score = wordOverlapScore(oldItem.line, newItem.line);
+      if (score > 0.3 && (!bestMatch || score > bestMatch.score)) {
+        bestMatch = { ...oldItem, score };
+      }
+    }
+
+    if (bestMatch) {
+      modifiedPairs.push([bestMatch.line, newItem.line]);
+      usedOld.add(bestMatch.index);
+    }
+  }
+
+  return modifiedPairs;
+}
+
+// Compute LCS of line indices - returns array of [oldIndex, newIndex] pairs
+function computeLCS(
+  oldLines: string[],
+  newLines: string[],
+): [number, number][] {
+  const m = oldLines.length;
+  const n = newLines.length;
+
+  // DP table for LCS length
+  const dp: number[][] = Array.from({ length: m + 1 }, () =>
+    Array(n + 1).fill(0),
+  );
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (oldLines[i - 1] === newLines[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+  }
+
+  // Backtrack to find the actual LCS pairs
+  const result: [number, number][] = [];
+  let i = m,
+    j = n;
+  while (i > 0 && j > 0) {
+    if (oldLines[i - 1] === newLines[j - 1]) {
+      result.unshift([i - 1, j - 1]);
+      i--;
+      j--;
+    } else if (dp[i - 1][j] > dp[i][j - 1]) {
+      i--;
+    } else {
+      j--;
+    }
+  }
+
+  return result;
+}
+
+// Calculate word overlap score between two lines (0-1)
+function wordOverlapScore(line1: string, line2: string): number {
+  const extractWords = (text: string): string[] =>
+    (text.match(/[A-Za-z][A-Za-z0-9'-]*/g) || []).map((w) => w.toLowerCase());
+
+  const words1 = extractWords(line1);
+  const words2 = extractWords(line2);
+
+  if (words1.length === 0 && words2.length === 0) return 0;
+  if (words1.length === 0 || words2.length === 0) return 0;
+
+  const set1 = new Set(words1);
+  const set2 = new Set(words2);
+
+  let intersection = 0;
+  for (const word of set1) {
+    if (set2.has(word)) intersection++;
+  }
+
+  // Jaccard similarity
+  const union = set1.size + set2.size - intersection;
+  return union > 0 ? intersection / union : 0;
 }
 
 /** Strip blank lines and standalone tags from LLM-generated enhanced notes */
@@ -223,6 +370,7 @@ interface SessionStore {
   // Internal
   _fetchSessionData: (sessionId: string) => Promise<void>;
   _saveTimers: Map<string, SaveTimers>;
+  _lastSavedEnhancedNotes: Map<string, string>; // Baseline for correction detection
   _unlisteners: UnlistenFn[];
   _listenersInitialized: boolean;
   _setupListeners: () => Promise<void>;
@@ -252,6 +400,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   enhanceStreaming: {},
 
   _saveTimers: new Map(),
+  _lastSavedEnhancedNotes: new Map(),
   _unlisteners: [],
   _listenersInitialized: false,
 
@@ -786,11 +935,22 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   },
 
   setEnhancedNotes: (tagged: string) => {
-    const { selectedSessionId, _saveTimers, cache, sessions } = get();
+    const {
+      selectedSessionId,
+      _saveTimers,
+      _lastSavedEnhancedNotes,
+      cache,
+      sessions,
+    } = get();
     if (!selectedSessionId) return;
 
-    // Get old enhanced notes for correction detection
-    const oldEnhancedNotes = cache[selectedSessionId]?.enhancedNotes;
+    // Initialize baseline from cache if not set (first edit of this session)
+    if (!_lastSavedEnhancedNotes.has(selectedSessionId)) {
+      const currentNotes = cache[selectedSessionId]?.enhancedNotes;
+      if (currentNotes) {
+        _lastSavedEnhancedNotes.set(selectedSessionId, currentNotes);
+      }
+    }
 
     // Update cache immediately and mark as edited by user
     set((s) => {
@@ -822,10 +982,12 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           notes: tagged,
         });
 
-        // Detect word corrections and add suggestions (if enabled)
+        // Detect word corrections against the LAST SAVED version (not previous keystroke)
+        // Use longer delay (1.5s) to avoid detecting partial words while typing
         const settings = useSettingsStore.getState().settings;
         if (settings?.word_suggestions_enabled !== false) {
-          const corrections = detectWordCorrections(oldEnhancedNotes, tagged);
+          const baseline = _lastSavedEnhancedNotes.get(selectedSessionId);
+          const corrections = detectWordCorrections(baseline ?? null, tagged);
           if (corrections.length > 0) {
             const session = sessions.find((s) => s.id === selectedSessionId);
             const sessionTitle = session?.title || "Untitled";
@@ -840,11 +1002,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             window.dispatchEvent(new CustomEvent("word-suggestions-changed"));
           }
         }
+
+        // Update baseline to current saved state
+        _lastSavedEnhancedNotes.set(selectedSessionId, tagged);
       } catch (e) {
         console.error("Failed to save enhanced notes:", e);
       }
       timers!.enhanced = null;
-    }, 500);
+    }, 1500);
   },
 
   generateSummary: async () => {
