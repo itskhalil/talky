@@ -250,11 +250,11 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   return (
     <div className="flex h-full">
       {sidebarCollapsed ? (
-        <div className="flex flex-col items-center justify-end pb-3 px-1 h-full">
+        <div className="flex flex-col items-center px-1 h-full border-t border-border">
           {/* macOS title bar drag region */}
           <div data-tauri-drag-region className="h-7 w-full shrink-0" />
           <div className="flex-1" />
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center justify-center h-[50px] border-t border-border">
             <button
               onClick={handleExpandSidebar}
               className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
