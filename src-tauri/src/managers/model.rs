@@ -389,10 +389,15 @@ impl ModelManager {
         // If we tried to resume but server returned 200 (not 206 Partial Content),
         // the server doesn't support range requests. Delete partial file and restart
         // fresh to avoid file corruption (appending full file to partial).
-        if resume_from > 0 && response.status() == reqwest::StatusCode::OK {
+        // Also handle 416 Range Not Satisfiable - partial file is larger than server file.
+        if resume_from > 0
+            && (response.status() == reqwest::StatusCode::OK
+                || response.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE)
+        {
             warn!(
-                "Server doesn't support range requests for model {}, restarting download",
-                model_id
+                "Range request failed for model {} (status {}), restarting download",
+                model_id,
+                response.status()
             );
             drop(response);
             let _ = fs::remove_file(&partial_path);
@@ -456,7 +461,9 @@ impl ModelManager {
             .app_handle
             .emit("model-download-progress", &initial_progress);
 
-        // Download with progress
+        // Download with progress (throttled to avoid UI flooding)
+        let mut last_progress_time = std::time::Instant::now();
+
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| {
                 // Mark as not downloading on error
@@ -472,21 +479,28 @@ impl ModelManager {
             file.write_all(&chunk)?;
             downloaded += chunk.len() as u64;
 
-            let percentage = if total_size > 0 {
-                (downloaded as f64 / total_size as f64) * 100.0
-            } else {
-                0.0
-            };
+            // Throttle progress events to emit at most once per 100ms
+            // This prevents overwhelming the UI with ~60,000 events for large files
+            let should_emit =
+                last_progress_time.elapsed().as_millis() >= 100 || downloaded == total_size;
 
-            // Emit progress event
-            let progress = DownloadProgress {
-                model_id: model_id.to_string(),
-                downloaded,
-                total: total_size,
-                percentage,
-            };
+            if should_emit {
+                let percentage = if total_size > 0 {
+                    (downloaded as f64 / total_size as f64) * 100.0
+                } else {
+                    0.0
+                };
 
-            let _ = self.app_handle.emit("model-download-progress", &progress);
+                let progress = DownloadProgress {
+                    model_id: model_id.to_string(),
+                    downloaded,
+                    total: total_size,
+                    percentage,
+                };
+
+                let _ = self.app_handle.emit("model-download-progress", &progress);
+                last_progress_time = std::time::Instant::now();
+            }
         }
 
         file.flush()?;
