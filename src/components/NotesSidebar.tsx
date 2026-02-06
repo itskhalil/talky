@@ -548,7 +548,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         )}
 
         {/* Chat input bar */}
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-2 px-3 py-3">
           <button
             onClick={() => setChatExpanded(!chatExpanded)}
             className={`p-1.5 rounded-md transition-colors ${
@@ -597,7 +597,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       </div>
 
       {/* Bottom: settings + collapse */}
-      <div className="flex items-center justify-between px-3 py-3 border-t border-border">
+      <div className="flex items-center justify-between px-3 h-[50px] border-t border-border">
         <button
           onClick={onOpenSettings}
           className="relative p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
