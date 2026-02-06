@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::path::Path;
+use std::time::{Duration, Instant};
 use vad_rs::Vad;
 
 use super::{VadState, VadTransition, VoiceActivityDetector};
@@ -20,6 +21,10 @@ pub struct SileroVad {
     hangover_frames: usize, // consecutive silence frames needed to trigger speech end
     onset_counter: usize,
     hangover_counter: usize,
+    // Timing stats for power analysis
+    total_inference_time: Duration,
+    frame_count: u64,
+    last_stats_log: Instant,
 }
 
 impl SileroVad {
@@ -45,6 +50,9 @@ impl SileroVad {
             hangover_frames: 5, // ~150ms of silence to end
             onset_counter: 0,
             hangover_counter: 0,
+            total_inference_time: Duration::ZERO,
+            frame_count: 0,
+            last_stats_log: Instant::now(),
         })
     }
 
@@ -67,12 +75,40 @@ impl VoiceActivityDetector for SileroVad {
             anyhow::bail!("expected {} samples, got {}", VAD_CHUNK_SIZE, frame.len());
         }
 
-        // Get probability from detector
+        // Get probability from detector with timing
+        let inference_start = Instant::now();
         let result = self
             .detector
             .compute(frame)
             .map_err(|e| anyhow::anyhow!("VAD compute failed: {e}"))?;
+        let inference_duration = inference_start.elapsed();
+
+        self.total_inference_time += inference_duration;
+        self.frame_count += 1;
         self.current_prob = result.prob;
+
+        // Log stats every 10 seconds
+        if self.last_stats_log.elapsed().as_secs() >= 10 {
+            let avg_inference_us = if self.frame_count > 0 {
+                self.total_inference_time.as_micros() / self.frame_count as u128
+            } else {
+                0
+            };
+            let audio_duration_ms = (self.frame_count * 30) as u128; // 30ms per frame
+            let inference_ratio = if audio_duration_ms > 0 {
+                (self.total_inference_time.as_millis() as f64 / audio_duration_ms as f64) * 100.0
+            } else {
+                0.0
+            };
+            log::info!(
+                "VAD stats: {} frames, total inference={:?}, avg={}\u{03BC}s/frame, {:.2}% of real-time",
+                self.frame_count,
+                self.total_inference_time,
+                avg_inference_us,
+                inference_ratio
+            );
+            self.last_stats_log = Instant::now();
+        }
 
         let is_speech = self.current_prob > self.threshold;
 
@@ -124,10 +160,31 @@ impl VoiceActivityDetector for SileroVad {
     }
 
     fn reset(&mut self) {
+        // Log final stats before reset
+        if self.frame_count > 0 {
+            let avg_inference_us = self.total_inference_time.as_micros() / self.frame_count as u128;
+            let audio_duration_ms = (self.frame_count * 30) as u128;
+            let inference_ratio = if audio_duration_ms > 0 {
+                (self.total_inference_time.as_millis() as f64 / audio_duration_ms as f64) * 100.0
+            } else {
+                0.0
+            };
+            log::info!(
+                "VAD final stats: {} frames, total inference={:?}, avg={}μs/frame, {:.2}% of real-time",
+                self.frame_count,
+                self.total_inference_time,
+                avg_inference_us,
+                inference_ratio
+            );
+        }
+
         self.state = VadState::Silence;
         self.current_prob = 0.0;
         self.onset_counter = 0;
         self.hangover_counter = 0;
+        self.total_inference_time = Duration::ZERO;
+        self.frame_count = 0;
+        self.last_stats_log = Instant::now();
         self.detector.reset();
     }
 }
