@@ -195,11 +195,14 @@ export function NotesEditor({
         setSuppressSourcePromotion(true);
         editor.commands.setContent(initialJSON);
         // Prevent TipTap from scrolling the container past the title
-        requestAnimationFrame(() => {
-          if (!editor || editor.isDestroyed || !editor.view?.dom) return;
-          const scrollParent = editor.view.dom.closest(".overflow-y-scroll");
-          scrollParent?.scrollTo(0, 0);
-        });
+        // Skip during streaming (disabled=true) so user can scroll freely
+        if (!disabled) {
+          requestAnimationFrame(() => {
+            if (!editor || editor.isDestroyed || !editor.view?.dom) return;
+            const scrollParent = editor.view.dom.closest(".overflow-y-scroll");
+            scrollParent?.scrollTo(0, 0);
+          });
+        }
         setSuppressSourcePromotion(false);
         suppressUpdateRef.current = false;
       }
@@ -214,7 +217,7 @@ export function NotesEditor({
         suppressUpdateRef.current = false;
       }
     }
-  }, [content, initialJSON, editor, isEnhanced]);
+  }, [content, initialJSON, editor, isEnhanced, disabled]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
