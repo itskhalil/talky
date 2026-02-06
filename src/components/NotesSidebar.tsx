@@ -455,7 +455,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                     return (
                       <div
                         key={session.id}
-                        className={`group flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                        className={`group flex items-start gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
                           isSelected ? "bg-accent/10" : "hover:bg-accent-soft"
                         }`}
                         onClick={() => onSelect(session.id)}
@@ -467,14 +467,14 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                             )}
                             <span
                               data-ui
-                              className={`text-sm line-clamp-2 break-words ${
+                              className={`text-sm truncate ${
                                 isSelected ? "font-medium text-text" : "text-text"
                               }`}
                             >
                               {session.title}
                             </span>
                           </div>
-                          <div data-ui className="text-xs text-text-secondary mt-0.5">
+                          <div data-ui className="text-xs text-text-secondary">
                             {formatDate(session.started_at)}
                           </div>
                         </div>
