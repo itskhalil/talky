@@ -26,6 +26,19 @@ import { useOrganizationStore } from "@/stores/organizationStore";
 import { JSONContent, Editor } from "@tiptap/core";
 import type { Tag as TagType } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  parseInlineContent as parseInline,
+  inlineToMarkdown,
+} from "@/utils/markdownParser";
+
+/**
+ * Wrapper around parseInlineContent that returns a space placeholder for empty content.
+ * This ensures TipTap nodes render correctly even when text is empty.
+ */
+function parseInlineContent(text: string): JSONContent[] {
+  const result = parseInline(text);
+  return result.length > 0 ? result : [{ type: "text", text: " " }];
+}
 
 interface Session {
   id: string;
@@ -155,7 +168,7 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
   while (i < parsed.length) {
     const { cleaned, isAi } = parsed[i];
     const trimmed = cleaned.trimStart();
-    const source = isAi ? "ai" : "user";
+    const source = isAi ? "ai" : "noted";
 
     // Preserve empty lines as empty paragraphs
     if (trimmed === "") {
@@ -251,7 +264,7 @@ function parseBulletList(
     }
 
     // Same indent level - add to current list
-    const source = parsed[i].isAi ? "ai" : "user";
+    const source = parsed[i].isAi ? "ai" : "noted";
     listItems.push({
       type: "listItem",
       attrs: { source },
@@ -272,29 +285,6 @@ function parseBulletList(
   };
 }
 
-function parseInlineContent(text: string): JSONContent[] {
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-  const result: JSONContent[] = [];
-  for (const part of parts) {
-    if (!part) continue;
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      result.push({
-        type: "text",
-        text: part.slice(2, -2),
-        marks: [{ type: "bold" }],
-      });
-    } else if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-      result.push({
-        type: "text",
-        text: part.slice(1, -1),
-        marks: [{ type: "italic" }],
-      });
-    } else {
-      result.push({ type: "text", text: part });
-    }
-  }
-  return result.length > 0 ? result : [{ type: "text", text: " " }];
-}
 
 /**
  * Serialize tiptap JSON back to tagged markdown for storage.
@@ -304,7 +294,7 @@ export function serializeTiptapToTagged(json: JSONContent): string {
   const lines: string[] = [];
 
   for (const node of json.content) {
-    const source = node.attrs?.source ?? "user";
+    const source = node.attrs?.source ?? "noted";
     const tag = `[${source}]`;
 
     if (node.type === "heading") {
@@ -339,7 +329,7 @@ function serializeBulletList(
   const indent = "  ".repeat(depth);
 
   for (const li of node.content) {
-    const liSource = li.attrs?.source ?? "user";
+    const liSource = li.attrs?.source ?? "noted";
     const liTag = `[${liSource}]`;
 
     // Find paragraph and nested lists in the list item
@@ -356,20 +346,6 @@ function serializeBulletList(
   }
 }
 
-function inlineToMarkdown(content?: JSONContent[]): string {
-  if (!content) return "";
-  return content
-    .map((node) => {
-      if (node.type !== "text" || !node.text) return "";
-      const hasBold = node.marks?.some((m) => m.type === "bold");
-      const hasItalic = node.marks?.some((m) => m.type === "italic");
-      let t = node.text;
-      if (hasBold) t = `**${t}**`;
-      if (hasItalic) t = `*${t}*`;
-      return t;
-    })
-    .join("");
-}
 
 export function NoteView({
   session,
@@ -527,7 +503,7 @@ export function NoteView({
     let text = "";
     if (viewMode === "enhanced" && enhancedNotes) {
       text = enhancedNotes
-        .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "")
+        .replace(/\*{0,2}\[(?:noted|ai)\]\*{0,2} /g, "")
         .replace(/\*{4}/g, "");
     } else {
       text = userNotes;
@@ -556,7 +532,7 @@ export function NoteView({
     let text = "";
     if (viewMode === "enhanced" && enhancedNotes) {
       text = enhancedNotes
-        .replace(/\*{0,2}\[(?:user|ai)\]\*{0,2} /g, "")
+        .replace(/\*{0,2}\[(?:noted|ai)\]\*{0,2} /g, "")
         .replace(/\*{4}/g, "");
     } else {
       text = userNotes;

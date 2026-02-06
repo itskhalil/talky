@@ -8,6 +8,10 @@ import {
   setSuppressSourcePromotion,
 } from "./AiSourceExtension";
 import { Extension, JSONContent } from "@tiptap/core";
+import {
+  parseMarkdownToTiptap,
+  serializeTiptapToMarkdown,
+} from "@/utils/markdownParser";
 import "./notes-editor.css";
 
 // Custom extension for paste without formatting (Cmd+Shift+Option+V on Mac)
@@ -69,10 +73,9 @@ export function NotesEditor({
         }),
         Placeholder.configure({ placeholder }),
         PasteUnformatted,
+        // Markdown extension for paste handling in both modes
+        Markdown.configure({ transformPastedText: true, breaks: true }),
         ...(isEnhanced ? [AiSourceExtension] : []),
-        ...(!isEnhanced
-          ? [Markdown.configure({ transformPastedText: true, breaks: true })]
-          : []),
       ],
       content: "",
       editable: !disabled,
@@ -159,10 +162,8 @@ export function NotesEditor({
         if (modeRef.current === "enhanced") {
           onJSONChangeRef.current?.(editor.getJSON());
         } else {
-          const md =
-            (editor.storage as Record<string, any>).markdown?.getMarkdown() ??
-            "";
-          onChangeRef.current(md);
+          const text = serializeTiptapToMarkdown(editor.getJSON());
+          onChangeRef.current(text);
         }
       },
     },
@@ -207,13 +208,11 @@ export function NotesEditor({
         suppressUpdateRef.current = false;
       }
     } else if (!isEnhanced) {
-      const current =
-        (editor.storage as Record<string, any>).markdown?.getMarkdown() ?? "";
+      const current = serializeTiptapToMarkdown(editor.getJSON());
       if (current !== content) {
         suppressUpdateRef.current = true;
-        setSuppressSourcePromotion(true);
-        editor.commands.setContent(content);
-        setSuppressSourcePromotion(false);
+        const json = parseMarkdownToTiptap(content);
+        editor.commands.setContent(json);
         suppressUpdateRef.current = false;
       }
     }
