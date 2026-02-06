@@ -15,7 +15,7 @@ pub fn start_monitoring(app: AppHandle) {
     std::thread::spawn(move || {
         use block2::RcBlock;
         use objc2_app_kit::NSWorkspace;
-        use objc2_foundation::{NSDate, NSNotification, NSRunLoop, NSString};
+        use objc2_foundation::{NSNotification, NSString};
 
         // Get the shared workspace and its notification center
         let workspace = NSWorkspace::sharedWorkspace();
@@ -49,12 +49,13 @@ pub fn start_monitoring(app: AppHandle) {
         log::info!("Power event monitoring started");
 
         // Run the run loop to receive notifications
-        // This thread will run indefinitely
-        loop {
-            let run_loop = NSRunLoop::currentRunLoop();
-            // Run until a future date (effectively forever per iteration)
-            let distant_future = NSDate::distantFuture();
-            run_loop.runUntilDate(&distant_future);
+        // CFRunLoopRun properly blocks until explicitly stopped
+        #[link(name = "CoreFoundation", kind = "framework")]
+        extern "C" {
+            fn CFRunLoopRun();
+        }
+        unsafe {
+            CFRunLoopRun();
         }
     });
 }
