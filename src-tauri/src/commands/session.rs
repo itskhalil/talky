@@ -199,8 +199,29 @@ pub async fn generate_session_summary(
             .await?
             .ok_or_else(|| "LLM returned no content".to_string())?;
 
+    log::debug!(
+        "[enhance-notes] Raw LLM result (non-stream) | session={} len={}",
+        session_id,
+        result.len()
+    );
+
     // Strip blank lines from model output before saving
     let cleaned = strip_model_blank_lines(&result);
+
+    log::info!(
+        "[enhance-notes] After strip (non-stream) | session={} before={} after={}",
+        session_id,
+        result.len(),
+        cleaned.len()
+    );
+
+    if cleaned.is_empty() && !result.is_empty() {
+        log::error!(
+            "[enhance-notes] CRITICAL: All content stripped! session={} raw_preview={:?}",
+            session_id,
+            &result[..result.len().min(1000)]
+        );
+    }
 
     sm.save_meeting_notes(
         &session_id,
@@ -334,13 +355,31 @@ pub async fn generate_session_summary_stream(
     let messages = vec![
         ChatMessage {
             role: "system".to_string(),
-            content: system_message,
+            content: system_message.clone(),
         },
         ChatMessage {
             role: "user".to_string(),
-            content: user_message,
+            content: user_message.clone(),
         },
     ];
+
+    // Log the full context being sent to the model
+    log::info!(
+        "[enhance-notes] Sending request | session={} provider={} model={}",
+        session_id,
+        provider.id,
+        model
+    );
+    log::debug!(
+        "[enhance-notes] System prompt ({} chars): {:?}",
+        system_message.len(),
+        &system_message[..system_message.len().min(500)]
+    );
+    log::debug!(
+        "[enhance-notes] User message ({} chars): {:?}",
+        user_message.len(),
+        &user_message[..user_message.len().min(1000)]
+    );
 
     // Use streaming API
     let result = crate::llm_client::stream_chat_completion_messages(
@@ -353,8 +392,45 @@ pub async fn generate_session_summary_stream(
     )
     .await?;
 
+    // Log the FULL model response
+    log::info!(
+        "[enhance-notes] Full model response | session={} len={}",
+        session_id,
+        result.len()
+    );
+    log::info!(
+        "[enhance-notes] === RAW MODEL OUTPUT START ===\n{}\n=== RAW MODEL OUTPUT END ===",
+        result
+    );
+
     // Strip blank lines from model output before saving
     let cleaned = strip_model_blank_lines(&result);
+
+    log::info!(
+        "[enhance-notes] After strip | session={} before={} after={} stripped={}",
+        session_id,
+        result.len(),
+        cleaned.len(),
+        result.len().saturating_sub(cleaned.len())
+    );
+
+    log::info!(
+        "[enhance-notes] === CLEANED OUTPUT START ===\n{}\n=== CLEANED OUTPUT END ===",
+        cleaned
+    );
+
+    if cleaned.is_empty() && !result.is_empty() {
+        log::error!(
+            "[enhance-notes] CRITICAL: All content stripped! session={}",
+            session_id
+        );
+    }
+
+    log::info!(
+        "[enhance-notes] Saving to DB | session={} len={}",
+        session_id,
+        cleaned.len()
+    );
 
     // Save the complete result to database
     sm.save_meeting_notes(
