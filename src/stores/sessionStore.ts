@@ -751,13 +751,13 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             };
           });
         } else {
-          // Accumulate chunk, stripping blank lines in real-time
+          // Accumulate chunks raw - stripping happens once at completion
+          // (stripping during streaming causes corruption at chunk boundaries)
           set((s) => ({
             streamingEnhancedNotes: {
               ...s.streamingEnhancedNotes,
-              [session_id]: stripBlankLines(
+              [session_id]:
                 (s.streamingEnhancedNotes[session_id] || "") + chunk,
-              ),
             },
             enhanceStreaming: {
               ...s.enhanceStreaming,

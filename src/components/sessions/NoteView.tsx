@@ -199,10 +199,10 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
       continue;
     }
 
-    // Heading
-    const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)/);
+    // Heading - support h1-h6, clamp to h4 max for TipTap
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
     if (headingMatch) {
-      const level = headingMatch[1].length;
+      const level = Math.min(headingMatch[1].length, 4);
       nodes.push({
         type: "heading",
         attrs: { level, source },
