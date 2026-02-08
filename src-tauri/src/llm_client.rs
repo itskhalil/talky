@@ -5,6 +5,19 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFER
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
+/// Truncate a string to at most `max_bytes` while respecting UTF-8 char boundaries.
+fn truncate_str(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    // Find the largest valid char boundary <= max_bytes
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct ChatMessage {
     pub role: String,
@@ -210,7 +223,7 @@ pub async fn stream_chat_completion_messages(
             "[enhance-notes] Raw chunk #{} | len={} preview={:?}",
             chunk_count,
             chunk_str.len(),
-            &chunk_str[..chunk_str.len().min(200)]
+            truncate_str(&chunk_str, 200)
         );
 
         // Process complete lines from buffer
@@ -233,7 +246,7 @@ pub async fn stream_chat_completion_messages(
                     );
                     debug!(
                         "[enhance-notes] Final content preview: {:?}",
-                        &accumulated[..accumulated.len().min(500)]
+                        truncate_str(&accumulated, 500)
                     );
                     let _ = app.emit(
                         "enhance-notes-chunk",
@@ -255,7 +268,7 @@ pub async fn stream_chat_completion_messages(
                             "[enhance-notes] Emitting chunk #{} | len={} preview={:?}",
                             emit_count,
                             content.len(),
-                            &content[..content.len().min(50)]
+                            truncate_str(&content, 50)
                         );
                         let _ = app.emit(
                             "enhance-notes-chunk",
@@ -281,7 +294,7 @@ pub async fn stream_chat_completion_messages(
     if !accumulated.is_empty() {
         debug!(
             "[enhance-notes] Final content preview: {:?}",
-            &accumulated[..accumulated.len().min(500)]
+            truncate_str(&accumulated, 500)
         );
     }
     let _ = app.emit(
@@ -304,7 +317,7 @@ fn parse_sse_content(data: &str, provider_id: &str) -> Option<String> {
             warn!(
                 "[enhance-notes] JSON parse failed: {} | data={:?}",
                 e,
-                &data[..data.len().min(200)]
+                truncate_str(data, 200)
             );
             return None;
         }
@@ -353,7 +366,7 @@ fn parse_sse_content(data: &str, provider_id: &str) -> Option<String> {
             if !has_finish_reason {
                 trace!(
                     "[enhance-notes] No content in OpenAI delta: {:?}",
-                    &data[..data.len().min(150)]
+                    truncate_str(data, 150)
                 );
             }
         }
