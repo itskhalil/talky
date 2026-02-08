@@ -1,6 +1,6 @@
 use crate::settings::PostProcessProvider;
 use futures_util::StreamExt;
-use log::debug;
+use log::{debug, info, trace, warn};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
@@ -158,6 +158,10 @@ pub async fn stream_chat_completion_messages(
     let base_url = provider.base_url.trim_end_matches('/');
     let url = format!("{}/chat/completions", base_url);
 
+    info!(
+        "[enhance-notes] Starting stream | provider={} model={} session={}",
+        provider.id, model, session_id
+    );
     debug!("Sending streaming chat completion request to: {}", url);
 
     let client = create_client(provider, &api_key)?;
@@ -193,10 +197,21 @@ pub async fn stream_chat_completion_messages(
     // Buffer for incomplete SSE lines
     let mut buffer = String::new();
 
+    let mut chunk_count = 0u32;
+    let mut emit_count = 0u32;
+
     while let Some(chunk_result) = stream.next().await {
         let chunk = chunk_result.map_err(|e| format!("Stream read error: {}", e))?;
         let chunk_str = String::from_utf8_lossy(&chunk);
         buffer.push_str(&chunk_str);
+
+        chunk_count += 1;
+        trace!(
+            "[enhance-notes] Raw chunk #{} | len={} preview={:?}",
+            chunk_count,
+            chunk_str.len(),
+            &chunk_str[..chunk_str.len().min(200)]
+        );
 
         // Process complete lines from buffer
         while let Some(line_end) = buffer.find('\n') {
@@ -210,6 +225,16 @@ pub async fn stream_chat_completion_messages(
             if let Some(data) = line.strip_prefix("data: ") {
                 if data.trim() == "[DONE]" {
                     // Stream complete
+                    info!(
+                        "[enhance-notes] Stream complete [DONE] | total_chars={} chunks_received={} chunks_emitted={}",
+                        accumulated.len(),
+                        chunk_count,
+                        emit_count
+                    );
+                    debug!(
+                        "[enhance-notes] Final content preview: {:?}",
+                        &accumulated[..accumulated.len().min(500)]
+                    );
                     let _ = app.emit(
                         "enhance-notes-chunk",
                         EnhanceNotesChunk {
@@ -225,6 +250,13 @@ pub async fn stream_chat_completion_messages(
                 if let Some(content) = parse_sse_content(data, &provider.id) {
                     if !content.is_empty() {
                         accumulated.push_str(&content);
+                        emit_count += 1;
+                        debug!(
+                            "[enhance-notes] Emitting chunk #{} | len={} preview={:?}",
+                            emit_count,
+                            content.len(),
+                            &content[..content.len().min(50)]
+                        );
                         let _ = app.emit(
                             "enhance-notes-chunk",
                             EnhanceNotesChunk {
@@ -240,6 +272,18 @@ pub async fn stream_chat_completion_messages(
     }
 
     // Emit final done event if stream ended without [DONE]
+    info!(
+        "[enhance-notes] Stream ended (no [DONE]) | total_chars={} chunks_received={} chunks_emitted={}",
+        accumulated.len(),
+        chunk_count,
+        emit_count
+    );
+    if !accumulated.is_empty() {
+        debug!(
+            "[enhance-notes] Final content preview: {:?}",
+            &accumulated[..accumulated.len().min(500)]
+        );
+    }
     let _ = app.emit(
         "enhance-notes-chunk",
         EnhanceNotesChunk {
@@ -254,27 +298,66 @@ pub async fn stream_chat_completion_messages(
 
 /// Parse SSE content from different provider formats
 fn parse_sse_content(data: &str, provider_id: &str) -> Option<String> {
-    let parsed: serde_json::Value = serde_json::from_str(data).ok()?;
+    let parsed: serde_json::Value = match serde_json::from_str(data) {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(
+                "[enhance-notes] JSON parse failed: {} | data={:?}",
+                e,
+                &data[..data.len().min(200)]
+            );
+            return None;
+        }
+    };
 
     if provider_id == "anthropic" {
         // Anthropic format: {"type":"content_block_delta","delta":{"text":"chunk"}}
-        if parsed.get("type")?.as_str()? == "content_block_delta" {
+        let event_type = parsed.get("type").and_then(|t| t.as_str());
+        if event_type == Some("content_block_delta") {
             return parsed
-                .get("delta")?
-                .get("text")?
-                .as_str()
+                .get("delta")
+                .and_then(|d| d.get("text"))
+                .and_then(|t| t.as_str())
                 .map(|s| s.to_string());
+        }
+        // Log unrecognized Anthropic events at trace level (many are expected like message_start)
+        if event_type != Some("message_start")
+            && event_type != Some("content_block_start")
+            && event_type != Some("message_delta")
+            && event_type != Some("message_stop")
+            && event_type != Some("ping")
+        {
+            trace!(
+                "[enhance-notes] Unrecognized Anthropic event type: {:?}",
+                event_type
+            );
         }
         None
     } else {
         // OpenAI format: {"choices":[{"delta":{"content":"chunk"}}]}
-        parsed
-            .get("choices")?
-            .get(0)?
-            .get("delta")?
-            .get("content")?
-            .as_str()
-            .map(|s| s.to_string())
+        let result = parsed
+            .get("choices")
+            .and_then(|c| c.get(0))
+            .and_then(|c| c.get("delta"))
+            .and_then(|d| d.get("content"))
+            .and_then(|c| c.as_str())
+            .map(|s| s.to_string());
+
+        if result.is_none() {
+            // Check if this is an expected non-content event (e.g., role-only delta, finish_reason)
+            let has_finish_reason = parsed
+                .get("choices")
+                .and_then(|c| c.get(0))
+                .and_then(|c| c.get("finish_reason"))
+                .is_some();
+            if !has_finish_reason {
+                trace!(
+                    "[enhance-notes] No content in OpenAI delta: {:?}",
+                    &data[..data.len().min(150)]
+                );
+            }
+        }
+        result
     }
 }
 

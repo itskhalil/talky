@@ -144,6 +144,22 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
   const lines = content.split("\n");
   const nodes: JSONContent[] = [];
 
+  // Log warnings for unsupported patterns
+  if (content.includes("######")) {
+    console.warn(
+      "[enhance-notes] Found h6 heading (unsupported) - will become paragraph",
+    );
+  }
+  if (content.includes("STRIKE")) {
+    console.warn(
+      "[enhance-notes] Found STRIKE text - possible LLM artifact",
+      content.slice(
+        Math.max(0, content.indexOf("STRIKE") - 20),
+        content.indexOf("STRIKE") + 30,
+      ),
+    );
+  }
+
   // For lines without a tag (headers), inherit from next tagged line
   const parsed = lines.map((line) => {
     const isAi = /\[ai\]/.test(line);

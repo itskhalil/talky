@@ -711,12 +711,23 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       await listen<EnhanceNotesChunkEvent>("enhance-notes-chunk", (event) => {
         const { session_id, chunk, done } = event.payload;
 
+        console.debug(
+          `[enhance-notes] Chunk received | session=${session_id} done=${done} len=${chunk.length}`,
+        );
+
         if (done) {
           // Stream complete - move accumulated text to cache and clear streaming state
           set((s) => {
-            const accumulatedText = stripBlankLines(
-              s.streamingEnhancedNotes[session_id] || "",
-            );
+            const rawAccumulated = s.streamingEnhancedNotes[session_id] || "";
+            const accumulatedText = stripBlankLines(rawAccumulated);
+
+            // Minimal logging - main debug info is in Rust logs
+            if (accumulatedText.length === 0 && rawAccumulated.length > 0) {
+              console.error(
+                `[enhance-notes] All content stripped! Check Rust logs for details.`,
+              );
+            }
+
             const existing = s.cache[session_id];
             const { [session_id]: _stream, ...restStreaming } =
               s.streamingEnhancedNotes;
