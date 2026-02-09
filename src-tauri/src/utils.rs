@@ -1,12 +1,40 @@
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::transcription::TranscriptionManager;
-use log::info;
-use std::sync::Arc;
+use log::{info, warn};
+use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::{AppHandle, Manager};
 
 use tauri::Emitter;
 
 pub use crate::tray::*;
+
+/// Extension trait for `std::sync::Mutex` that recovers from poisoned state.
+///
+/// When a thread panics while holding a mutex, the mutex becomes "poisoned".
+/// Using `.lock().unwrap()` would panic in this case, potentially crashing the app.
+/// This trait provides `lock_or_recover()` which logs a warning and recovers the
+/// inner data, allowing the application to continue operating.
+pub trait MutexExt<T> {
+    /// Locks the mutex, recovering from poisoned state if necessary.
+    ///
+    /// If the mutex was poisoned (a thread panicked while holding it),
+    /// this logs a warning and returns the inner data anyway. This is
+    /// safe because we're choosing to continue despite the potential
+    /// inconsistent state.
+    fn lock_or_recover(&self) -> MutexGuard<'_, T>;
+}
+
+impl<T> MutexExt<T> for Mutex<T> {
+    fn lock_or_recover(&self) -> MutexGuard<'_, T> {
+        match self.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                warn!("Mutex was poisoned, recovering inner data");
+                poisoned.into_inner()
+            }
+        }
+    }
+}
 
 pub fn emit_levels(app_handle: &AppHandle, levels: &Vec<f32>) {
     let _ = app_handle.emit("mic-level", levels);
