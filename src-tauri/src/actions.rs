@@ -111,8 +111,10 @@ pub async fn run_session_transcription_loop(
         mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
     #[cfg(target_os = "macos")]
     let mut last_meeting_check = Instant::now();
+    // Grace period tracking: apps that disappeared but may reappear during audio device switches
     #[cfg(target_os = "macos")]
-    let mut notified_apps: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut pending_disappearances: std::collections::HashMap<String, Instant> =
+        std::collections::HashMap::new();
     #[cfg(target_os = "macos")]
     if !tracked_meeting_apps.is_empty() {
         log::info!(
@@ -287,24 +289,46 @@ pub async fn run_session_transcription_loop(
                     );
                     tracked_meeting_apps.insert(app_id.clone());
                 }
+                // App reappeared - cancel any pending disappearance (e.g., during audio device switch)
+                if pending_disappearances.remove(app_id).is_some() {
+                    log::info!(
+                        "Meeting app {} reappeared (audio device switch?), cancelling pending notification",
+                        mic_detect::app_name(app_id)
+                    );
+                }
             }
 
             // Check which tracked meeting apps have stopped using the mic
-            // Deduplicate by app name (not bundle ID) since apps like Teams have multiple processes
             for app_id in tracked_meeting_apps.clone() {
                 if !current_apps.contains(&app_id) {
-                    let name = mic_detect::app_name(&app_id);
-                    // Use app name for deduplication (e.g., "Teams" not bundle ID)
-                    if !notified_apps.contains(name) {
-                        notified_apps.insert(name.to_string());
-                        log::info!("Meeting app {} ({}) stopped using microphone", name, app_id);
-
-                        // Emit event for frontend to handle (show window + toast to stop recording)
-                        let _ = app.emit("meeting-ended", name);
-                    }
-                    // Remove from tracked to stop checking (already notified or will be)
-                    tracked_meeting_apps.remove(&app_id);
+                    // Add to pending disappearances with current timestamp (don't emit yet)
+                    pending_disappearances
+                        .entry(app_id.clone())
+                        .or_insert_with(Instant::now);
                 }
+            }
+
+            // Process pending disappearances that have exceeded the grace period (2 seconds)
+            let grace_period = Duration::from_secs(2);
+            let expired: Vec<String> = pending_disappearances
+                .iter()
+                .filter(|(_, &timestamp)| timestamp.elapsed() >= grace_period)
+                .map(|(app_id, _)| app_id.clone())
+                .collect();
+
+            for app_id in expired {
+                pending_disappearances.remove(&app_id);
+                tracked_meeting_apps.remove(&app_id);
+
+                let name = mic_detect::app_name(&app_id);
+                log::info!(
+                    "Meeting app {} ({}) stopped using microphone (confirmed after grace period)",
+                    name,
+                    app_id
+                );
+
+                // Emit event for frontend to handle (show window + toast to stop recording)
+                let _ = app.emit("meeting-ended", name);
             }
         }
 
