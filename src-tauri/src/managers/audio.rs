@@ -1,7 +1,7 @@
 use crate::audio_toolkit::{list_input_devices, AudioRecorder};
 use crate::helpers::clamshell;
 use crate::settings::{get_settings, AppSettings};
-use crate::utils;
+use crate::utils::{self, MutexExt};
 use log::{debug, error, info};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -91,7 +91,7 @@ impl AudioRecordingManager {
     /* ---------- microphone life-cycle -------------------------------------- */
 
     pub fn start_microphone_stream(&self) -> Result<(), anyhow::Error> {
-        let mut open_flag = self.is_open.lock().unwrap();
+        let mut open_flag = self.is_open.lock_or_recover();
         if *open_flag {
             debug!("Microphone stream already active");
             return Ok(());
@@ -99,7 +99,7 @@ impl AudioRecordingManager {
 
         let start_time = Instant::now();
 
-        let mut recorder_opt = self.recorder.lock().unwrap();
+        let mut recorder_opt = self.recorder.lock_or_recover();
 
         if recorder_opt.is_none() {
             *recorder_opt = Some(create_audio_recorder(&self.app_handle)?);
@@ -123,16 +123,16 @@ impl AudioRecordingManager {
     }
 
     pub fn stop_microphone_stream(&self) {
-        let mut open_flag = self.is_open.lock().unwrap();
+        let mut open_flag = self.is_open.lock_or_recover();
         if !*open_flag {
             return;
         }
 
-        if let Some(rec) = self.recorder.lock().unwrap().as_mut() {
+        if let Some(rec) = self.recorder.lock_or_recover().as_mut() {
             // If still recording, stop first.
-            if *self.is_recording.lock().unwrap() {
+            if *self.is_recording.lock_or_recover() {
                 let _ = rec.stop();
-                *self.is_recording.lock().unwrap() = false;
+                *self.is_recording.lock_or_recover() = false;
             }
             let _ = rec.close();
         }
@@ -143,7 +143,7 @@ impl AudioRecordingManager {
 
     pub fn update_selected_device(&self) -> Result<(), anyhow::Error> {
         // If currently open, restart the microphone stream to use the new device
-        if *self.is_open.lock().unwrap() {
+        if *self.is_open.lock_or_recover() {
             self.stop_microphone_stream();
             self.start_microphone_stream()?;
         }
@@ -151,22 +151,22 @@ impl AudioRecordingManager {
     }
 
     pub fn is_recording(&self) -> bool {
-        matches!(*self.state.lock().unwrap(), RecordingState::Recording)
+        matches!(*self.state.lock_or_recover(), RecordingState::Recording)
     }
 
     /// Cancel any ongoing recording without returning audio samples
     pub fn cancel_recording(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
 
         if let RecordingState::Recording = *state {
             *state = RecordingState::Idle;
             drop(state);
 
-            if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+            if let Some(rec) = self.recorder.lock_or_recover().as_ref() {
                 let _ = rec.stop(); // Discard the result
             }
 
-            *self.is_recording.lock().unwrap() = false;
+            *self.is_recording.lock_or_recover() = false;
             self.stop_microphone_stream();
         }
     }
@@ -175,13 +175,13 @@ impl AudioRecordingManager {
     pub fn start_session_recording(&self) -> Result<(), anyhow::Error> {
         self.start_microphone_stream()?;
 
-        if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+        if let Some(rec) = self.recorder.lock_or_recover().as_ref() {
             rec.start()
                 .map_err(|e| anyhow::anyhow!("Failed to start session recording: {}", e))?;
         }
 
-        *self.is_recording.lock().unwrap() = true;
-        let mut state = self.state.lock().unwrap();
+        *self.is_recording.lock_or_recover() = true;
+        let mut state = self.state.lock_or_recover();
         *state = RecordingState::Recording;
         debug!("Session recording started");
         Ok(())
@@ -189,11 +189,11 @@ impl AudioRecordingManager {
 
     /// Stop session recording and return accumulated mic samples
     pub fn stop_session_recording(&self) -> Vec<f32> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         *state = RecordingState::Idle;
         drop(state);
 
-        let samples = if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+        let samples = if let Some(rec) = self.recorder.lock_or_recover().as_ref() {
             match rec.stop() {
                 Ok(buf) => buf,
                 Err(e) => {
@@ -205,7 +205,7 @@ impl AudioRecordingManager {
             Vec::new()
         };
 
-        *self.is_recording.lock().unwrap() = false;
+        *self.is_recording.lock_or_recover() = false;
         self.stop_microphone_stream();
         debug!("Session recording stopped, {} samples", samples.len());
         samples
@@ -214,7 +214,7 @@ impl AudioRecordingManager {
     /// Get a snapshot of current accumulated samples without stopping recording.
     /// Uses gap-free extraction to avoid losing audio during the transition.
     pub fn take_session_chunk(&self) -> Vec<f32> {
-        if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+        if let Some(rec) = self.recorder.lock_or_recover().as_ref() {
             match rec.take() {
                 Ok(buf) => buf,
                 Err(e) => {
