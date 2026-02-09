@@ -1,13 +1,16 @@
+use crate::utils::MutexExt;
 use anyhow::Result;
 use chrono::Utc;
-use log::{debug, info};
+use log::{debug, info, warn};
 use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
@@ -171,7 +174,9 @@ pub struct SessionManager {
     /// Shared buffer where the speaker capture task accumulates samples
     speaker_buffer: Arc<Mutex<Vec<f32>>>,
     /// Signal to stop the speaker capture task
-    speaker_shutdown: Arc<std::sync::atomic::AtomicBool>,
+    speaker_shutdown: Arc<AtomicBool>,
+    /// Handle to the speaker capture thread for proper cleanup
+    speaker_thread_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl SessionManager {
@@ -195,7 +200,8 @@ impl SessionManager {
             active_session: Arc::new(Mutex::new(None)),
             session_start_time: Arc::new(Mutex::new(None)),
             speaker_buffer: Arc::new(Mutex::new(Vec::new())),
-            speaker_shutdown: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            speaker_shutdown: Arc::new(AtomicBool::new(false)),
+            speaker_thread_handle: Arc::new(Mutex::new(None)),
         };
 
         manager.init_database()?;
@@ -230,8 +236,8 @@ impl SessionManager {
             params![id, title, now],
         )?;
 
-        *self.active_session.lock().unwrap() = Some(id.clone());
-        *self.session_start_time.lock().unwrap() = Some(std::time::Instant::now());
+        *self.active_session.lock_or_recover() = Some(id.clone());
+        *self.session_start_time.lock_or_recover() = Some(std::time::Instant::now());
 
         let session = Session {
             id,
@@ -250,7 +256,7 @@ impl SessionManager {
 
     pub fn end_session(&self) -> Result<Option<Session>> {
         let session_id = {
-            let mut active = self.active_session.lock().unwrap();
+            let mut active = self.active_session.lock_or_recover();
             active.take()
         };
 
@@ -258,7 +264,7 @@ impl SessionManager {
             return Ok(None);
         };
 
-        *self.session_start_time.lock().unwrap() = None;
+        *self.session_start_time.lock_or_recover() = None;
 
         let now = Utc::now().timestamp();
         let conn = self.get_connection()?;
@@ -277,7 +283,7 @@ impl SessionManager {
     }
 
     pub fn get_active_session_id(&self) -> Option<String> {
-        self.active_session.lock().unwrap().clone()
+        self.active_session.lock_or_recover().clone()
     }
 
     pub fn add_segment(
@@ -559,7 +565,7 @@ impl SessionManager {
 
     /// Take accumulated speaker samples and clear the buffer
     pub fn take_speaker_samples(&self) -> Vec<f32> {
-        std::mem::take(&mut *self.speaker_buffer.lock().unwrap())
+        std::mem::take(&mut *self.speaker_buffer.lock_or_recover())
     }
 
     /// Get a clone of the speaker buffer Arc for the capture task
@@ -568,21 +574,39 @@ impl SessionManager {
     }
 
     /// Get the speaker shutdown signal
-    pub fn speaker_shutdown_handle(&self) -> Arc<std::sync::atomic::AtomicBool> {
+    pub fn speaker_shutdown_handle(&self) -> Arc<AtomicBool> {
         self.speaker_shutdown.clone()
     }
 
     /// Reset speaker state for a new session
     pub fn reset_speaker_state(&self) {
-        self.speaker_shutdown
-            .store(false, std::sync::atomic::Ordering::Relaxed);
-        self.speaker_buffer.lock().unwrap().clear();
+        // First, ensure any previous speaker thread is properly joined
+        self.stop_speaker_capture();
+
+        // Now reset state for new session
+        self.speaker_shutdown.store(false, Ordering::Release);
+        self.speaker_buffer.lock_or_recover().clear();
     }
 
-    /// Signal the speaker capture task to stop
+    /// Store the speaker capture thread handle for later cleanup
+    pub fn set_speaker_thread_handle(&self, handle: JoinHandle<()>) {
+        *self.speaker_thread_handle.lock_or_recover() = Some(handle);
+    }
+
+    /// Signal the speaker capture task to stop and wait for thread to finish
     pub fn stop_speaker_capture(&self) {
-        self.speaker_shutdown
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        // Signal the thread to stop with Release ordering
+        self.speaker_shutdown.store(true, Ordering::Release);
+
+        // Wait for the thread to finish to prevent leaks and ensure
+        // no writes to buffer after session is deleted
+        if let Some(handle) = self.speaker_thread_handle.lock_or_recover().take() {
+            if let Err(e) = handle.join() {
+                warn!("Speaker capture thread panicked: {:?}", e);
+            } else {
+                debug!("Speaker capture thread joined successfully");
+            }
+        }
     }
 
     /// Get the time offset for a new recording pass by finding the max end_ms in existing segments.
@@ -612,8 +636,8 @@ impl SessionManager {
             params![session_id],
         )?;
 
-        *self.active_session.lock().unwrap() = Some(session_id.to_string());
-        *self.session_start_time.lock().unwrap() = Some(std::time::Instant::now());
+        *self.active_session.lock_or_recover() = Some(session_id.to_string());
+        *self.session_start_time.lock_or_recover() = Some(std::time::Instant::now());
 
         let session = self
             .get_session(session_id)?

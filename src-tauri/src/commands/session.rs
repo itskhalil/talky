@@ -483,7 +483,8 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
     {
         let speaker_buf = sm.speaker_buffer_handle();
         let shutdown = sm.speaker_shutdown_handle();
-        spawn_speaker_capture(speaker_buf, shutdown);
+        let handle = spawn_speaker_capture(speaker_buf, shutdown);
+        sm.set_speaker_thread_handle(handle);
     }
 
     // Get time offset from existing segments (for pause/resume continuity)
@@ -526,7 +527,9 @@ pub fn stop_session_recording(app: AppHandle, session_id: String) -> Result<(), 
 pub fn spawn_speaker_capture(
     buffer: Arc<std::sync::Mutex<Vec<f32>>>,
     shutdown: Arc<std::sync::atomic::AtomicBool>,
-) {
+) -> std::thread::JoinHandle<()> {
+    use crate::utils::MutexExt;
+
     std::thread::spawn(move || {
         use crate::audio_toolkit::audio::FrameResampler;
         use crate::audio_toolkit::speaker::SpeakerInput;
@@ -556,11 +559,12 @@ pub fn spawn_speaker_capture(
             .unwrap();
 
         rt.block_on(async {
-            while !shutdown.load(Ordering::Relaxed) {
+            // Use Acquire ordering to see the Release from stop_speaker_capture
+            while !shutdown.load(Ordering::Acquire) {
                 match tokio::time::timeout(Duration::from_millis(200), stream.next()).await {
                     Ok(Some(chunk)) => {
                         resampler.push(&chunk, &mut |frame: &[f32]| {
-                            buffer.lock().unwrap().extend_from_slice(frame);
+                            buffer.lock_or_recover().extend_from_slice(frame);
                         });
                     }
                     Ok(None) => break,
@@ -570,7 +574,7 @@ pub fn spawn_speaker_capture(
         });
 
         log::info!("Speaker capture stopped");
-    });
+    })
 }
 
 /// Reactivate a completed session so it can record again.

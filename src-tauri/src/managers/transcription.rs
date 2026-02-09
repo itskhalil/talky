@@ -1,6 +1,7 @@
 use crate::audio_toolkit::{apply_custom_words, filter_transcription_output};
 use crate::managers::model::{EngineType, ModelManager};
 use crate::settings::{get_settings, ModelUnloadTimeout};
+use crate::utils::MutexExt;
 use anyhow::Result;
 use log::{debug, error, info, warn};
 use serde::Serialize;
@@ -70,11 +71,11 @@ impl TranscriptionManager {
             let manager_cloned = manager.clone();
             let shutdown_signal = manager.shutdown_signal.clone();
             let handle = thread::spawn(move || {
-                while !shutdown_signal.load(Ordering::Relaxed) {
+                while !shutdown_signal.load(Ordering::Acquire) {
                     thread::sleep(Duration::from_secs(10)); // Check every 10 seconds
 
                     // Check shutdown signal again after sleep
-                    if shutdown_signal.load(Ordering::Relaxed) {
+                    if shutdown_signal.load(Ordering::Acquire) {
                         break;
                     }
 
@@ -87,33 +88,43 @@ impl TranscriptionManager {
                             continue;
                         }
 
-                        let last = manager_cloned.last_activity.load(Ordering::Relaxed);
+                        let last = manager_cloned.last_activity.load(Ordering::Acquire);
                         let now_ms = SystemTime::now()
                             .duration_since(SystemTime::UNIX_EPOCH)
                             .unwrap()
                             .as_millis() as u64;
 
                         if now_ms.saturating_sub(last) > limit_seconds * 1000 {
-                            // idle -> unload
-                            if manager_cloned.is_model_loaded() {
-                                let unload_start = std::time::Instant::now();
-                                debug!("Starting to unload model due to inactivity");
+                            // Acquire engine lock to check if model is loaded and prevent
+                            // race with transcription. Hold lock through unload to ensure
+                            // we don't unload while transcription is in progress.
+                            let engine_guard = manager_cloned.engine.lock_or_recover();
+                            if engine_guard.is_some() {
+                                // Re-check last activity while holding lock to avoid
+                                // unloading immediately after transcription started
+                                let last_recheck =
+                                    manager_cloned.last_activity.load(Ordering::Acquire);
+                                if now_ms.saturating_sub(last_recheck) > limit_seconds * 1000 {
+                                    drop(engine_guard); // Release before unload (which also acquires lock)
+                                    let unload_start = std::time::Instant::now();
+                                    debug!("Starting to unload model due to inactivity");
 
-                                if let Ok(()) = manager_cloned.unload_model() {
-                                    let _ = app_handle_cloned.emit(
-                                        "model-state-changed",
-                                        ModelStateEvent {
-                                            event_type: "unloaded".to_string(),
-                                            model_id: None,
-                                            model_name: None,
-                                            error: None,
-                                        },
-                                    );
-                                    let unload_duration = unload_start.elapsed();
-                                    debug!(
-                                        "Model unloaded due to inactivity (took {}ms)",
-                                        unload_duration.as_millis()
-                                    );
+                                    if let Ok(()) = manager_cloned.unload_model() {
+                                        let _ = app_handle_cloned.emit(
+                                            "model-state-changed",
+                                            ModelStateEvent {
+                                                event_type: "unloaded".to_string(),
+                                                model_id: None,
+                                                model_name: None,
+                                                error: None,
+                                            },
+                                        );
+                                        let unload_duration = unload_start.elapsed();
+                                        debug!(
+                                            "Model unloaded due to inactivity (took {}ms)",
+                                            unload_duration.as_millis()
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -121,14 +132,14 @@ impl TranscriptionManager {
                 }
                 debug!("Idle watcher thread shutting down gracefully");
             });
-            *manager.watcher_handle.lock().unwrap() = Some(handle);
+            *manager.watcher_handle.lock_or_recover() = Some(handle);
         }
 
         Ok(manager)
     }
 
     pub fn is_model_loaded(&self) -> bool {
-        let engine = self.engine.lock().unwrap();
+        let engine = self.engine.lock_or_recover();
         engine.is_some()
     }
 
@@ -137,7 +148,7 @@ impl TranscriptionManager {
         debug!("Starting to unload model");
 
         {
-            let mut engine = self.engine.lock().unwrap();
+            let mut engine = self.engine.lock_or_recover();
             if let Some(ref mut loaded_engine) = *engine {
                 match loaded_engine {
                     LoadedEngine::Whisper(ref mut e) => e.unload_model(),
@@ -147,7 +158,7 @@ impl TranscriptionManager {
             *engine = None; // Drop the engine to free memory
         }
         {
-            let mut current_model = self.current_model_id.lock().unwrap();
+            let mut current_model = self.current_model_id.lock_or_recover();
             *current_model = None;
         }
 
@@ -275,11 +286,11 @@ impl TranscriptionManager {
 
         // Update the current engine and model ID
         {
-            let mut engine = self.engine.lock().unwrap();
+            let mut engine = self.engine.lock_or_recover();
             *engine = Some(loaded_engine);
         }
         {
-            let mut current_model = self.current_model_id.lock().unwrap();
+            let mut current_model = self.current_model_id.lock_or_recover();
             *current_model = Some(model_id.to_string());
         }
 
@@ -305,7 +316,7 @@ impl TranscriptionManager {
 
     /// Kicks off the model loading in a background thread if it's not already loaded
     pub fn initiate_model_load(&self) {
-        let mut is_loading = self.is_loading.lock().unwrap();
+        let mut is_loading = self.is_loading.lock_or_recover();
         if *is_loading || self.is_model_loaded() {
             return;
         }
@@ -317,14 +328,14 @@ impl TranscriptionManager {
             if let Err(e) = self_clone.load_model(&settings.selected_model) {
                 error!("Failed to load model: {}", e);
             }
-            let mut is_loading = self_clone.is_loading.lock().unwrap();
+            let mut is_loading = self_clone.is_loading.lock_or_recover();
             *is_loading = false;
             self_clone.loading_condvar.notify_all();
         });
     }
 
     pub fn get_current_model(&self) -> Option<String> {
-        let current_model = self.current_model_id.lock().unwrap();
+        let current_model = self.current_model_id.lock_or_recover();
         current_model.clone()
     }
 
@@ -335,12 +346,13 @@ impl TranscriptionManager {
             audio.len() as f32 / 16000.0
         );
 
+        // Update activity timestamp with Release ordering so idle watcher sees it
         self.last_activity.store(
             SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as u64,
-            Ordering::Relaxed,
+            Ordering::Release,
         );
 
         if audio.is_empty() {
@@ -348,32 +360,43 @@ impl TranscriptionManager {
             return Ok(String::new());
         }
 
+        // Wait for any ongoing model loading to complete
         {
-            let mut is_loading = self.is_loading.lock().unwrap();
+            let mut is_loading = self.is_loading.lock_or_recover();
             if *is_loading {
                 debug!("transcribe_chunk: waiting for model to load...");
             }
             while *is_loading {
-                is_loading = self.loading_condvar.wait(is_loading).unwrap();
+                is_loading = self
+                    .loading_condvar
+                    .wait(is_loading)
+                    .unwrap_or_else(|e| e.into_inner());
             }
-
-            let engine_guard = self.engine.lock().unwrap();
-            if engine_guard.is_none() {
-                error!("transcribe_chunk: Model is not loaded!");
-                return Err(anyhow::anyhow!(
-                    "Model is not loaded for chunk transcription."
-                ));
-            }
-            debug!("transcribe_chunk: model is loaded, proceeding");
         }
 
         let settings = get_settings(&self.app_handle);
 
+        // Acquire engine lock for the entire transcription to prevent the idle
+        // watcher from unloading the model mid-transcription (fixes TOCTOU race)
         let result = {
-            let mut engine_guard = self.engine.lock().unwrap();
-            let engine = engine_guard
-                .as_mut()
-                .ok_or_else(|| anyhow::anyhow!("Model not available for chunk transcription."))?;
+            let mut engine_guard = self.engine.lock_or_recover();
+
+            // Update activity timestamp again while holding lock to prevent
+            // idle watcher from seeing stale timestamp
+            self.last_activity.store(
+                SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+                Ordering::Release,
+            );
+
+            let engine = engine_guard.as_mut().ok_or_else(|| {
+                error!("transcribe_chunk: Model is not loaded!");
+                anyhow::anyhow!("Model is not loaded for chunk transcription.")
+            })?;
+
+            debug!("transcribe_chunk: model is loaded, proceeding");
 
             match engine {
                 LoadedEngine::Whisper(whisper_engine) => {
@@ -474,11 +497,11 @@ impl Drop for TranscriptionManager {
     fn drop(&mut self) {
         debug!("Shutting down TranscriptionManager");
 
-        // Signal the watcher thread to shutdown
-        self.shutdown_signal.store(true, Ordering::Relaxed);
+        // Signal the watcher thread to shutdown with Release ordering
+        self.shutdown_signal.store(true, Ordering::Release);
 
         // Wait for the thread to finish gracefully
-        if let Some(handle) = self.watcher_handle.lock().unwrap().take() {
+        if let Some(handle) = self.watcher_handle.lock_or_recover().take() {
             if let Err(e) = handle.join() {
                 warn!("Failed to join idle watcher thread: {:?}", e);
             } else {
