@@ -67,13 +67,11 @@ const EnvironmentPill: React.FC<{
         className="w-2.5 h-2.5 rounded-full shrink-0 transition-transform duration-200"
         style={{
           backgroundColor: color,
-          transform: isSelected ? "scale(1.2)" : "scale(1)"
+          transform: isSelected ? "scale(1.2)" : "scale(1)",
         }}
       />
       <span className="truncate max-w-[120px]">{name}</span>
-      {isDefault && (
-        <Check size={12} className="text-primary shrink-0" />
-      )}
+      {isDefault && <Check size={12} className="text-primary shrink-0" />}
     </button>
   );
 };
@@ -278,11 +276,9 @@ export const EnvironmentsSection: React.FC = () => {
       {/* Environment Settings */}
       {selectedEnv && (
         <>
-
           {/* Name */}
           <SettingContainer
             title={t("settings.environments.name")}
-            description=""
             layout="horizontal"
             grouped={true}
           >
@@ -300,7 +296,6 @@ export const EnvironmentsSection: React.FC = () => {
           {/* Color */}
           <SettingContainer
             title={t("settings.environments.color")}
-            description=""
             layout="horizontal"
             grouped={true}
           >
@@ -310,7 +305,6 @@ export const EnvironmentsSection: React.FC = () => {
           {/* Base URL */}
           <SettingContainer
             title={t("settings.environments.baseUrl")}
-            description=""
             layout="horizontal"
             grouped={true}
           >
@@ -328,7 +322,6 @@ export const EnvironmentsSection: React.FC = () => {
           {/* API Key */}
           <SettingContainer
             title={t("settings.environments.apiKey")}
-            description=""
             layout="horizontal"
             grouped={true}
           >
@@ -347,6 +340,7 @@ export const EnvironmentsSection: React.FC = () => {
           <SettingContainer
             title={t("settings.environments.summarisationModel")}
             description={t("settings.environments.summarisationModelTip")}
+            descriptionMode="inline"
             layout="stacked"
             grouped={true}
           >
@@ -388,6 +382,7 @@ export const EnvironmentsSection: React.FC = () => {
           <SettingContainer
             title={t("settings.environments.chatModel")}
             description={t("settings.environments.chatModelTip")}
+            descriptionMode="inline"
             layout="stacked"
             grouped={true}
           >
@@ -427,8 +422,7 @@ export const EnvironmentsSection: React.FC = () => {
 
           {/* Set as Default */}
           <SettingContainer
-            title={t("settings.environments.setDefault")}
-            description={t("settings.environments.setDefaultDescription")}
+            title={t("settings.environments.defaultForNewNotes")}
             layout="horizontal"
             grouped={true}
           >
