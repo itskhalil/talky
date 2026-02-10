@@ -553,10 +553,16 @@ pub fn spawn_speaker_capture(
         log::info!("Speaker capture started (source rate={}Hz)", source_rate);
 
         // Use a single-threaded tokio runtime to drive the async stream
-        let rt = tokio::runtime::Builder::new_current_thread()
+        let rt = match tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .build()
-            .unwrap();
+        {
+            Ok(rt) => rt,
+            Err(e) => {
+                log::error!("Failed to create Tokio runtime for speaker capture: {}", e);
+                return;
+            }
+        };
 
         rt.block_on(async {
             // Use Acquire ordering to see the Release from stop_speaker_capture

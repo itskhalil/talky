@@ -214,6 +214,30 @@ fn trigger_update_check(app: AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Set up global panic hook to log panics before the app crashes
+    // This ensures we capture crash information even if the app terminates
+    std::panic::set_hook(Box::new(|panic_info| {
+        let location = panic_info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        let message = panic_info
+            .payload()
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| {
+                panic_info
+                    .payload()
+                    .downcast_ref::<String>()
+                    .map(|s| s.as_str())
+            })
+            .unwrap_or("Unknown panic");
+        // Use eprintln as a fallback since logging may not be initialized or may fail
+        eprintln!("PANIC at {}: {}", location, message);
+        // Also try to log it properly
+        log::error!("PANIC at {}: {}", location, message);
+    }));
+
     // Parse console logging directives from RUST_LOG, falling back to info-level logging
     // when the variable is unset
     let console_filter = build_console_filter();
@@ -351,7 +375,7 @@ pub fn run() {
         LogBuilder::new()
             .level(log::LevelFilter::Trace) // Set to most verbose level globally
             .max_file_size(500_000)
-            .rotation_strategy(RotationStrategy::KeepOne)
+            .rotation_strategy(RotationStrategy::KeepAll)
             .clear_targets()
             .targets([
                 // Console output respects RUST_LOG environment variable
