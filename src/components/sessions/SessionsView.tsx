@@ -5,7 +5,7 @@ import {
   LogicalSize,
   LogicalPosition,
 } from "@tauri-apps/api/window";
-import { StickyNote, PanelLeftOpen, Settings } from "lucide-react";
+import { StickyNote, PanelLeftOpen, PanelLeftClose, Settings } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
@@ -248,23 +248,22 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     isRecording && recordingSessionId === selectedSessionId;
 
   return (
-    <div className="flex h-full">
-      {sidebarCollapsed ? (
-        <div className="flex flex-col items-center px-1 h-full border-t border-border">
-          {/* macOS title bar drag region */}
-          <div data-tauri-drag-region className="h-7 w-full shrink-0" />
-          <div className="flex-1" />
-          <div className="flex items-center justify-center h-[50px] border-t border-border">
-            <button
-              onClick={handleExpandSidebar}
-              className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
-              title={t("notes.expandSidebar")}
-            >
-              <PanelLeftOpen size={20} />
-            </button>
-          </div>
-        </div>
-      ) : (
+    <div className="relative flex h-full">
+      <button
+        onClick={() => {
+          if (sidebarCollapsed) {
+            handleExpandSidebar();
+          } else {
+            wasAutoCollapsed.current = false;
+            setSidebarCollapsed(true);
+          }
+        }}
+        className="absolute top-0.5 left-[78px] z-10 p-1 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+        title={t(sidebarCollapsed ? "notes.expandSidebar" : "notes.collapseSidebar")}
+      >
+        {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+      </button>
+      {!sidebarCollapsed && (
         <>
           <div style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
             <NotesSidebar
@@ -275,10 +274,6 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
               onNewNote={createNote}
               onDelete={deleteSession}
               onOpenSettings={onOpenSettings}
-              onCollapse={() => {
-                wasAutoCollapsed.current = false;
-                setSidebarCollapsed(true);
-              }}
             />
           </div>
           {/* Drag handle */}

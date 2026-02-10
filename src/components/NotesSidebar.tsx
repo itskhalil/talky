@@ -13,7 +13,6 @@ import {
   Trash2,
   Settings,
   Search,
-  PanelLeftClose,
   FolderIcon,
   FolderOpen,
   X,
@@ -47,7 +46,6 @@ interface NotesSidebarProps {
   onNewNote: () => void;
   onDelete: (id: string) => void;
   onOpenSettings: () => void;
-  onCollapse?: () => void;
 }
 
 function formatDate(timestamp: number): string {
@@ -117,7 +115,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   onNewNote,
   onDelete,
   onOpenSettings,
-  onCollapse,
 }) => {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -780,8 +777,8 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom: settings + collapse */}
-      <div className="flex items-center justify-between px-3 h-[50px] border-t border-border">
+      {/* Bottom: settings */}
+      <div className="flex items-center px-3 h-[50px] border-t border-border">
         <button
           onClick={onOpenSettings}
           className="relative p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
@@ -791,15 +788,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
           )}
         </button>
-        {onCollapse && (
-          <button
-            onClick={onCollapse}
-            className="p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
-            title={t("notes.collapseSidebar")}
-          >
-            <PanelLeftClose size={20} />
-          </button>
-        )}
       </div>
 
       {/* Delete confirmation dialog */}
