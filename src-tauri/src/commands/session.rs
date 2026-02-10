@@ -433,7 +433,14 @@ pub async fn generate_session_summary_stream(
 pub fn start_session(app: AppHandle, title: Option<String>) -> Result<Session, String> {
     let sm = app.state::<Arc<SessionManager>>();
     sm.reset_speaker_state();
-    let session = sm.start_session(title).map_err(|e| e.to_string())?;
+
+    // Get the default environment ID from settings
+    let settings = crate::settings::get_settings(&app);
+    let default_env_id = settings.default_environment_id.clone();
+
+    let session = sm
+        .start_session(title, default_env_id)
+        .map_err(|e| e.to_string())?;
     Ok(session)
 }
 
