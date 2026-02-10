@@ -15,6 +15,8 @@ interface DropdownProps {
   placeholder?: string;
   disabled?: boolean;
   onRefresh?: () => void;
+  renderOption?: (option: DropdownOption) => React.ReactNode;
+  renderSelected?: (option: DropdownOption | undefined) => React.ReactNode;
 }
 
 export const Dropdown: React.FC<DropdownProps> = ({
@@ -25,6 +27,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
   placeholder = "Select an option...",
   disabled = false,
   onRefresh,
+  renderOption,
+  renderSelected,
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -70,7 +74,11 @@ export const Dropdown: React.FC<DropdownProps> = ({
         onClick={handleToggle}
         disabled={disabled}
       >
-        <span className="truncate">{selectedOption?.label || placeholder}</span>
+        <span className="truncate">
+          {renderSelected
+            ? renderSelected(selectedOption) || placeholder
+            : selectedOption?.label || placeholder}
+        </span>
         <svg
           className={`w-4 h-4 ml-2 transition-transform duration-200 ${isOpen ? "transform rotate-180" : ""}`}
           fill="none"
@@ -104,7 +112,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
                 onClick={() => handleSelect(option.value)}
                 disabled={option.disabled}
               >
-                <span className="truncate">{option.label}</span>
+                <span className="truncate">
+                  {renderOption ? renderOption(option) : option.label}
+                </span>
               </button>
             ))
           )}

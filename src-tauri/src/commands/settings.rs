@@ -1,4 +1,6 @@
-use crate::settings::{get_settings, write_settings, FontSize, LLMPrompt, WordSuggestion};
+use crate::settings::{
+    get_settings, write_settings, FontSize, LLMPrompt, ModelEnvironment, WordSuggestion,
+};
 use crate::tray::update_tray_menu;
 use crate::utils::TrayIconState;
 use log::info;
@@ -147,7 +149,7 @@ pub async fn fetch_post_process_models(
         .cloned()
         .unwrap_or_default();
 
-    crate::llm_client::fetch_models(provider, api_key).await
+    crate::llm_client::fetch_models(&provider.base_url, &api_key).await
 }
 
 #[tauri::command]
@@ -295,7 +297,7 @@ pub async fn fetch_chat_models(app: AppHandle, provider_id: String) -> Result<Ve
         .cloned()
         .unwrap_or_default();
 
-    crate::llm_client::fetch_models(provider, api_key).await
+    crate::llm_client::fetch_models(&provider.base_url, &api_key).await
 }
 
 #[tauri::command]
@@ -410,4 +412,151 @@ pub fn change_skip_mic_on_speaker_energy_setting(
     settings.skip_mic_on_speaker_energy = enabled;
     write_settings(&app, settings);
     Ok(())
+}
+
+// Model Environment Commands
+#[tauri::command]
+#[specta::specta]
+pub fn get_environments(app: AppHandle) -> Vec<ModelEnvironment> {
+    let settings = get_settings(&app);
+    settings.model_environments
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn create_environment(
+    app: AppHandle,
+    name: String,
+    color: String,
+    base_url: String,
+    api_key: String,
+    summarisation_model: String,
+    chat_model: String,
+) -> Result<ModelEnvironment, String> {
+    let mut settings = get_settings(&app);
+
+    // Check max environments limit (3)
+    if settings.model_environments.len() >= 3 {
+        return Err("Maximum of 3 environments allowed".to_string());
+    }
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let new_env = ModelEnvironment {
+        id: id.clone(),
+        name,
+        color,
+        base_url,
+        api_key,
+        summarisation_model,
+        chat_model,
+        model: String::new(), // Deprecated, kept for migration compatibility
+    };
+
+    settings.model_environments.push(new_env.clone());
+
+    // If this is the first environment, set it as default
+    if settings.model_environments.len() == 1 {
+        settings.default_environment_id = Some(id);
+    }
+
+    write_settings(&app, settings);
+    Ok(new_env)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_environment(
+    app: AppHandle,
+    id: String,
+    name: Option<String>,
+    color: Option<String>,
+    base_url: Option<String>,
+    api_key: Option<String>,
+    summarisation_model: Option<String>,
+    chat_model: Option<String>,
+) -> Result<ModelEnvironment, String> {
+    let mut settings = get_settings(&app);
+
+    let env = settings
+        .get_environment_mut(&id)
+        .ok_or_else(|| format!("Environment not found: {}", id))?;
+
+    if let Some(n) = name {
+        env.name = n;
+    }
+    if let Some(c) = color {
+        env.color = c;
+    }
+    if let Some(url) = base_url {
+        env.base_url = url;
+    }
+    if let Some(key) = api_key {
+        env.api_key = key;
+    }
+    if let Some(m) = summarisation_model {
+        env.summarisation_model = m;
+    }
+    if let Some(m) = chat_model {
+        env.chat_model = m;
+    }
+
+    let updated_env = env.clone();
+    write_settings(&app, settings);
+    Ok(updated_env)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_environment(app: AppHandle, id: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+
+    // Must keep at least 1 environment
+    if settings.model_environments.len() <= 1 {
+        return Err("Cannot delete the last environment".to_string());
+    }
+
+    let original_len = settings.model_environments.len();
+    settings.model_environments.retain(|e| e.id != id);
+
+    if settings.model_environments.len() < original_len {
+        // If deleted environment was the default, set first remaining as default
+        if settings.default_environment_id.as_ref() == Some(&id) {
+            settings.default_environment_id =
+                settings.model_environments.first().map(|e| e.id.clone());
+        }
+        write_settings(&app, settings);
+        Ok(())
+    } else {
+        Err(format!("Environment not found: {}", id))
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_default_environment(app: AppHandle, id: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+
+    // Verify the environment exists
+    if !settings.model_environments.iter().any(|e| e.id == id) {
+        return Err(format!("Environment not found: {}", id));
+    }
+
+    settings.default_environment_id = Some(id);
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn fetch_environment_models(
+    app: AppHandle,
+    environment_id: String,
+) -> Result<Vec<String>, String> {
+    let settings = get_settings(&app);
+
+    let env = settings
+        .get_environment(&environment_id)
+        .ok_or_else(|| format!("Environment not found: {}", environment_id))?;
+
+    crate::llm_client::fetch_models(&env.base_url, &env.api_key).await
 }

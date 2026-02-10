@@ -293,6 +293,29 @@
         }
       }
     },
+    "environments": {
+      "title": "Model Environments",
+      "description": "Configure your models for summarisation and chat. If you work at different security levels, you can set up different APIs and models for each environment.",
+      "add": "Add environment",
+      "delete": "Delete environment",
+      "selectEnvironment": "Select environment",
+      "newEnvironmentName": "New Environment",
+      "name": "Name",
+      "namePlaceholder": "e.g. General, Classified",
+      "color": "Color",
+      "baseUrl": "API Endpoint",
+      "baseUrlPlaceholder": "https://api.openai.com/v1",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "sk-...",
+      "summarisationModel": "Summarisation Model",
+      "summarisationModelTip": "Use the best model you can for quality summaries (e.g. Claude Opus).",
+      "chatModel": "Chat Model",
+      "chatModelTip": "Use a fast model for snappy responses (e.g. Gemini Flash).",
+      "setDefault": "Default",
+      "setDefaultDescription": "New notes will use this environment",
+      "maxReached": "Maximum of 3 environments allowed",
+      "emptyState": "No environments configured. Add an environment to get started."
+    },
     "history": {
       "title": "History",
       "openFolder": "Open Recordings Folder",
@@ -465,6 +488,7 @@
   },
   "sessions": {
     "title": "Notes",
+    "environment": "Environment",
     "newNote": "New Note",
     "endNote": "Close Note",
     "noSessions": "No notes yet. Create a note to start writing or recording.",

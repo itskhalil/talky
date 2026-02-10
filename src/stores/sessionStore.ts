@@ -368,6 +368,10 @@ interface SessionStore {
   selectNextSession: () => void;
   selectPreviousSession: () => void;
   deselectSession: () => void;
+  updateSessionEnvironment: (
+    sessionId: string,
+    environmentId: string | null,
+  ) => Promise<void>;
 
   // Internal
   _fetchSessionData: (sessionId: string) => Promise<void>;
@@ -1186,6 +1190,19 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
   deselectSession: () => {
     set({ selectedSessionId: null });
+  },
+
+  updateSessionEnvironment: async (sessionId, environmentId) => {
+    const result = await commands.updateSessionEnvironment(
+      sessionId,
+      environmentId,
+    );
+    if (result.status === "ok") {
+      // Reload sessions to get updated data
+      await get().loadSessions();
+    } else {
+      console.error("Failed to update session environment:", result.error);
+    }
   },
 
   cleanup: () => {

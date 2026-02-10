@@ -50,6 +50,32 @@ interface SettingsStore {
   fetchChatModels: (providerId: string) => Promise<string[]>;
   setChatModelOptions: (providerId: string, models: string[]) => void;
 
+  // Environment settings
+  environmentModelOptions: Record<string, string[]>;
+  createEnvironment: (
+    name: string,
+    color: string,
+    baseUrl: string,
+    apiKey: string,
+    summarisationModel: string,
+    chatModel: string,
+  ) => Promise<void>;
+  updateEnvironment: (
+    id: string,
+    updates: {
+      name?: string;
+      color?: string;
+      base_url?: string;
+      api_key?: string;
+      summarisation_model?: string;
+      chat_model?: string;
+    },
+  ) => Promise<void>;
+  deleteEnvironment: (id: string) => Promise<void>;
+  setDefaultEnvironment: (id: string | null) => Promise<void>;
+  fetchEnvironmentModels: (environmentId: string) => Promise<string[]>;
+  setEnvironmentModelOptions: (environmentId: string, models: string[]) => void;
+
   // Internal state setters
   setSettings: (settings: Settings | null) => void;
   setDefaultSettings: (defaultSettings: Settings | null) => void;
@@ -128,6 +154,7 @@ export const useSettingsStore = create<SettingsStore>()(
     outputDevices: [],
     postProcessModelOptions: {},
     chatModelOptions: {},
+    environmentModelOptions: {},
 
     // Internal setters
     setSettings: (settings) => set({ settings }),
@@ -427,6 +454,113 @@ export const useSettingsStore = create<SettingsStore>()(
         chatModelOptions: {
           ...state.chatModelOptions,
           [providerId]: models,
+        },
+      })),
+
+    // Environment settings
+    createEnvironment: async (
+      name,
+      color,
+      baseUrl,
+      apiKey,
+      summarisationModel,
+      chatModel,
+    ) => {
+      const { refreshSettings } = get();
+      try {
+        const result = await commands.createEnvironment(
+          name,
+          color,
+          baseUrl,
+          apiKey,
+          summarisationModel,
+          chatModel,
+        );
+        if (result.status === "ok") {
+          await refreshSettings();
+        } else {
+          console.error("Failed to create environment:", result.error);
+        }
+      } catch (error) {
+        console.error("Failed to create environment:", error);
+      }
+    },
+
+    updateEnvironment: async (id, updates) => {
+      const { refreshSettings } = get();
+      try {
+        const result = await commands.updateEnvironment(
+          id,
+          updates.name ?? null,
+          updates.color ?? null,
+          updates.base_url ?? null,
+          updates.api_key ?? null,
+          updates.summarisation_model ?? null,
+          updates.chat_model ?? null,
+        );
+        if (result.status === "ok") {
+          await refreshSettings();
+        } else {
+          console.error("Failed to update environment:", result.error);
+        }
+      } catch (error) {
+        console.error("Failed to update environment:", error);
+      }
+    },
+
+    deleteEnvironment: async (id) => {
+      const { refreshSettings } = get();
+      try {
+        const result = await commands.deleteEnvironment(id);
+        if (result.status === "ok") {
+          await refreshSettings();
+        } else {
+          console.error("Failed to delete environment:", result.error);
+        }
+      } catch (error) {
+        console.error("Failed to delete environment:", error);
+      }
+    },
+
+    setDefaultEnvironment: async (id) => {
+      const { refreshSettings } = get();
+      if (!id) return;
+      try {
+        const result = await commands.setDefaultEnvironment(id);
+        if (result.status === "ok") {
+          await refreshSettings();
+        } else {
+          console.error("Failed to set default environment:", result.error);
+        }
+      } catch (error) {
+        console.error("Failed to set default environment:", error);
+      }
+    },
+
+    fetchEnvironmentModels: async (environmentId) => {
+      const updateKey = `environment_models_fetch:${environmentId}`;
+      const { setUpdating, setEnvironmentModelOptions } = get();
+      setUpdating(updateKey, true);
+      try {
+        const result = await commands.fetchEnvironmentModels(environmentId);
+        if (result.status === "ok") {
+          setEnvironmentModelOptions(environmentId, result.data);
+          return result.data;
+        }
+        return [];
+      } catch (error) {
+        console.error("Failed to fetch environment models:", error);
+        return [];
+      } finally {
+        setUpdating(updateKey, false);
+      }
+    },
+
+    setEnvironmentModelOptions: (environmentId, models) =>
+      set((state) => ({
+        environmentModelOptions: {
+          ...state.environmentModelOptions,
+          [environmentId]: models,
         },
       })),
 

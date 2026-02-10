@@ -17,12 +17,15 @@ import {
   FolderIcon,
   Tag,
   Plus,
+  Globe,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
 import { useGlobalChat, type ChatMessage } from "@/hooks/useGlobalChat";
 import { useSettings } from "@/hooks/useSettings";
 import { useOrganizationStore } from "@/stores/organizationStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useSessionStore } from "@/stores/sessionStore";
 import { JSONContent, Editor } from "@tiptap/core";
 import type { Tag as TagType } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -47,6 +50,7 @@ interface Session {
   ended_at: number | null;
   status: string;
   folder_id: string | null;
+  environment_id: string | null;
 }
 
 interface TranscriptSegment {
@@ -317,7 +321,6 @@ function parseBulletList(
   };
 }
 
-
 /**
  * Serialize tiptap JSON back to tagged markdown for storage.
  */
@@ -378,7 +381,6 @@ function serializeBulletList(
   }
 }
 
-
 export function NoteView({
   session,
   isRecording,
@@ -429,6 +431,7 @@ export function NoteView({
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [folderDropdownOpen, setFolderDropdownOpen] = useState(false);
+  const [envDropdownOpen, setEnvDropdownOpen] = useState(false);
   const [sessionTags, setSessionTags] = useState<TagType[]>([]);
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [tagInputValue, setTagInputValue] = useState("");
@@ -436,7 +439,20 @@ export function NoteView({
     session?.folder_id ?? null,
   );
   const folderDropdownRef = useRef<HTMLDivElement>(null);
+  const envDropdownRef = useRef<HTMLDivElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+
+  // Get environments from settings store
+  const { settings } = useSettingsStore();
+  const environments = settings?.model_environments || [];
+  const defaultEnvId = settings?.default_environment_id;
+  const { updateSessionEnvironment } = useSessionStore();
+
+  // Only show environment selector if there are 2+ environments
+  const showEnvSelector = environments.length >= 2;
+  const currentEnv = environments.find(
+    (e) => e.id === (session?.environment_id ?? defaultEnvId),
+  );
 
   const {
     folders,
@@ -478,6 +494,30 @@ export function NoteView({
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [folderDropdownOpen]);
+
+  // Close environment dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        envDropdownRef.current &&
+        !envDropdownRef.current.contains(e.target as Node)
+      ) {
+        setEnvDropdownOpen(false);
+      }
+    };
+    if (envDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [envDropdownOpen]);
+
+  const handleEnvSelect = async (envId: string) => {
+    if (session?.id) {
+      await updateSessionEnvironment(session.id, envId);
+    }
+    setEnvDropdownOpen(false);
+  };
 
   // Focus tag input when opened
   useEffect(() => {
@@ -821,9 +861,49 @@ export function NoteView({
             className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden font-display"
           />
 
-          {/* Folder and Tags */}
+          {/* Environment, Folder and Tags */}
           {session && (
             <div className="flex items-center gap-3 mt-2 flex-wrap">
+              {/* Environment selector - only show if 2+ environments */}
+              {showEnvSelector && (
+                <div ref={envDropdownRef} className="relative">
+                  <button
+                    onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor: currentEnv?.color || "#6b7280",
+                      }}
+                    />
+                    <span>{currentEnv?.name ?? t("sessions.environment")}</span>
+                    <ChevronDown size={10} />
+                  </button>
+                  {envDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+                      {environments.map((env) => (
+                        <button
+                          key={env.id}
+                          onClick={() => handleEnvSelect(env.id)}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors flex items-center gap-2 ${
+                            (session?.environment_id ?? defaultEnvId) === env.id
+                              ? "text-accent"
+                              : "text-text"
+                          }`}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: env.color }}
+                          />
+                          {env.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Folder selector */}
               <div ref={folderDropdownRef} className="relative">
                 <button

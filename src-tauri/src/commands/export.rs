@@ -30,10 +30,7 @@ fn strip_tags(content: &str) -> String {
 }
 
 /// Generate markdown content for a session (notes only, no transcript)
-fn generate_markdown(
-    session_manager: &SessionManager,
-    session_id: &str,
-) -> Result<String, String> {
+fn generate_markdown(session_manager: &SessionManager, session_id: &str) -> Result<String, String> {
     let session = session_manager
         .get_session(session_id)
         .map_err(|e| e.to_string())?
@@ -159,10 +156,6 @@ pub async fn export_all_notes_as_markdown(
         }
     }
 
-    log::info!(
-        "Exported {} notes to {}",
-        exported_count,
-        directory_path
-    );
+    log::info!("Exported {} notes to {}", exported_count, directory_path);
     Ok(exported_count)
 }
