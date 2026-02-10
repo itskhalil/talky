@@ -118,8 +118,8 @@ export const EnvironmentsSection: React.FC = () => {
       setLocalColor(selectedEnv.color);
       setLocalBaseUrl(selectedEnv.base_url);
       setLocalApiKey(selectedEnv.api_key);
-      setLocalSummarisationModel(selectedEnv.summarisation_model);
-      setLocalChatModel(selectedEnv.chat_model);
+      setLocalSummarisationModel(selectedEnv.summarisation_model ?? "");
+      setLocalChatModel(selectedEnv.chat_model ?? "");
     }
   }, [selectedEnv]);
 
