@@ -21,14 +21,14 @@ One click transforms your rough notes into polished, detailed meeting notes — 
 </tr>
 <tr>
 <td width="50%">
+<img src="docs/images/04-transcript.png" alt="View the full transcript in real time" />
+<p><strong>View the full transcript in real time</strong><br/>
+Access the complete timestamped transcript as it's generated, with your mic and speaker audio clearly separated.</p>
+</td>
+<td width="50%">
 <img src="docs/images/03-ask-questions.png" alt="Ask questions about your meeting" />
 <p><strong>Ask any question</strong><br/>
 Chat with your meeting in natural language. Ask about decisions, action items, or anything discussed — AI has full context of your notes and transcript.</p>
-</td>
-<td width="50%">
-<img src="docs/images/04-transcript.png" alt="View the full transcript" />
-<p><strong>View the full transcript</strong><br/>
-Access the complete timestamped transcript with speaker labels. See exactly who said what and when, with your mic and speaker audio clearly separated.</p>
 </td>
 </tr>
 </table>
