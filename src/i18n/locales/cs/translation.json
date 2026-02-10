@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Exportovat aktuální poznámku...",
+    "exportAllNotes": "Exportovat všechny poznámky..."
+  },
+  "export": {
+    "selectFolder": "Vyberte složku pro export",
+    "successSingle": "Poznámka úspěšně exportována",
+    "successMultiple": "Exportováno {{count}} poznámek",
+    "noNoteSelected": "Není vybrána žádná poznámka",
+    "error": "Export selhal: {{error}}"
+  },
   "tray": {
     "settings": "Nastavení...",
     "checkUpdates": "Zkontrolovat aktualizace...",

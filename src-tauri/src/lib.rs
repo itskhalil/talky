@@ -7,6 +7,7 @@ mod commands;
 mod helpers;
 mod llm_client;
 mod managers;
+mod menu;
 #[cfg(target_os = "macos")]
 mod mic_detect;
 #[cfg(target_os = "macos")]
@@ -349,6 +350,9 @@ pub fn run() {
         commands::session::get_session_tags,
         commands::session::set_session_tags,
         commands::session::get_sessions_by_tag,
+        // Export commands
+        commands::export::export_note_as_markdown,
+        commands::export::export_all_notes_as_markdown,
     ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -409,6 +413,13 @@ pub fn run() {
             let app_handle = app.handle().clone();
 
             initialize_core_logic(&app_handle);
+
+            // Set up application menu (macOS uses app-level menu bar)
+            let app_menu = menu::create_app_menu(&app_handle);
+            if let Err(e) = app_handle.set_menu(app_menu) {
+                log::warn!("Failed to set menu: {}", e);
+            }
+            menu::setup_menu_events(&app_handle);
 
             // Show main window only if not starting hidden
             if !settings.start_hidden {

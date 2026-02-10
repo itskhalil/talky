@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Eksportuj bieżącą notatkę...",
+    "exportAllNotes": "Eksportuj wszystkie notatki..."
+  },
+  "export": {
+    "selectFolder": "Wybierz folder do eksportu",
+    "successSingle": "Notatka wyeksportowana pomyślnie",
+    "successMultiple": "Wyeksportowano {{count}} notatek",
+    "noNoteSelected": "Nie wybrano notatki",
+    "error": "Eksport nie powiódł się: {{error}}"
+  },
   "tray": {
     "settings": "Ustawienia...",
     "checkUpdates": "Sprawdź aktualizacje...",
