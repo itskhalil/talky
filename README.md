@@ -6,32 +6,10 @@ Talky is a Mac application built with Tauri (Rust + React/TypeScript) that lets 
 
 ## Features
 
-<table>
-<tr>
-<td width="50%">
-<img src="docs/images/01-take-notes.png" alt="Take your own notes" />
-<p><strong>Take your own notes</strong><br/>
-Jot down thoughts, agenda items, and key points in the built-in editor while Talky records and transcribes in the background.</p>
-</td>
-<td width="50%">
-<img src="docs/images/02-ai-enhance.png" alt="AI-enhanced notes" />
-<p><strong>Enhance with AI</strong><br/>
-One click transforms your rough notes into polished, detailed meeting notes — AI fills in context from the transcript while preserving your original thoughts.</p>
-</td>
-</tr>
-<tr>
-<td width="50%">
-<img src="docs/images/03-ask-questions.png" alt="Ask questions about your meeting" />
-<p><strong>Ask any question</strong><br/>
-Chat with your meeting in natural language. Ask about decisions, action items, or anything discussed — AI has full context of your notes and transcript.</p>
-</td>
-<td width="50%">
-<img src="docs/images/04-transcript.png" alt="View the full transcript" />
-<p><strong>View the full transcript</strong><br/>
-Access the complete timestamped transcript with speaker labels. See exactly who said what and when, with your mic and speaker audio clearly separated.</p>
-</td>
-</tr>
-</table>
+- **Take your own notes** — Jot down thoughts, agenda items, and key points in the built-in editor while Talky records and transcribes in the background.
+- **Enhance with AI** — One click transforms your rough notes into polished, detailed meeting notes — AI fills in context from the transcript while preserving your original thoughts.
+- **Ask any question** — Chat with your meeting in natural language. Ask about decisions, action items, or anything discussed — AI has full context of your notes and transcript.
+- **View the full transcript** — Access the complete timestamped transcript with speaker labels. See exactly who said what and when, with your mic and speaker audio clearly separated.
 
 ## Quick Start
 
