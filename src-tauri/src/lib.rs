@@ -273,6 +273,12 @@ pub fn run() {
         commands::settings::change_chat_model_setting,
         commands::settings::fetch_chat_models,
         commands::settings::change_copy_as_bullets_setting,
+        commands::settings::get_environments,
+        commands::settings::create_environment,
+        commands::settings::update_environment,
+        commands::settings::delete_environment,
+        commands::settings::set_default_environment,
+        commands::settings::fetch_environment_models,
         trigger_update_check,
         commands::cancel_operation,
         commands::write_chat_debug_log,
@@ -332,6 +338,7 @@ pub fn run() {
         commands::session::get_active_session,
         commands::session::delete_session,
         commands::session::update_session_title,
+        commands::session::update_session_environment,
         commands::session::get_meeting_notes,
         commands::session::save_meeting_notes,
         commands::session::save_user_notes,
@@ -453,7 +460,11 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } = event
+            {
                 if !has_visible_windows {
                     show_main_window(app_handle);
                 }

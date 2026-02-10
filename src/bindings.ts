@@ -240,6 +240,49 @@ async changeCopyAsBulletsSetting(enabled: boolean) : Promise<Result<null, string
     else return { status: "error", error: e  as any };
 }
 },
+async getEnvironments() : Promise<ModelEnvironment[]> {
+    return await TAURI_INVOKE("get_environments");
+},
+async createEnvironment(name: string, color: string, baseUrl: string, apiKey: string, summarisationModel: string, chatModel: string) : Promise<Result<ModelEnvironment, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_environment", { name, color, baseUrl, apiKey, summarisationModel, chatModel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateEnvironment(id: string, name: string | null, color: string | null, baseUrl: string | null, apiKey: string | null, summarisationModel: string | null, chatModel: string | null) : Promise<Result<ModelEnvironment, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_environment", { id, name, color, baseUrl, apiKey, summarisationModel, chatModel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteEnvironment(id: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_environment", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setDefaultEnvironment(id: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_default_environment", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async fetchEnvironmentModels(environmentId: string) : Promise<Result<string[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("fetch_environment_models", { environmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async triggerUpdateCheck() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("trigger_update_check") };
@@ -727,6 +770,14 @@ async updateSessionTitle(sessionId: string, title: string) : Promise<Result<null
     else return { status: "error", error: e  as any };
 }
 },
+async updateSessionEnvironment(sessionId: string, environmentId: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_session_environment", { sessionId, environmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getMeetingNotes(sessionId: string) : Promise<Result<MeetingNotes | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_meeting_notes", { sessionId }) };
@@ -961,7 +1012,7 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: Partial<{ [key in string]: string }>; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; chat_provider_id?: string; chat_models?: Partial<{ [key in string]: string }>; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean }
+data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: Partial<{ [key in string]: string }>; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; chat_provider_id?: string; chat_models?: Partial<{ [key in string]: string }>; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
 export type Folder = { id: string; name: string; color: string | null; sort_order: number; created_at: number }
@@ -970,12 +1021,13 @@ export type HistoryEntry = { id: number; file_name: string; timestamp: number; s
 export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
 export type MeetingNotes = { id: number; session_id: string; summary: string | null; action_items: string | null; decisions: string | null; user_notes: string | null; enhanced_notes: string | null; enhanced_notes_edited: boolean; created_at: number; updated_at: number }
+export type ModelEnvironment = { id: string; name: string; color: string; base_url: string; api_key: string; summarisation_model?: string; chat_model?: string }
 export type ModelInfo = { id: string; name: string; description: string; filename: string; url: string | null; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
 export type ModelUnloadTimeout = "never" | "immediately" | "min_2" | "min_5" | "min_10" | "min_15" | "hour_1" | "sec_5"
 export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null }
 export type RecordingRetentionPeriod = "never" | "preserve_limit" | "days_3" | "weeks_2" | "months_3"
-export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null }
+export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null }
 export type Tag = { id: string; name: string; color: string | null }
 export type TranscriptSegment = { id: number; session_id: string; text: string; source: string; start_ms: number; end_ms: number; created_at: number }
 export type WordSuggestion = { word: string; source_session_title: string; source_session_id: string }

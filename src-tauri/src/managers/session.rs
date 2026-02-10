@@ -94,6 +94,8 @@ static SESSION_MIGRATIONS: &[M] = &[
     M::up("CREATE INDEX IF NOT EXISTS idx_sessions_folder ON sessions(folder_id);"),
     // Migration 10: Add enhanced_notes_edited flag to track user edits
     M::up("ALTER TABLE meeting_notes ADD COLUMN enhanced_notes_edited INTEGER NOT NULL DEFAULT 0;"),
+    // Migration 11: Add environment_id to sessions for model environments feature
+    M::up("ALTER TABLE sessions ADD COLUMN environment_id TEXT;"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -104,6 +106,7 @@ pub struct Session {
     pub ended_at: Option<i64>,
     pub status: String,
     pub folder_id: Option<String>,
+    pub environment_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -246,6 +249,7 @@ impl SessionManager {
             ended_at: None,
             status: "active".to_string(),
             folder_id: None,
+            environment_id: None,
         };
 
         let _ = self.app_handle.emit("session-started", &session);
@@ -329,7 +333,7 @@ impl SessionManager {
         let conn = self.get_connection()?;
         let pattern = format!("%{}%", query);
         let mut stmt = conn.prepare(
-            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id
+            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id
              FROM sessions s
              LEFT JOIN meeting_notes mn ON mn.session_id = s.id
              WHERE s.title LIKE ?1
@@ -346,6 +350,7 @@ impl SessionManager {
                 ended_at: row.get("ended_at")?,
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
+                environment_id: row.get("environment_id")?,
             })
         })?;
 
@@ -359,7 +364,7 @@ impl SessionManager {
     pub fn get_sessions(&self) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
-            "SELECT id, title, started_at, ended_at, status, folder_id FROM sessions ORDER BY started_at DESC",
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id FROM sessions ORDER BY started_at DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -370,6 +375,7 @@ impl SessionManager {
                 ended_at: row.get("ended_at")?,
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
+                environment_id: row.get("environment_id")?,
             })
         })?;
 
@@ -384,7 +390,7 @@ impl SessionManager {
         let conn = self.get_connection()?;
         let session = conn
             .query_row(
-                "SELECT id, title, started_at, ended_at, status, folder_id FROM sessions WHERE id = ?1",
+                "SELECT id, title, started_at, ended_at, status, folder_id, environment_id FROM sessions WHERE id = ?1",
                 params![session_id],
                 |row| {
                     Ok(Session {
@@ -394,6 +400,7 @@ impl SessionManager {
                         ended_at: row.get("ended_at")?,
                         status: row.get("status")?,
                         folder_id: row.get("folder_id")?,
+                        environment_id: row.get("environment_id")?,
                     })
                 },
             )
@@ -500,6 +507,19 @@ impl SessionManager {
         conn.execute(
             "UPDATE sessions SET title = ?1 WHERE id = ?2",
             params![title, session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_session_environment(
+        &self,
+        session_id: &str,
+        environment_id: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.get_connection()?;
+        conn.execute(
+            "UPDATE sessions SET environment_id = ?1 WHERE id = ?2",
+            params![environment_id, session_id],
         )?;
         Ok(())
     }
@@ -744,10 +764,10 @@ impl SessionManager {
         let conn = self.get_connection()?;
 
         let query = if folder_id.is_some() {
-            "SELECT id, title, started_at, ended_at, status, folder_id
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id
              FROM sessions WHERE folder_id = ?1 ORDER BY started_at DESC"
         } else {
-            "SELECT id, title, started_at, ended_at, status, folder_id
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id
              FROM sessions WHERE folder_id IS NULL ORDER BY started_at DESC"
         };
 
@@ -762,6 +782,7 @@ impl SessionManager {
                 ended_at: row.get("ended_at")?,
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
+                environment_id: row.get("environment_id")?,
             })
         };
 
@@ -896,7 +917,7 @@ impl SessionManager {
     pub fn get_sessions_by_tag(&self, tag_id: &str) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
-            "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id
+            "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id
              FROM sessions s
              INNER JOIN session_tags st ON st.session_id = s.id
              WHERE st.tag_id = ?1
@@ -911,6 +932,7 @@ impl SessionManager {
                 ended_at: row.get("ended_at")?,
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
+                environment_id: row.get("environment_id")?,
             })
         })?;
 

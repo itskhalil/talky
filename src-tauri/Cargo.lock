@@ -5531,7 +5531,7 @@ dependencies = [
 
 [[package]]
 name = "talky"
-version = "0.5.6"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "block2 0.6.2",

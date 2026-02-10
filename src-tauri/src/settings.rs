@@ -100,6 +100,23 @@ pub struct WordSuggestion {
     pub source_session_id: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct ModelEnvironment {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    pub base_url: String,
+    pub api_key: String,
+    #[serde(default)]
+    pub summarisation_model: String,
+    #[serde(default)]
+    pub chat_model: String,
+    /// Deprecated: used for migration from single model to dual model
+    #[serde(default, skip_serializing)]
+    #[specta(skip)]
+    pub(crate) model: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelUnloadTimeout {
@@ -253,6 +270,10 @@ pub struct AppSettings {
     pub speaker_energy_threshold: f32,
     #[serde(default = "default_skip_mic_on_speaker_energy")]
     pub skip_mic_on_speaker_energy: bool,
+    #[serde(default)]
+    pub model_environments: Vec<ModelEnvironment>,
+    #[serde(default)]
+    pub default_environment_id: Option<String>,
 }
 
 fn default_word_suggestions_enabled() -> bool {
@@ -438,6 +459,78 @@ fn default_chat_models() -> HashMap<String, String> {
     HashMap::new()
 }
 
+/// Create a default "General" environment from existing post_process settings
+/// This ensures existing users get their API settings migrated to the new environment system
+fn create_default_environment_from_settings(settings: &mut AppSettings) -> bool {
+    if !settings.model_environments.is_empty() {
+        return false;
+    }
+
+    // Get the active provider's settings
+    let provider_id = &settings.post_process_provider_id;
+    let provider = settings
+        .post_process_providers
+        .iter()
+        .find(|p| p.id == *provider_id);
+
+    let base_url = provider.map(|p| p.base_url.clone()).unwrap_or_default();
+    let api_key = settings
+        .post_process_api_keys
+        .get(provider_id)
+        .cloned()
+        .unwrap_or_default();
+    let summarisation_model = settings
+        .post_process_models
+        .get(provider_id)
+        .cloned()
+        .unwrap_or_default();
+
+    // Use chat model from chat settings, falling back to summarisation model
+    let chat_provider_id = &settings.chat_provider_id;
+    let chat_model = settings
+        .chat_models
+        .get(chat_provider_id)
+        .cloned()
+        .unwrap_or_else(|| summarisation_model.clone());
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let default_env = ModelEnvironment {
+        id: id.clone(),
+        name: "General".to_string(),
+        color: "#22c55e".to_string(), // green
+        base_url,
+        api_key,
+        summarisation_model,
+        chat_model,
+        model: String::new(),
+    };
+
+    settings.model_environments.push(default_env);
+    settings.default_environment_id = Some(id);
+    true
+}
+
+/// Migrate environments from single `model` field to dual `summarisation_model` and `chat_model` fields
+fn migrate_environment_models(settings: &mut AppSettings) -> bool {
+    let mut changed = false;
+    for env in settings.model_environments.iter_mut() {
+        // If old `model` field has a value but new fields are empty, migrate it
+        if !env.model.is_empty() {
+            if env.summarisation_model.is_empty() {
+                env.summarisation_model = env.model.clone();
+                changed = true;
+            }
+            if env.chat_model.is_empty() {
+                env.chat_model = env.model.clone();
+                changed = true;
+            }
+            // Clear the old field after migration
+            env.model.clear();
+        }
+    }
+    changed
+}
+
 fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
     let mut changed = false;
     for provider in default_post_process_providers() {
@@ -516,6 +609,8 @@ pub fn get_default_settings() -> AppSettings {
         word_suggestions_enabled: true,
         speaker_energy_threshold: default_speaker_energy_threshold(),
         skip_mic_on_speaker_energy: default_skip_mic_on_speaker_energy(),
+        model_environments: Vec::new(),
+        default_environment_id: None,
     }
 }
 
@@ -540,6 +635,69 @@ impl AppSettings {
             .iter_mut()
             .find(|provider| provider.id == provider_id)
     }
+
+    pub fn get_environment(&self, environment_id: &str) -> Option<&ModelEnvironment> {
+        self.model_environments
+            .iter()
+            .find(|env| env.id == environment_id)
+    }
+
+    pub fn get_environment_mut(&mut self, environment_id: &str) -> Option<&mut ModelEnvironment> {
+        self.model_environments
+            .iter_mut()
+            .find(|env| env.id == environment_id)
+    }
+
+    pub fn get_default_environment(&self) -> Option<&ModelEnvironment> {
+        self.default_environment_id
+            .as_ref()
+            .and_then(|id| self.get_environment(id))
+    }
+
+    /// Get the effective environment for a session.
+    /// If environment_id is Some, uses that environment.
+    /// Otherwise falls back to the default environment.
+    pub fn get_effective_environment(
+        &self,
+        environment_id: Option<&str>,
+    ) -> Option<&ModelEnvironment> {
+        if let Some(id) = environment_id {
+            self.get_environment(id)
+        } else {
+            self.get_default_environment()
+        }
+    }
+
+    /// Get summarisation config from environment.
+    /// Returns (base_url, api_key, model) or None if not configured.
+    pub fn get_summarisation_config(
+        &self,
+        environment_id: Option<&str>,
+    ) -> Option<(String, String, String)> {
+        let env = self.get_effective_environment(environment_id)?;
+        if env.summarisation_model.is_empty() {
+            return None;
+        }
+        Some((
+            env.base_url.clone(),
+            env.api_key.clone(),
+            env.summarisation_model.clone(),
+        ))
+    }
+
+    /// Get chat config from environment.
+    /// Returns (base_url, api_key, model) or None if not configured.
+    pub fn get_chat_config(&self, environment_id: Option<&str>) -> Option<(String, String, String)> {
+        let env = self.get_effective_environment(environment_id)?;
+        if env.chat_model.is_empty() {
+            return None;
+        }
+        Some((
+            env.base_url.clone(),
+            env.api_key.clone(),
+            env.chat_model.clone(),
+        ))
+    }
 }
 
 pub fn get_settings(app: &AppHandle) -> AppSettings {
@@ -559,7 +717,19 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         default_settings
     };
 
-    if ensure_post_process_defaults(&mut settings) {
+    let mut needs_save = ensure_post_process_defaults(&mut settings);
+
+    // Create default environment from existing settings if none exist
+    if create_default_environment_from_settings(&mut settings) {
+        needs_save = true;
+    }
+
+    // Migrate environment models from single to dual-model format
+    if migrate_environment_models(&mut settings) {
+        needs_save = true;
+    }
+
+    if needs_save {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 
