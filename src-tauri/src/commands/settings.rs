@@ -80,80 +80,6 @@ pub fn change_experimental_enabled_setting(app: AppHandle, enabled: bool) -> Res
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_post_process_base_url_setting(
-    app: AppHandle,
-    provider_id: String,
-    base_url: String,
-) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-
-    if let Some(provider) = settings.post_process_provider_mut(&provider_id) {
-        provider.base_url = base_url;
-        write_settings(&app, settings);
-        Ok(())
-    } else {
-        Err(format!("Provider not found: {}", provider_id))
-    }
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_post_process_api_key_setting(
-    app: AppHandle,
-    provider_id: String,
-    api_key: String,
-) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.post_process_api_keys.insert(provider_id, api_key);
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_post_process_model_setting(
-    app: AppHandle,
-    provider_id: String,
-    model: String,
-) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.post_process_models.insert(provider_id, model);
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn set_post_process_provider(app: AppHandle, provider_id: String) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.post_process_provider_id = provider_id;
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn fetch_post_process_models(
-    app: AppHandle,
-    provider_id: String,
-) -> Result<Vec<String>, String> {
-    let settings = get_settings(&app);
-
-    let provider = settings
-        .post_process_provider(&provider_id)
-        .ok_or_else(|| format!("Provider not found: {}", provider_id))?;
-
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider_id)
-        .cloned()
-        .unwrap_or_default();
-
-    crate::llm_client::fetch_models(&provider.base_url, &api_key).await
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn add_post_process_prompt(
     app: AppHandle,
     name: String,
@@ -256,48 +182,6 @@ pub fn change_update_checks_setting(app: AppHandle, enabled: bool) -> Result<(),
     update_tray_menu(&app, &TrayIconState::Idle, None);
 
     Ok(())
-}
-
-// Chat settings
-#[tauri::command]
-#[specta::specta]
-pub fn set_chat_provider(app: AppHandle, provider_id: String) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.chat_provider_id = provider_id;
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn change_chat_model_setting(
-    app: AppHandle,
-    provider_id: String,
-    model: String,
-) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.chat_models.insert(provider_id, model);
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn fetch_chat_models(app: AppHandle, provider_id: String) -> Result<Vec<String>, String> {
-    let settings = get_settings(&app);
-
-    let provider = settings
-        .post_process_provider(&provider_id)
-        .ok_or_else(|| format!("Provider not found: {}", provider_id))?;
-
-    // Use the same API key as post-processing for consistency
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider_id)
-        .cloned()
-        .unwrap_or_default();
-
-    crate::llm_client::fetch_models(&provider.base_url, &api_key).await
 }
 
 #[tauri::command]
