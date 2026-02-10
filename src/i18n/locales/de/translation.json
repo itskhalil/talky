@@ -154,10 +154,6 @@
         "label": "Experimentelle Funktionen",
         "description": "Experimentelle Funktionen aktivieren, die sich noch in Entwicklung befinden."
       },
-      "startHidden": {
-        "label": "Versteckt starten",
-        "description": "In den Systembereich starten, ohne das Fenster zu öffnen."
-      },
       "autostart": {
         "label": "Beim Start ausführen",
         "description": "Talky automatisch beim Anmelden starten."

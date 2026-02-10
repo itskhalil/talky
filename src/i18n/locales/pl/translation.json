@@ -154,10 +154,6 @@
         "label": "Funkcje Eksperymentalne",
         "description": "Włącz funkcje eksperymentalne, które są jeszcze w fazie rozwoju."
       },
-      "startHidden": {
-        "label": "Uruchom ukryty",
-        "description": "Uruchom w zasobniku systemowym bez otwierania okna."
-      },
       "autostart": {
         "label": "Uruchamiaj przy starcie",
         "description": "Automatycznie uruchamiaj Talky po zalogowaniu."
