@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Экспортировать текущую заметку...",
+    "exportAllNotes": "Экспортировать все заметки..."
+  },
+  "export": {
+    "selectFolder": "Выберите папку для экспорта",
+    "successSingle": "Заметка успешно экспортирована",
+    "successMultiple": "Экспортировано {{count}} заметок",
+    "noNoteSelected": "Заметка не выбрана",
+    "error": "Ошибка экспорта: {{error}}"
+  },
   "tray": {
     "settings": "Настройки...",
     "checkUpdates": "Проверить обновления...",

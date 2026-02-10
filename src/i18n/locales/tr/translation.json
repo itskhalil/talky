@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Geçerli Notu Dışa Aktar...",
+    "exportAllNotes": "Tüm Notları Dışa Aktar..."
+  },
+  "export": {
+    "selectFolder": "Dışa aktarma klasörünü seçin",
+    "successSingle": "Not başarıyla dışa aktarıldı",
+    "successMultiple": "{{count}} not dışa aktarıldı",
+    "noNoteSelected": "Not seçilmedi",
+    "error": "Dışa aktarma başarısız: {{error}}"
+  },
   "tray": {
     "settings": "Ayarlar...",
     "checkUpdates": "Güncellemeleri Kontrol Et...",

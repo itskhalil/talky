@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Esporta nota corrente...",
+    "exportAllNotes": "Esporta tutte le note..."
+  },
+  "export": {
+    "selectFolder": "Seleziona cartella per l'esportazione",
+    "successSingle": "Nota esportata con successo",
+    "successMultiple": "{{count}} note esportate",
+    "noNoteSelected": "Nessuna nota selezionata",
+    "error": "Esportazione fallita: {{error}}"
+  },
   "tray": {
     "settings": "Impostazioni...",
     "checkUpdates": "Verifica aggiornamenti...",

@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "現在のノートをエクスポート...",
+    "exportAllNotes": "すべてのノートをエクスポート..."
+  },
+  "export": {
+    "selectFolder": "エクスポート先フォルダを選択",
+    "successSingle": "ノートをエクスポートしました",
+    "successMultiple": "{{count}}件のノートをエクスポートしました",
+    "noNoteSelected": "ノートが選択されていません",
+    "error": "エクスポートに失敗しました: {{error}}"
+  },
   "tray": {
     "settings": "設定...",
     "checkUpdates": "アップデートを確認...",

@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Exportar Nota Actual...",
+    "exportAllNotes": "Exportar Todas las Notas..."
+  },
+  "export": {
+    "selectFolder": "Seleccionar carpeta para exportar",
+    "successSingle": "Nota exportada correctamente",
+    "successMultiple": "{{count}} notas exportadas",
+    "noNoteSelected": "Ninguna nota seleccionada",
+    "error": "Error al exportar: {{error}}"
+  },
   "tray": {
     "newNote": "Nueva Nota",
     "stopRecording": "Detener Grabación",

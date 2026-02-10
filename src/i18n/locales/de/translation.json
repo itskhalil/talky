@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Aktuelle Notiz exportieren...",
+    "exportAllNotes": "Alle Notizen exportieren..."
+  },
+  "export": {
+    "selectFolder": "Ordner für Export auswählen",
+    "successSingle": "Notiz erfolgreich exportiert",
+    "successMultiple": "{{count}} Notizen exportiert",
+    "noNoteSelected": "Keine Notiz ausgewählt",
+    "error": "Export fehlgeschlagen: {{error}}"
+  },
   "tray": {
     "settings": "Einstellungen...",
     "checkUpdates": "Nach Updates suchen...",

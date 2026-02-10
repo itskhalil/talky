@@ -1,5 +1,16 @@
 {
   "_comment": "French translation for Talky. Contribute at: https://github.com/itskhalil/talky",
+  "menu": {
+    "exportCurrentNote": "Exporter la note actuelle...",
+    "exportAllNotes": "Exporter toutes les notes..."
+  },
+  "export": {
+    "selectFolder": "Sélectionner le dossier d'exportation",
+    "successSingle": "Note exportée avec succès",
+    "successMultiple": "{{count}} notes exportées",
+    "noNoteSelected": "Aucune note sélectionnée",
+    "error": "Échec de l'exportation : {{error}}"
+  },
   "tray": {
     "newNote": "Nouvelle Note",
     "stopRecording": "Arrêter l'enregistrement",

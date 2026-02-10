@@ -2,7 +2,9 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { save, open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import { commands, type MeetingNotes } from "@/bindings";
 import { useSettingsStore } from "./settingsStore";
 
@@ -686,6 +688,69 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       await listen("tray-new-note", () => {
         const { createNote } = get();
         createNote();
+      }),
+    );
+
+    // Listen for menu export current note request
+    unlisteners.push(
+      await listen("menu-export-current", async () => {
+        const { selectedSessionId, sessions } = get();
+        const t = i18n.t.bind(i18n);
+
+        if (!selectedSessionId) {
+          toast.error(t("export.noNoteSelected"));
+          return;
+        }
+
+        const session = sessions.find((s) => s.id === selectedSessionId);
+        const title = session?.title || "Note";
+        const dateStr = session?.started_at
+          ? new Date(session.started_at * 1000).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0];
+        const defaultName = `${dateStr} ${title}`;
+
+        try {
+          const filePath = await save({
+            defaultPath: `${defaultName}.md`,
+            filters: [{ name: "Markdown", extensions: ["md"] }],
+          });
+
+          if (filePath) {
+            const result = await invoke<void>("export_note_as_markdown", {
+              sessionId: selectedSessionId,
+              filePath,
+            });
+            toast.success(t("export.successSingle"));
+          }
+        } catch (error) {
+          console.error("Export failed:", error);
+          toast.error(t("export.error", { error: String(error) }));
+        }
+      }),
+    );
+
+    // Listen for menu export all notes request
+    unlisteners.push(
+      await listen("menu-export-all", async () => {
+        const t = i18n.t.bind(i18n);
+
+        try {
+          const directoryPath = await open({
+            directory: true,
+            multiple: false,
+            title: t("export.selectFolder"),
+          });
+
+          if (directoryPath && typeof directoryPath === "string") {
+            const count = await invoke<number>("export_all_notes_as_markdown", {
+              directoryPath,
+            });
+            toast.success(t("export.successMultiple", { count }));
+          }
+        } catch (error) {
+          console.error("Export failed:", error);
+          toast.error(t("export.error", { error: String(error) }));
+        }
       }),
     );
 
