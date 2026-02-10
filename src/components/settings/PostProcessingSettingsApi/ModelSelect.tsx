@@ -1,6 +1,10 @@
 import React from "react";
-import type { ModelOption } from "./types";
 import { Select } from "../../ui/Select";
+
+export type ModelOption = {
+  value: string;
+  label: string;
+};
 
 type ModelSelectProps = {
   value: string;

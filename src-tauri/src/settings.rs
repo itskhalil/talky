@@ -1,7 +1,6 @@
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
-use std::collections::HashMap;
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
@@ -238,14 +237,8 @@ pub struct AppSettings {
     pub recording_retention_period: RecordingRetentionPeriod,
     #[serde(default = "default_post_process_enabled")]
     pub post_process_enabled: bool,
-    #[serde(default = "default_post_process_provider_id")]
-    pub post_process_provider_id: String,
     #[serde(default = "default_post_process_providers")]
     pub post_process_providers: Vec<PostProcessProvider>,
-    #[serde(default = "default_post_process_api_keys")]
-    pub post_process_api_keys: HashMap<String, String>,
-    #[serde(default = "default_post_process_models")]
-    pub post_process_models: HashMap<String, String>,
     #[serde(default = "default_post_process_prompts")]
     pub post_process_prompts: Vec<LLMPrompt>,
     #[serde(default)]
@@ -254,10 +247,6 @@ pub struct AppSettings {
     pub app_language: String,
     #[serde(default)]
     pub experimental_enabled: bool,
-    #[serde(default = "default_chat_provider_id")]
-    pub chat_provider_id: String,
-    #[serde(default = "default_chat_models")]
-    pub chat_models: HashMap<String, String>,
     #[serde(default)]
     pub copy_as_bullets_enabled: bool,
     #[serde(default)]
@@ -342,10 +331,6 @@ fn default_app_language() -> String {
         .unwrap_or_else(|| "en".to_string())
 }
 
-fn default_post_process_provider_id() -> String {
-    "custom".to_string()
-}
-
 fn default_post_process_providers() -> Vec<PostProcessProvider> {
     let mut providers = vec![
         PostProcessProvider {
@@ -421,87 +406,26 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
     providers
 }
 
-fn default_post_process_api_keys() -> HashMap<String, String> {
-    let mut map = HashMap::new();
-    for provider in default_post_process_providers() {
-        map.insert(provider.id, String::new());
-    }
-    map
-}
-
-fn default_model_for_provider(provider_id: &str) -> String {
-    if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
-        return APPLE_INTELLIGENCE_DEFAULT_MODEL_ID.to_string();
-    }
-    String::new()
-}
-
-fn default_post_process_models() -> HashMap<String, String> {
-    let mut map = HashMap::new();
-    for provider in default_post_process_providers() {
-        map.insert(
-            provider.id.clone(),
-            default_model_for_provider(&provider.id),
-        );
-    }
-    map
-}
-
 fn default_post_process_prompts() -> Vec<LLMPrompt> {
     vec![]
 }
 
-fn default_chat_provider_id() -> String {
-    "custom".to_string()
-}
-
-fn default_chat_models() -> HashMap<String, String> {
-    HashMap::new()
-}
-
-/// Create a default "General" environment from existing post_process settings
-/// This ensures existing users get their API settings migrated to the new environment system
-fn create_default_environment_from_settings(settings: &mut AppSettings) -> bool {
+/// Create a default "General" environment if none exist
+/// This ensures new users get a starter environment to configure
+fn create_default_environment_if_needed(settings: &mut AppSettings) -> bool {
     if !settings.model_environments.is_empty() {
         return false;
     }
-
-    // Get the active provider's settings
-    let provider_id = &settings.post_process_provider_id;
-    let provider = settings
-        .post_process_providers
-        .iter()
-        .find(|p| p.id == *provider_id);
-
-    let base_url = provider.map(|p| p.base_url.clone()).unwrap_or_default();
-    let api_key = settings
-        .post_process_api_keys
-        .get(provider_id)
-        .cloned()
-        .unwrap_or_default();
-    let summarisation_model = settings
-        .post_process_models
-        .get(provider_id)
-        .cloned()
-        .unwrap_or_default();
-
-    // Use chat model from chat settings, falling back to summarisation model
-    let chat_provider_id = &settings.chat_provider_id;
-    let chat_model = settings
-        .chat_models
-        .get(chat_provider_id)
-        .cloned()
-        .unwrap_or_else(|| summarisation_model.clone());
 
     let id = uuid::Uuid::new_v4().to_string();
     let default_env = ModelEnvironment {
         id: id.clone(),
         name: "General".to_string(),
         color: "#22c55e".to_string(), // green
-        base_url,
-        api_key,
-        summarisation_model,
-        chat_model,
+        base_url: String::new(),
+        api_key: String::new(),
+        summarisation_model: String::new(),
+        chat_model: String::new(),
         model: String::new(),
     };
 
@@ -542,29 +466,6 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
             settings.post_process_providers.push(provider.clone());
             changed = true;
         }
-
-        if !settings.post_process_api_keys.contains_key(&provider.id) {
-            settings
-                .post_process_api_keys
-                .insert(provider.id.clone(), String::new());
-            changed = true;
-        }
-
-        let default_model = default_model_for_provider(&provider.id);
-        match settings.post_process_models.get_mut(&provider.id) {
-            Some(existing) => {
-                if existing.is_empty() && !default_model.is_empty() {
-                    *existing = default_model.clone();
-                    changed = true;
-                }
-            }
-            None => {
-                settings
-                    .post_process_models
-                    .insert(provider.id.clone(), default_model);
-                changed = true;
-            }
-        }
     }
 
     changed
@@ -593,16 +494,11 @@ pub fn get_default_settings() -> AppSettings {
         history_limit: default_history_limit(),
         recording_retention_period: default_recording_retention_period(),
         post_process_enabled: default_post_process_enabled(),
-        post_process_provider_id: default_post_process_provider_id(),
         post_process_providers: default_post_process_providers(),
-        post_process_api_keys: default_post_process_api_keys(),
-        post_process_models: default_post_process_models(),
         post_process_prompts: default_post_process_prompts(),
         post_process_selected_prompt_id: None,
         app_language: default_app_language(),
         experimental_enabled: false,
-        chat_provider_id: default_chat_provider_id(),
-        chat_models: default_chat_models(),
         copy_as_bullets_enabled: false,
         word_suggestions: Vec::new(),
         dismissed_suggestions: Vec::new(),
@@ -615,27 +511,6 @@ pub fn get_default_settings() -> AppSettings {
 }
 
 impl AppSettings {
-    pub fn active_post_process_provider(&self) -> Option<&PostProcessProvider> {
-        self.post_process_providers
-            .iter()
-            .find(|provider| provider.id == self.post_process_provider_id)
-    }
-
-    pub fn post_process_provider(&self, provider_id: &str) -> Option<&PostProcessProvider> {
-        self.post_process_providers
-            .iter()
-            .find(|provider| provider.id == provider_id)
-    }
-
-    pub fn post_process_provider_mut(
-        &mut self,
-        provider_id: &str,
-    ) -> Option<&mut PostProcessProvider> {
-        self.post_process_providers
-            .iter_mut()
-            .find(|provider| provider.id == provider_id)
-    }
-
     pub fn get_environment(&self, environment_id: &str) -> Option<&ModelEnvironment> {
         self.model_environments
             .iter()
@@ -719,8 +594,8 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
 
     let mut needs_save = ensure_post_process_defaults(&mut settings);
 
-    // Create default environment from existing settings if none exist
-    if create_default_environment_from_settings(&mut settings) {
+    // Create default environment if none exist
+    if create_default_environment_if_needed(&mut settings) {
         needs_save = true;
     }
 
