@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, RefreshCcw, Check } from "lucide-react";
+import { Plus, Trash2, RefreshCcw } from "lucide-react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { Button } from "@/components/ui/Button";
 import { SettingContainer, SettingsGroup } from "@/components/ui";
@@ -11,12 +11,8 @@ import { ResetButton } from "@/components/ui/ResetButton";
 const PRESET_COLORS = [
   "#22c55e", // green
   "#3b82f6", // blue
-  "#f59e0b", // amber
+  "#f59e0b", // orange
   "#ef4444", // red
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-  "#84cc16", // lime
 ];
 
 const ColorPicker: React.FC<{
@@ -71,7 +67,7 @@ const EnvironmentPill: React.FC<{
         }}
       />
       <span className="truncate max-w-[120px]">{name}</span>
-      {isDefault && <Check size={12} className="text-primary shrink-0" />}
+      {isDefault && <span className="text-text-secondary text-xs">(default)</span>}
     </button>
   );
 };
@@ -234,7 +230,7 @@ export const EnvironmentsSection: React.FC = () => {
       description={t("settings.environments.description")}
     >
       {/* Environment Tabs */}
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex items-center gap-1 flex-wrap px-4 py-3">
         {environments.map((env) => (
           <EnvironmentPill
             key={env.id}
