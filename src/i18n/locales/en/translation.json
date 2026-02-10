@@ -308,9 +308,9 @@
       "apiKey": "API Key",
       "apiKeyPlaceholder": "sk-...",
       "summarisationModel": "Summarisation Model",
-      "summarisationModelTip": "Use the best model you can for quality summaries (e.g. Claude Opus 4.5).",
+      "summarisationModelTip": "Use the best model you can for quality summaries (e.g. the latest Claude Opus).",
       "chatModel": "Chat Model",
-      "chatModelTip": "Use a fast model for snappy responses (e.g. Gemini 3 Flash).",
+      "chatModelTip": "Use a fast model for snappy responses (e.g. the latest Gemini Flash).",
       "defaultForNewNotes": "Default for new notes",
       "maxReached": "Maximum of 3 environments allowed",
       "emptyState": "No environments configured. Add an environment to get started."
