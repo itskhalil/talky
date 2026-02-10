@@ -308,7 +308,7 @@
       "apiKey": "API Key",
       "apiKeyPlaceholder": "sk-...",
       "summarisationModel": "Summarisation Model",
-      "summarisationModelTip": "Use the best model you can for quality summaries (e.g. the latest Claude Opus).",
+      "summarisationModelTip": "Use the best model you can for quality summaries (e.g. the latest Claude Opus or Gemini Pro).",
       "chatModel": "Chat Model",
       "chatModelTip": "Use a fast model for snappy responses (e.g. the latest Gemini Flash).",
       "defaultForNewNotes": "Default for new notes",
