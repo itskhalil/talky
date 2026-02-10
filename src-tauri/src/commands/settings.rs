@@ -1,10 +1,12 @@
+use crate::managers::session::SessionManager;
 use crate::settings::{
     get_settings, write_settings, FontSize, LLMPrompt, ModelEnvironment, WordSuggestion,
 };
 use crate::tray::update_tray_menu;
 use crate::utils::TrayIconState;
 use log::info;
-use tauri::AppHandle;
+use std::sync::Arc;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
 #[tauri::command]
@@ -397,6 +399,18 @@ pub fn delete_environment(app: AppHandle, id: String) -> Result<(), String> {
     // Must keep at least 1 environment
     if settings.model_environments.len() <= 1 {
         return Err("Cannot delete the last environment".to_string());
+    }
+
+    // Check if any notes are using this environment
+    let session_manager = app.state::<Arc<SessionManager>>();
+    let count = session_manager
+        .count_sessions_by_environment_id(&id)
+        .map_err(|e| format!("Failed to check sessions: {}", e))?;
+    if count > 0 {
+        return Err(format!(
+            "Cannot delete environment: {} note(s) are using it. Reassign them first.",
+            count
+        ));
     }
 
     let original_len = settings.model_environments.len();
