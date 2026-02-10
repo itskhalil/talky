@@ -72,10 +72,18 @@
   margin-bottom: 0.25rem;
 }
 
+.notes-editor .tiptap h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
 /* Remove top margin when heading is first element */
 .notes-editor .tiptap > h1:first-child,
 .notes-editor .tiptap > h2:first-child,
-.notes-editor .tiptap > h3:first-child {
+.notes-editor .tiptap > h3:first-child,
+.notes-editor .tiptap > h4:first-child {
   margin-top: 0;
 }
 
