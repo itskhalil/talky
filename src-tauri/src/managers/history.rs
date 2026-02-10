@@ -80,6 +80,10 @@ impl HistoryManager {
 
         let mut conn = Connection::open(&self.db_path)?;
 
+        // Enable WAL mode for better crash recovery - writes go to a log file first,
+        // so the main database file stays intact if we crash mid-write
+        conn.pragma_update(None, "journal_mode", "WAL")?;
+
         // Handle migration from tauri-plugin-sql to rusqlite_migration
         // tauri-plugin-sql used _sqlx_migrations table, rusqlite_migration uses user_version pragma
         self.migrate_from_tauri_plugin_sql(&conn)?;
