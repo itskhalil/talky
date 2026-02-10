@@ -276,6 +276,20 @@ function parseBulletList(
         i = nested.endIndex;
       } else {
         // Edge case: indented bullet with no parent - treat as base level
+        // Adjust baseIndent to match this bullet's indentation
+        baseIndent = indentLevel;
+        const source = parsed[i].isAi ? "ai" : "noted";
+        listItems.push({
+          type: "listItem",
+          attrs: { source },
+          content: [
+            {
+              type: "paragraph",
+              attrs: { source },
+              content: parseInlineContent(bulletMatch[1]),
+            },
+          ],
+        });
         i++;
       }
       continue;
