@@ -139,13 +139,6 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
       layout="stacked"
     >
       <div className="space-y-2">
-        {/* Status indicator */}
-        <div className="text-xs text-mid-gray">
-          {isCustom
-            ? t("settings.about.userDataDirectory.usingCustom")
-            : t("settings.about.userDataDirectory.usingDefault")}
-        </div>
-
         {/* Path display with actions */}
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0 px-2 py-2 bg-mid-gray/10 border border-mid-gray/80 rounded text-xs font-mono break-all select-text cursor-text">
@@ -160,10 +153,6 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
           >
             {t("common.open")}
           </Button>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-2">
           <Button
             onClick={handleChange}
             variant="secondary"
@@ -175,18 +164,20 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
               ? t("settings.about.userDataDirectory.migrating")
               : t("settings.about.userDataDirectory.change")}
           </Button>
-          {isCustom && (
-            <Button
-              onClick={handleReset}
-              variant="secondary"
-              size="sm"
-              disabled={changing}
-              className="px-3 py-2"
-            >
-              {t("settings.about.userDataDirectory.reset")}
-            </Button>
-          )}
         </div>
+
+        {/* Reset button when using custom location */}
+        {isCustom && (
+          <Button
+            onClick={handleReset}
+            variant="secondary"
+            size="sm"
+            disabled={changing}
+            className="px-3 py-2"
+          >
+            {t("settings.about.userDataDirectory.reset")}
+          </Button>
+        )}
 
         {/* Success message */}
         {success && (
