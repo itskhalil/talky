@@ -412,7 +412,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       {/* Model Status and Switcher */}
       <div className="relative" ref={dropdownRef}>
         <ModelStatusButton
-          status={modelStatus}
           displayText={getModelDisplayText()}
           isDropdownOpen={showModelDropdown}
           onClick={() => setShowModelDropdown(!showModelDropdown)}
