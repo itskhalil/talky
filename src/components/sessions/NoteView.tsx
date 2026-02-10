@@ -1288,7 +1288,7 @@ export function NoteView({
                 {isRecording && hasTranscript && (
                   <button
                     onClick={handleWhatDidIMiss}
-                    className="hidden md:block px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent-soft transition-colors whitespace-nowrap shrink-0"
+                    className="px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent-soft transition-colors whitespace-nowrap shrink-0"
                   >
                     {t("sessions.chat.whatDidIMiss")}
                   </button>
