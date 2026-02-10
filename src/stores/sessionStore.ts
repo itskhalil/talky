@@ -15,6 +15,7 @@ export interface Session {
   ended_at: number | null;
   status: string;
   folder_id: string | null;
+  environment_id: string | null;
 }
 
 export interface TranscriptSegment {
