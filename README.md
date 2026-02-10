@@ -14,16 +14,16 @@ Talky is a Mac application built with Tauri (Rust + React/TypeScript) that lets 
 Jot down thoughts, agenda items, and key points in the built-in editor while Talky records and transcribes in the background.</p>
 </td>
 <td width="50%">
-<img src="docs/images/02-ai-enhance.png" alt="AI-enhanced notes" />
-<p><strong>Enhance with AI</strong><br/>
-One click transforms your rough notes into polished, detailed meeting notes — AI fills in context from the transcript while preserving your original thoughts.</p>
+<img src="docs/images/04-transcript.png" alt="View the full transcript in real time" />
+<p><strong>View the full transcript in real time</strong><br/>
+Access the complete timestamped transcript as it's generated, with your mic and speaker audio clearly separated.</p>
 </td>
 </tr>
 <tr>
 <td width="50%">
-<img src="docs/images/04-transcript.png" alt="View the full transcript in real time" />
-<p><strong>View the full transcript in real time</strong><br/>
-Access the complete timestamped transcript as it's generated, with your mic and speaker audio clearly separated.</p>
+<img src="docs/images/02-ai-enhance.png" alt="AI-enhanced notes" />
+<p><strong>Enhance with AI</strong><br/>
+One click transforms your rough notes into polished, detailed meeting notes — AI fills in context from the transcript while preserving your original thoughts.</p>
 </td>
 <td width="50%">
 <img src="docs/images/03-ask-questions.png" alt="Ask questions about your meeting" />
