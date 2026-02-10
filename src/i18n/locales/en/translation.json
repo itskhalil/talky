@@ -294,7 +294,7 @@
       }
     },
     "environments": {
-      "title": "Model Environments",
+      "title": "AI Environments",
       "description": "Configure your models for summarisation and chat. If you work at different security levels, you can set up different APIs and models for each environment.",
       "add": "Add environment",
       "delete": "Delete environment",
