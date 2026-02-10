@@ -458,7 +458,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 onClick={() => selectFolder(null)}
                 className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors ${
                   selectedFolderId === null
-                    ? "bg-accent/10 text-accent"
+                    ? "bg-accent/10 text-text"
                     : "text-text hover:bg-accent-soft"
                 }`}
               >
@@ -476,7 +476,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   key={folder.id}
                   className={`group relative flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
                     selectedFolderId === folder.id
-                      ? "bg-accent/10 text-accent"
+                      ? "bg-accent/10 text-text"
                       : "text-text hover:bg-accent-soft"
                   }`}
                   onClick={() => selectFolder(folder.id)}
@@ -557,14 +557,14 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           </button>
         </div>
         {notesExpanded && (
-          <div className="px-2">
+          <div className="px-3">
             {dateGroupOrder.map((group) => {
               const sessionsInGroup = groupedSessions[group];
               if (sessionsInGroup.length === 0) return null;
 
               return (
-                <div key={group}>
-                  <div className="px-2.5 py-1.5 text-xs font-medium text-text-secondary font-display">
+                <div key={group} className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:mt-2">
+                  <div className="pl-2 pt-1.5 pb-1.5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider font-display">
                     {t(`notes.dateGroups.${group}`)}
                   </div>
                   {sessionsInGroup.map((session) => {
@@ -574,7 +574,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                     return (
                       <div
                         key={session.id}
-                        className={`group flex items-start gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                        className={`group flex items-start gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
                           isSelected ? "bg-accent/10" : "hover:bg-accent-soft"
                         }`}
                         onClick={() => onSelect(session.id)}
