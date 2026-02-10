@@ -154,10 +154,6 @@
         "label": "Funzionalità Sperimentali",
         "description": "Abilita le funzionalità sperimentali ancora in fase di sviluppo."
       },
-      "startHidden": {
-        "label": "Avvia in Background",
-        "description": "Avvia l'applicazione in background senza aprire la finestra."
-      },
       "autostart": {
         "label": "Avvia all'Accensione",
         "description": "Avvia Talky automaticamente quando accedi al computer."

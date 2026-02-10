@@ -158,10 +158,6 @@
         "label": "Recursos Experimentais",
         "description": "Ativar recursos experimentais que ainda estão em desenvolvimento."
       },
-      "startHidden": {
-        "label": "Iniciar Oculto",
-        "description": "Iniciar na bandeja do sistema sem abrir a janela."
-      },
       "autostart": {
         "label": "Iniciar na Inicialização",
         "description": "Iniciar automaticamente o Talky quando você fizer login no seu computador."

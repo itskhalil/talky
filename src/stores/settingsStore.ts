@@ -71,7 +71,6 @@ const settingUpdaters: {
   [K in keyof Settings]?: (value: Settings[K]) => Promise<unknown>;
 } = {
   font_size: (value) => commands.changeFontSizeSetting(value as any),
-  start_hidden: (value) => commands.changeStartHiddenSetting(value as boolean),
   autostart_enabled: (value) =>
     commands.changeAutostartSetting(value as boolean),
   update_checks_enabled: (value) =>

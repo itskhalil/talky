@@ -154,10 +154,6 @@
         "label": "実験的機能",
         "description": "まだ開発中の実験的機能を有効にします。"
       },
-      "startHidden": {
-        "label": "非表示で起動",
-        "description": "ウィンドウを開かずにシステムトレイに起動。"
-      },
       "autostart": {
         "label": "起動時に実行",
         "description": "コンピューターにログインしたときにTalkyを自動的に起動。"

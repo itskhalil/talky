@@ -155,10 +155,6 @@
         "label": "Funciones Experimentales",
         "description": "Habilitar funciones experimentales que aún están en desarrollo."
       },
-      "startHidden": {
-        "label": "Iniciar Oculto",
-        "description": "Lanzar en la bandeja del sistema sin abrir la ventana."
-      },
       "autostart": {
         "label": "Iniciar al Arranque",
         "description": "Iniciar Talky automáticamente cuando inicies sesión en tu computadora."

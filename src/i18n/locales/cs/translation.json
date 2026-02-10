@@ -154,10 +154,6 @@
         "label": "Experimentální funkce",
         "description": "Povolit experimentální funkce, které jsou stále ve vývoji."
       },
-      "startHidden": {
-        "label": "Spouštět skrytě",
-        "description": "Spustit do systémové lišty bez otevření okna."
-      },
       "autostart": {
         "label": "Spouštět při startu",
         "description": "Automaticky spustit Talky po přihlášení do počítače."

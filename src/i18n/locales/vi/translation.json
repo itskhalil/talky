@@ -156,10 +156,6 @@
         "label": "Tính năng thử nghiệm",
         "description": "Bật các tính năng thử nghiệm đang trong quá trình phát triển."
       },
-      "startHidden": {
-        "label": "Khởi động ẩn",
-        "description": "Khởi động vào khay hệ thống mà không mở cửa sổ."
-      },
       "autostart": {
         "label": "Khởi động cùng hệ thống",
         "description": "Tự động khởi động Talky khi bạn đăng nhập vào máy tính."
