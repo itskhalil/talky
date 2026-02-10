@@ -434,6 +434,85 @@ fn create_default_environment_if_needed(settings: &mut AppSettings) -> bool {
     true
 }
 
+/// Migrate legacy post-process settings to model environments from raw JSON.
+/// This handles upgrades from pre-0.6.0 versions where the legacy fields
+/// were removed from AppSettings but may still exist in the user's store.
+fn migrate_legacy_settings_from_json(
+    raw_settings: &serde_json::Value,
+    settings: &mut AppSettings,
+) -> bool {
+    // Only migrate if no environments exist
+    if !settings.model_environments.is_empty() {
+        return false;
+    }
+
+    // Check if legacy fields exist in raw JSON
+    let provider_id = raw_settings
+        .get("post_process_provider_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("custom");
+
+    let api_keys = raw_settings.get("post_process_api_keys");
+    let models = raw_settings.get("post_process_models");
+
+    // Only proceed if legacy data exists
+    if api_keys.is_none() && models.is_none() {
+        return false;
+    }
+
+    // Extract API key for the active provider
+    let api_key = api_keys
+        .and_then(|keys| keys.get(provider_id))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    // Extract model for the active provider
+    let summarisation_model = models
+        .and_then(|m| m.get(provider_id))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    // Get base URL from providers list
+    let base_url = settings
+        .post_process_providers
+        .iter()
+        .find(|p| p.id == provider_id)
+        .map(|p| p.base_url.clone())
+        .unwrap_or_default();
+
+    // Get chat model from legacy chat settings
+    let chat_provider_id = raw_settings
+        .get("chat_provider_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(provider_id);
+
+    let chat_model = raw_settings
+        .get("chat_models")
+        .and_then(|m| m.get(chat_provider_id))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| summarisation_model.clone());
+
+    // Create environment with migrated settings
+    let id = uuid::Uuid::new_v4().to_string();
+    let default_env = ModelEnvironment {
+        id: id.clone(),
+        name: "General".to_string(),
+        color: "#22c55e".to_string(),
+        base_url,
+        api_key,
+        summarisation_model,
+        chat_model,
+        model: String::new(),
+    };
+
+    settings.model_environments.push(default_env);
+    settings.default_environment_id = Some(id);
+    true
+}
+
 /// Migrate environments from single `model` field to dual `summarisation_model` and `chat_model` fields
 fn migrate_environment_models(settings: &mut AppSettings) -> bool {
     let mut changed = false;
@@ -580,8 +659,11 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         .store(SETTINGS_STORE_PATH)
         .expect("Failed to initialize store");
 
-    let mut settings = if let Some(settings_value) = store.get("settings") {
-        serde_json::from_value::<AppSettings>(settings_value).unwrap_or_else(|_| {
+    // Keep raw JSON for legacy migration (fields may exist in JSON but not in struct)
+    let raw_value = store.get("settings");
+
+    let mut settings = if let Some(settings_value) = &raw_value {
+        serde_json::from_value::<AppSettings>(settings_value.clone()).unwrap_or_else(|_| {
             let default_settings = get_default_settings();
             store.set("settings", serde_json::to_value(&default_settings).unwrap());
             default_settings
@@ -594,7 +676,14 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
 
     let mut needs_save = ensure_post_process_defaults(&mut settings);
 
-    // Create default environment if none exist
+    // Migrate legacy settings from raw JSON (for pre-0.6.0 upgrades)
+    if let Some(raw) = &raw_value {
+        if migrate_legacy_settings_from_json(raw, &mut settings) {
+            needs_save = true;
+        }
+    }
+
+    // Create default environment if none exist (for new users)
     if create_default_environment_if_needed(&mut settings) {
         needs_save = true;
     }
