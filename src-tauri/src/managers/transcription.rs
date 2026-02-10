@@ -20,6 +20,15 @@ use transcribe_rs::{
     TranscriptionEngine,
 };
 
+/// Returns the current timestamp in milliseconds since UNIX epoch.
+/// Uses `unwrap_or_default()` to avoid panicking if `SystemTime` is before UNIX epoch.
+fn current_timestamp_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct ModelStateEvent {
     pub event_type: String,
@@ -53,12 +62,7 @@ impl TranscriptionManager {
             model_manager,
             app_handle: app_handle.clone(),
             current_model_id: Arc::new(Mutex::new(None)),
-            last_activity: Arc::new(AtomicU64::new(
-                SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-            )),
+            last_activity: Arc::new(AtomicU64::new(current_timestamp_ms())),
             shutdown_signal: Arc::new(AtomicBool::new(false)),
             watcher_handle: Arc::new(Mutex::new(None)),
             is_loading: Arc::new(Mutex::new(false)),
@@ -71,64 +75,69 @@ impl TranscriptionManager {
             let manager_cloned = manager.clone();
             let shutdown_signal = manager.shutdown_signal.clone();
             let handle = thread::spawn(move || {
-                while !shutdown_signal.load(Ordering::Acquire) {
-                    thread::sleep(Duration::from_secs(10)); // Check every 10 seconds
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        while !shutdown_signal.load(Ordering::Acquire) {
+                            thread::sleep(Duration::from_secs(10)); // Check every 10 seconds
 
-                    // Check shutdown signal again after sleep
-                    if shutdown_signal.load(Ordering::Acquire) {
-                        break;
-                    }
+                            // Check shutdown signal again after sleep
+                            if shutdown_signal.load(Ordering::Acquire) {
+                                break;
+                            }
 
-                    let settings = get_settings(&app_handle_cloned);
-                    let timeout_seconds = settings.model_unload_timeout.to_seconds();
+                            let settings = get_settings(&app_handle_cloned);
+                            let timeout_seconds = settings.model_unload_timeout.to_seconds();
 
-                    if let Some(limit_seconds) = timeout_seconds {
-                        // Skip polling-based unloading for immediate timeout since it's handled directly in transcribe()
-                        if settings.model_unload_timeout == ModelUnloadTimeout::Immediately {
-                            continue;
-                        }
+                            if let Some(limit_seconds) = timeout_seconds {
+                                // Skip polling-based unloading for immediate timeout since it's handled directly in transcribe()
+                                if settings.model_unload_timeout == ModelUnloadTimeout::Immediately {
+                                    continue;
+                                }
 
-                        let last = manager_cloned.last_activity.load(Ordering::Acquire);
-                        let now_ms = SystemTime::now()
-                            .duration_since(SystemTime::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64;
+                                let last = manager_cloned.last_activity.load(Ordering::Acquire);
+                                let now_ms = current_timestamp_ms();
 
-                        if now_ms.saturating_sub(last) > limit_seconds * 1000 {
-                            // Acquire engine lock to check if model is loaded and prevent
-                            // race with transcription. Hold lock through unload to ensure
-                            // we don't unload while transcription is in progress.
-                            let engine_guard = manager_cloned.engine.lock_or_recover();
-                            if engine_guard.is_some() {
-                                // Re-check last activity while holding lock to avoid
-                                // unloading immediately after transcription started
-                                let last_recheck =
-                                    manager_cloned.last_activity.load(Ordering::Acquire);
-                                if now_ms.saturating_sub(last_recheck) > limit_seconds * 1000 {
-                                    drop(engine_guard); // Release before unload (which also acquires lock)
-                                    let unload_start = std::time::Instant::now();
-                                    debug!("Starting to unload model due to inactivity");
+                                if now_ms.saturating_sub(last) > limit_seconds * 1000 {
+                                    // Acquire engine lock to check if model is loaded and prevent
+                                    // race with transcription. Hold lock through unload to ensure
+                                    // we don't unload while transcription is in progress.
+                                    let engine_guard = manager_cloned.engine.lock_or_recover();
+                                    if engine_guard.is_some() {
+                                        // Re-check last activity while holding lock to avoid
+                                        // unloading immediately after transcription started
+                                        let last_recheck =
+                                            manager_cloned.last_activity.load(Ordering::Acquire);
+                                        if now_ms.saturating_sub(last_recheck) > limit_seconds * 1000
+                                        {
+                                            drop(engine_guard); // Release before unload (which also acquires lock)
+                                            let unload_start = std::time::Instant::now();
+                                            debug!("Starting to unload model due to inactivity");
 
-                                    if let Ok(()) = manager_cloned.unload_model() {
-                                        let _ = app_handle_cloned.emit(
-                                            "model-state-changed",
-                                            ModelStateEvent {
-                                                event_type: "unloaded".to_string(),
-                                                model_id: None,
-                                                model_name: None,
-                                                error: None,
-                                            },
-                                        );
-                                        let unload_duration = unload_start.elapsed();
-                                        debug!(
-                                            "Model unloaded due to inactivity (took {}ms)",
-                                            unload_duration.as_millis()
-                                        );
+                                            if let Ok(()) = manager_cloned.unload_model() {
+                                                let _ = app_handle_cloned.emit(
+                                                    "model-state-changed",
+                                                    ModelStateEvent {
+                                                        event_type: "unloaded".to_string(),
+                                                        model_id: None,
+                                                        model_name: None,
+                                                        error: None,
+                                                    },
+                                                );
+                                                let unload_duration = unload_start.elapsed();
+                                                debug!(
+                                                    "Model unloaded due to inactivity (took {}ms)",
+                                                    unload_duration.as_millis()
+                                                );
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
+                    }));
+
+                if let Err(panic_info) = result {
+                    error!("Idle watcher thread panicked: {:?}", panic_info);
                 }
                 debug!("Idle watcher thread shutting down gracefully");
             });
@@ -324,10 +333,18 @@ impl TranscriptionManager {
         *is_loading = true;
         let self_clone = self.clone();
         thread::spawn(move || {
-            let settings = get_settings(&self_clone.app_handle);
-            if let Err(e) = self_clone.load_model(&settings.selected_model) {
-                error!("Failed to load model: {}", e);
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let settings = get_settings(&self_clone.app_handle);
+                if let Err(e) = self_clone.load_model(&settings.selected_model) {
+                    error!("Failed to load model: {}", e);
+                }
+            }));
+
+            if let Err(panic_info) = result {
+                error!("Model loading thread panicked: {:?}", panic_info);
             }
+
+            // Always signal completion, even if the thread panicked
             let mut is_loading = self_clone.is_loading.lock_or_recover();
             *is_loading = false;
             self_clone.loading_condvar.notify_all();
@@ -347,13 +364,8 @@ impl TranscriptionManager {
         );
 
         // Update activity timestamp with Release ordering so idle watcher sees it
-        self.last_activity.store(
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
-            Ordering::Release,
-        );
+        self.last_activity
+            .store(current_timestamp_ms(), Ordering::Release);
 
         if audio.is_empty() {
             debug!("transcribe_chunk: empty audio, returning empty string");
@@ -383,13 +395,8 @@ impl TranscriptionManager {
 
             // Update activity timestamp again while holding lock to prevent
             // idle watcher from seeing stale timestamp
-            self.last_activity.store(
-                SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-                Ordering::Release,
-            );
+            self.last_activity
+                .store(current_timestamp_ms(), Ordering::Release);
 
             let engine = engine_guard.as_mut().ok_or_else(|| {
                 error!("transcribe_chunk: Model is not loaded!");
