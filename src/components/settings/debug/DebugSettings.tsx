@@ -9,6 +9,7 @@ import { CopyAsBulletsToggle } from "./CopyAsBulletsToggle";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { ClamshellMicrophoneSelector } from "../ClamshellMicrophoneSelector";
 import { UpdateChecksToggle } from "../UpdateChecksToggle";
+import { AppDataDirectory } from "../AppDataDirectory";
 
 export const DebugSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -27,6 +28,7 @@ export const DebugSettings: React.FC = () => {
           grouped={true}
         />
         <ClamshellMicrophoneSelector descriptionMode="tooltip" grouped={true} />
+        <AppDataDirectory descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
     </div>
   );

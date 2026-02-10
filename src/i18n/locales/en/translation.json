@@ -98,7 +98,7 @@
     "downloadModels": "Download Models",
     "chooseModel": "Choose a Model",
     "chooseTranscriptionModel": "Transcription Model",
-    "transcriptionTip": "Works best with headphones to avoid echo.",
+    "transcriptionTip": "Talky works best with headphones to avoid echo.",
     "summarisationModel": "Summarisation Model",
     "summarisationTip": "Use the best model you can for quality summaries (e.g. Claude Opus).",
     "active": "Active",
@@ -438,7 +438,7 @@
       },
       "userDataDirectory": {
         "title": "Data Location",
-        "description": "Where your notes and transcripts are stored. Change to iCloud Drive or Dropbox for backup.",
+        "description": "Change to iCloud Drive or Sharepoint for backup.",
         "usingDefault": "Using default location",
         "usingCustom": "Using custom location",
         "change": "Change",

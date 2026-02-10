@@ -5,7 +5,6 @@ import { getVersion } from "@tauri-apps/api/app";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { SettingContainer } from "../../ui/SettingContainer";
 
-import { AppDataDirectory } from "../AppDataDirectory";
 import { UserDataDirectory } from "../UserDataDirectory";
 import { LogDirectory } from "../debug";
 
@@ -39,7 +38,6 @@ export const AboutSettings: React.FC = () => {
           <span className="text-sm font-mono">v{version}</span>
         </SettingContainer>
 
-        <AppDataDirectory descriptionMode="tooltip" grouped={true} />
         <UserDataDirectory descriptionMode="tooltip" grouped={true} />
         <LogDirectory grouped={true} />
       </SettingsGroup>

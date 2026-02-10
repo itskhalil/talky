@@ -311,7 +311,7 @@ export const EnvironmentsSection: React.FC = () => {
               onBlur={handleBaseUrlBlur}
               placeholder={t("settings.environments.baseUrlPlaceholder")}
               variant="compact"
-              className="w-[320px]"
+              className="w-[440px]"
             />
           </SettingContainer>
 
@@ -328,7 +328,7 @@ export const EnvironmentsSection: React.FC = () => {
               onBlur={handleApiKeyBlur}
               placeholder={t("settings.environments.apiKeyPlaceholder")}
               variant="compact"
-              className="w-[320px]"
+              className="w-[440px]"
             />
           </SettingContainer>
 
