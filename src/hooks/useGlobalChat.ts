@@ -64,31 +64,32 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
         return;
       }
 
-      const providerId =
-        settings.chat_provider_id ||
-        settings.post_process_provider_id ||
-        "openai";
-      const provider = settings.post_process_providers?.find(
-        (p) => p.id === providerId,
-      );
+      // Get the default environment
+      const environments = settings.model_environments ?? [];
+      const defaultEnvId = settings.default_environment_id;
+      const environment = defaultEnvId
+        ? environments.find((e) => e.id === defaultEnvId)
+        : environments[0];
 
-      if (!provider) {
-        setError("No provider configured. Go to Chat settings to set one up.");
+      if (!environment) {
+        setError(
+          "No environment configured. Go to Settings > Environments to set one up.",
+        );
         return;
       }
 
-      const apiKey = settings.post_process_api_keys?.[providerId] ?? "";
-      const model =
-        settings.chat_models?.[providerId] ??
-        settings.post_process_models?.[providerId] ??
-        "";
+      const baseUrl = environment.base_url;
+      const apiKey = environment.api_key ?? "";
+      const model = environment.chat_model ?? "";
 
       if (!model) {
-        setError("No model configured. Go to Chat settings to set one up.");
+        setError(
+          "No chat model configured. Go to Settings > Environments to set one up.",
+        );
         return;
       }
 
-      const isOllama = providerId === "ollama";
+      const isOllama = baseUrl.includes("localhost:11434");
       const effectiveApiKey = isOllama && !apiKey ? "ollama" : apiKey;
 
       setError(null);
@@ -205,26 +206,26 @@ ${recentMeetingsList}${currentNoteContext}`;
       abortRef.current = abortController;
 
       try {
-        // Build the AI SDK provider
+        // Build the AI SDK provider based on base_url
         let aiModel;
-        if (providerId === "anthropic") {
+        const isAnthropic = baseUrl.includes("anthropic.com");
+        if (isAnthropic) {
           const anthropic = createAnthropic({
             apiKey: effectiveApiKey,
-            baseURL: provider.base_url,
+            baseURL: baseUrl,
           });
           aiModel = anthropic(model);
         } else {
           const openai = createOpenAI({
             apiKey: effectiveApiKey,
-            baseURL: provider.base_url,
+            baseURL: baseUrl,
           });
           aiModel = openai.chat(model);
         }
 
         // Wrap model with tool middleware for providers that don't support native tools
-        const supportsNativeTools = ["anthropic", "openai"].includes(
-          providerId,
-        );
+        const supportsNativeTools =
+          baseUrl.includes("anthropic.com") || baseUrl.includes("openai.com");
         const finalModel = supportsNativeTools
           ? aiModel
           : wrapLanguageModel({
