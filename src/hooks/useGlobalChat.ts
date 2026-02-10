@@ -6,7 +6,7 @@ import { hermesToolMiddleware } from "@ai-sdk-tool/parser";
 import { z } from "zod";
 import * as chrono from "chrono-node";
 import { commands } from "@/bindings";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { getEffectiveEnvironment } from "@/hooks/useEffectiveEnvironment";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -18,8 +18,10 @@ interface UseGlobalChatOptions {
   currentNoteId?: string;
   getCurrentTranscript?: () => string;
   getCurrentNotes?: () => string;
-  // Optional: use a specific environment instead of the default
+  // Optional: use a specific environment instead of the default (for LLM calls)
   environmentId?: string | null;
+  // Optional: filter search results to only include notes from this environment
+  filterEnvironmentId?: string | null;
 }
 
 export function useGlobalChat(options: UseGlobalChatOptions = {}) {
@@ -61,18 +63,9 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
       const trimmed = (messageOverride ?? input).trim();
       if (!trimmed || isLoading) return;
 
-      const settings = useSettingsStore.getState().settings;
-      if (!settings) {
-        return;
-      }
-
       // Get the environment - prefer note's environment, fall back to default
-      const environments = settings.model_environments ?? [];
-      const defaultEnvId = settings.default_environment_id;
-      const targetEnvId = options.environmentId ?? defaultEnvId;
-      const environment = targetEnvId
-        ? environments.find((e) => e.id === targetEnvId)
-        : environments[0];
+      const { environment, baseUrl, apiKey, chatModel: model } =
+        getEffectiveEnvironment(options.environmentId);
 
       if (!environment) {
         setError(
@@ -80,10 +73,6 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
         );
         return;
       }
-
-      const baseUrl = environment.base_url;
-      const apiKey = environment.api_key ?? "";
-      const model = environment.chat_model ?? "";
 
       if (!model) {
         setError(
@@ -171,7 +160,21 @@ For questions about OTHER notes or DIFFERENT dates: Use the searchNotes tool.
       try {
         const sessionsResult = await commands.getSessions();
         if (sessionsResult.status === "ok") {
-          const recentSessions = sessionsResult.data.slice(0, 20);
+          let recentSessions = sessionsResult.data;
+
+          // Filter by environment if filterEnvironmentId is set
+          if (options.filterEnvironmentId) {
+            const { environment: defaultEnv } = getEffectiveEnvironment(null);
+            const defaultEnvId = defaultEnv?.id ?? null;
+            const filterEnvId = options.filterEnvironmentId;
+
+            recentSessions = recentSessions.filter((s) => {
+              const noteEnvId = s.environment_id ?? defaultEnvId;
+              return noteEnvId === filterEnvId;
+            });
+          }
+
+          recentSessions = recentSessions.slice(0, 20);
           if (recentSessions.length > 0) {
             recentMeetingsList = `
 ## RECENT MEETINGS
@@ -269,7 +272,7 @@ ${recentMeetingsList}${currentNoteContext}`;
               // Search for each term and merge results
               const allResults = new Map<
                 string,
-                { id: string; title: string; started_at: number }
+                { id: string; title: string; started_at: number; environment_id: string | null }
               >();
 
               if (terms.length === 0) {
@@ -291,6 +294,20 @@ ${recentMeetingsList}${currentNoteContext}`;
               }
 
               let notes = Array.from(allResults.values());
+
+              // Apply environment filter if provided
+              // Notes with null environment_id are treated as belonging to the default environment
+              if (options.filterEnvironmentId) {
+                const { environment: defaultEnv } = getEffectiveEnvironment(null);
+                const defaultEnvId = defaultEnv?.id ?? null;
+                const filterEnvId = options.filterEnvironmentId;
+
+                notes = notes.filter((n) => {
+                  // If note has no environment_id, it belongs to default environment
+                  const noteEnvId = n.environment_id ?? defaultEnvId;
+                  return noteEnvId === filterEnvId;
+                });
+              }
 
               // Apply date filter if provided
               if (dateHint) {

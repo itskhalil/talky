@@ -1159,7 +1159,7 @@ export function NoteView({
                   onClick={() => setPanelOpen(false)}
                   className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
                 >
-                  <ChevronDown size={12} />
+                  <ChevronDown size={14} />
                 </button>
               </div>
 
