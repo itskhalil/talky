@@ -310,11 +310,14 @@ export const useSettingsStore = create<SettingsStore>()(
         const result = await commands.deleteEnvironment(id);
         if (result.status === "ok") {
           await refreshSettings();
+          return { success: true };
         } else {
           console.error("Failed to delete environment:", result.error);
+          return { success: false, error: result.error };
         }
       } catch (error) {
         console.error("Failed to delete environment:", error);
+        return { success: false, error: String(error) };
       }
     },
 

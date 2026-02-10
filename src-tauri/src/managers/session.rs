@@ -953,4 +953,14 @@ impl SessionManager {
         }
         Ok(sessions)
     }
+
+    pub fn count_sessions_by_environment_id(&self, environment_id: &str) -> Result<i64> {
+        let conn = self.get_connection()?;
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sessions WHERE environment_id = ?1",
+            [environment_id],
+            |row| row.get(0),
+        )?;
+        Ok(count)
+    }
 }

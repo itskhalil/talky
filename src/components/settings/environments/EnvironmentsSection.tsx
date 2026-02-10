@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Trash2, RefreshCcw } from "lucide-react";
+import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { Button } from "@/components/ui/Button";
 import { SettingContainer, SettingsGroup } from "@/components/ui";
@@ -147,7 +148,10 @@ export const EnvironmentsSection: React.FC = () => {
 
   const handleDeleteEnvironment = async () => {
     if (!selectedEnvId || !canDelete) return;
-    await deleteEnvironment(selectedEnvId);
+    const result = await deleteEnvironment(selectedEnvId);
+    if (result && !result.success && result.error) {
+      toast.error(result.error);
+    }
   };
 
   const handleNameBlur = useCallback(() => {
