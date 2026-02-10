@@ -10,7 +10,6 @@ interface SettingsStore {
   isUpdating: Record<string, boolean>;
   audioDevices: AudioDevice[];
   outputDevices: AudioDevice[];
-  postProcessModelOptions: Record<string, string[]>;
 
   // Actions
   initialize: () => Promise<void>;
@@ -25,30 +24,6 @@ interface SettingsStore {
   refreshOutputDevices: () => Promise<void>;
   getSetting: <K extends keyof Settings>(key: K) => Settings[K] | undefined;
   isUpdatingKey: (key: string) => boolean;
-  setPostProcessProvider: (providerId: string) => Promise<void>;
-  updatePostProcessSetting: (
-    settingType: "base_url" | "api_key" | "model",
-    providerId: string,
-    value: string,
-  ) => Promise<void>;
-  updatePostProcessBaseUrl: (
-    providerId: string,
-    baseUrl: string,
-  ) => Promise<void>;
-  updatePostProcessApiKey: (
-    providerId: string,
-    apiKey: string,
-  ) => Promise<void>;
-  updatePostProcessModel: (providerId: string, model: string) => Promise<void>;
-  fetchPostProcessModels: (providerId: string) => Promise<string[]>;
-  setPostProcessModelOptions: (providerId: string, models: string[]) => void;
-
-  // Chat settings
-  chatModelOptions: Record<string, string[]>;
-  setChatProvider: (providerId: string) => Promise<void>;
-  updateChatModel: (providerId: string, model: string) => Promise<void>;
-  fetchChatModels: (providerId: string) => Promise<string[]>;
-  setChatModelOptions: (providerId: string, models: string[]) => void;
 
   // Environment settings
   environmentModelOptions: Record<string, string[]>;
@@ -152,8 +127,6 @@ export const useSettingsStore = create<SettingsStore>()(
     isUpdating: {},
     audioDevices: [],
     outputDevices: [],
-    postProcessModelOptions: {},
-    chatModelOptions: {},
     environmentModelOptions: {},
 
     // Internal setters
@@ -279,183 +252,6 @@ export const useSettingsStore = create<SettingsStore>()(
         }
       }
     },
-
-    setPostProcessProvider: async (providerId) => {
-      const { settings, setUpdating, refreshSettings } = get();
-      const updateKey = "post_process_provider_id";
-      const previousId = settings?.post_process_provider_id ?? null;
-
-      setUpdating(updateKey, true);
-
-      if (settings) {
-        set((state) => ({
-          settings: state.settings
-            ? { ...state.settings, post_process_provider_id: providerId }
-            : null,
-        }));
-      }
-
-      try {
-        await commands.setPostProcessProvider(providerId);
-        await refreshSettings();
-      } catch (error) {
-        console.error("Failed to set post-process provider:", error);
-        if (previousId !== null) {
-          set((state) => ({
-            settings: state.settings
-              ? { ...state.settings, post_process_provider_id: previousId }
-              : null,
-          }));
-        }
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    // Generic updater for post-processing provider settings
-    updatePostProcessSetting: async (
-      settingType: "base_url" | "api_key" | "model",
-      providerId: string,
-      value: string,
-    ) => {
-      const { setUpdating, refreshSettings } = get();
-      const updateKey = `post_process_${settingType}:${providerId}`;
-
-      setUpdating(updateKey, true);
-
-      try {
-        if (settingType === "base_url") {
-          await commands.changePostProcessBaseUrlSetting(providerId, value);
-        } else if (settingType === "api_key") {
-          await commands.changePostProcessApiKeySetting(providerId, value);
-        } else if (settingType === "model") {
-          await commands.changePostProcessModelSetting(providerId, value);
-        }
-        await refreshSettings();
-      } catch (error) {
-        console.error(
-          `Failed to update post-process ${settingType.replace("_", " ")}:`,
-          error,
-        );
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    updatePostProcessBaseUrl: async (providerId, baseUrl) => {
-      return get().updatePostProcessSetting("base_url", providerId, baseUrl);
-    },
-
-    updatePostProcessApiKey: async (providerId, apiKey) => {
-      // Clear cached models when API key changes - user should click refresh after
-      set((state) => ({
-        postProcessModelOptions: {
-          ...state.postProcessModelOptions,
-          [providerId]: [],
-        },
-      }));
-      return get().updatePostProcessSetting("api_key", providerId, apiKey);
-    },
-
-    updatePostProcessModel: async (providerId, model) => {
-      return get().updatePostProcessSetting("model", providerId, model);
-    },
-
-    fetchPostProcessModels: async (providerId) => {
-      const updateKey = `post_process_models_fetch:${providerId}`;
-      const { setUpdating, setPostProcessModelOptions } = get();
-
-      setUpdating(updateKey, true);
-
-      try {
-        // Call Tauri backend command instead of fetch
-        const result = await commands.fetchPostProcessModels(providerId);
-        if (result.status === "ok") {
-          setPostProcessModelOptions(providerId, result.data);
-          return result.data;
-        } else {
-          console.error("Failed to fetch models:", result.error);
-          return [];
-        }
-      } catch (error) {
-        console.error("Failed to fetch models:", error);
-        // Don't cache empty array on error - let user retry
-        return [];
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    setPostProcessModelOptions: (providerId, models) =>
-      set((state) => ({
-        postProcessModelOptions: {
-          ...state.postProcessModelOptions,
-          [providerId]: models,
-        },
-      })),
-
-    // Chat settings
-    setChatProvider: async (providerId) => {
-      const { settings, setUpdating, refreshSettings } = get();
-      const updateKey = "chat_provider_id";
-      setUpdating(updateKey, true);
-      if (settings) {
-        set((state) => ({
-          settings: state.settings
-            ? { ...state.settings, chat_provider_id: providerId }
-            : null,
-        }));
-      }
-      try {
-        await commands.setChatProvider(providerId);
-        await refreshSettings();
-      } catch (error) {
-        console.error("Failed to set chat provider:", error);
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    updateChatModel: async (providerId, model) => {
-      const { setUpdating, refreshSettings } = get();
-      const updateKey = `chat_model:${providerId}`;
-      setUpdating(updateKey, true);
-      try {
-        await commands.changeChatModelSetting(providerId, model);
-        await refreshSettings();
-      } catch (error) {
-        console.error("Failed to update chat model:", error);
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    fetchChatModels: async (providerId) => {
-      const updateKey = `chat_models_fetch:${providerId}`;
-      const { setUpdating, setChatModelOptions } = get();
-      setUpdating(updateKey, true);
-      try {
-        const result = await commands.fetchChatModels(providerId);
-        if (result.status === "ok") {
-          setChatModelOptions(providerId, result.data);
-          return result.data;
-        }
-        return [];
-      } catch (error) {
-        console.error("Failed to fetch chat models:", error);
-        return [];
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    setChatModelOptions: (providerId, models) =>
-      set((state) => ({
-        chatModelOptions: {
-          ...state.chatModelOptions,
-          [providerId]: models,
-        },
-      })),
 
     // Environment settings
     createEnvironment: async (

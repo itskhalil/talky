@@ -61,46 +61,6 @@ async changeExperimentalEnabledSetting(enabled: boolean) : Promise<Result<null, 
     else return { status: "error", error: e  as any };
 }
 },
-async changePostProcessBaseUrlSetting(providerId: string, baseUrl: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_post_process_base_url_setting", { providerId, baseUrl }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changePostProcessApiKeySetting(providerId: string, apiKey: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_post_process_api_key_setting", { providerId, apiKey }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changePostProcessModelSetting(providerId: string, model: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_post_process_model_setting", { providerId, model }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setPostProcessProvider(providerId: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_post_process_provider", { providerId }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async fetchPostProcessModels(providerId: string) : Promise<Result<string[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("fetch_post_process_models", { providerId }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async addPostProcessPrompt(name: string, prompt: string) : Promise<Result<LLMPrompt, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("add_post_process_prompt", { name, prompt }) };
@@ -203,30 +163,6 @@ async changeAppLanguageSetting(language: string) : Promise<Result<null, string>>
 async changeUpdateChecksSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_update_checks_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setChatProvider(providerId: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_chat_provider", { providerId }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeChatModelSetting(providerId: string, model: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_chat_model_setting", { providerId, model }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async fetchChatModels(providerId: string) : Promise<Result<string[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("fetch_chat_models", { providerId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -1012,7 +948,7 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: Partial<{ [key in string]: string }>; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; chat_provider_id?: string; chat_models?: Partial<{ [key in string]: string }>; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null }
+data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
 export type Folder = { id: string; name: string; color: string | null; sort_order: number; created_at: number }
