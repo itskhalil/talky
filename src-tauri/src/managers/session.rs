@@ -214,6 +214,11 @@ impl SessionManager {
 
     fn init_database(&self) -> Result<()> {
         let mut conn = Connection::open(&self.db_path)?;
+
+        // Enable WAL mode for better crash recovery - writes go to a log file first,
+        // so the main database file stays intact if we crash mid-write
+        conn.pragma_update(None, "journal_mode", "WAL")?;
+
         let migrations = Migrations::new(SESSION_MIGRATIONS.to_vec());
 
         #[cfg(debug_assertions)]
