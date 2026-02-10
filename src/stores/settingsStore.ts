@@ -46,7 +46,7 @@ interface SettingsStore {
       chat_model?: string;
     },
   ) => Promise<void>;
-  deleteEnvironment: (id: string) => Promise<void>;
+  deleteEnvironment: (id: string) => Promise<{ success: boolean; error?: string }>;
   setDefaultEnvironment: (id: string | null) => Promise<void>;
   fetchEnvironmentModels: (environmentId: string) => Promise<string[]>;
   setEnvironmentModelOptions: (environmentId: string, models: string[]) => void;
