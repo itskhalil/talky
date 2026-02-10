@@ -15,6 +15,7 @@ interface KeyboardShortcutsOptions {
   onToggleFindBar?: () => void;
   onCloseFindBar?: () => void;
   findBarOpen?: boolean;
+  onExpandSidebar?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -22,6 +23,7 @@ export function useKeyboardShortcuts({
   onToggleFindBar,
   onCloseFindBar,
   findBarOpen,
+  onExpandSidebar,
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -35,10 +37,13 @@ export function useKeyboardShortcuts({
 
       if (mod && e.key === "k") {
         e.preventDefault();
-        const input = document.querySelector<HTMLInputElement>(
-          "[data-search-input]",
-        );
-        input?.focus();
+        onExpandSidebar?.();
+        requestAnimationFrame(() => {
+          const input = document.querySelector<HTMLInputElement>(
+            "[data-search-input]",
+          );
+          input?.focus();
+        });
         return;
       }
 
@@ -106,5 +111,5 @@ export function useKeyboardShortcuts({
 
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onOpenSettings, onToggleFindBar, onCloseFindBar, findBarOpen]);
+  }, [onOpenSettings, onToggleFindBar, onCloseFindBar, findBarOpen, onExpandSidebar]);
 }
