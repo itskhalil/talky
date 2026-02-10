@@ -743,6 +743,7 @@ export function NoteView({
     currentNoteId: session?.id ?? "",
     getCurrentTranscript: getTranscriptText,
     getCurrentNotes: getUserNotesText,
+    environmentId: session?.environment_id,
   });
 
   useEffect(() => {

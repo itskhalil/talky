@@ -18,6 +18,8 @@ interface UseGlobalChatOptions {
   currentNoteId?: string;
   getCurrentTranscript?: () => string;
   getCurrentNotes?: () => string;
+  // Optional: use a specific environment instead of the default
+  environmentId?: string | null;
 }
 
 export function useGlobalChat(options: UseGlobalChatOptions = {}) {
@@ -64,11 +66,12 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
         return;
       }
 
-      // Get the default environment
+      // Get the environment - prefer note's environment, fall back to default
       const environments = settings.model_environments ?? [];
       const defaultEnvId = settings.default_environment_id;
-      const environment = defaultEnvId
-        ? environments.find((e) => e.id === defaultEnvId)
+      const targetEnvId = options.environmentId ?? defaultEnvId;
+      const environment = targetEnvId
+        ? environments.find((e) => e.id === targetEnvId)
         : environments[0];
 
       if (!environment) {
