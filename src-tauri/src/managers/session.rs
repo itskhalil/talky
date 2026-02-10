@@ -233,15 +233,21 @@ impl SessionManager {
         Ok(Connection::open(&self.db_path)?)
     }
 
-    pub fn start_session(&self, title: Option<String>) -> Result<Session> {
+    pub fn start_session(
+        &self,
+        title: Option<String>,
+        default_environment_id: Option<String>,
+    ) -> Result<Session> {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().timestamp();
         let title = title.unwrap_or_else(|| "New Note".to_string());
 
+        let env_id = default_environment_id.as_deref();
+
         let conn = self.get_connection()?;
         conn.execute(
-            "INSERT INTO sessions (id, title, started_at, status) VALUES (?1, ?2, ?3, 'active')",
-            params![id, title, now],
+            "INSERT INTO sessions (id, title, started_at, status, environment_id) VALUES (?1, ?2, ?3, 'active', ?4)",
+            params![id, title, now, env_id],
         )?;
 
         *self.active_session.lock_or_recover() = Some(id.clone());
@@ -254,7 +260,7 @@ impl SessionManager {
             ended_at: None,
             status: "active".to_string(),
             folder_id: None,
-            environment_id: None,
+            environment_id: default_environment_id,
         };
 
         let _ = self.app_handle.emit("session-started", &session);
