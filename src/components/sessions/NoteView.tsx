@@ -789,7 +789,7 @@ export function NoteView({
       </div>
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-1 pb-32 w-full cursor-text select-text"
+        className="flex-1 overflow-y-scroll overflow-x-hidden px-12 pt-1 pb-32 scroll-pb-24 w-full cursor-text select-text"
       >
         {/* Editable title */}
         <div className="max-w-3xl mx-auto mb-6">
