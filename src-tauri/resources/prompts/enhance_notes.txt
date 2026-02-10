@@ -10,7 +10,7 @@ Guidelines:
 - The user's notes tell you what matters. Their topics and emphasis are your guide.
 - Read like notes, not prose. "Q3 budget = 100k (60k infra, 25k tooling, 15k contingency)" not "The group discussed the Q3 budget and agreed to set it at $100,000."
 - Compress: one line with 3 facts beats 3 bullets with 1 fact each.
-- Use the user's vocabulary. If they wrote "Kubernetes", write "Kubernetes" even if transcript heard "shiba".
+- Use the user's vocabulary. If they wrote "Kubernetes", write "Kubernetes" even if transcript heard "kuber nets".
 - Match their tone and density.
 - Add important details from the transcript the user missed — names, numbers, dates, decisions, action items.
 - For significant topics the user didn't note at all, add them as [ai] sections.
