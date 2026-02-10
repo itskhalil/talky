@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { commands } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -35,6 +36,7 @@ interface Session {
   ended_at: number | null;
   status: string;
   folder_id: string | null;
+  environment_id: string | null;
 }
 
 interface NotesSidebarProps {
@@ -131,15 +133,31 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const [chatExpanded, setChatExpanded] = useState(false);
   const [chatHeight, setChatHeight] = useState(192); // default ~max-h-48
   const [suggestionCount, setSuggestionCount] = useState(0);
+  const [chatEnvId, setChatEnvId] = useState<string | null>(null);
+  const [chatEnvDropdownOpen, setChatEnvDropdownOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatEnvDropdownRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(
     null,
   );
 
-  const globalChat = useGlobalChat();
+  // Get environments from settings store
+  const { settings } = useSettingsStore();
+  const environments = settings?.model_environments || [];
+  const defaultEnvId = settings?.default_environment_id;
+  const showEnvSelector = environments.length >= 2;
+
+  // Resolve the effective environment ID for chat filtering
+  const effectiveChatEnvId = chatEnvId ?? defaultEnvId ?? environments[0]?.id ?? null;
+  const currentChatEnv = environments.find((e) => e.id === effectiveChatEnvId);
+
+  const globalChat = useGlobalChat({
+    environmentId: effectiveChatEnvId,
+    filterEnvironmentId: effectiveChatEnvId,
+  });
 
   // Scroll to latest chat message
   useEffect(() => {
@@ -147,6 +165,32 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatExpanded, globalChat.messages]);
+
+  // Clear chat when environment changes
+  const prevEnvIdRef = useRef(effectiveChatEnvId);
+  useEffect(() => {
+    if (prevEnvIdRef.current !== effectiveChatEnvId) {
+      globalChat.clearMessages();
+      prevEnvIdRef.current = effectiveChatEnvId;
+    }
+  }, [effectiveChatEnvId, globalChat.clearMessages]);
+
+  // Close environment dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        chatEnvDropdownRef.current &&
+        !chatEnvDropdownRef.current.contains(e.target as Node)
+      ) {
+        setChatEnvDropdownOpen(false);
+      }
+    };
+    if (chatEnvDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [chatEnvDropdownOpen]);
 
   // Chat resize handlers
   const handleResizeStart = useCallback(
@@ -594,7 +638,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 onClick={() => setChatExpanded(false)}
                 className="px-1.5 py-0.5 text-text-secondary hover:text-text transition-colors"
               >
-                <ChevronDown size={12} />
+                <ChevronDown size={14} />
               </button>
             </div>
             <div
@@ -638,6 +682,51 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               <div ref={chatEndRef} />
             </div>
           </>
+        )}
+
+        {/* Environment selector - only show if 2+ environments and chat is expanded */}
+        {showEnvSelector && chatExpanded && (
+          <div className="px-3 pt-2">
+            <div ref={chatEnvDropdownRef} className="relative inline-block">
+              <button
+                onClick={() => setChatEnvDropdownOpen(!chatEnvDropdownOpen)}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+              >
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    backgroundColor: currentChatEnv?.color || "#6b7280",
+                  }}
+                />
+                <span>{currentChatEnv?.name ?? t("sessions.environment")}</span>
+                <ChevronDown size={10} />
+              </button>
+              {chatEnvDropdownOpen && (
+                <div className="absolute bottom-full left-0 mb-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+                  {environments.map((env) => (
+                    <button
+                      key={env.id}
+                      onClick={() => {
+                        setChatEnvId(env.id);
+                        setChatEnvDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors flex items-center gap-2 ${
+                        effectiveChatEnvId === env.id
+                          ? "text-accent"
+                          : "text-text"
+                      }`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: env.color }}
+                      />
+                      {env.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Chat input bar */}
