@@ -1,5 +1,16 @@
 {
   "_comment": "Vietnamese translation for Talky. Contribute at: https://github.com/itskhalil/talky",
+  "menu": {
+    "exportCurrentNote": "Xuất Ghi Chú Hiện Tại...",
+    "exportAllNotes": "Xuất Tất Cả Ghi Chú..."
+  },
+  "export": {
+    "selectFolder": "Chọn thư mục để xuất",
+    "successSingle": "Xuất ghi chú thành công",
+    "successMultiple": "Đã xuất {{count}} ghi chú",
+    "noNoteSelected": "Chưa chọn ghi chú nào",
+    "error": "Xuất thất bại: {{error}}"
+  },
   "tray": {
     "newNote": "Ghi Chú Mới",
     "stopRecording": "Dừng Ghi Âm",

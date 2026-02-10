@@ -934,6 +934,22 @@ async getSessionsByTag(tagId: string) : Promise<Result<Session[], string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async exportNoteAsMarkdown(sessionId: string, filePath: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_note_as_markdown", { sessionId, filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async exportAllNotesAsMarkdown(directoryPath: string) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_all_notes_as_markdown", { directoryPath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

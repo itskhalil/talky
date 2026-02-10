@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "exportCurrentNote": "Export Current Note...",
+    "exportAllNotes": "Export All Notes..."
+  },
+  "export": {
+    "selectFolder": "Select folder for export",
+    "successSingle": "Note exported successfully",
+    "successMultiple": "Exported {{count}} notes",
+    "noNoteSelected": "No note selected",
+    "error": "Export failed: {{error}}"
+  },
   "tray": {
     "newNote": "New Note",
     "stopRecording": "Stop Recording",
