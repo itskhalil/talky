@@ -141,26 +141,16 @@ pub async fn generate_session_summary(
 
     let settings = crate::settings::get_settings(&app);
 
-    let provider = settings
-        .active_post_process_provider()
-        .ok_or_else(|| "No post-process provider configured".to_string())?
-        .clone();
+    // Get session's environment_id
+    let session = sm
+        .get_session(&session_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Session not found".to_string())?;
 
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
-
-    let model = settings
-        .post_process_models
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
-
-    if model.is_empty() {
-        return Err("No post-process model configured".to_string());
-    }
+    // Get summarisation config from environment or fall back to legacy settings
+    let (base_url, api_key, model) = settings
+        .get_summarisation_config(session.environment_id.as_deref())
+        .ok_or_else(|| "No summarisation model configured. Please configure a model in Settings → Model Environments.".to_string())?;
 
     let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
 
@@ -195,7 +185,7 @@ pub async fn generate_session_summary(
     ];
 
     let result =
-        crate::llm_client::send_chat_completion_messages(&provider, api_key, &model, messages)
+        crate::llm_client::send_chat_completion(&base_url, &api_key, &model, messages)
             .await?
             .ok_or_else(|| "LLM returned no content".to_string())?;
 
@@ -310,26 +300,16 @@ pub async fn generate_session_summary_stream(
 
     let settings = crate::settings::get_settings(&app);
 
-    let provider = settings
-        .active_post_process_provider()
-        .ok_or_else(|| "No post-process provider configured".to_string())?
-        .clone();
+    // Get session's environment_id
+    let session = sm
+        .get_session(&session_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Session not found".to_string())?;
 
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
-
-    let model = settings
-        .post_process_models
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
-
-    if model.is_empty() {
-        return Err("No post-process model configured".to_string());
-    }
+    // Get summarisation config from environment or fall back to legacy settings
+    let (base_url, api_key, model) = settings
+        .get_summarisation_config(session.environment_id.as_deref())
+        .ok_or_else(|| "No summarisation model configured. Please configure a model in Settings → Model Environments.".to_string())?;
 
     let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
 
@@ -365,9 +345,9 @@ pub async fn generate_session_summary_stream(
 
     // Log the full context being sent to the model
     log::info!(
-        "[enhance-notes] Sending request | session={} provider={} model={}",
+        "[enhance-notes] Sending request | session={} url={} model={}",
         session_id,
-        provider.id,
+        base_url,
         model
     );
     log::debug!(
@@ -382,11 +362,11 @@ pub async fn generate_session_summary_stream(
     );
 
     // Use streaming API
-    let result = crate::llm_client::stream_chat_completion_messages(
+    let result = crate::llm_client::stream_chat_completion(
         &app,
         &session_id,
-        &provider,
-        api_key,
+        &base_url,
+        &api_key,
         &model,
         messages,
     )
@@ -682,6 +662,18 @@ pub fn update_session_title(
 ) -> Result<(), String> {
     let sm = app.state::<Arc<SessionManager>>();
     sm.update_session_title(&session_id, &title)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_session_environment(
+    app: AppHandle,
+    session_id: String,
+    environment_id: Option<String>,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.update_session_environment(&session_id, environment_id.as_deref())
         .map_err(|e| e.to_string())
 }
 

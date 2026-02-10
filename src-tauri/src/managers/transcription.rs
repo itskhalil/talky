@@ -75,66 +75,64 @@ impl TranscriptionManager {
             let manager_cloned = manager.clone();
             let shutdown_signal = manager.shutdown_signal.clone();
             let handle = thread::spawn(move || {
-                let result =
-                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        while !shutdown_signal.load(Ordering::Acquire) {
-                            thread::sleep(Duration::from_secs(10)); // Check every 10 seconds
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    while !shutdown_signal.load(Ordering::Acquire) {
+                        thread::sleep(Duration::from_secs(10)); // Check every 10 seconds
 
-                            // Check shutdown signal again after sleep
-                            if shutdown_signal.load(Ordering::Acquire) {
-                                break;
+                        // Check shutdown signal again after sleep
+                        if shutdown_signal.load(Ordering::Acquire) {
+                            break;
+                        }
+
+                        let settings = get_settings(&app_handle_cloned);
+                        let timeout_seconds = settings.model_unload_timeout.to_seconds();
+
+                        if let Some(limit_seconds) = timeout_seconds {
+                            // Skip polling-based unloading for immediate timeout since it's handled directly in transcribe()
+                            if settings.model_unload_timeout == ModelUnloadTimeout::Immediately {
+                                continue;
                             }
 
-                            let settings = get_settings(&app_handle_cloned);
-                            let timeout_seconds = settings.model_unload_timeout.to_seconds();
+                            let last = manager_cloned.last_activity.load(Ordering::Acquire);
+                            let now_ms = current_timestamp_ms();
 
-                            if let Some(limit_seconds) = timeout_seconds {
-                                // Skip polling-based unloading for immediate timeout since it's handled directly in transcribe()
-                                if settings.model_unload_timeout == ModelUnloadTimeout::Immediately {
-                                    continue;
-                                }
+                            if now_ms.saturating_sub(last) > limit_seconds * 1000 {
+                                // Acquire engine lock to check if model is loaded and prevent
+                                // race with transcription. Hold lock through unload to ensure
+                                // we don't unload while transcription is in progress.
+                                let engine_guard = manager_cloned.engine.lock_or_recover();
+                                if engine_guard.is_some() {
+                                    // Re-check last activity while holding lock to avoid
+                                    // unloading immediately after transcription started
+                                    let last_recheck =
+                                        manager_cloned.last_activity.load(Ordering::Acquire);
+                                    if now_ms.saturating_sub(last_recheck) > limit_seconds * 1000 {
+                                        drop(engine_guard); // Release before unload (which also acquires lock)
+                                        let unload_start = std::time::Instant::now();
+                                        debug!("Starting to unload model due to inactivity");
 
-                                let last = manager_cloned.last_activity.load(Ordering::Acquire);
-                                let now_ms = current_timestamp_ms();
-
-                                if now_ms.saturating_sub(last) > limit_seconds * 1000 {
-                                    // Acquire engine lock to check if model is loaded and prevent
-                                    // race with transcription. Hold lock through unload to ensure
-                                    // we don't unload while transcription is in progress.
-                                    let engine_guard = manager_cloned.engine.lock_or_recover();
-                                    if engine_guard.is_some() {
-                                        // Re-check last activity while holding lock to avoid
-                                        // unloading immediately after transcription started
-                                        let last_recheck =
-                                            manager_cloned.last_activity.load(Ordering::Acquire);
-                                        if now_ms.saturating_sub(last_recheck) > limit_seconds * 1000
-                                        {
-                                            drop(engine_guard); // Release before unload (which also acquires lock)
-                                            let unload_start = std::time::Instant::now();
-                                            debug!("Starting to unload model due to inactivity");
-
-                                            if let Ok(()) = manager_cloned.unload_model() {
-                                                let _ = app_handle_cloned.emit(
-                                                    "model-state-changed",
-                                                    ModelStateEvent {
-                                                        event_type: "unloaded".to_string(),
-                                                        model_id: None,
-                                                        model_name: None,
-                                                        error: None,
-                                                    },
-                                                );
-                                                let unload_duration = unload_start.elapsed();
-                                                debug!(
-                                                    "Model unloaded due to inactivity (took {}ms)",
-                                                    unload_duration.as_millis()
-                                                );
-                                            }
+                                        if let Ok(()) = manager_cloned.unload_model() {
+                                            let _ = app_handle_cloned.emit(
+                                                "model-state-changed",
+                                                ModelStateEvent {
+                                                    event_type: "unloaded".to_string(),
+                                                    model_id: None,
+                                                    model_name: None,
+                                                    error: None,
+                                                },
+                                            );
+                                            let unload_duration = unload_start.elapsed();
+                                            debug!(
+                                                "Model unloaded due to inactivity (took {}ms)",
+                                                unload_duration.as_millis()
+                                            );
                                         }
                                     }
                                 }
                             }
                         }
-                    }));
+                    }
+                }));
 
                 if let Err(panic_info) = result {
                     error!("Idle watcher thread panicked: {:?}", panic_info);
@@ -450,10 +448,7 @@ impl TranscriptionManager {
                     result.text
                 }
                 LoadedEngine::Parakeet(parakeet_engine) => {
-                    debug!(
-                        "Calling parakeet.transcribe: {} samples",
-                        audio.len()
-                    );
+                    debug!("Calling parakeet.transcribe: {} samples", audio.len());
 
                     let params = ParakeetInferenceParams {
                         timestamp_granularity: TimestampGranularity::Segment,

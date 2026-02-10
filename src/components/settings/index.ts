@@ -21,3 +21,4 @@ export { RecordingRetentionPeriodSelector } from "./RecordingRetentionPeriod";
 export { AutostartToggle } from "./AutostartToggle";
 export { UpdateChecksToggle } from "./UpdateChecksToggle";
 export { ChatSettings } from "./ChatSettings";
+export { EnvironmentsSection } from "./environments/EnvironmentsSection";
