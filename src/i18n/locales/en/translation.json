@@ -172,10 +172,6 @@
         "label": "Experimental Features",
         "description": "Enable experimental features that are still in development."
       },
-      "startHidden": {
-        "label": "Start Hidden",
-        "description": "Launch to system tray without opening the window."
-      },
       "autostart": {
         "label": "Launch on Startup",
         "description": "Automatically start Talky when you log in to your computer."

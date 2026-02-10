@@ -16,15 +16,6 @@ pub fn change_font_size_setting(app: AppHandle, size: FontSize) -> Result<(), St
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_start_hidden_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.start_hidden = enabled;
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn change_autostart_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.autostart_enabled = enabled;

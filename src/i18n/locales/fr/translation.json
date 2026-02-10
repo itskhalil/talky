@@ -156,10 +156,6 @@
         "label": "Fonctionnalités Expérimentales",
         "description": "Activer les fonctionnalités expérimentales encore en développement."
       },
-      "startHidden": {
-        "label": "Démarrer masqué",
-        "description": "Lancer dans la barre système sans ouvrir la fenêtre."
-      },
       "autostart": {
         "label": "Lancer au démarrage",
         "description": "Démarrer automatiquement Talky lorsque vous vous connectez à votre ordinateur."

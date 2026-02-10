@@ -158,10 +158,6 @@
         "label": "Deneysel Özellikler",
         "description": "Hala geliştirme aşamasında olan deneysel özellikleri etkinleştir."
       },
-      "startHidden": {
-        "label": "Gizli Başlat",
-        "description": "Pencereyi açmadan sistem tepsisinde başlatır."
-      },
       "autostart": {
         "label": "Başlangıçta Çalıştır",
         "description": "Bilgisayara giriş yaptığınızda Talky otomatik olarak başlatılır."

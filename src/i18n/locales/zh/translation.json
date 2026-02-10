@@ -154,10 +154,6 @@
         "label": "实验性功能",
         "description": "启用仍在开发中的实验性功能。"
       },
-      "startHidden": {
-        "label": "隐藏启动",
-        "description": "启动到系统托盘而不打开窗口。"
-      },
       "autostart": {
         "label": "开机启动",
         "description": "登录计算机时自动启动 Talky。"
