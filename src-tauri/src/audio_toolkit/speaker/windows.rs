@@ -16,14 +16,13 @@ use ringbuf::{
     HeapCons, HeapProd, HeapRb,
 };
 
-use wasapi::{AudioClient, Device, Direction, ShareMode, WasapiError};
+use wasapi::{Direction, ShareMode, WasapiError};
 
 use super::pcm::{pcm_f32_to_f32, pcm_i16_to_f32, pcm_i32_to_f32};
 use super::{BUFFER_SIZE, CHUNK_SIZE};
 
 /// Represents a speaker input device that can be used to capture system audio
 pub struct SpeakerInput {
-    device: Device,
     sample_rate: u32,
 }
 
@@ -50,7 +49,7 @@ impl SpeakerInput {
         // Initialize COM for this thread if not already done
         wasapi::initialize_mta().ok();
 
-        // Get the default render device (speakers/headphones)
+        // Get the default render device to query sample rate
         let device = wasapi::get_default_device(&Direction::Render)
             .map_err(|e| anyhow!("Failed to get default render device: {:?}", e))?;
 
@@ -72,10 +71,7 @@ impl SpeakerInput {
             mix_format.get_bitspersample()
         );
 
-        Ok(Self {
-            device,
-            sample_rate,
-        })
+        Ok(Self { sample_rate })
     }
 
     /// Get the sample rate of the audio device
@@ -105,7 +101,6 @@ impl SpeakerInput {
 
         let capture_thread = std::thread::spawn(move || {
             if let Err(e) = run_capture_loop(
-                self.device,
                 producer,
                 waker_clone,
                 sample_rate_clone,
@@ -131,7 +126,6 @@ impl SpeakerInput {
 
 /// Main capture loop running in a background thread
 fn run_capture_loop(
-    device: Device,
     mut producer: HeapProd<f32>,
     waker: Arc<AtomicWaker>,
     current_sample_rate: Arc<AtomicU32>,
@@ -139,7 +133,11 @@ fn run_capture_loop(
     shutdown: Arc<AtomicBool>,
 ) -> Result<()> {
     // Initialize COM for this thread
-    wasapi::initialize_mta().map_err(|e| anyhow!("Failed to initialize COM: {:?}", e))?;
+    wasapi::initialize_mta().ok();
+
+    // Get the default render device (must be done in this thread due to COM threading)
+    let device = wasapi::get_default_device(&Direction::Render)
+        .map_err(|e| anyhow!("Failed to get default render device: {:?}", e))?;
 
     // Get audio client
     let mut client = device
