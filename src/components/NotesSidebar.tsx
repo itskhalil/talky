@@ -55,7 +55,7 @@ function formatDate(timestamp: number): string {
   });
 }
 
-type DateGroup = "today" | "yesterday" | "last7Days" | "older";
+type DateGroup = "today" | "yesterday" | "thisWeek" | "lastWeek" | "earlier";
 
 function getDateGroup(timestamp: number): DateGroup {
   const now = new Date();
@@ -65,8 +65,16 @@ function getDateGroup(timestamp: number): DateGroup {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const weekAgo = new Date(today);
-  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  // Get Monday of current week (weeks start on Monday)
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setDate(today.getDate() - daysFromMonday);
+
+  // Get Monday of last week
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
 
   const dateStart = new Date(
     date.getFullYear(),
@@ -78,25 +86,29 @@ function getDateGroup(timestamp: number): DateGroup {
     return "today";
   } else if (dateStart >= yesterday) {
     return "yesterday";
-  } else if (dateStart >= weekAgo) {
-    return "last7Days";
+  } else if (dateStart >= thisWeekStart) {
+    return "thisWeek";
+  } else if (dateStart >= lastWeekStart) {
+    return "lastWeek";
   }
-  return "older";
+  return "earlier";
 }
 
 interface GroupedSessions {
   today: Session[];
   yesterday: Session[];
-  last7Days: Session[];
-  older: Session[];
+  thisWeek: Session[];
+  lastWeek: Session[];
+  earlier: Session[];
 }
 
 function groupSessionsByDate(sessions: Session[]): GroupedSessions {
   const groups: GroupedSessions = {
     today: [],
     yesterday: [],
-    last7Days: [],
-    older: [],
+    thisWeek: [],
+    lastWeek: [],
+    earlier: [],
   };
 
   for (const session of sessions) {
@@ -344,8 +356,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const dateGroupOrder: DateGroup[] = [
     "today",
     "yesterday",
-    "last7Days",
-    "older",
+    "thisWeek",
+    "lastWeek",
+    "earlier",
   ];
 
   const handleAddFolder = async () => {
