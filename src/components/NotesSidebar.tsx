@@ -409,28 +409,32 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         {/* Folders section */}
         <div className="px-3 pb-2">
           <div className="flex items-center justify-between mb-1">
-            <button
-              onClick={() => setFoldersExpanded(!foldersExpanded)}
-              className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors font-display"
-            >
-              {foldersExpanded ? (
-                <ChevronDown size={12} />
-              ) : (
-                <ChevronRight size={12} />
-              )}
+            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
               {t("notes.folders", "Folders")}
-            </button>
-            <button
-              onClick={() => setIsAddingFolder(true)}
-              className="p-0.5 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
-            >
-              <Plus size={12} />
-            </button>
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsAddingFolder(true)}
+                className="p-0.5 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+              >
+                <Plus size={12} />
+              </button>
+              <button
+                onClick={() => setFoldersExpanded(!foldersExpanded)}
+                className="p-0.5 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+              >
+                {foldersExpanded ? (
+                  <ChevronDown size={12} />
+                ) : (
+                  <ChevronRight size={12} />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Add folder input */}
           {foldersExpanded && isAddingFolder && (
-            <div className="flex items-center gap-1 mb-1">
+            <div className="flex items-center gap-1 mb-1 pl-4">
               <input
                 ref={folderInputRef}
                 type="text"
@@ -469,7 +473,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             <>
               <button
                 onClick={() => selectFolder(null)}
-                className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                className={`flex items-center gap-2 w-full pl-4 pr-2 py-1.5 rounded-lg text-sm transition-colors ${
                   selectedFolderId === null
                     ? "bg-accent/10 text-text"
                     : "text-text hover:bg-accent-soft"
@@ -487,7 +491,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               {folders.map((folder) => (
                 <div
                   key={folder.id}
-                  className={`group relative flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                  className={`group relative flex items-center gap-2 w-full pl-4 pr-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
                     selectedFolderId === folder.id
                       ? "bg-accent/10 text-text"
                       : "text-text hover:bg-accent-soft"
@@ -554,20 +558,24 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
 
         {/* Notes list */}
         <div className="px-3 pb-2">
-          <button
-            onClick={() => setNotesExpanded(!notesExpanded)}
-            className="flex items-center gap-1 text-xs font-medium text-text-secondary uppercase tracking-wide hover:text-text transition-colors mb-1 font-display"
-          >
-            {notesExpanded ? (
-              <ChevronDown size={12} />
-            ) : (
-              <ChevronRight size={12} />
-            )}
-            {t("notes.notes", "Notes")}
-            <span className="text-text-secondary/50 ml-1">
-              ({filteredSessions.length})
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
+              {t("notes.notes", "Notes")}
+              <span className="text-text-secondary/50 ml-1">
+                ({filteredSessions.length})
+              </span>
             </span>
-          </button>
+            <button
+              onClick={() => setNotesExpanded(!notesExpanded)}
+              className="p-0.5 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+            >
+              {notesExpanded ? (
+                <ChevronDown size={12} />
+              ) : (
+                <ChevronRight size={12} />
+              )}
+            </button>
+          </div>
         </div>
         {notesExpanded && (
           <div className="px-3">
@@ -577,7 +585,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
 
               return (
                 <div key={group} className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:mt-2">
-                  <div className="pl-2 pt-1.5 pb-1.5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider font-display">
+                  <div className="pt-1.5 pb-1.5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider font-display">
                     {t(`notes.dateGroups.${group}`)}
                   </div>
                   {sessionsInGroup.map((session) => {
@@ -587,7 +595,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                     return (
                       <div
                         key={session.id}
-                        className={`group flex items-start gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                        className={`group flex items-start gap-2 pl-4 pr-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
                           isSelected ? "bg-accent/10" : "hover:bg-accent-soft"
                         }`}
                         onClick={() => onSelect(session.id)}
