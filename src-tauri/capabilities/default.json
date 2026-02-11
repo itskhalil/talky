@@ -24,10 +24,6 @@
     {
       "identifier": "fs:scope",
       "allow": [{ "path": "$APPDATA" }, { "path": "$APPDATA/**/*" }]
-    },
-    {
-      "identifier": "macos-permissions:default",
-      "platforms": ["macOS"]
     }
   ]
 }
