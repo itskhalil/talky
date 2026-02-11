@@ -481,8 +481,9 @@
     "dateGroups": {
       "today": "Today",
       "yesterday": "Yesterday",
-      "last7Days": "Last 7 Days",
-      "older": "Older"
+      "thisWeek": "This Week",
+      "lastWeek": "Last Week",
+      "earlier": "Earlier"
     }
   },
   "sessions": {
