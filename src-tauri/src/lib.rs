@@ -33,8 +33,6 @@ use tauri::image::Image;
 use tauri::tray::TrayIconBuilder;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
-#[cfg(target_os = "macos")]
-use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKind};
 
@@ -500,18 +498,7 @@ pub fn run() {
                 .build(),
         );
 
-    // Configure platform-specific autostart launcher
-    #[cfg(target_os = "macos")]
-    let builder = builder.plugin(tauri_plugin_autostart::init(
-        MacosLauncher::LaunchAgent,
-        Some(vec![]),
-    ));
-    #[cfg(target_os = "windows")]
-    let builder = builder.plugin(tauri_plugin_autostart::init(
-        tauri_plugin_autostart::WindowsLauncher::TaskScheduler,
-        Some(vec![]),
-    ));
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    // Autostart plugin - MacosLauncher param only used on macOS, ignored on Windows/Linux
     let builder = builder.plugin(tauri_plugin_autostart::init(
         tauri_plugin_autostart::MacosLauncher::LaunchAgent,
         Some(vec![]),
