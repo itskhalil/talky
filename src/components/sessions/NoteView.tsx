@@ -1405,7 +1405,7 @@ export function NoteView({
                 onEnhanceNotes();
               }
             }}
-            className={`flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 ${!enhancedNotes ? "bg-background-ui text-white hover:bg-background-ui/90" : "bg-background text-accent hover:bg-accent/10 border border-border-strong"}`}
+            className={`flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 ${!enhancedNotes ? "bg-background-ui text-white hover:bg-background-ui/90" : "bg-background text-accent hover:bg-accent-soft border border-border-strong"}`}
           >
             <Sparkles size={14} />
             {enhancedNotes
