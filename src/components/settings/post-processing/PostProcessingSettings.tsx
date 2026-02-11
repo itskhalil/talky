@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { commands } from "@/bindings";
 
-import { Dropdown, SettingContainer, SettingsGroup, Textarea } from "@/components/ui";
+import {
+  Dropdown,
+  SettingContainer,
+  SettingsGroup,
+  Textarea,
+} from "@/components/ui";
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
 

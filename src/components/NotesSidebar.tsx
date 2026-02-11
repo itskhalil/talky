@@ -160,7 +160,8 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const showEnvSelector = environments.length >= 2;
 
   // Resolve the effective environment ID for chat filtering
-  const effectiveChatEnvId = chatEnvId ?? defaultEnvId ?? environments[0]?.id ?? null;
+  const effectiveChatEnvId =
+    chatEnvId ?? defaultEnvId ?? environments[0]?.id ?? null;
   const currentChatEnv = environments.find((e) => e.id === effectiveChatEnvId);
 
   const globalChat = useGlobalChat({
@@ -555,7 +556,10 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                     }`}
                     style={
                       tag.color && !selectedTagIds.includes(tag.id)
-                        ? { backgroundColor: `${tag.color}20`, color: tag.color }
+                        ? {
+                            backgroundColor: `${tag.color}20`,
+                            color: tag.color,
+                          }
                         : undefined
                     }
                   >
@@ -580,63 +584,64 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           </span>
         </div>
         <div className="px-3">
-            {dateGroupOrder.map((group) => {
-              const sessionsInGroup = groupedSessions[group];
-              if (sessionsInGroup.length === 0) return null;
+          {dateGroupOrder.map((group) => {
+            const sessionsInGroup = groupedSessions[group];
+            if (sessionsInGroup.length === 0) return null;
 
-              return (
-                <div key={group} className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:mt-2">
-                  <div className="pt-1.5 pb-1.5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider font-display">
-                    {t(`notes.dateGroups.${group}`)}
-                  </div>
-                  {sessionsInGroup.map((session) => {
-                    const isSelected = selectedId === session.id;
-                    const isRecordingThis = recordingSessionId === session.id;
-
-                    return (
-                      <div
-                        key={session.id}
-                        className={`group flex items-start gap-2 pl-4 pr-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                          isSelected ? "bg-accent/10" : ""
-                        }`}
-                        onClick={() => onSelect(session.id)}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            {isRecordingThis && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
-                            )}
-                            <span
-                              data-ui
-                              className={`text-sm truncate ${
-                                isSelected
-                                  ? "font-medium text-text"
-                                  : "text-text"
-                              }`}
-                            >
-                              {session.title}
-                            </span>
-                          </div>
-                          <div data-ui className="text-xs text-text-secondary">
-                            {formatDate(session.started_at)}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirmId(session.id);
-                          }}
-                          className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    );
-                  })}
+            return (
+              <div
+                key={group}
+                className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:mt-2"
+              >
+                <div className="pt-1.5 pb-1.5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider font-display">
+                  {t(`notes.dateGroups.${group}`)}
                 </div>
-              );
-            })}
-          </div>
+                {sessionsInGroup.map((session) => {
+                  const isSelected = selectedId === session.id;
+                  const isRecordingThis = recordingSessionId === session.id;
+
+                  return (
+                    <div
+                      key={session.id}
+                      className={`group flex items-start gap-2 pl-4 pr-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                        isSelected ? "bg-accent/10" : ""
+                      }`}
+                      onClick={() => onSelect(session.id)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {isRecordingThis && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
+                          )}
+                          <span
+                            data-ui
+                            className={`text-sm truncate ${
+                              isSelected ? "font-medium text-text" : "text-text"
+                            }`}
+                          >
+                            {session.title}
+                          </span>
+                        </div>
+                        <div data-ui className="text-xs text-text-secondary">
+                          {formatDate(session.started_at)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(session.id);
+                        }}
+                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Global Chat */}

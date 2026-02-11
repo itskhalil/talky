@@ -5,7 +5,12 @@ import {
   LogicalSize,
   LogicalPosition,
 } from "@tauri-apps/api/window";
-import { StickyNote, PanelLeftOpen, PanelLeftClose, Settings } from "lucide-react";
+import {
+  StickyNote,
+  PanelLeftOpen,
+  PanelLeftClose,
+  Settings,
+} from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
@@ -260,9 +265,15 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           }
         }}
         className="absolute top-0.5 left-[78px] z-10 p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
-        title={t(sidebarCollapsed ? "notes.expandSidebar" : "notes.collapseSidebar")}
+        title={t(
+          sidebarCollapsed ? "notes.expandSidebar" : "notes.collapseSidebar",
+        )}
       >
-        {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        {sidebarCollapsed ? (
+          <PanelLeftOpen size={18} />
+        ) : (
+          <PanelLeftClose size={18} />
+        )}
       </button>
       {!sidebarCollapsed && (
         <>

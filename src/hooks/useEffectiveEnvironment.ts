@@ -22,7 +22,8 @@ export function useEffectiveEnvironment(
   const environments = settings?.model_environments ?? [];
   const defaultEnvId = settings?.default_environment_id;
 
-  const effectiveId = sessionEnvironmentId ?? defaultEnvId ?? environments[0]?.id;
+  const effectiveId =
+    sessionEnvironmentId ?? defaultEnvId ?? environments[0]?.id;
   const environment = environments.find((e) => e.id === effectiveId) ?? null;
 
   return {
@@ -47,7 +48,8 @@ export function getEffectiveEnvironment(
   const environments = settings?.model_environments ?? [];
   const defaultEnvId = settings?.default_environment_id;
 
-  const effectiveId = sessionEnvironmentId ?? defaultEnvId ?? environments[0]?.id;
+  const effectiveId =
+    sessionEnvironmentId ?? defaultEnvId ?? environments[0]?.id;
   const environment = environments.find((e) => e.id === effectiveId) ?? null;
 
   return {
