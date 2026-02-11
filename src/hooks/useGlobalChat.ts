@@ -64,8 +64,12 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
       if (!trimmed || isLoading) return;
 
       // Get the environment - prefer note's environment, fall back to default
-      const { environment, baseUrl, apiKey, chatModel: model } =
-        getEffectiveEnvironment(options.environmentId);
+      const {
+        environment,
+        baseUrl,
+        apiKey,
+        chatModel: model,
+      } = getEffectiveEnvironment(options.environmentId);
 
       if (!environment) {
         setError(
@@ -272,7 +276,12 @@ ${recentMeetingsList}${currentNoteContext}`;
               // Search for each term and merge results
               const allResults = new Map<
                 string,
-                { id: string; title: string; started_at: number; environment_id: string | null }
+                {
+                  id: string;
+                  title: string;
+                  started_at: number;
+                  environment_id: string | null;
+                }
               >();
 
               if (terms.length === 0) {
@@ -298,7 +307,8 @@ ${recentMeetingsList}${currentNoteContext}`;
               // Apply environment filter if provided
               // Notes with null environment_id are treated as belonging to the default environment
               if (options.filterEnvironmentId) {
-                const { environment: defaultEnv } = getEffectiveEnvironment(null);
+                const { environment: defaultEnv } =
+                  getEffectiveEnvironment(null);
                 const defaultEnvId = defaultEnv?.id ?? null;
                 const filterEnvId = options.filterEnvironmentId;
 

@@ -5,6 +5,9 @@
 
 
 export const commands = {
+async showMainFromPill() : Promise<void> {
+    await TAURI_INVOKE("show_main_from_pill");
+},
 async changeFontSizeSetting(size: FontSize) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_font_size_setting", { size }) };

@@ -111,5 +111,11 @@ export function useKeyboardShortcuts({
 
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onOpenSettings, onToggleFindBar, onCloseFindBar, findBarOpen, onExpandSidebar]);
+  }, [
+    onOpenSettings,
+    onToggleFindBar,
+    onCloseFindBar,
+    findBarOpen,
+    onExpandSidebar,
+  ]);
 }

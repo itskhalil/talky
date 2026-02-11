@@ -68,7 +68,9 @@ const EnvironmentPill: React.FC<{
         }}
       />
       <span className="truncate max-w-[120px]">{name}</span>
-      {isDefault && <span className="text-text-secondary text-xs">(default)</span>}
+      {isDefault && (
+        <span className="text-text-secondary text-xs">(default)</span>
+      )}
     </button>
   );
 };

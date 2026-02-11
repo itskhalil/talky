@@ -641,7 +641,10 @@ impl AppSettings {
 
     /// Get chat config from environment.
     /// Returns (base_url, api_key, model) or None if not configured.
-    pub fn get_chat_config(&self, environment_id: Option<&str>) -> Option<(String, String, String)> {
+    pub fn get_chat_config(
+        &self,
+        environment_id: Option<&str>,
+    ) -> Option<(String, String, String)> {
         let env = self.get_effective_environment(environment_id)?;
         if env.chat_model.is_empty() {
             return None;
