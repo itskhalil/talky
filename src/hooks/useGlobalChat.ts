@@ -215,7 +215,7 @@ ${recentSessions.map((s) => `- ${s.title} (${new Date(s.started_at * 1000).toLoc
       const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
 
 ${toolDescription}${contextInstructions}
-I am currently in a meeting, so please keep your answer direct and clear. Avoid any lengthy paragraphs - in most cases, a handful of short bullets is the best answer.
+I am currently in a meeting, so keep your answer direct and clear. Be brief - I need to get my focus back to the meeting. In most cases, a handful of short bullets is best.
 
 ${recentMeetingsList}${currentNoteContext}`;
 
