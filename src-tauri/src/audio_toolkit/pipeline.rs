@@ -57,7 +57,7 @@ pub struct Pipeline {
 
 impl Pipeline {
     const SMOOTHING_ALPHA: f32 = 0.7;
-    const MIN_DB: f32 = -60.0;
+    const MIN_DB: f32 = -40.0;
     const MAX_DB: f32 = 0.0;
 
     pub fn new(
