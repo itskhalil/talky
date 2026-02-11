@@ -353,6 +353,12 @@ async checkAppleIntelligenceAvailable() : Promise<boolean> {
 async checkOllamaAvailable(baseUrl: string | null) : Promise<string[]> {
     return await TAURI_INVOKE("check_ollama_available", { baseUrl });
 },
+/**
+ * Tauri command to get platform capabilities
+ */
+async getPlatformCapabilities() : Promise<PlatformCapabilities> {
+    return await TAURI_INVOKE("get_platform_capabilities");
+},
 async getAvailableModels() : Promise<Result<ModelInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_models") };
@@ -518,7 +524,8 @@ async isRecording() : Promise<boolean> {
 },
 /**
  * Triggers the system audio permission request by briefly starting the audio tap.
- * This is used during onboarding to request the "System Audio Recording Only" permission.
+ * This is used during onboarding to request the "System Audio Recording Only" permission on macOS.
+ * On Windows, no special permission is needed for WASAPI loopback capture.
  */
 async requestSystemAudioPermission() : Promise<Result<null, string>> {
     try {
@@ -964,6 +971,34 @@ export type ModelEnvironment = { id: string; name: string; color: string; base_u
 export type ModelInfo = { id: string; name: string; description: string; filename: string; url: string | null; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
 export type ModelUnloadTimeout = "never" | "immediately" | "min_2" | "min_5" | "min_10" | "min_15" | "hour_1" | "sec_5"
+/**
+ * Platform capabilities that can be queried by the frontend
+ */
+export type PlatformCapabilities = { 
+/**
+ * Whether speaker (system audio) capture is available
+ */
+speakerCapture: boolean; 
+/**
+ * Whether meeting app detection is available
+ */
+meetingDetection: boolean; 
+/**
+ * Whether clamshell (laptop lid closed) detection is available
+ */
+clamshellDetection: boolean; 
+/**
+ * Whether system sleep event handling is available
+ */
+systemSleepEvents: boolean; 
+/**
+ * Whether Apple Intelligence features are available
+ */
+appleIntelligence: boolean; 
+/**
+ * The current operating system
+ */
+os: string }
 export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null }
 export type RecordingRetentionPeriod = "never" | "preserve_limit" | "days_3" | "weeks_2" | "months_3"
 export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null }

@@ -63,14 +63,36 @@ jobs:
       release-id: ${{ needs.create-release.outputs.release-id }}
     secrets: inherit
 
-  upload-unversioned-assets:
-    name: Upload version-agnostic DMGs
+  build-windows:
     permissions:
       contents: write
-    needs: [create-release, build-macos]
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "windows-latest"
+            args: "--target x86_64-pc-windows-msvc"
+            target: "x86_64-pc-windows-msvc"
+
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: ${{ matrix.platform }}
+      target: ${{ matrix.target }}
+      build-args: ${{ matrix.args }}
+      asset-prefix: "talky"
+      upload-artifacts: false
+      release-id: ${{ needs.create-release.outputs.release-id }}
+    secrets: inherit
+
+  upload-unversioned-assets:
+    name: Upload version-agnostic installers
+    permissions:
+      contents: write
+    needs: [create-release, build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
-      - name: Download and re-upload DMGs with version-agnostic names
+      - name: Download and re-upload installers with version-agnostic names
         uses: actions/github-script@v7
         with:
           script: |
@@ -80,7 +102,8 @@ jobs:
             // Map from versioned name pattern to version-agnostic name
             const assetMappings = [
               { pattern: /aarch64.*\.dmg$/, newName: 'Talky_aarch64.dmg' },
-              { pattern: /x86_64.*\.dmg$|x64.*\.dmg$/, newName: 'Talky_x64.dmg' }
+              { pattern: /x86_64.*\.dmg$|x64.*\.dmg$/, newName: 'Talky_x64.dmg' },
+              { pattern: /\.msi$/, newName: 'Talky_x64.msi' }
             ];
 
             // Get existing assets

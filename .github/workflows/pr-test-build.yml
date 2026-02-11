@@ -9,7 +9,7 @@ on:
         type: string
 
 jobs:
-  build-test:
+  build-macos:
     permissions:
       contents: write
     strategy:
@@ -33,8 +33,29 @@ jobs:
       ref: ${{ format('refs/pull/{0}/merge', inputs.pr_number) }}
     secrets: inherit
 
+  build-windows:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "windows-latest"
+            args: "--target x86_64-pc-windows-msvc"
+            target: "x86_64-pc-windows-msvc"
+
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: ${{ matrix.platform }}
+      target: ${{ matrix.target }}
+      build-args: ${{ matrix.args }}
+      asset-prefix: "talky-pr-${{ inputs.pr_number }}"
+      upload-artifacts: true
+      ref: ${{ format('refs/pull/{0}/merge', inputs.pr_number) }}
+    secrets: inherit
+
   comment-on-pr:
-    needs: build-test
+    needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -48,5 +69,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ inputs.pr_number }},
-              body: `## Test Build Ready\n\nBuild artifacts for PR #${{ inputs.pr_number }} are available for testing.\n\n**[Download artifacts from workflow run](${runUrl})**\n\nArtifacts expire after 30 days.`
+              body: `## Test Build Ready\n\nBuild artifacts for PR #${{ inputs.pr_number }} are available for testing.\n\n**[Download artifacts from workflow run](${runUrl})**\n\nArtifacts include:\n- macOS (ARM64 and x64)\n- Windows (x64)\n\nArtifacts expire after 30 days.`
             });
