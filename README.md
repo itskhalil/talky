@@ -94,13 +94,10 @@ Talky is built as a Tauri application combining:
 Talky includes a debug pane for development, troubleshooting, and advanced settings like enabling cloud AI providers. Access it by pressing:
 
 - **macOS**: `Cmd+Shift+D`
-- **Windows/Linux**: `Ctrl+Shift+D`
 
 ### Platform Support
 
 - **macOS (both Intel and Apple Silicon)**
-- **x64 Windows**
-- **x64 Linux**
 
 ## License
 
