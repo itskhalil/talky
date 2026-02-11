@@ -62,3 +62,75 @@ jobs:
       upload-artifacts: false
       release-id: ${{ needs.create-release.outputs.release-id }}
     secrets: inherit
+
+  upload-unversioned-assets:
+    name: Upload version-agnostic DMGs
+    permissions:
+      contents: write
+    needs: [create-release, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and re-upload DMGs with version-agnostic names
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releaseId = ${{ needs.create-release.outputs.release-id }};
+            const version = '${{ needs.create-release.outputs.version }}';
+
+            // Map from versioned name pattern to version-agnostic name
+            const assetMappings = [
+              { pattern: /aarch64.*\.dmg$/, newName: 'Talky_aarch64.dmg' },
+              { pattern: /x86_64.*\.dmg$|x64.*\.dmg$/, newName: 'Talky_x64.dmg' }
+            ];
+
+            // Get existing assets
+            const { data: release } = await github.rest.repos.getRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId
+            });
+
+            for (const mapping of assetMappings) {
+              // Find the versioned asset
+              const asset = release.assets.find(a => mapping.pattern.test(a.name));
+              if (!asset) {
+                console.log(`No asset found matching ${mapping.pattern}`);
+                continue;
+              }
+
+              console.log(`Downloading ${asset.name}...`);
+
+              // Download the asset
+              const { data: assetData } = await github.rest.repos.getReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                asset_id: asset.id,
+                headers: {
+                  Accept: 'application/octet-stream'
+                }
+              });
+
+              // Delete existing version-agnostic asset if it exists
+              const existingAsset = release.assets.find(a => a.name === mapping.newName);
+              if (existingAsset) {
+                console.log(`Deleting existing ${mapping.newName}...`);
+                await github.rest.repos.deleteReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  asset_id: existingAsset.id
+                });
+              }
+
+              console.log(`Uploading as ${mapping.newName}...`);
+
+              // Upload with new name
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseId,
+                name: mapping.newName,
+                data: assetData
+              });
+
+              console.log(`Successfully uploaded ${mapping.newName}`);
+            }
