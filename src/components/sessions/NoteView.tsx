@@ -871,7 +871,7 @@ export function NoteView({
                 <div ref={envDropdownRef} className="relative">
                   <button
                     onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
-                    className="-ml-2 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                    className="-ml-2 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors"
                   >
                     <span
                       className="w-2 h-2 rounded-full"
@@ -888,7 +888,7 @@ export function NoteView({
                         <button
                           key={env.id}
                           onClick={() => handleEnvSelect(env.id)}
-                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors flex items-center gap-2 ${
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${
                             (session?.environment_id ?? defaultEnvId) === env.id
                               ? "text-accent"
                               : "text-text"
@@ -910,7 +910,7 @@ export function NoteView({
               <div ref={folderDropdownRef} className="relative">
                 <button
                   onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-                  className={`flex items-center gap-1.5 ${showEnvSelector ? "" : "-ml-2"} px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors`}
+                  className={`flex items-center gap-1.5 ${showEnvSelector ? "" : "-ml-2"} px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors`}
                 >
                   <FolderIcon
                     size={12}
@@ -929,7 +929,7 @@ export function NoteView({
                   <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
                     <button
                       onClick={() => handleFolderSelect(null)}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors ${!localFolderId ? "text-accent" : "text-text"}`}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors ${!localFolderId ? "text-accent" : "text-text"}`}
                     >
                       {t("notes.noFolder", "Notes")}
                     </button>
@@ -937,7 +937,7 @@ export function NoteView({
                       <button
                         key={folder.id}
                         onClick={() => handleFolderSelect(folder.id)}
-                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors flex items-center gap-2 ${localFolderId === folder.id ? "text-accent" : "text-text"}`}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${localFolderId === folder.id ? "text-accent" : "text-text"}`}
                       >
                         <FolderIcon
                           size={12}
@@ -957,7 +957,7 @@ export function NoteView({
                 {sessionTags.map((tag) => (
                   <span
                     key={tag.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent-soft text-text"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/5 text-text"
                     style={
                       tag.color
                         ? {
@@ -1004,7 +1004,7 @@ export function NoteView({
                               handleAddTag(tag.id);
                               setTagInputOpen(false);
                             }}
-                            className="px-1.5 py-0.5 rounded text-xs bg-accent-soft text-text-secondary hover:text-text transition-colors"
+                            className="px-1.5 py-0.5 rounded text-xs bg-accent/5 text-text-secondary hover:text-text transition-colors"
                             style={
                               tag.color
                                 ? {
@@ -1023,7 +1023,7 @@ export function NoteView({
                 ) : (
                   <button
                     onClick={() => setTagInputOpen(true)}
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors"
                   >
                     <Tag size={10} />
                     <Plus size={10} />
@@ -1384,7 +1384,7 @@ export function NoteView({
                 {isRecording && hasTranscript && (
                   <button
                     onClick={handleWhatDidIMiss}
-                    className="px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent-soft transition-colors whitespace-nowrap shrink-0"
+                    className="px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent/10 transition-colors whitespace-nowrap shrink-0"
                   >
                     {t("sessions.chat.whatDidIMiss")}
                   </button>
@@ -1405,7 +1405,7 @@ export function NoteView({
                 onEnhanceNotes();
               }
             }}
-            className={`flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 ${!enhancedNotes ? "bg-background-ui text-white hover:bg-background-ui/90" : "bg-background text-accent hover:bg-accent-soft border border-border-strong"}`}
+            className={`flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 ${!enhancedNotes ? "bg-background-ui text-white hover:bg-background-ui/90" : "bg-background text-accent hover:bg-accent/10 border border-border-strong"}`}
           >
             <Sparkles size={14} />
             {enhancedNotes

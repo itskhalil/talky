@@ -39,7 +39,7 @@ function EmptyState({ onNewNote }: { onNewNote: () => void }) {
         <button
           onClick={onNewNote}
           data-ui
-          className="text-sm px-4 py-2 bg-accent-soft rounded-lg hover:bg-accent/10 transition-colors text-accent border border-border"
+          className="text-sm px-4 py-2 bg-accent/5 rounded-lg hover:bg-accent/10 transition-colors text-accent border border-border"
         >
           {t("sessions.newNote")}
         </button>
@@ -259,7 +259,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             setSidebarCollapsed(true);
           }
         }}
-        className="absolute top-0.5 left-[78px] z-10 p-1 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+        className="absolute top-0.5 left-[78px] z-10 p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
         title={t(sidebarCollapsed ? "notes.expandSidebar" : "notes.collapseSidebar")}
       >
         {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
