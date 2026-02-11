@@ -871,7 +871,7 @@ export function NoteView({
                 <div ref={envDropdownRef} className="relative">
                   <button
                     onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                    className="-ml-2 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
                   >
                     <span
                       className="w-2 h-2 rounded-full"
@@ -910,7 +910,7 @@ export function NoteView({
               <div ref={folderDropdownRef} className="relative">
                 <button
                   onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                  className={`flex items-center gap-1.5 ${showEnvSelector ? "" : "-ml-2"} px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors`}
                 >
                   <FolderIcon
                     size={12}
