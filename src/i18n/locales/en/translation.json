@@ -115,7 +115,7 @@
     "loadingGeneric": "Loading...",
     "modelError": "Model Error",
     "modelUnloaded": "Model Unloaded",
-    "noModelDownloadRequired": "No Model - Download Required",
+    "noModelDownloadRequired": "No Transcription Model Available - Select or Download One",
     "deleteModel": "Delete {{modelName}}"
   },
   "settings": {

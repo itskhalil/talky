@@ -105,6 +105,9 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
         }
       }
 
+      // Determine if this is in-note chat (restricted to current note only)
+      const isInNoteChat = Boolean(options.currentNoteId);
+
       // Build context from current note if provided
       let currentNoteContext = "";
       let contextInstructions = "";
@@ -155,40 +158,42 @@ ${contentSection}
 `;
         contextInstructions = `
 For questions about THIS note (${currentTitle} from ${currentDate}): Answer directly from the context.
-For questions about OTHER notes or DIFFERENT dates: Use the searchNotes tool.
+${isInNoteChat ? "You only have access to this note. If asked about other notes, explain you can only see the current note." : "For questions about OTHER notes or DIFFERENT dates: Use the searchNotes tool."}
 `;
       }
 
-      // Fetch recent meeting titles for context
+      // Fetch recent meeting titles for context (sidebar chat only)
       let recentMeetingsList = "";
-      try {
-        const sessionsResult = await commands.getSessions();
-        if (sessionsResult.status === "ok") {
-          let recentSessions = sessionsResult.data;
+      if (!isInNoteChat) {
+        try {
+          const sessionsResult = await commands.getSessions();
+          if (sessionsResult.status === "ok") {
+            let recentSessions = sessionsResult.data;
 
-          // Filter by environment if filterEnvironmentId is set
-          if (options.filterEnvironmentId) {
-            const { environment: defaultEnv } = getEffectiveEnvironment(null);
-            const defaultEnvId = defaultEnv?.id ?? null;
-            const filterEnvId = options.filterEnvironmentId;
+            // Filter by environment if filterEnvironmentId is set
+            if (options.filterEnvironmentId) {
+              const { environment: defaultEnv } = getEffectiveEnvironment(null);
+              const defaultEnvId = defaultEnv?.id ?? null;
+              const filterEnvId = options.filterEnvironmentId;
 
-            recentSessions = recentSessions.filter((s) => {
-              const noteEnvId = s.environment_id ?? defaultEnvId;
-              return noteEnvId === filterEnvId;
-            });
-          }
+              recentSessions = recentSessions.filter((s) => {
+                const noteEnvId = s.environment_id ?? defaultEnvId;
+                return noteEnvId === filterEnvId;
+              });
+            }
 
-          recentSessions = recentSessions.slice(0, 20);
-          if (recentSessions.length > 0) {
-            recentMeetingsList = `
+            recentSessions = recentSessions.slice(0, 20);
+            if (recentSessions.length > 0) {
+              recentMeetingsList = `
 ## RECENT MEETINGS
 ${recentSessions.map((s) => `- ${s.title} (${new Date(s.started_at * 1000).toLocaleDateString()})`).join("\n")}
 
 `;
+            }
           }
+        } catch {
+          // Non-fatal
         }
-      } catch {
-        // Non-fatal
       }
 
       const today = new Date().toLocaleDateString("en-US", {
@@ -197,14 +202,20 @@ ${recentSessions.map((s) => `- ${s.title} (${new Date(s.started_at * 1000).toLoc
         month: "long",
         day: "numeric",
       });
-      const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
 
-Tool: searchNotes
+      // Build system prompt - only include tool info for sidebar chat
+      const toolDescription = isInNoteChat
+        ? ""
+        : `Tool: searchNotes
 - terms: Search by meeting titles, person names, or topics (e.g. "standup", "sync", "budget"). Use words from the RECENT MEETINGS list.
 - dateHint: Use "yesterday", "last week", or unambiguous dates like "February 3" (NOT numeric formats like 03/02)
 - Returns full content for 1-3 matches, snippets for more
-${contextInstructions}
-CRITICAL: Maximum brevity. Prefer terse bullets (2-4 words). Skip names/assignees unless asked. Sentences OK when clearer, but keep short.
+`;
+
+      const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
+
+${toolDescription}${contextInstructions}
+I am currently in a meeting, so please keep your answer direct and clear. Avoid any lengthy paragraphs - in most cases, a handful of short bullets is the best answer.
 
 ${recentMeetingsList}${currentNoteContext}`;
 
@@ -249,7 +260,8 @@ ${recentMeetingsList}${currentNoteContext}`;
         }));
 
         // Single smart tool that adapts based on result count
-        const tools = {
+        // In-note chat has no tools - only sidebar chat can search across notes
+        const searchNotesTool = {
           searchNotes: tool({
             description:
               "Search meeting notes. Returns full content for few matches, snippets for many. Use for any question about note content.",
@@ -409,6 +421,7 @@ ${recentMeetingsList}${currentNoteContext}`;
             },
           }),
         };
+        const tools = isInNoteChat ? undefined : searchNotesTool;
 
         const result = streamText({
           model: finalModel,
@@ -497,7 +510,12 @@ ${recentMeetingsList}${currentNoteContext}`;
         }
 
         // Manual multi-step: if we got tool results but no meaningful text, make a follow-up call
-        if (collectedToolResults.length > 0 && !textContent.trim()) {
+        // Only for sidebar chat (in-note chat has no tools)
+        if (
+          !isInNoteChat &&
+          collectedToolResults.length > 0 &&
+          !textContent.trim()
+        ) {
           // Format tool results as text for the follow-up
           const toolResultsText = collectedToolResults
             .map(
