@@ -3,7 +3,6 @@ use crate::settings::{
     get_settings, write_settings, FontSize, LLMPrompt, ModelEnvironment, WordSuggestion,
 };
 use crate::tray::update_tray_menu;
-use crate::utils::TrayIconState;
 use log::info;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
@@ -168,7 +167,7 @@ pub fn change_app_language_setting(app: AppHandle, language: String) -> Result<(
     write_settings(&app, settings);
 
     // Update tray menu with new locale
-    update_tray_menu(&app, &TrayIconState::Idle, Some(&language));
+    update_tray_menu(&app, Some(language.as_str()));
 
     Ok(())
 }
@@ -180,8 +179,8 @@ pub fn change_update_checks_setting(app: AppHandle, enabled: bool) -> Result<(),
     settings.update_checks_enabled = enabled;
     write_settings(&app, settings);
 
-    // Update tray menu to enable/disable the check for updates item
-    update_tray_menu(&app, &TrayIconState::Idle, None);
+    // Update tray menu
+    update_tray_menu(&app, None);
 
     Ok(())
 }

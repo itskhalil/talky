@@ -6,7 +6,7 @@ use crate::managers::session::{
 use crate::managers::transcription::TranscriptionManager;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 /// Strip all blank lines from model output.
 fn strip_model_blank_lines(input: &str) -> String {
@@ -184,10 +184,9 @@ pub async fn generate_session_summary(
         },
     ];
 
-    let result =
-        crate::llm_client::send_chat_completion(&base_url, &api_key, &model, messages)
-            .await?
-            .ok_or_else(|| "LLM returned no content".to_string())?;
+    let result = crate::llm_client::send_chat_completion(&base_url, &api_key, &model, messages)
+        .await?
+        .ok_or_else(|| "LLM returned no content".to_string())?;
 
     log::debug!(
         "[enhance-notes] Raw LLM result (non-stream) | session={} len={}",
@@ -483,9 +482,6 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
         crate::actions::run_session_transcription_loop(app_clone, sid, time_offset_ms).await;
     });
 
-    crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Recording);
-    crate::tray::start_recording_indicator(&app);
-
     Ok(())
 }
 
@@ -504,8 +500,7 @@ pub fn stop_session_recording(app: AppHandle, session_id: String) -> Result<(), 
     sm.stop_speaker_capture();
     rm.stop_session_recording();
 
-    crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Idle);
-    crate::tray::stop_recording_indicator(&app);
+    crate::hide_pill_window(&app);
 
     Ok(())
 }
@@ -604,8 +599,7 @@ pub fn end_session(app: AppHandle) -> Result<Option<Session>, String> {
 
     let session = sm.end_session().map_err(|e| e.to_string())?;
 
-    crate::tray::change_tray_icon(&app, crate::tray::TrayIconState::Idle);
-    crate::tray::stop_recording_indicator(&app);
+    crate::hide_pill_window(&app);
 
     Ok(session)
 }
