@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "macos-only",
+  "description": "macOS-specific capabilities",
+  "platforms": ["macOS"],
+  "windows": ["main", "pill"],
+  "permissions": ["macos-permissions:default"]
+}
