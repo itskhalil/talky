@@ -55,7 +55,7 @@
       },
       "parakeet-tdt-0.6b-v2": {
         "name": "Parakeet V2",
-        "description": "English only. The best model for English speakers."
+        "description": "English only."
       },
       "parakeet-tdt-0.6b-v3": {
         "name": "Parakeet V3",
