@@ -7,7 +7,6 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::session::SessionManager;
-use crate::tray;
 
 /// Start monitoring for power events (system sleep/wake).
 /// Spawns a background thread that listens for NSWorkspaceWillSleepNotification.
@@ -74,10 +73,6 @@ fn handle_will_sleep(app: &AppHandle) {
 
         // Stop mic recording (this preserves samples already captured)
         let _ = rm.stop_session_recording();
-
-        // Update tray icon to idle state
-        tray::change_tray_icon(app, tray::TrayIconState::Idle);
-        tray::stop_recording_indicator(app);
 
         // Emit event to frontend so UI updates
         let _ = app.emit("system-will-sleep", ());

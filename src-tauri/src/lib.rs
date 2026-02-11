@@ -113,6 +113,26 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+pub fn show_pill_window(app: &AppHandle) {
+    if let Some(pill) = app.get_webview_window("pill") {
+        let _ = pill.show();
+        let _ = pill.set_focus();
+    }
+}
+
+pub fn hide_pill_window(app: &AppHandle) {
+    if let Some(pill) = app.get_webview_window("pill") {
+        let _ = pill.hide();
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+fn show_main_from_pill(app: AppHandle) {
+    show_main_window(&app);
+    hide_pill_window(&app);
+}
+
 fn initialize_core_logic(app_handle: &AppHandle) {
     // Get custom data directory if configured
     let data_dir = get_user_data_dir(app_handle).ok();
@@ -145,8 +165,8 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // Get the current theme to set the appropriate initial icon
     let initial_theme = tray::get_current_theme(app_handle);
 
-    // Choose the appropriate initial icon based on theme
-    let initial_icon_path = tray::get_icon_path(initial_theme, tray::TrayIconState::Idle);
+    // Choose the appropriate icon based on theme
+    let initial_icon_path = tray::get_icon_path(initial_theme);
 
     let tray = TrayIconBuilder::new()
         .icon(
@@ -180,8 +200,8 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         .unwrap();
     app_handle.manage(tray);
 
-    // Initialize tray menu with idle state
-    utils::update_tray_menu(app_handle, &utils::TrayIconState::Idle, None);
+    // Initialize tray menu
+    utils::update_tray_menu(app_handle, None);
 
     // Get the autostart manager and configure based on user setting
     let autostart_manager = app_handle.autolaunch();
@@ -243,6 +263,7 @@ pub fn run() {
     let console_filter = build_console_filter();
 
     let specta_builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+        show_main_from_pill,
         commands::settings::change_font_size_setting,
         commands::settings::change_autostart_setting,
         commands::settings::change_translate_to_english_setting,
@@ -406,7 +427,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::SIZE,
+                )
+                .skip_initial_state("pill")
+                .build(),
+        )
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             Some(vec![]),
@@ -434,17 +463,41 @@ pub fn run() {
                 main_window.set_focus().unwrap();
             }
 
+            // Ensure pill window is hidden on startup (window-state may restore it)
+            hide_pill_window(&app_handle);
+
             Ok(())
         })
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                let _res = window.hide();
+                // Only handle main window close specially
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    // Show pill if currently recording
+                    let audio_manager = window.app_handle().state::<Arc<AudioRecordingManager>>();
+                    if audio_manager.is_recording() {
+                        show_pill_window(&window.app_handle());
+                    }
+                }
+            }
+            tauri::WindowEvent::Focused(focused) => {
+                if window.label() == "main" {
+                    if *focused {
+                        // Main window gained focus - hide the pill
+                        hide_pill_window(&window.app_handle());
+                    } else {
+                        // Main window lost focus - show pill if recording
+                        let audio_manager =
+                            window.app_handle().state::<Arc<AudioRecordingManager>>();
+                        if audio_manager.is_recording() {
+                            show_pill_window(&window.app_handle());
+                        }
+                    }
+                }
             }
             tauri::WindowEvent::ThemeChanged(theme) => {
                 log::info!("Theme changed to: {:?}", theme);
-                // Update tray icon to match new theme, maintaining idle state
-                utils::change_tray_icon(&window.app_handle(), utils::TrayIconState::Idle);
             }
             _ => {}
         })
@@ -452,14 +505,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::Reopen {
-                has_visible_windows,
-                ..
-            } = event
-            {
-                if !has_visible_windows {
-                    show_main_window(app_handle);
-                }
+            if let tauri::RunEvent::Reopen { .. } = event {
+                // Always show main window and hide pill when dock icon is clicked
+                show_main_window(app_handle);
+                hide_pill_window(app_handle);
             }
         });
 }

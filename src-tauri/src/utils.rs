@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 
 use tauri::Emitter;
 
-pub use crate::tray::*;
+pub use crate::tray::update_tray_menu;
 
 /// Extension trait for `std::sync::Mutex` that recovers from poisoned state.
 ///
@@ -48,10 +48,6 @@ pub fn cancel_current_operation(app: &AppHandle) {
     // Cancel any ongoing recording
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
     audio_manager.cancel_recording();
-
-    // Update tray icon
-    change_tray_icon(app, crate::tray::TrayIconState::Idle);
-    stop_recording_indicator(app);
 
     // Unload model if immediate unload is enabled
     let tm = app.state::<Arc<TranscriptionManager>>();

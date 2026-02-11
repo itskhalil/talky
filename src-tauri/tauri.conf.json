@@ -25,6 +25,21 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "backgroundColor": "#f8f6f3"
+      },
+      {
+        "label": "pill",
+        "title": "",
+        "width": 64,
+        "height": 150,
+        "resizable": false,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "dragDropEnabled": false,
+        "url": "index.html#/pill",
+        "shadow": false
       }
     ],
     "security": {
