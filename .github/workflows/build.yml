@@ -80,6 +80,25 @@ jobs:
           echo "CMAKE_C_FLAGS=-march=armv8.5-a" >> $GITHUB_ENV
           echo "CMAKE_CXX_FLAGS=-march=armv8.5-a" >> $GITHUB_ENV
 
+      - name: Install Vulkan SDK (Windows)
+        if: startsWith(inputs.platform, 'windows')
+        shell: pwsh
+        run: |
+          $vulkanVersion = "1.3.290.0"
+          $installerUrl = "https://sdk.lunarg.com/sdk/download/$vulkanVersion/windows/VulkanSDK-$vulkanVersion-Installer.exe"
+          $installerPath = "$env:TEMP\VulkanSDK-Installer.exe"
+
+          Write-Host "Downloading Vulkan SDK $vulkanVersion..."
+          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+
+          Write-Host "Installing Vulkan SDK..."
+          Start-Process -FilePath $installerPath -ArgumentList "--accept-licenses --default-answer --confirm-command install" -Wait -NoNewWindow
+
+          # Set environment variables for this job
+          $vulkanPath = "C:\VulkanSDK\$vulkanVersion"
+          echo "VULKAN_SDK=$vulkanPath" >> $env:GITHUB_ENV
+          echo "$vulkanPath\Bin" >> $env:GITHUB_PATH
+
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
         env:
