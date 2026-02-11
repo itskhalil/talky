@@ -10,6 +10,7 @@ mod managers;
 mod menu;
 #[cfg(target_os = "macos")]
 mod mic_detect;
+mod platform;
 #[cfg(target_os = "macos")]
 mod power_events;
 mod settings;
@@ -32,7 +33,9 @@ use tauri::image::Image;
 use tauri::tray::TrayIconBuilder;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+#[cfg(target_os = "macos")]
+use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKind};
 
 use crate::settings::get_settings;
@@ -368,6 +371,7 @@ pub fn run() {
         commands::open_user_data_directory,
         commands::check_apple_intelligence_available,
         commands::check_ollama_available,
+        platform::get_platform_capabilities,
         commands::models::get_available_models,
         commands::models::get_model_info,
         commands::models::download_model,
@@ -475,7 +479,8 @@ pub fn run() {
             .build(),
     );
 
-    builder
+    // Configure cross-platform plugins
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_main_window(app);
         }))
@@ -483,7 +488,6 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -494,11 +498,30 @@ pub fn run() {
                         | tauri_plugin_window_state::StateFlags::SIZE,
                 )
                 .build(),
-        )
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec![]),
-        ))
+        );
+
+    // Configure platform-specific autostart launcher
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        MacosLauncher::LaunchAgent,
+        Some(vec![]),
+    ));
+    #[cfg(target_os = "windows")]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::WindowsLauncher::TaskScheduler,
+        Some(vec![]),
+    ));
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        Some(vec![]),
+    ));
+
+    // Add macOS-specific plugins
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_macos_permissions::init());
+
+    builder
         .setup(move |app| {
             let settings = get_settings(&app.handle());
             let tauri_log_level: tauri_plugin_log::LogLevel = settings.log_level.into();

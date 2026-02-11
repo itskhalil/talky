@@ -1,5 +1,5 @@
 use crate::audio_toolkit::audio::{list_input_devices, list_output_devices};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use crate::audio_toolkit::speaker::SpeakerInput;
 use crate::managers::audio::AudioRecordingManager;
 use crate::settings::{get_settings, write_settings};
@@ -137,7 +137,8 @@ pub fn is_recording(app: AppHandle) -> bool {
 }
 
 /// Triggers the system audio permission request by briefly starting the audio tap.
-/// This is used during onboarding to request the "System Audio Recording Only" permission.
+/// This is used during onboarding to request the "System Audio Recording Only" permission on macOS.
+/// On Windows, no special permission is needed for WASAPI loopback capture.
 #[tauri::command]
 #[specta::specta]
 pub fn request_system_audio_permission() -> Result<(), String> {
@@ -150,5 +151,6 @@ pub fn request_system_audio_permission() -> Result<(), String> {
         let _stream = speaker.stream();
         // The stream is dropped immediately, we just needed to trigger the permission
     }
+    // On Windows, WASAPI loopback doesn't require special permissions
     Ok(())
 }
