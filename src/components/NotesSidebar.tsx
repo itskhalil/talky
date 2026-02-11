@@ -138,7 +138,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     Record<string, string[]>
   >({});
   const [foldersExpanded, setFoldersExpanded] = useState(true);
-  const [notesExpanded, setNotesExpanded] = useState(true);
+  const [tagsExpanded, setTagsExpanded] = useState(true);
   const [chatExpanded, setChatExpanded] = useState(false);
   const [chatHeight, setChatHeight] = useState(192); // default ~max-h-48
   const [suggestionCount, setSuggestionCount] = useState(0);
@@ -415,18 +415,18 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setIsAddingFolder(true)}
-                className="p-0.5 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
               >
-                <Plus size={12} />
+                <Plus size={14} />
               </button>
               <button
                 onClick={() => setFoldersExpanded(!foldersExpanded)}
-                className="p-0.5 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
               >
                 {foldersExpanded ? (
-                  <ChevronDown size={12} />
+                  <ChevronDown size={14} />
                 ) : (
-                  <ChevronRight size={12} />
+                  <ChevronRight size={14} />
                 )}
               </button>
             </div>
@@ -452,7 +452,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               />
               <button
                 onClick={handleAddFolder}
-                className="p-1 rounded hover:bg-accent-soft text-accent"
+                className="p-1 rounded hover:bg-accent/10 text-accent"
               >
                 <Plus size={12} />
               </button>
@@ -461,7 +461,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   setIsAddingFolder(false);
                   setNewFolderName("");
                 }}
-                className="p-1 rounded hover:bg-accent-soft text-text-secondary"
+                className="p-1 rounded hover:bg-accent/10 text-text-secondary"
               >
                 <X size={12} />
               </button>
@@ -476,7 +476,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                 className={`flex items-center gap-2 w-full pl-4 pr-2 py-1.5 rounded-lg text-sm transition-colors ${
                   selectedFolderId === null
                     ? "bg-accent/10 text-text"
-                    : "text-text hover:bg-accent-soft"
+                    : "text-text"
                 }`}
               >
                 <FolderOpen size={16} />
@@ -494,7 +494,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                   className={`group relative flex items-center gap-2 w-full pl-4 pr-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
                     selectedFolderId === folder.id
                       ? "bg-accent/10 text-text"
-                      : "text-text hover:bg-accent-soft"
+                      : "text-text"
                   }`}
                   onClick={() => selectFolder(folder.id)}
                 >
@@ -527,29 +527,43 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         {/* Tags section */}
         {tags.length > 0 && (
           <div className="px-3 pb-2">
-            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide block mb-1 font-display">
-              {t("notes.tags", "Tags")}
-            </span>
-            <div className="flex flex-wrap gap-1">
-              {tags.map((tag) => (
-                <button
-                  key={tag.id}
-                  onClick={() => toggleTagFilter(tag.id)}
-                  className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
-                    selectedTagIds.includes(tag.id)
-                      ? "bg-background-ui text-white"
-                      : "bg-accent-soft text-text hover:bg-accent/20"
-                  }`}
-                  style={
-                    tag.color && !selectedTagIds.includes(tag.id)
-                      ? { backgroundColor: `${tag.color}20`, color: tag.color }
-                      : undefined
-                  }
-                >
-                  {tag.name}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
+                {t("notes.tags", "Tags")}
+              </span>
+              <button
+                onClick={() => setTagsExpanded(!tagsExpanded)}
+                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
+              >
+                {tagsExpanded ? (
+                  <ChevronDown size={14} />
+                ) : (
+                  <ChevronRight size={14} />
+                )}
+              </button>
             </div>
+            {tagsExpanded && (
+              <div className="flex flex-wrap gap-1 pl-4 -ml-2">
+                {tags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => toggleTagFilter(tag.id)}
+                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
+                      selectedTagIds.includes(tag.id)
+                        ? "bg-background-ui text-white"
+                        : "bg-accent/5 text-text"
+                    }`}
+                    style={
+                      tag.color && !selectedTagIds.includes(tag.id)
+                        ? { backgroundColor: `${tag.color}20`, color: tag.color }
+                        : undefined
+                    }
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -558,27 +572,14 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
 
         {/* Notes list */}
         <div className="px-3 pb-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
-              {t("notes.notes", "Notes")}
-              <span className="text-text-secondary/50 ml-1">
-                ({filteredSessions.length})
-              </span>
+          <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
+            {t("notes.notes", "Notes")}
+            <span className="text-text-secondary/50 ml-1">
+              ({filteredSessions.length})
             </span>
-            <button
-              onClick={() => setNotesExpanded(!notesExpanded)}
-              className="p-0.5 rounded hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
-            >
-              {notesExpanded ? (
-                <ChevronDown size={12} />
-              ) : (
-                <ChevronRight size={12} />
-              )}
-            </button>
-          </div>
+          </span>
         </div>
-        {notesExpanded && (
-          <div className="px-3">
+        <div className="px-3">
             {dateGroupOrder.map((group) => {
               const sessionsInGroup = groupedSessions[group];
               if (sessionsInGroup.length === 0) return null;
@@ -596,7 +597,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                       <div
                         key={session.id}
                         className={`group flex items-start gap-2 pl-4 pr-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                          isSelected ? "bg-accent/10" : "hover:bg-accent-soft"
+                          isSelected ? "bg-accent/10" : ""
                         }`}
                         onClick={() => onSelect(session.id)}
                       >
@@ -636,7 +637,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               );
             })}
           </div>
-        )}
       </div>
 
       {/* Global Chat */}
@@ -654,7 +654,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               </div>
               <button
                 onClick={() => setChatExpanded(false)}
-                className="px-1.5 py-0.5 text-text-secondary hover:text-text transition-colors"
+                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
               >
                 <ChevronDown size={14} />
               </button>
@@ -708,7 +708,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             <div ref={chatEnvDropdownRef} className="relative inline-block">
               <button
                 onClick={() => setChatEnvDropdownOpen(!chatEnvDropdownOpen)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent-soft transition-colors"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors"
               >
                 <span
                   className="w-2 h-2 rounded-full"
@@ -728,7 +728,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                         setChatEnvId(env.id);
                         setChatEnvDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent-soft transition-colors flex items-center gap-2 ${
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${
                         effectiveChatEnvId === env.id
                           ? "text-accent"
                           : "text-text"
@@ -753,8 +753,8 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
             onClick={() => setChatExpanded(!chatExpanded)}
             className={`p-1.5 rounded-md transition-colors ${
               chatExpanded
-                ? "bg-accent-soft text-accent"
-                : "text-text-secondary hover:bg-accent-soft hover:text-text"
+                ? "bg-accent/10 text-accent"
+                : "text-text-secondary hover:bg-accent/10 hover:text-text"
             }`}
           >
             <Sparkles size={16} />
@@ -802,7 +802,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       <div className="flex items-center px-3 h-[50px] border-t border-border">
         <button
           onClick={onOpenSettings}
-          className="relative p-2 rounded-lg hover:bg-accent-soft text-text-secondary hover:text-text transition-colors"
+          className="relative p-2 rounded-lg hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
         >
           <Settings size={20} />
           {suggestionCount > 0 && (

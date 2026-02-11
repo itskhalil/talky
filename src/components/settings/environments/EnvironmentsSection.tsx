@@ -55,8 +55,8 @@ const EnvironmentPill: React.FC<{
         transition-all duration-200 ease-out
         ${
           isSelected
-            ? "bg-accent-soft text-text shadow-sm"
-            : "text-text-secondary hover:text-text hover:bg-accent-soft/50"
+            ? "bg-accent/10 text-text shadow-sm"
+            : "text-text-secondary hover:text-text hover:bg-accent/10"
         }
       `}
     >
@@ -251,7 +251,7 @@ export const EnvironmentsSection: React.FC = () => {
             className="
               flex items-center justify-center w-8 h-8 rounded-full
               text-text-secondary hover:text-text
-              hover:bg-accent-soft/50 transition-colors
+              hover:bg-accent/10 transition-colors
             "
             title={t("settings.environments.add")}
           >
