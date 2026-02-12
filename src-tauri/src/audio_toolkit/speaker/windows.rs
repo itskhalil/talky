@@ -3,6 +3,7 @@
 //! This module captures system audio output (speaker/headphone audio) using
 //! Windows Audio Session API (WASAPI) loopback mode.
 
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::task::Poll;
@@ -16,9 +17,8 @@ use ringbuf::{
     HeapCons, HeapProd, HeapRb,
 };
 
-use wasapi::{Direction, ShareMode, WasapiError};
+use wasapi::{DeviceEnumerator, Direction, SampleType, StreamMode};
 
-use super::pcm::{pcm_f32_to_f32, pcm_i16_to_f32, pcm_i32_to_f32};
 use super::{BUFFER_SIZE, CHUNK_SIZE};
 
 /// Represents a speaker input device that can be used to capture system audio
@@ -50,7 +50,11 @@ impl SpeakerInput {
         wasapi::initialize_mta().ok();
 
         // Get the default render device to query sample rate
-        let device = wasapi::get_default_device(&Direction::Render)
+        let enumerator = DeviceEnumerator::new()
+            .map_err(|e| anyhow!("Failed to create device enumerator: {:?}", e))?;
+
+        let device = enumerator
+            .get_default_device(&Direction::Render)
             .map_err(|e| anyhow!("Failed to get default render device: {:?}", e))?;
 
         // Get the device's mix format to determine sample rate
@@ -135,8 +139,12 @@ fn run_capture_loop(
     // Initialize COM for this thread
     wasapi::initialize_mta().ok();
 
-    // Get the default render device (must be done in this thread due to COM threading)
-    let device = wasapi::get_default_device(&Direction::Render)
+    // Get the default render device (for loopback capture)
+    let enumerator = DeviceEnumerator::new()
+        .map_err(|e| anyhow!("Failed to create device enumerator: {:?}", e))?;
+
+    let device = enumerator
+        .get_default_device(&Direction::Render)
         .map_err(|e| anyhow!("Failed to get default render device: {:?}", e))?;
 
     // Get audio client
@@ -152,35 +160,43 @@ fn run_capture_loop(
     let sample_rate = mix_format.get_samplespersec();
     let channels = mix_format.get_nchannels() as usize;
     let bits_per_sample = mix_format.get_bitspersample();
-    let sample_type = mix_format.get_subformat().map_err(|e| {
-        anyhow!(
-            "Failed to get sample format: {:?}. Using PCM float fallback.",
-            e
-        )
-    });
+    let block_align = mix_format.get_blockalign() as usize;
 
     current_sample_rate.store(sample_rate, Ordering::Release);
 
+    // Determine if format is float
+    let is_float = mix_format
+        .get_subformat()
+        .map(|t| t == SampleType::Float)
+        .unwrap_or(false);
+
     log::info!(
-        "Capture format: {}Hz, {} channels, {} bits, format={:?}",
+        "Capture format: {}Hz, {} channels, {} bits, float={}, block_align={}",
         sample_rate,
         channels,
         bits_per_sample,
-        sample_type
+        is_float,
+        block_align
     );
 
-    // Initialize client in shared loopback mode
-    // Buffer duration in 100-nanosecond units (20ms = 200000 * 100ns)
-    let buffer_duration_100ns = 200_000i64;
+    // Use the device's mix format for capture with autoconvert enabled
+    // This lets WASAPI handle format conversion if needed
+    let (def_time, min_time) = client
+        .get_device_period()
+        .map_err(|e| anyhow!("Failed to get device period: {:?}", e))?;
+
+    log::debug!("Device period: default={}00ns, min={}00ns", def_time, min_time);
+
+    // Initialize in shared loopback mode
+    // By getting a Render device and initializing with Capture direction,
+    // WASAPI automatically enables loopback capture
+    let stream_mode = StreamMode::EventsShared {
+        autoconvert: true,
+        buffer_duration_hns: def_time,
+    };
 
     client
-        .initialize_client(
-            &mix_format,
-            buffer_duration_100ns,
-            &Direction::Capture,
-            &ShareMode::Shared,
-            true, // loopback mode
-        )
+        .initialize_client(&mix_format, &Direction::Capture, &stream_mode)
         .map_err(|e| anyhow!("Failed to initialize loopback client: {:?}", e))?;
 
     // Create event handle for audio data
@@ -200,11 +216,8 @@ fn run_capture_loop(
 
     log::info!("WASAPI loopback capture started");
 
-    // Determine format for conversion
-    let is_float = sample_type
-        .as_ref()
-        .map(|t| *t == wasapi::SampleType::Float)
-        .unwrap_or(true);
+    // Buffer for raw audio data
+    let mut sample_queue: VecDeque<u8> = VecDeque::with_capacity(block_align * 4096);
 
     // Capture loop
     while !shutdown.load(Ordering::Acquire) {
@@ -213,14 +226,17 @@ fn run_capture_loop(
             continue;
         }
 
-        // Read available frames
-        loop {
-            match capture_client.read_from_device_to_deinterleaved(channels, false) {
-                Ok(None) => break, // No more data available
-                Ok(Some(data)) => {
-                    // Convert to mono f32 and push to ring buffer
-                    let mono_samples = convert_to_mono_f32(&data, is_float, bits_per_sample);
+        // Read available data into queue
+        match capture_client.read_from_device_to_deque(&mut sample_queue) {
+            Ok(_buffer_info) => {
+                // Convert raw bytes to mono f32 samples
+                let mono_samples =
+                    convert_bytes_to_mono_f32(&sample_queue, channels, bits_per_sample, is_float);
 
+                // Clear the queue after processing
+                sample_queue.clear();
+
+                if !mono_samples.is_empty() {
                     let pushed = producer.push_slice(&mono_samples);
                     if pushed < mono_samples.len() {
                         dropped_samples.fetch_add(mono_samples.len() - pushed, Ordering::Relaxed);
@@ -229,11 +245,9 @@ fn run_capture_loop(
                         waker.wake();
                     }
                 }
-                Err(WasapiError::BufferEmpty) => break,
-                Err(e) => {
-                    log::warn!("Capture read error: {:?}", e);
-                    break;
-                }
+            }
+            Err(e) => {
+                log::warn!("Capture read error: {:?}", e);
             }
         }
     }
@@ -245,92 +259,100 @@ fn run_capture_loop(
     Ok(())
 }
 
-/// Convert deinterleaved multi-channel audio to mono f32
-fn convert_to_mono_f32(data: &[Vec<u8>], is_float: bool, bits_per_sample: u16) -> Vec<f32> {
-    if data.is_empty() || data[0].is_empty() {
+/// Convert raw interleaved bytes to mono f32 samples
+fn convert_bytes_to_mono_f32(
+    data: &VecDeque<u8>,
+    channels: usize,
+    bits_per_sample: u16,
+    is_float: bool,
+) -> Vec<f32> {
+    if data.is_empty() {
         return Vec::new();
     }
 
-    let channels = data.len();
+    let bytes_per_sample = (bits_per_sample / 8) as usize;
+    let frame_size = bytes_per_sample * channels;
 
-    // Determine sample count based on first channel
-    let sample_count = match bits_per_sample {
-        16 => data[0].len() / 2,
-        24 => data[0].len() / 3,
-        32 => data[0].len() / 4,
-        _ => data[0].len() / 4, // Default to 32-bit
-    };
+    if data.len() < frame_size {
+        return Vec::new();
+    }
 
-    let mut mono = Vec::with_capacity(sample_count);
+    let frame_count = data.len() / frame_size;
+    let mut mono = Vec::with_capacity(frame_count);
 
-    for i in 0..sample_count {
+    // Convert VecDeque to contiguous slice for easier processing
+    let (front, back) = data.as_slices();
+    let mut all_data = Vec::with_capacity(data.len());
+    all_data.extend_from_slice(front);
+    all_data.extend_from_slice(back);
+
+    for frame_idx in 0..frame_count {
+        let frame_offset = frame_idx * frame_size;
         let mut sum = 0.0f32;
 
         for ch in 0..channels {
+            let sample_offset = frame_offset + ch * bytes_per_sample;
+
             let sample = if is_float && bits_per_sample == 32 {
                 // 32-bit float
-                let offset = i * 4;
-                if offset + 4 <= data[ch].len() {
+                if sample_offset + 4 <= all_data.len() {
                     let bytes = [
-                        data[ch][offset],
-                        data[ch][offset + 1],
-                        data[ch][offset + 2],
-                        data[ch][offset + 3],
+                        all_data[sample_offset],
+                        all_data[sample_offset + 1],
+                        all_data[sample_offset + 2],
+                        all_data[sample_offset + 3],
                     ];
-                    pcm_f32_to_f32(f32::from_le_bytes(bytes))
+                    f32::from_le_bytes(bytes)
                 } else {
                     0.0
                 }
             } else if bits_per_sample == 16 {
                 // 16-bit PCM
-                let offset = i * 2;
-                if offset + 2 <= data[ch].len() {
-                    let bytes = [data[ch][offset], data[ch][offset + 1]];
-                    pcm_i16_to_f32(i16::from_le_bytes(bytes))
+                if sample_offset + 2 <= all_data.len() {
+                    let bytes = [all_data[sample_offset], all_data[sample_offset + 1]];
+                    let i16_val = i16::from_le_bytes(bytes);
+                    i16_val as f32 / 32768.0
                 } else {
                     0.0
                 }
             } else if bits_per_sample == 32 && !is_float {
                 // 32-bit PCM integer
-                let offset = i * 4;
-                if offset + 4 <= data[ch].len() {
+                if sample_offset + 4 <= all_data.len() {
                     let bytes = [
-                        data[ch][offset],
-                        data[ch][offset + 1],
-                        data[ch][offset + 2],
-                        data[ch][offset + 3],
+                        all_data[sample_offset],
+                        all_data[sample_offset + 1],
+                        all_data[sample_offset + 2],
+                        all_data[sample_offset + 3],
                     ];
-                    pcm_i32_to_f32(i32::from_le_bytes(bytes))
+                    let i32_val = i32::from_le_bytes(bytes);
+                    i32_val as f32 / 2147483648.0
                 } else {
                     0.0
                 }
             } else if bits_per_sample == 24 {
                 // 24-bit PCM (sign-extend to 32-bit)
-                let offset = i * 3;
-                if offset + 3 <= data[ch].len() {
-                    let i24 = (data[ch][offset] as i32)
-                        | ((data[ch][offset + 1] as i32) << 8)
-                        | ((data[ch][offset + 2] as i32) << 16);
+                if sample_offset + 3 <= all_data.len() {
+                    let i24 = (all_data[sample_offset] as i32)
+                        | ((all_data[sample_offset + 1] as i32) << 8)
+                        | ((all_data[sample_offset + 2] as i32) << 16);
                     // Sign extend from 24 to 32 bits
                     let i24 = if i24 & 0x800000 != 0 {
                         i24 | 0xFF000000u32 as i32
                     } else {
                         i24
                     };
-                    // Scale to [-1, 1]
-                    i24 as f32 / 8388607.0
+                    i24 as f32 / 8388608.0
                 } else {
                     0.0
                 }
             } else {
                 // Fallback: assume 32-bit float
-                let offset = i * 4;
-                if offset + 4 <= data[ch].len() {
+                if sample_offset + 4 <= all_data.len() {
                     let bytes = [
-                        data[ch][offset],
-                        data[ch][offset + 1],
-                        data[ch][offset + 2],
-                        data[ch][offset + 3],
+                        all_data[sample_offset],
+                        all_data[sample_offset + 1],
+                        all_data[sample_offset + 2],
+                        all_data[sample_offset + 3],
                     ];
                     f32::from_le_bytes(bytes)
                 } else {
