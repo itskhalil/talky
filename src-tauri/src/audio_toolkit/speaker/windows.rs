@@ -173,7 +173,7 @@ fn run_capture_loop(
 
     // Get device period for buffer size
     let (def_time, _min_time) = client
-        .get_device_period()
+        .get_periods()
         .map_err(|e| anyhow!("Failed to get device period: {:?}", e))?;
 
     log::debug!("Device period: default={}00ns", def_time);
