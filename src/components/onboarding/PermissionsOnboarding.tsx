@@ -67,9 +67,8 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
 // Dynamically import macOS permissions API only on macOS
 async function checkMacMicPermission(): Promise<boolean> {
   try {
-    const { checkMicrophonePermission } = await import(
-      "tauri-plugin-macos-permissions-api"
-    );
+    const { checkMicrophonePermission } =
+      await import("tauri-plugin-macos-permissions-api");
     return await checkMicrophonePermission();
   } catch {
     return false;
@@ -78,9 +77,8 @@ async function checkMacMicPermission(): Promise<boolean> {
 
 async function requestMacMicPermission(): Promise<void> {
   try {
-    const { requestMicrophonePermission } = await import(
-      "tauri-plugin-macos-permissions-api"
-    );
+    const { requestMicrophonePermission } =
+      await import("tauri-plugin-macos-permissions-api");
     await requestMicrophonePermission();
   } catch (e) {
     console.error("Failed to request macOS microphone permission:", e);

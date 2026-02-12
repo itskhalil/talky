@@ -47,6 +47,7 @@ const EnvironmentPill: React.FC<{
   isDefault: boolean;
   onClick: () => void;
 }> = ({ name, color, isSelected, isDefault, onClick }) => {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -69,7 +70,7 @@ const EnvironmentPill: React.FC<{
       />
       <span className="truncate max-w-[120px]">{name}</span>
       {isDefault && (
-        <span className="text-text-secondary text-xs">(default)</span>
+        <span className="text-text-secondary text-xs">({t("default")})</span>
       )}
     </button>
   );
