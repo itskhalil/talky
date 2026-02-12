@@ -24,7 +24,10 @@ export function usePlatformCapabilities(): PlatformCapabilities {
     useState<PlatformCapabilities>(defaultCapabilities);
 
   useEffect(() => {
-    commands.getPlatformCapabilities().then(setCapabilities).catch(console.error);
+    commands
+      .getPlatformCapabilities()
+      .then(setCapabilities)
+      .catch(console.error);
   }, []);
 
   return capabilities;
