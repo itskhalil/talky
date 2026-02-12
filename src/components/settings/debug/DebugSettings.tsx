@@ -6,6 +6,9 @@ import { SkipMicOnSpeakerEnergyToggle } from "./SkipMicOnSpeakerEnergyToggle";
 import { LogLevelSelector } from "./LogLevelSelector";
 import { HideCloudModelsToggle } from "./HideCloudModelsToggle";
 import { CopyAsBulletsToggle } from "./CopyAsBulletsToggle";
+import { DisableSpeakerCaptureToggle } from "./DisableSpeakerCaptureToggle";
+import { DisableModelLoadingToggle } from "./DisableModelLoadingToggle";
+import { DisablePillWindowToggle } from "./DisablePillWindowToggle";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { ClamshellMicrophoneSelector } from "../ClamshellMicrophoneSelector";
 import { UpdateChecksToggle } from "../UpdateChecksToggle";
@@ -29,6 +32,12 @@ export const DebugSettings: React.FC = () => {
         />
         <ClamshellMicrophoneSelector descriptionMode="tooltip" grouped={true} />
         <AppDataDirectory descriptionMode="tooltip" grouped={true} />
+      </SettingsGroup>
+
+      <SettingsGroup title={t("settings.debug.crashDiagnostics.title")}>
+        <DisableSpeakerCaptureToggle descriptionMode="tooltip" grouped={true} />
+        <DisableModelLoadingToggle descriptionMode="tooltip" grouped={true} />
+        <DisablePillWindowToggle descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
     </div>
   );

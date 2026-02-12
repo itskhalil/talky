@@ -263,6 +263,14 @@ pub struct AppSettings {
     pub model_environments: Vec<ModelEnvironment>,
     #[serde(default)]
     pub default_environment_id: Option<String>,
+
+    // Debug flags for Windows crash diagnosis
+    #[serde(default)]
+    pub debug_disable_speaker_capture: bool,
+    #[serde(default)]
+    pub debug_disable_model_loading: bool,
+    #[serde(default)]
+    pub debug_disable_pill_window: bool,
 }
 
 fn default_word_suggestions_enabled() -> bool {
@@ -586,6 +594,9 @@ pub fn get_default_settings() -> AppSettings {
         skip_mic_on_speaker_energy: default_skip_mic_on_speaker_energy(),
         model_environments: Vec::new(),
         default_environment_id: None,
+        debug_disable_speaker_capture: false,
+        debug_disable_model_loading: false,
+        debug_disable_pill_window: false,
     }
 }
 
