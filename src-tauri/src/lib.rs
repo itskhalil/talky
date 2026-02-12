@@ -543,10 +543,14 @@ pub fn run() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
-                    // Show pill if currently recording
-                    let audio_manager = window.app_handle().state::<Arc<AudioRecordingManager>>();
-                    if audio_manager.is_recording() {
-                        show_pill_window(&window.app_handle());
+                    // Show pill if currently recording (unless disabled by debug flag)
+                    let settings = crate::settings::get_settings(&window.app_handle());
+                    if !settings.debug_disable_pill_window {
+                        let audio_manager =
+                            window.app_handle().state::<Arc<AudioRecordingManager>>();
+                        if audio_manager.is_recording() {
+                            show_pill_window(&window.app_handle());
+                        }
                     }
                 }
             }
@@ -556,11 +560,14 @@ pub fn run() {
                         // Main window gained focus - hide the pill
                         hide_pill_window(&window.app_handle());
                     } else {
-                        // Main window lost focus - show pill if recording
-                        let audio_manager =
-                            window.app_handle().state::<Arc<AudioRecordingManager>>();
-                        if audio_manager.is_recording() {
-                            show_pill_window(&window.app_handle());
+                        // Main window lost focus - show pill if recording (unless disabled by debug flag)
+                        let settings = crate::settings::get_settings(&window.app_handle());
+                        if !settings.debug_disable_pill_window {
+                            let audio_manager =
+                                window.app_handle().state::<Arc<AudioRecordingManager>>();
+                            if audio_manager.is_recording() {
+                                show_pill_window(&window.app_handle());
+                            }
                         }
                     }
                 }

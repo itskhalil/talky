@@ -395,6 +395,22 @@
         "appData": "App Data:",
         "models": "Models:",
         "settings": "Settings:"
+      },
+      "crashDiagnostics": {
+        "title": "Crash Diagnostics",
+        "description": "Debug flags to isolate Windows crash causes"
+      },
+      "disableSpeakerCapture": {
+        "label": "Disable Speaker Capture",
+        "description": "Debug: Disable WASAPI speaker capture (for crash testing)"
+      },
+      "disableModelLoading": {
+        "label": "Disable Model Loading",
+        "description": "Debug: Disable automatic model loading on recording start"
+      },
+      "disablePillWindow": {
+        "label": "Disable Pill Window",
+        "description": "Debug: Disable the floating pill window during recording"
       }
     },
     "appearance": {
