@@ -5,8 +5,6 @@ import {
   requestMicrophonePermission,
 } from "tauri-plugin-macos-permissions-api";
 import { commands } from "@/bindings";
-import TalkyTextLogo from "../icons/TalkyTextLogo";
-
 interface PermissionsOnboardingProps {
   onComplete: () => void;
 }
@@ -181,7 +179,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
 
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-      <TalkyTextLogo width={200} />
+      <h1 className="text-5xl font-bold text-text">talky</h1>
       <div className="max-w-md w-full text-center space-y-6">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">
