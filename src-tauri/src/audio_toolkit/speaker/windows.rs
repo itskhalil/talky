@@ -17,7 +17,7 @@ use ringbuf::{
     HeapCons, HeapProd, HeapRb,
 };
 
-use wasapi::{DeviceEnumerator, Direction, SampleType, StreamMode};
+use wasapi::{Direction, SampleType, ShareMode};
 
 use super::{BUFFER_SIZE, CHUNK_SIZE};
 
@@ -50,11 +50,7 @@ impl SpeakerInput {
         wasapi::initialize_mta().ok();
 
         // Get the default render device to query sample rate
-        let enumerator = DeviceEnumerator::new()
-            .map_err(|e| anyhow!("Failed to create device enumerator: {:?}", e))?;
-
-        let device = enumerator
-            .get_default_device(&Direction::Render)
+        let device = wasapi::get_default_device(&Direction::Render)
             .map_err(|e| anyhow!("Failed to get default render device: {:?}", e))?;
 
         // Get the device's mix format to determine sample rate
@@ -140,11 +136,7 @@ fn run_capture_loop(
     wasapi::initialize_mta().ok();
 
     // Get the default render device (for loopback capture)
-    let enumerator = DeviceEnumerator::new()
-        .map_err(|e| anyhow!("Failed to create device enumerator: {:?}", e))?;
-
-    let device = enumerator
-        .get_default_device(&Direction::Render)
+    let device = wasapi::get_default_device(&Direction::Render)
         .map_err(|e| anyhow!("Failed to get default render device: {:?}", e))?;
 
     // Get audio client
@@ -179,24 +171,25 @@ fn run_capture_loop(
         block_align
     );
 
-    // Use the device's mix format for capture with autoconvert enabled
-    // This lets WASAPI handle format conversion if needed
-    let (def_time, min_time) = client
+    // Get device period for buffer size
+    let (def_time, _min_time) = client
         .get_device_period()
         .map_err(|e| anyhow!("Failed to get device period: {:?}", e))?;
 
-    log::debug!("Device period: default={}00ns, min={}00ns", def_time, min_time);
+    log::debug!("Device period: default={}00ns", def_time);
 
     // Initialize in shared loopback mode
     // By getting a Render device and initializing with Capture direction,
     // WASAPI automatically enables loopback capture
-    let stream_mode = StreamMode::EventsShared {
-        autoconvert: true,
-        buffer_duration_hns: def_time,
-    };
-
+    // Parameters: (format, period, direction, sharemode, autoconvert)
     client
-        .initialize_client(&mix_format, &Direction::Capture, &stream_mode)
+        .initialize_client(
+            &mix_format,
+            def_time,
+            &Direction::Capture,
+            &ShareMode::Shared,
+            true, // autoconvert
+        )
         .map_err(|e| anyhow!("Failed to initialize loopback client: {:?}", e))?;
 
     // Create event handle for audio data
