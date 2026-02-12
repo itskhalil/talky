@@ -574,10 +574,16 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            // Handle macOS dock icon click (Reopen event)
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 // Always show main window and hide pill when dock icon is clicked
                 show_main_window(app_handle);
                 hide_pill_window(app_handle);
             }
+
+            // Suppress unused variable warning on non-macOS
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app_handle, event);
         });
 }
