@@ -113,10 +113,70 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+/// Checks if a position is on any currently connected monitor
+fn is_position_on_valid_monitor(app: &AppHandle, position: tauri::PhysicalPosition<i32>) -> bool {
+    if let Ok(monitors) = app.available_monitors() {
+        for monitor in monitors {
+            let pos = monitor.position();
+            let size = monitor.size();
+            let x = position.x;
+            let y = position.y;
+            if x >= pos.x
+                && x < pos.x + size.width as i32
+                && y >= pos.y
+                && y < pos.y + size.height as i32
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Positions the pill window on the same monitor as the main window (top-right with padding)
+fn position_pill_on_main_monitor(app: &AppHandle) {
+    let pill = match app.get_webview_window("pill") {
+        Some(p) => p,
+        None => return,
+    };
+
+    // Try to get the monitor from the main window first
+    let monitor = app
+        .get_webview_window("main")
+        .and_then(|main| main.current_monitor().ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten())
+        .or_else(|| {
+            app.available_monitors()
+                .ok()
+                .and_then(|m| m.into_iter().next())
+        });
+
+    if let Some(monitor) = monitor {
+        let pos = monitor.position();
+        let size = monitor.size();
+        if let Ok(pill_size) = pill.outer_size() {
+            let padding = 20;
+            let x = pos.x + size.width as i32 - pill_size.width as i32 - padding;
+            let y = pos.y + padding;
+            let _ = pill.set_position(tauri::PhysicalPosition::new(x, y));
+        }
+    }
+}
+
 pub fn show_pill_window(app: &AppHandle) {
     if let Some(pill) = app.get_webview_window("pill") {
+        // Validate position is on a connected monitor
+        let needs_reposition = match pill.outer_position() {
+            Ok(pos) => !is_position_on_valid_monitor(app, pos),
+            Err(_) => true,
+        };
+
+        if needs_reposition {
+            position_pill_on_main_monitor(app);
+        }
+
         let _ = pill.show();
-        let _ = pill.set_focus();
+        // Don't call set_focus() - it causes focus cascade that hides the pill
     }
 }
 
@@ -433,7 +493,6 @@ pub fn run() {
                     tauri_plugin_window_state::StateFlags::POSITION
                         | tauri_plugin_window_state::StateFlags::SIZE,
                 )
-                .skip_initial_state("pill")
                 .build(),
         )
         .plugin(tauri_plugin_autostart::init(
