@@ -2,7 +2,7 @@
 
 **A free, open source meeting notes app with live transcription and AI-powered note enhancement.**
 
-Talky is a Mac application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Transcription runs entirely on your device — your audio never leaves your computer. Optional AI features let you enhance your notes and chat with your transcript.
+Talky is a desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Transcription runs entirely on your device — your audio never leaves your computer. Optional AI features let you enhance your notes and chat with your transcript.
 
 ## Features
 
@@ -41,6 +41,12 @@ Chat with your meeting in natural language. Ask about decisions, action items, o
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/install.sh | bash
+```
+
+#### Windows (quick install)
+
+```powershell
+irm https://raw.githubusercontent.com/itskhalil/talky/main/install.ps1 | iex
 ```
 
 ### Development Setup
@@ -94,10 +100,12 @@ Talky is built as a Tauri application combining:
 Talky includes a debug pane for development, troubleshooting, and advanced settings like enabling cloud AI providers. Access it by pressing:
 
 - **macOS**: `Cmd+Shift+D`
+- **Windows**: `Ctrl+Shift+D`
 
 ### Platform Support
 
-- **macOS (both Intel and Apple Silicon)**
+- **macOS** (Intel and Apple Silicon)
+- **Windows** (x64 and ARM64)
 
 ## License
 

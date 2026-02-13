@@ -62,6 +62,18 @@ impl ModelManager {
             .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?
             .join("models");
 
+        info!("ModelManager: models_dir = {:?}", models_dir);
+        info!("ModelManager: models_dir exists = {}", models_dir.exists());
+
+        // Log directory contents for debugging (helps diagnose onboarding issues)
+        if models_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&models_dir) {
+                for entry in entries.flatten() {
+                    info!("ModelManager: found entry: {:?}", entry.path());
+                }
+            }
+        }
+
         if !models_dir.exists() {
             fs::create_dir_all(&models_dir)?;
         }
@@ -180,8 +192,16 @@ impl ModelManager {
                     let _ = fs::remove_dir_all(&extracting_path);
                 }
 
-                model.is_downloaded = model_path.exists() && model_path.is_dir();
+                let exists = model_path.exists();
+                let is_dir = exists && model_path.is_dir();
+                model.is_downloaded = is_dir;
                 model.is_downloading = false;
+
+                // Log model check for debugging onboarding issues
+                info!(
+                    "ModelManager: checking model '{}': path={:?}, exists={}, is_dir={}, is_downloaded={}",
+                    model.id, model_path, exists, is_dir, model.is_downloaded
+                );
 
                 // Get partial file size if it exists (for the .tar.gz being downloaded)
                 if partial_path.exists() {

@@ -59,7 +59,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ inputs.target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -73,12 +73,31 @@ jobs:
       - name: Add Rust target
         run: rustup target add ${{ inputs.target }}
 
-      - name: Set ARM64 whisper.cpp build flags
+      - name: Set ARM64 whisper.cpp build flags (macOS)
         if: inputs.target == 'aarch64-apple-darwin'
         run: |
           echo "GGML_NATIVE=OFF" >> $GITHUB_ENV
           echo "CMAKE_C_FLAGS=-march=armv8.5-a" >> $GITHUB_ENV
           echo "CMAKE_CXX_FLAGS=-march=armv8.5-a" >> $GITHUB_ENV
+
+      - name: Install Vulkan SDK (Windows)
+        if: startsWith(inputs.platform, 'windows')
+        shell: pwsh
+        run: |
+          $vulkanVersion = "1.3.290.0"
+          $installerUrl = "https://sdk.lunarg.com/sdk/download/$vulkanVersion/windows/VulkanSDK-$vulkanVersion-Installer.exe"
+          $installerPath = "$env:TEMP\VulkanSDK-Installer.exe"
+
+          Write-Host "Downloading Vulkan SDK $vulkanVersion..."
+          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+
+          Write-Host "Installing Vulkan SDK..."
+          Start-Process -FilePath $installerPath -ArgumentList "--accept-licenses --default-answer --confirm-command install" -Wait -NoNewWindow
+
+          # Set environment variables for this job
+          $vulkanPath = "C:\VulkanSDK\$vulkanVersion"
+          echo "VULKAN_SDK=$vulkanPath" >> $env:GITHUB_ENV
+          echo "$vulkanPath\Bin" >> $env:GITHUB_PATH
 
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
@@ -92,12 +111,22 @@ jobs:
           releaseId: ${{ inputs.release-id }}
           args: ${{ inputs.build-args }}
 
-      - name: Upload artifacts
-        if: inputs.upload-artifacts
+      - name: Upload macOS artifacts
+        if: inputs.upload-artifacts && startsWith(inputs.platform, 'macos')
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.asset-prefix }}-${{ inputs.target }}
           path: |
             src-tauri/target/${{ inputs.target }}/release/bundle/dmg/*.dmg
             src-tauri/target/${{ inputs.target }}/release/bundle/macos/*.app
+          retention-days: 30
+
+      - name: Upload Windows artifacts
+        if: inputs.upload-artifacts && startsWith(inputs.platform, 'windows')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.asset-prefix }}-${{ inputs.target }}
+          path: |
+            src-tauri/target/${{ inputs.target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ inputs.target }}/release/bundle/nsis/*.exe
           retention-days: 30

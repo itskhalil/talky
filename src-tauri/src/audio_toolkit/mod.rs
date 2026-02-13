@@ -2,7 +2,7 @@ pub mod audio;
 pub mod constants;
 pub mod pipeline;
 pub mod preprocessing;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub mod speaker;
 pub mod text;
 pub mod utils;

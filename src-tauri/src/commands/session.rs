@@ -460,17 +460,28 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
     let rm = app.state::<Arc<crate::managers::audio::AudioRecordingManager>>();
     let tm = app.state::<Arc<crate::managers::transcription::TranscriptionManager>>();
 
-    tm.initiate_model_load();
+    // Check debug flags
+    let settings = crate::settings::get_settings(&app);
+
+    if settings.debug_disable_model_loading {
+        log::warn!("Model loading disabled by debug flag");
+    } else {
+        tm.initiate_model_load();
+    }
 
     rm.start_session_recording().map_err(|e| e.to_string())?;
 
-    // Spawn speaker capture task (macOS only)
-    #[cfg(target_os = "macos")]
+    // Spawn speaker capture task (macOS and Windows)
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
-        let speaker_buf = sm.speaker_buffer_handle();
-        let shutdown = sm.speaker_shutdown_handle();
-        let handle = spawn_speaker_capture(speaker_buf, shutdown);
-        sm.set_speaker_thread_handle(handle);
+        if settings.debug_disable_speaker_capture {
+            log::warn!("Speaker capture disabled by debug flag");
+        } else {
+            let speaker_buf = sm.speaker_buffer_handle();
+            let shutdown = sm.speaker_shutdown_handle();
+            let handle = spawn_speaker_capture(speaker_buf, shutdown);
+            sm.set_speaker_thread_handle(handle);
+        }
     }
 
     // Get time offset from existing segments (for pause/resume continuity)
@@ -505,7 +516,7 @@ pub fn stop_session_recording(app: AppHandle, session_id: String) -> Result<(), 
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub fn spawn_speaker_capture(
     buffer: Arc<std::sync::Mutex<Vec<f32>>>,
     shutdown: Arc<std::sync::atomic::AtomicBool>,
