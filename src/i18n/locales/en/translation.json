@@ -581,6 +581,7 @@
     "checkForUpdates": "Check for updates"
   },
   "common": {
+    "appName": "talky",
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
