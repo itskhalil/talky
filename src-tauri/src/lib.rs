@@ -10,6 +10,7 @@ mod managers;
 mod menu;
 #[cfg(target_os = "macos")]
 mod mic_detect;
+mod platform;
 #[cfg(target_os = "macos")]
 mod power_events;
 mod settings;
@@ -32,7 +33,7 @@ use tauri::image::Image;
 use tauri::tray::TrayIconBuilder;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKind};
 
 use crate::settings::get_settings;
@@ -113,10 +114,70 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+/// Checks if a position is on any currently connected monitor
+fn is_position_on_valid_monitor(app: &AppHandle, position: tauri::PhysicalPosition<i32>) -> bool {
+    if let Ok(monitors) = app.available_monitors() {
+        for monitor in monitors {
+            let pos = monitor.position();
+            let size = monitor.size();
+            let x = position.x;
+            let y = position.y;
+            if x >= pos.x
+                && x < pos.x + size.width as i32
+                && y >= pos.y
+                && y < pos.y + size.height as i32
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Positions the pill window on the same monitor as the main window (top-right with padding)
+fn position_pill_on_main_monitor(app: &AppHandle) {
+    let pill = match app.get_webview_window("pill") {
+        Some(p) => p,
+        None => return,
+    };
+
+    // Try to get the monitor from the main window first
+    let monitor = app
+        .get_webview_window("main")
+        .and_then(|main| main.current_monitor().ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten())
+        .or_else(|| {
+            app.available_monitors()
+                .ok()
+                .and_then(|m| m.into_iter().next())
+        });
+
+    if let Some(monitor) = monitor {
+        let pos = monitor.position();
+        let size = monitor.size();
+        if let Ok(pill_size) = pill.outer_size() {
+            let padding = 20;
+            let x = pos.x + size.width as i32 - pill_size.width as i32 - padding;
+            let y = pos.y + padding;
+            let _ = pill.set_position(tauri::PhysicalPosition::new(x, y));
+        }
+    }
+}
+
 pub fn show_pill_window(app: &AppHandle) {
     if let Some(pill) = app.get_webview_window("pill") {
+        // Validate position is on a connected monitor
+        let needs_reposition = match pill.outer_position() {
+            Ok(pos) => !is_position_on_valid_monitor(app, pos),
+            Err(_) => true,
+        };
+
+        if needs_reposition {
+            position_pill_on_main_monitor(app);
+        }
+
         let _ = pill.show();
-        let _ = pill.set_focus();
+        // Don't call set_focus() - it causes focus cascade that hides the pill
     }
 }
 
@@ -308,6 +369,7 @@ pub fn run() {
         commands::open_user_data_directory,
         commands::check_apple_intelligence_available,
         commands::check_ollama_available,
+        platform::get_platform_capabilities,
         commands::models::get_available_models,
         commands::models::get_model_info,
         commands::models::download_model,
@@ -415,7 +477,8 @@ pub fn run() {
             .build(),
     );
 
-    builder
+    // Configure cross-platform plugins
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_main_window(app);
         }))
@@ -423,7 +486,6 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -433,13 +495,20 @@ pub fn run() {
                     tauri_plugin_window_state::StateFlags::POSITION
                         | tauri_plugin_window_state::StateFlags::SIZE,
                 )
-                .skip_initial_state("pill")
                 .build(),
-        )
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec![]),
-        ))
+        );
+
+    // Autostart plugin - MacosLauncher param only used on macOS, ignored on Windows/Linux
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        Some(vec![]),
+    ));
+
+    // Add macOS-specific plugins
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_macos_permissions::init());
+
+    builder
         .setup(move |app| {
             let settings = get_settings(&app.handle());
             let tauri_log_level: tauri_plugin_log::LogLevel = settings.log_level.into();
@@ -472,12 +541,26 @@ pub fn run() {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 // Only handle main window close specially
                 if window.label() == "main" {
-                    api.prevent_close();
-                    let _ = window.hide();
-                    // Show pill if currently recording
-                    let audio_manager = window.app_handle().state::<Arc<AudioRecordingManager>>();
-                    if audio_manager.is_recording() {
-                        show_pill_window(&window.app_handle());
+                    #[cfg(target_os = "windows")]
+                    {
+                        // On Windows, close button should quit the app entirely
+                        // The tray icon keeps the process alive, so we must explicitly exit
+                        let _ = api; // Suppress unused warning
+                        window.app_handle().exit(0);
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        // Show pill if currently recording (unless disabled by debug flag)
+                        let settings = crate::settings::get_settings(&window.app_handle());
+                        if !settings.debug_disable_pill_window {
+                            let audio_manager =
+                                window.app_handle().state::<Arc<AudioRecordingManager>>();
+                            if audio_manager.is_recording() {
+                                show_pill_window(&window.app_handle());
+                            }
+                        }
                     }
                 }
             }
@@ -487,11 +570,14 @@ pub fn run() {
                         // Main window gained focus - hide the pill
                         hide_pill_window(&window.app_handle());
                     } else {
-                        // Main window lost focus - show pill if recording
-                        let audio_manager =
-                            window.app_handle().state::<Arc<AudioRecordingManager>>();
-                        if audio_manager.is_recording() {
-                            show_pill_window(&window.app_handle());
+                        // Main window lost focus - show pill if recording (unless disabled by debug flag)
+                        let settings = crate::settings::get_settings(&window.app_handle());
+                        if !settings.debug_disable_pill_window {
+                            let audio_manager =
+                                window.app_handle().state::<Arc<AudioRecordingManager>>();
+                            if audio_manager.is_recording() {
+                                show_pill_window(&window.app_handle());
+                            }
                         }
                     }
                 }
@@ -505,10 +591,16 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            // Handle macOS dock icon click (Reopen event)
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 // Always show main window and hide pill when dock icon is clicked
                 show_main_window(app_handle);
                 hide_pill_window(app_handle);
             }
+
+            // Suppress unused variable warning on non-macOS
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app_handle, event);
         });
 }

@@ -353,6 +353,12 @@ async checkAppleIntelligenceAvailable() : Promise<boolean> {
 async checkOllamaAvailable(baseUrl: string | null) : Promise<string[]> {
     return await TAURI_INVOKE("check_ollama_available", { baseUrl });
 },
+/**
+ * Tauri command to get platform capabilities
+ */
+async getPlatformCapabilities() : Promise<PlatformCapabilities> {
+    return await TAURI_INVOKE("get_platform_capabilities");
+},
 async getAvailableModels() : Promise<Result<ModelInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_models") };
@@ -518,7 +524,8 @@ async isRecording() : Promise<boolean> {
 },
 /**
  * Triggers the system audio permission request by briefly starting the audio tap.
- * This is used during onboarding to request the "System Audio Recording Only" permission.
+ * This is used during onboarding to request the "System Audio Recording Only" permission on macOS.
+ * On Windows, no special permission is needed for WASAPI loopback capture.
  */
 async requestSystemAudioPermission() : Promise<Result<null, string>> {
     try {
@@ -951,7 +958,7 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null }
+data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
 export type Folder = { id: string; name: string; color: string | null; sort_order: number; created_at: number }
@@ -964,6 +971,34 @@ export type ModelEnvironment = { id: string; name: string; color: string; base_u
 export type ModelInfo = { id: string; name: string; description: string; filename: string; url: string | null; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
 export type ModelUnloadTimeout = "never" | "immediately" | "min_2" | "min_5" | "min_10" | "min_15" | "hour_1" | "sec_5"
+/**
+ * Platform capabilities that can be queried by the frontend
+ */
+export type PlatformCapabilities = { 
+/**
+ * Whether speaker (system audio) capture is available
+ */
+speakerCapture: boolean; 
+/**
+ * Whether meeting app detection is available
+ */
+meetingDetection: boolean; 
+/**
+ * Whether clamshell (laptop lid closed) detection is available
+ */
+clamshellDetection: boolean; 
+/**
+ * Whether system sleep event handling is available
+ */
+systemSleepEvents: boolean; 
+/**
+ * Whether Apple Intelligence features are available
+ */
+appleIntelligence: boolean; 
+/**
+ * The current operating system
+ */
+os: string }
 export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null }
 export type RecordingRetentionPeriod = "never" | "preserve_limit" | "days_3" | "weeks_2" | "months_3"
 export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null }

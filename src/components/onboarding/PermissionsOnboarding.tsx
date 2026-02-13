@@ -1,12 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  checkMicrophonePermission,
-  requestMicrophonePermission,
-} from "tauri-plugin-macos-permissions-api";
+import { type } from "@tauri-apps/plugin-os";
 import { commands } from "@/bindings";
-import TalkyTextLogo from "../icons/TalkyTextLogo";
-
 interface PermissionsOnboardingProps {
   onComplete: () => void;
 }
@@ -69,10 +64,35 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
   </div>
 );
 
+// Dynamically import macOS permissions API only on macOS
+async function checkMacMicPermission(): Promise<boolean> {
+  try {
+    const { checkMicrophonePermission } =
+      await import("tauri-plugin-macos-permissions-api");
+    return await checkMicrophonePermission();
+  } catch {
+    return false;
+  }
+}
+
+async function requestMacMicPermission(): Promise<void> {
+  try {
+    const { requestMicrophonePermission } =
+      await import("tauri-plugin-macos-permissions-api");
+    await requestMicrophonePermission();
+  } catch (e) {
+    console.error("Failed to request macOS microphone permission:", e);
+  }
+}
+
 export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   onComplete,
 }) => {
   const { t } = useTranslation();
+  const osType = type();
+  const isMacOS = osType === "macos";
+  const isWindows = osType === "windows";
+
   const [microphoneGranted, setMicrophoneGranted] = useState(false);
   const [systemAudioRequested, setSystemAudioRequested] = useState(false);
   const [isRequestingMic, setIsRequestingMic] = useState(false);
@@ -81,10 +101,19 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkPermissions = useCallback(async () => {
-    const mic = await checkMicrophonePermission();
-    setMicrophoneGranted(mic);
-    return { mic };
-  }, []);
+    if (isMacOS) {
+      const mic = await checkMacMicPermission();
+      setMicrophoneGranted(mic);
+      return { mic };
+    } else {
+      // On Windows, we don't need to check permissions beforehand
+      // The system will prompt when the microphone is first accessed
+      setMicrophoneGranted(true);
+      // WASAPI loopback doesn't require special permissions
+      setSystemAudioRequested(true);
+      return { mic: true };
+    }
+  }, [isMacOS]);
 
   useEffect(() => {
     checkPermissions();
@@ -105,16 +134,22 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   }, [microphoneGranted, systemAudioRequested, onComplete]);
 
   const handleMicrophoneRequest = async () => {
+    if (!isMacOS) {
+      // On non-macOS platforms, just mark as granted
+      setMicrophoneGranted(true);
+      return;
+    }
+
     setIsRequestingMic(true);
     try {
-      await requestMicrophonePermission();
+      await requestMacMicPermission();
       // Poll for permission changes since the dialog is async
       // Stop any existing polling
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
       }
       pollingRef.current = setInterval(async () => {
-        const granted = await checkMicrophonePermission();
+        const granted = await checkMacMicPermission();
         if (granted) {
           setMicrophoneGranted(true);
           setIsRequestingMic(false);
@@ -139,6 +174,12 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   };
 
   const handleSystemAudioRequest = async () => {
+    if (!isMacOS) {
+      // On non-macOS platforms, WASAPI loopback doesn't need permissions
+      setSystemAudioRequested(true);
+      return;
+    }
+
     setIsRequestingSystemAudio(true);
     setSystemAudioError(null);
     try {
@@ -179,9 +220,25 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
 
   const allGranted = microphoneGranted && systemAudioRequested;
 
+  // On Windows, skip permission UI entirely since we auto-grant
+  if (isWindows && allGranted) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
+        <h1 className="text-5xl font-bold text-text font-display">
+          {t("common.appName")}
+        </h1>
+        <p className="text-green-500 font-medium">
+          {t("onboarding.permissions.allGranted")}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-      <TalkyTextLogo width={200} />
+      <h1 className="text-5xl font-bold text-text font-display">
+        {t("common.appName")}
+      </h1>
       <div className="max-w-md w-full text-center space-y-6">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">
@@ -203,16 +260,19 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
             grantText={t("onboarding.permissions.grant")}
           />
 
-          <PermissionItem
-            title={t("onboarding.permissions.systemAudio.title")}
-            description={t("onboarding.permissions.systemAudio.description")}
-            isGranted={systemAudioRequested}
-            isRequesting={isRequestingSystemAudio}
-            onRequest={handleSystemAudioRequest}
-            grantedText={t("onboarding.permissions.granted")}
-            grantText={t("onboarding.permissions.grant")}
-            error={systemAudioError ?? undefined}
-          />
+          {/* Only show system audio permission on macOS */}
+          {isMacOS && (
+            <PermissionItem
+              title={t("onboarding.permissions.systemAudio.title")}
+              description={t("onboarding.permissions.systemAudio.description")}
+              isGranted={systemAudioRequested}
+              isRequesting={isRequestingSystemAudio}
+              onRequest={handleSystemAudioRequest}
+              grantedText={t("onboarding.permissions.granted")}
+              grantText={t("onboarding.permissions.grant")}
+              error={systemAudioError ?? undefined}
+            />
+          )}
         </div>
 
         {allGranted && (

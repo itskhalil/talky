@@ -1,7 +1,7 @@
 {
   "identifier": "desktop-capability",
   "platforms": ["macOS", "windows", "linux"],
-  "windows": ["main"],
+  "windows": ["main", "pill"],
   "permissions": [
     "autostart:default",
     "updater:default",
