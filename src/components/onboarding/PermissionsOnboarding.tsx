@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { type } from "@tauri-apps/plugin-os";
 import { commands } from "@/bindings";
+import { TalkyTextLogo } from "@/components/icons";
 interface PermissionsOnboardingProps {
   onComplete: () => void;
 }
