@@ -224,7 +224,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   if (isWindows && allGranted) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-        <h1 className="text-5xl font-bold text-text">talky</h1>
+        <h1 className="text-5xl font-bold text-text font-display">talky</h1>
         <p className="text-green-500 font-medium">
           {t("onboarding.permissions.allGranted")}
         </p>
@@ -234,7 +234,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
 
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-      <h1 className="text-5xl font-bold text-text">talky</h1>
+      <h1 className="text-5xl font-bold text-text font-display">talky</h1>
       <div className="max-w-md w-full text-center space-y-6">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">
