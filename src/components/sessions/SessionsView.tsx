@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useOsType } from "@/hooks/useOsType";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
 import {
@@ -55,6 +56,7 @@ function EmptyState({ onNewNote }: { onNewNote: () => void }) {
 
 export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const { t } = useTranslation();
+  const osType = useOsType();
   const sessions = useSessionStore((s) => s.sessions);
   const selectedSessionId = useSessionStore((s) => s.selectedSessionId);
   const recordingSessionId = useSessionStore((s) => s.recordingSessionId);
@@ -253,6 +255,10 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const isSelectedRecording =
     isRecording && recordingSessionId === selectedSessionId;
 
+  // macOS: 78px accounts for traffic lights
+  // Windows/Linux: 8px (left-2, just inside window edge)
+  const buttonLeftClass = osType === "macos" ? "left-[78px]" : "left-2";
+
   return (
     <div className="relative flex h-full">
       <button
@@ -264,7 +270,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             setSidebarCollapsed(true);
           }
         }}
-        className="absolute top-0.5 left-[78px] z-10 p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
+        className={`absolute top-0.5 ${buttonLeftClass} z-10 p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors`}
         title={t(
           sidebarCollapsed ? "notes.expandSidebar" : "notes.collapseSidebar",
         )}

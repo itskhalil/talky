@@ -541,15 +541,24 @@ pub fn run() {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 // Only handle main window close specially
                 if window.label() == "main" {
-                    api.prevent_close();
-                    let _ = window.hide();
-                    // Show pill if currently recording (unless disabled by debug flag)
-                    let settings = crate::settings::get_settings(&window.app_handle());
-                    if !settings.debug_disable_pill_window {
-                        let audio_manager =
-                            window.app_handle().state::<Arc<AudioRecordingManager>>();
-                        if audio_manager.is_recording() {
-                            show_pill_window(&window.app_handle());
+                    #[cfg(target_os = "windows")]
+                    {
+                        // On Windows, close button should quit the app (not hide to tray)
+                        // Let the close proceed naturally by not calling api.prevent_close()
+                        let _ = api; // Suppress unused warning
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        // Show pill if currently recording (unless disabled by debug flag)
+                        let settings = crate::settings::get_settings(&window.app_handle());
+                        if !settings.debug_disable_pill_window {
+                            let audio_manager =
+                                window.app_handle().state::<Arc<AudioRecordingManager>>();
+                            if audio_manager.is_recording() {
+                                show_pill_window(&window.app_handle());
+                            }
                         }
                     }
                 }
