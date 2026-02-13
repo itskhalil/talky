@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { type } from "@tauri-apps/plugin-os";
 import { commands } from "@/bindings";
-import { TalkyTextLogo } from "@/components/icons";
 interface PermissionsOnboardingProps {
   onComplete: () => void;
 }
@@ -225,7 +224,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   if (isWindows && allGranted) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-        <TalkyTextLogo width={200} />
+        <h1 className="text-5xl font-bold text-text">talky</h1>
         <p className="text-green-500 font-medium">
           {t("onboarding.permissions.allGranted")}
         </p>

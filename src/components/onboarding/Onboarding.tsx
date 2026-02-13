@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { commands, type ModelInfo } from "@/bindings";
 import ModelCard from "./ModelCard";
-import TalkyTextLogo from "../icons/TalkyTextLogo";
 
 interface OnboardingProps {
   onModelSelected: () => void;
@@ -66,7 +65,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   return (
     <div className="h-screen w-screen flex flex-col p-6 gap-4 inset-0">
       <div className="flex flex-col items-center gap-2 shrink-0">
-        <TalkyTextLogo width={200} />
+        <h1 className="text-5xl font-bold text-text">talky</h1>
         <p className="text-text/70 max-w-md font-medium mx-auto">
           {t("onboarding.subtitle")}
         </p>
