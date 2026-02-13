@@ -269,8 +269,20 @@ pub struct AppSettings {
     pub debug_disable_speaker_capture: bool,
     #[serde(default)]
     pub debug_disable_model_loading: bool,
-    #[serde(default)]
+    #[serde(default = "default_debug_disable_pill_window")]
     pub debug_disable_pill_window: bool,
+}
+
+fn default_debug_disable_pill_window() -> bool {
+    // Pill window is disabled by default on Windows due to focus-fighting issues
+    #[cfg(target_os = "windows")]
+    {
+        true
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
 }
 
 fn default_word_suggestions_enabled() -> bool {
@@ -596,7 +608,7 @@ pub fn get_default_settings() -> AppSettings {
         default_environment_id: None,
         debug_disable_speaker_capture: false,
         debug_disable_model_loading: false,
-        debug_disable_pill_window: false,
+        debug_disable_pill_window: default_debug_disable_pill_window(),
     }
 }
 
