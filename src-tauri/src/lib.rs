@@ -543,9 +543,10 @@ pub fn run() {
                 if window.label() == "main" {
                     #[cfg(target_os = "windows")]
                     {
-                        // On Windows, close button should quit the app (not hide to tray)
-                        // Let the close proceed naturally by not calling api.prevent_close()
+                        // On Windows, close button should quit the app entirely
+                        // The tray icon keeps the process alive, so we must explicitly exit
                         let _ = api; // Suppress unused warning
+                        window.app_handle().exit(0);
                     }
                     #[cfg(not(target_os = "windows"))]
                     {
