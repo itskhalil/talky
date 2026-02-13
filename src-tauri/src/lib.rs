@@ -35,6 +35,7 @@ use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKind};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use crate::settings::get_settings;
 use std::path::PathBuf;
@@ -166,7 +167,8 @@ fn position_pill_on_main_monitor(app: &AppHandle) {
 
 pub fn show_pill_window(app: &AppHandle) {
     if let Some(pill) = app.get_webview_window("pill") {
-        // Validate position is on a connected monitor
+        // Only reposition if the current position is off-screen (e.g., monitor disconnected)
+        // The window-state plugin handles persistence automatically
         let needs_reposition = match pill.outer_position() {
             Ok(pos) => !is_position_on_valid_monitor(app, pos),
             Err(_) => true,
@@ -183,6 +185,8 @@ pub fn show_pill_window(app: &AppHandle) {
 
 pub fn hide_pill_window(app: &AppHandle) {
     if let Some(pill) = app.get_webview_window("pill") {
+        // Save window state before hiding so position is persisted
+        let _ = app.save_window_state(StateFlags::POSITION);
         let _ = pill.hide();
     }
 }

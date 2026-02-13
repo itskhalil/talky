@@ -104,7 +104,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
 
   // Resizable sidebar
   const SIDEBAR_MIN = 200;
-  const SIDEBAR_MAX = 400;
+  const SIDEBAR_MAX = 600;
   const SIDEBAR_DEFAULT = 260;
   const SIDEBAR_STORAGE_KEY = "talky-sidebar-width";
   const SIDEBAR_COLLAPSED_KEY = "talky-sidebar-collapsed";
