@@ -98,19 +98,12 @@ pub async fn generate_session_summary(
 
     let settings = crate::settings::get_settings(&app);
 
-    // Determine the label for the user's speech
-    let user_label = if settings.user_name.trim().is_empty() {
-        "[You]".to_string()
-    } else {
-        format!("[{}]", settings.user_name.trim())
-    };
-
     // Build timestamped transcript
     let transcript_text: String = segments
         .iter()
         .map(|seg| {
             let label = if seg.source == "mic" {
-                &user_label
+                "[User]"
             } else {
                 "[Other]"
             };
@@ -175,8 +168,8 @@ pub async fn generate_session_summary(
         let name = settings.user_name.trim();
         system_message.push_str(&format!(
             "\n\nUSER IDENTITY: {} is the person who recorded this meeting. \
-             Their speech is labeled [{}] in the transcript.",
-            name, name
+             Their speech is labeled [User] in the transcript.",
+            name
         ));
     }
 
@@ -267,19 +260,12 @@ pub async fn generate_session_summary_stream(
 
     let settings = crate::settings::get_settings(&app);
 
-    // Determine the label for the user's speech
-    let user_label = if settings.user_name.trim().is_empty() {
-        "[You]".to_string()
-    } else {
-        format!("[{}]", settings.user_name.trim())
-    };
-
     // Build timestamped transcript
     let transcript_text: String = segments
         .iter()
         .map(|seg| {
             let label = if seg.source == "mic" {
-                &user_label
+                "[User]"
             } else {
                 "[Other]"
             };
@@ -344,8 +330,8 @@ pub async fn generate_session_summary_stream(
         let name = settings.user_name.trim();
         system_message.push_str(&format!(
             "\n\nUSER IDENTITY: {} is the person who recorded this meeting. \
-             Their speech is labeled [{}] in the transcript.",
-            name, name
+             Their speech is labeled [User] in the transcript.",
+            name
         ));
     }
 
