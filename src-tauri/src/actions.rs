@@ -13,7 +13,7 @@ use crate::mic_detect;
 const POLL_INTERVAL_MS: u64 = 250; // Faster polling for responsive VAD-based triggers
 const MIN_CHUNK_SAMPLES: usize = 16000; // 1s minimum at 16kHz
 const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe (safety net)
-const OVERLAP_SAMPLES: usize = 3200; // 200ms overlap at 16kHz for context continuity
+const OVERLAP_SAMPLES: usize = 6400; // 400ms overlap at 16kHz for context continuity
 const SPK_SILENCE_FLUSH_POLLS: u32 = 8; // 8 polls of silence (~2s at 250ms) → flush speaker audio
 const WHISPER_RATE: usize = 16000;
 
@@ -64,10 +64,9 @@ pub async fn run_session_transcription_loop(
             "resources/models/silero_vad_v4.onnx",
             tauri::path::BaseDirectory::Resource,
         ) {
-            Ok(vad_path) => match SileroVad::new(&vad_path, 0.15) {
+            Ok(vad_path) => match SileroVad::new(&vad_path, 0.15).map(|v| v.with_smoothing(2, 8)) {
                 Ok(silero) => {
                     log::info!("VAD initialized successfully");
-                    // SileroVad now has built-in smoothing (onset_frames=2, hangover_frames=5)
                     Some(Box::new(silero))
                 }
                 Err(e) => {
