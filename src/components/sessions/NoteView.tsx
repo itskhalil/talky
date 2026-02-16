@@ -100,6 +100,23 @@ interface NoteViewProps {
   enhanceStreaming?: boolean;
 }
 
+function highlightName(text: string, regex: RegExp): React.ReactNode {
+  const parts = text.split(regex);
+  if (parts.length === 1) return text;
+  const matches = text.match(new RegExp(regex.source, "gi")) || [];
+  return parts.reduce<React.ReactNode[]>((acc, part, i) => {
+    acc.push(part);
+    if (i < matches.length) {
+      acc.push(
+        <mark key={i} className="bg-yellow-500/20 text-inherit rounded-sm px-0.5">
+          {matches[i]}
+        </mark>,
+      );
+    }
+    return acc;
+  }, []);
+}
+
 function formatMs(ms: number): string {
   const totalSecs = Math.floor(ms / 1000);
   const mins = Math.floor(totalSecs / 60);
@@ -1295,15 +1312,10 @@ export function NoteView({
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {transcript.map((seg) => {
-                          const isMentioned =
-                            userNameRegex &&
-                            seg.source !== "mic" &&
-                            userNameRegex.test(seg.text);
-                          return (
+                        {transcript.map((seg) => (
                           <div
                             key={seg.id}
-                            className={`flex gap-3 text-xs ${isMentioned ? "bg-yellow-500/10 rounded px-1 -mx-1" : ""}`}
+                            className="flex gap-3 text-xs"
                           >
                             <span
                               data-ui
@@ -1320,11 +1332,12 @@ export function NoteView({
                                 : t("sessions.sourceThem")}
                             </span>
                             <span className="text-xs leading-relaxed text-text">
-                              {seg.text}
+                              {userNameRegex && seg.source !== "mic"
+                                ? highlightName(seg.text, userNameRegex)
+                                : seg.text}
                             </span>
                           </div>
-                          );
-                        })}
+                        ))}
                         <div ref={transcriptEndRef} />
                       </div>
                     )}
