@@ -5,7 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import i18n from "@/i18n";
-import { commands, type MeetingNotes } from "@/bindings";
+import { commands, type MeetingNotes, type Attachment } from "@/bindings";
 import { useSettingsStore } from "./settingsStore";
 
 export interface Session {
@@ -40,6 +40,7 @@ interface SessionCache {
   enhancedNotes: string | null;
   enhancedNotesEdited: boolean; // true if user edited after AI generation
   summary: string | null;
+  attachments: Attachment[];
   loadedAt: number;
 }
 
@@ -373,6 +374,7 @@ interface SessionStore {
     sessionId: string,
     environmentId: string | null,
   ) => Promise<void>;
+  refreshAttachments: (sessionId: string) => Promise<void>;
 
   // Internal
   _fetchSessionData: (sessionId: string) => Promise<void>;
@@ -442,9 +444,10 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     set((s) => ({ loading: { ...s.loading, [sessionId]: true } }));
 
     try {
-      const [transcript, meetingNotes] = await Promise.all([
+      const [transcript, meetingNotes, attachments] = await Promise.all([
         invoke<TranscriptSegment[]>("get_session_transcript", { sessionId }),
         invoke<MeetingNotes | null>("get_meeting_notes", { sessionId }),
+        invoke<Attachment[]>("get_attachments", { sessionId }),
       ]);
       const enhancedNotes = meetingNotes?.enhanced_notes || null;
 
@@ -454,6 +457,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         enhancedNotes,
         enhancedNotesEdited: meetingNotes?.enhanced_notes_edited ?? false,
         summary: meetingNotes?.summary || null,
+        attachments: attachments || [],
         loadedAt: Date.now(),
       };
 
@@ -872,6 +876,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             enhancedNotes: null,
             enhancedNotesEdited: false,
             summary: null,
+            attachments: [],
             loadedAt: Date.now(),
           },
         },
@@ -1206,6 +1211,29 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     }
   },
 
+  refreshAttachments: async (sessionId: string) => {
+    try {
+      const attachments = await invoke<Attachment[]>("get_attachments", {
+        sessionId,
+      });
+      set((s) => {
+        const existing = s.cache[sessionId];
+        if (!existing) return s;
+        return {
+          cache: {
+            ...s.cache,
+            [sessionId]: {
+              ...existing,
+              attachments: attachments || [],
+            },
+          },
+        };
+      });
+    } catch (e) {
+      console.error("Failed to refresh attachments:", e);
+    }
+  },
+
   cleanup: () => {
     const state = get();
     for (const [sessionId] of state._saveTimers) {
@@ -1315,5 +1343,15 @@ export function useEnhanceStreaming() {
   return useSessionStore(
     (s) =>
       (s.selectedSessionId && s.enhanceStreaming[s.selectedSessionId]) || false,
+  );
+}
+
+const EMPTY_ATTACHMENTS: Attachment[] = [];
+
+export function useAttachments() {
+  return useSessionStore(
+    (s) =>
+      (s.selectedSessionId && s.cache[s.selectedSessionId]?.attachments) ||
+      EMPTY_ATTACHMENTS,
   );
 }

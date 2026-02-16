@@ -96,6 +96,22 @@ static SESSION_MIGRATIONS: &[M] = &[
     M::up("ALTER TABLE meeting_notes ADD COLUMN enhanced_notes_edited INTEGER NOT NULL DEFAULT 0;"),
     // Migration 11: Add environment_id to sessions for model environments feature
     M::up("ALTER TABLE sessions ADD COLUMN environment_id TEXT;"),
+    // Migration 12: Add session_attachments table for document uploads
+    M::up(
+        "CREATE TABLE IF NOT EXISTS session_attachments (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            mime_type TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            extracted_text TEXT,
+            created_at INTEGER NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );",
+    ),
+    // Migration 13: Index for faster attachment queries by session
+    M::up("CREATE INDEX IF NOT EXISTS idx_attachments_session ON session_attachments(session_id);"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -123,6 +139,18 @@ pub struct Tag {
     pub id: String,
     pub name: String,
     pub color: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct Attachment {
+    pub id: String,
+    pub session_id: String,
+    pub filename: String,
+    pub file_path: String,
+    pub mime_type: String,
+    pub file_size: i64,
+    pub extracted_text: Option<String>,
+    pub created_at: i64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -491,6 +519,9 @@ impl SessionManager {
     }
 
     pub fn delete_session(&self, session_id: &str) -> Result<()> {
+        // Clean up attachments (files + db records)
+        self.delete_session_attachments(session_id)?;
+
         let conn = self.get_connection()?;
 
         // Clean up any legacy audio_recordings entries
@@ -962,5 +993,198 @@ impl SessionManager {
             |row| row.get(0),
         )?;
         Ok(count)
+    }
+
+    // ==================== Attachment CRUD ====================
+
+    /// Get the attachments directory for a session, creating it if needed
+    fn get_attachments_dir(&self, session_id: &str) -> Result<PathBuf> {
+        let app_data_dir = self.app_handle.path().app_data_dir()?;
+        let attachments_dir = app_data_dir.join("attachments").join(session_id);
+        if !attachments_dir.exists() {
+            fs::create_dir_all(&attachments_dir)?;
+        }
+        Ok(attachments_dir)
+    }
+
+    /// Add an attachment to a session by copying the source file to app data
+    pub fn add_attachment(
+        &self,
+        session_id: &str,
+        source_path: &str,
+        filename: &str,
+        mime_type: &str,
+    ) -> Result<Attachment> {
+        let source = std::path::Path::new(source_path);
+        if !source.exists() {
+            return Err(anyhow::anyhow!(
+                "Source file does not exist: {}",
+                source_path
+            ));
+        }
+
+        let metadata = fs::metadata(source)?;
+        let file_size = metadata.len() as i64;
+
+        // Generate unique ID and destination path
+        let id = Uuid::new_v4().to_string();
+        let attachments_dir = self.get_attachments_dir(session_id)?;
+        let dest_filename = format!("{}_{}", id, filename);
+        let dest_path = attachments_dir.join(&dest_filename);
+
+        // Copy file to app data
+        fs::copy(source, &dest_path)?;
+
+        let now = Utc::now().timestamp();
+        let file_path_str = dest_path.to_string_lossy().to_string();
+
+        let conn = self.get_connection()?;
+        conn.execute(
+            "INSERT INTO session_attachments (id, session_id, filename, file_path, mime_type, file_size, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, session_id, filename, file_path_str, mime_type, file_size, now],
+        )?;
+
+        info!("Attachment added: {} -> {}", filename, id);
+
+        Ok(Attachment {
+            id,
+            session_id: session_id.to_string(),
+            filename: filename.to_string(),
+            file_path: file_path_str,
+            mime_type: mime_type.to_string(),
+            file_size,
+            extracted_text: None,
+            created_at: now,
+        })
+    }
+
+    /// Get all attachments for a session
+    pub fn get_attachments(&self, session_id: &str) -> Result<Vec<Attachment>> {
+        let conn = self.get_connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, filename, file_path, mime_type, file_size, extracted_text, created_at
+             FROM session_attachments
+             WHERE session_id = ?1
+             ORDER BY created_at ASC",
+        )?;
+
+        let rows = stmt.query_map(params![session_id], |row| {
+            Ok(Attachment {
+                id: row.get("id")?,
+                session_id: row.get("session_id")?,
+                filename: row.get("filename")?,
+                file_path: row.get("file_path")?,
+                mime_type: row.get("mime_type")?,
+                file_size: row.get("file_size")?,
+                extracted_text: row.get("extracted_text")?,
+                created_at: row.get("created_at")?,
+            })
+        })?;
+
+        let mut attachments = Vec::new();
+        for row in rows {
+            attachments.push(row?);
+        }
+        Ok(attachments)
+    }
+
+    /// Get a single attachment by ID
+    pub fn get_attachment(&self, attachment_id: &str) -> Result<Option<Attachment>> {
+        let conn = self.get_connection()?;
+        let attachment = conn
+            .query_row(
+                "SELECT id, session_id, filename, file_path, mime_type, file_size, extracted_text, created_at
+                 FROM session_attachments WHERE id = ?1",
+                params![attachment_id],
+                |row| {
+                    Ok(Attachment {
+                        id: row.get("id")?,
+                        session_id: row.get("session_id")?,
+                        filename: row.get("filename")?,
+                        file_path: row.get("file_path")?,
+                        mime_type: row.get("mime_type")?,
+                        file_size: row.get("file_size")?,
+                        extracted_text: row.get("extracted_text")?,
+                        created_at: row.get("created_at")?,
+                    })
+                },
+            )
+            .optional()?;
+        Ok(attachment)
+    }
+
+    /// Delete an attachment by ID, also removing the file from disk
+    pub fn delete_attachment(&self, attachment_id: &str) -> Result<()> {
+        // Get attachment to find file path
+        let attachment = self.get_attachment(attachment_id)?;
+        if let Some(att) = attachment {
+            // Delete file from disk
+            let path = std::path::Path::new(&att.file_path);
+            if path.exists() {
+                if let Err(e) = fs::remove_file(path) {
+                    warn!("Failed to delete attachment file {}: {}", att.file_path, e);
+                }
+            }
+        }
+
+        let conn = self.get_connection()?;
+        conn.execute(
+            "DELETE FROM session_attachments WHERE id = ?1",
+            params![attachment_id],
+        )?;
+
+        info!("Attachment deleted: {}", attachment_id);
+        Ok(())
+    }
+
+    /// Delete all attachments for a session (called when deleting a session)
+    pub fn delete_session_attachments(&self, session_id: &str) -> Result<()> {
+        // Get all attachments to delete their files
+        let attachments = self.get_attachments(session_id)?;
+        for att in attachments {
+            let path = std::path::Path::new(&att.file_path);
+            if path.exists() {
+                if let Err(e) = fs::remove_file(path) {
+                    warn!("Failed to delete attachment file {}: {}", att.file_path, e);
+                }
+            }
+        }
+
+        // Delete from database
+        let conn = self.get_connection()?;
+        conn.execute(
+            "DELETE FROM session_attachments WHERE session_id = ?1",
+            params![session_id],
+        )?;
+
+        // Try to remove the attachments directory for this session
+        let attachments_dir = self
+            .app_handle
+            .path()
+            .app_data_dir()
+            .ok()
+            .map(|d| d.join("attachments").join(session_id));
+        if let Some(dir) = attachments_dir {
+            if dir.exists() {
+                let _ = fs::remove_dir(&dir); // Ignore error if not empty
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Update the extracted text for an attachment (used after PDF/OCR processing)
+    pub fn update_attachment_extracted_text(
+        &self,
+        attachment_id: &str,
+        extracted_text: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.get_connection()?;
+        conn.execute(
+            "UPDATE session_attachments SET extracted_text = ?1 WHERE id = ?2",
+            params![extracted_text, attachment_id],
+        )?;
+        Ok(())
     }
 }

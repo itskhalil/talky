@@ -444,6 +444,13 @@ pub fn run() {
         commands::session::get_session_tags,
         commands::session::set_session_tags,
         commands::session::get_sessions_by_tag,
+        // Attachment commands
+        commands::session::add_attachment,
+        commands::session::get_attachments,
+        commands::session::get_attachment,
+        commands::session::delete_attachment,
+        commands::session::open_attachment,
+        commands::session::extract_pdf_text,
         // Export commands
         commands::export::export_note_as_markdown,
         commands::export::export_all_notes_as_markdown,
