@@ -474,11 +474,16 @@ impl TranscriptionManager {
             }
         };
 
-        // Apply word correction if custom words are configured
-        let corrected = if !settings.custom_words.is_empty() {
+        // Apply word correction if custom words or user name are configured
+        let mut vocab = settings.custom_words.clone();
+        let user_name = settings.user_name.trim().to_string();
+        if !user_name.is_empty() && !vocab.contains(&user_name) {
+            vocab.push(user_name);
+        }
+        let corrected = if !vocab.is_empty() {
             apply_custom_words(
                 &result,
-                &settings.custom_words,
+                &vocab,
                 settings.word_correction_threshold,
             )
         } else {
