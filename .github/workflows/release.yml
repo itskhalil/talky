@@ -1,6 +1,12 @@
 name: "Release"
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      include_windows:
+        description: "Build fresh Windows binaries (otherwise copies from last release with Windows)"
+        type: boolean
+        default: false
 
 jobs:
   create-release:
@@ -64,6 +70,7 @@ jobs:
     secrets: inherit
 
   build-windows:
+    if: ${{ inputs.include_windows }}
     permissions:
       contents: write
     needs: create-release
@@ -85,11 +92,105 @@ jobs:
       release-id: ${{ needs.create-release.outputs.release-id }}
     secrets: inherit
 
+  copy-windows-from-previous:
+    if: ${{ !inputs.include_windows }}
+    name: Copy Windows assets from previous release
+    permissions:
+      contents: write
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy Windows assets from previous release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releaseId = ${{ needs.create-release.outputs.release-id }};
+
+            // Windows asset patterns to copy
+            const windowsPatterns = [
+              /\.msi$/,
+              /\.exe$/,
+              /-setup\.exe$/,
+              /\.nsis\.zip$/,
+              /\.nsis\.zip\.sig$/,
+              /\.msi\.zip$/,
+              /\.msi\.zip\.sig$/
+            ];
+
+            // Find the most recent non-draft release that has Windows assets
+            console.log('Looking for previous release with Windows assets...');
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 20
+            });
+
+            let sourceRelease = null;
+            for (const release of releases.data) {
+              // Skip the current draft release and other drafts
+              if (release.id === releaseId || release.draft) continue;
+
+              // Check if this release has Windows assets
+              const hasWindows = release.assets.some(asset =>
+                windowsPatterns.some(pattern => pattern.test(asset.name))
+              );
+
+              if (hasWindows) {
+                sourceRelease = release;
+                console.log(`Found source release: ${release.tag_name} (${release.id})`);
+                break;
+              }
+            }
+
+            if (!sourceRelease) {
+              core.setFailed('No previous release with Windows assets found');
+              return;
+            }
+
+            // Copy each Windows asset to the new release
+            const windowsAssets = sourceRelease.assets.filter(asset =>
+              windowsPatterns.some(pattern => pattern.test(asset.name))
+            );
+
+            console.log(`Copying ${windowsAssets.length} Windows assets...`);
+
+            for (const asset of windowsAssets) {
+              console.log(`Downloading ${asset.name}...`);
+
+              const { data: assetData } = await github.rest.repos.getReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                asset_id: asset.id,
+                headers: {
+                  Accept: 'application/octet-stream'
+                }
+              });
+
+              console.log(`Uploading ${asset.name} to new release...`);
+
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseId,
+                name: asset.name,
+                data: assetData
+              });
+
+              console.log(`Successfully copied ${asset.name}`);
+            }
+
+            console.log('Done copying Windows assets from previous release');
+
   upload-unversioned-assets:
     name: Upload version-agnostic installers
     permissions:
       contents: write
-    needs: [create-release, build-macos, build-windows]
+    needs: [create-release, build-macos, build-windows, copy-windows-from-previous]
+    if: |
+      always() &&
+      needs.create-release.result == 'success' &&
+      needs.build-macos.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.copy-windows-from-previous.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Download and re-upload installers with version-agnostic names
