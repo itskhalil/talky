@@ -924,6 +924,54 @@ async getSessionsByTag(tagId: string) : Promise<Result<Session[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async addAttachment(sessionId: string, sourcePath: string, filename: string, mimeType: string) : Promise<Result<Attachment, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_attachment", { sessionId, sourcePath, filename, mimeType }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getAttachments(sessionId: string) : Promise<Result<Attachment[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_attachments", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getAttachment(attachmentId: string) : Promise<Result<Attachment | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_attachment", { attachmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteAttachment(attachmentId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_attachment", { attachmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async openAttachment(attachmentId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_attachment", { attachmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async extractPdfText(attachmentId: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("extract_pdf_text", { attachmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async exportNoteAsMarkdown(sessionId: string, filePath: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("export_note_as_markdown", { sessionId, filePath }) };
@@ -959,6 +1007,7 @@ export type AppSettings = {
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
 data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; hide_cloud_models?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean }
+export type Attachment = { id: string; session_id: string; filename: string; file_path: string; mime_type: string; file_size: number; extracted_text: string | null; created_at: number }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
 export type Folder = { id: string; name: string; color: string | null; sort_order: number; created_at: number }

@@ -564,6 +564,19 @@
       "chatTab": "Chat",
       "transcriptTab": "Transcript",
       "whatDidIMiss": "What did I miss?"
+    },
+    "attachments": {
+      "add": "Add document",
+      "addFiles": "Add files",
+      "delete": "Remove attachment",
+      "open": "Open file",
+      "fileTooLarge": "File too large (max {{size}})",
+      "tooManyFiles": "Too many files (max {{count}})",
+      "unsupportedType": "Unsupported file type",
+      "uploadError": "Failed to upload file",
+      "pdf": "PDF",
+      "image": "Image",
+      "enhancingWith": "Enhancing with {{count}} document(s)..."
     }
   },
   "footer": {

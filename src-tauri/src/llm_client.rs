@@ -17,10 +17,62 @@ fn truncate_str(s: &str, max_bytes: usize) -> &str {
     &s[..end]
 }
 
+/// Content part for multimodal messages
+#[derive(Debug, Serialize, Clone)]
+#[serde(tag = "type")]
+pub enum ContentPart {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image_url")]
+    ImageUrl { image_url: ImageUrl },
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ImageUrl {
+    pub url: String, // data:image/jpeg;base64,...
+}
+
+/// Chat message content - can be string or array of content parts
+#[derive(Debug, Clone)]
+pub enum MessageContent {
+    Text(String),
+    Parts(Vec<ContentPart>),
+}
+
+impl Serialize for MessageContent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            MessageContent::Text(s) => serializer.serialize_str(s),
+            MessageContent::Parts(parts) => parts.serialize(serializer),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct ChatMessage {
     pub role: String,
-    pub content: String,
+    pub content: MessageContent,
+}
+
+impl ChatMessage {
+    /// Create a simple text message
+    pub fn text(role: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: role.into(),
+            content: MessageContent::Text(content.into()),
+        }
+    }
+
+    /// Create a multimodal message with text and images
+    pub fn multimodal(role: impl Into<String>, parts: Vec<ContentPart>) -> Self {
+        Self {
+            role: role.into(),
+            content: MessageContent::Parts(parts),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]

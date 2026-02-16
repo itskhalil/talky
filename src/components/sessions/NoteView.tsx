@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
+import { AttachmentsRow } from "./AttachmentsRow";
+import { useAttachments } from "@/stores/sessionStore";
 import { useGlobalChat, type ChatMessage } from "@/hooks/useGlobalChat";
 import { useSettings } from "@/hooks/useSettings";
 import { useOrganizationStore } from "@/stores/organizationStore";
@@ -414,6 +416,8 @@ export function NoteView({
   const { t } = useTranslation();
   const { getSetting } = useSettings();
   const copyAsBulletsEnabled = getSetting("copy_as_bullets_enabled") ?? false;
+  const attachments = useAttachments();
+  const refreshAttachments = useSessionStore((s) => s.refreshAttachments);
   const [panelOpen, setPanelOpen] = useState(false);
   const [showReenhanceWarning, setShowReenhanceWarning] = useState(false);
   const [panelMode, setPanelMode] = useState<"transcript" | "chat">(
@@ -865,172 +869,185 @@ export function NoteView({
 
           {/* Environment, Folder and Tags */}
           {session && (
-            <div className="flex items-center gap-3 mt-2 flex-wrap">
-              {/* Environment selector - only show if 2+ environments */}
-              {showEnvSelector && (
-                <div ref={envDropdownRef} className="relative">
-                  <button
-                    onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
-                    className="-ml-2 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors"
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor: currentEnv?.color || "#6b7280",
-                      }}
-                    />
-                    <span>{currentEnv?.name ?? t("sessions.environment")}</span>
-                    <ChevronDown size={10} />
-                  </button>
-                  {envDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
-                      {environments.map((env) => (
-                        <button
-                          key={env.id}
-                          onClick={() => handleEnvSelect(env.id)}
-                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${
-                            (session?.environment_id ?? defaultEnvId) === env.id
-                              ? "text-accent"
-                              : "text-text"
-                          }`}
-                        >
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: env.color }}
-                          />
-                          {env.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Folder selector */}
-              <div ref={folderDropdownRef} className="relative">
-                <button
-                  onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-                  className={`flex items-center gap-1.5 ${showEnvSelector ? "" : "-ml-2"} px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors`}
-                >
-                  <FolderIcon
-                    size={12}
-                    style={
-                      currentFolder?.color
-                        ? { color: currentFolder.color }
-                        : undefined
-                    }
-                  />
-                  <span>
-                    {currentFolder?.name ?? t("notes.noFolder", "Notes")}
-                  </span>
-                  <ChevronDown size={10} />
-                </button>
-                {folderDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+            <>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                {/* Environment selector - only show if 2+ environments */}
+                {showEnvSelector && (
+                  <div ref={envDropdownRef} className="relative">
                     <button
-                      onClick={() => handleFolderSelect(null)}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors ${!localFolderId ? "text-accent" : "text-text"}`}
+                      onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
+                      className="-ml-2 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors"
                     >
-                      {t("notes.noFolder", "Notes")}
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{
+                          backgroundColor: currentEnv?.color || "#6b7280",
+                        }}
+                      />
+                      <span>
+                        {currentEnv?.name ?? t("sessions.environment")}
+                      </span>
+                      <ChevronDown size={10} />
                     </button>
-                    {folders.map((folder) => (
-                      <button
-                        key={folder.id}
-                        onClick={() => handleFolderSelect(folder.id)}
-                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${localFolderId === folder.id ? "text-accent" : "text-text"}`}
-                      >
-                        <FolderIcon
-                          size={12}
-                          style={
-                            folder.color ? { color: folder.color } : undefined
-                          }
-                        />
-                        {folder.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Tags */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {sessionTags.map((tag) => (
-                  <span
-                    key={tag.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/5 text-text"
-                    style={
-                      tag.color
-                        ? {
-                            backgroundColor: `${tag.color}20`,
-                            color: tag.color,
-                          }
-                        : undefined
-                    }
-                  >
-                    {tag.name}
-                    <button
-                      onClick={() => handleRemoveTag(tag.id)}
-                      className="hover:text-red-400 transition-colors"
-                    >
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
-
-                {/* Add tag */}
-                {tagInputOpen ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      ref={tagInputRef}
-                      type="text"
-                      value={tagInputValue}
-                      onChange={(e) => setTagInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleCreateAndAddTag();
-                        if (e.key === "Escape") {
-                          setTagInputOpen(false);
-                          setTagInputValue("");
-                        }
-                      }}
-                      placeholder={t("notes.newTag", "New tag")}
-                      className="w-20 px-2 py-0.5 text-xs rounded border border-border bg-transparent focus:outline-none focus:border-accent"
-                    />
-                    {availableTags.length > 0 && (
-                      <div className="flex gap-1">
-                        {availableTags.slice(0, 3).map((tag) => (
+                    {envDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+                        {environments.map((env) => (
                           <button
-                            key={tag.id}
-                            onClick={() => {
-                              handleAddTag(tag.id);
-                              setTagInputOpen(false);
-                            }}
-                            className="px-1.5 py-0.5 rounded text-xs bg-accent/5 text-text-secondary hover:text-text transition-colors"
-                            style={
-                              tag.color
-                                ? {
-                                    backgroundColor: `${tag.color}20`,
-                                    color: tag.color,
-                                  }
-                                : undefined
-                            }
+                            key={env.id}
+                            onClick={() => handleEnvSelect(env.id)}
+                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${
+                              (session?.environment_id ?? defaultEnvId) ===
+                              env.id
+                                ? "text-accent"
+                                : "text-text"
+                            }`}
                           >
-                            {tag.name}
+                            <span
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: env.color }}
+                            />
+                            {env.name}
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setTagInputOpen(true)}
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors"
-                  >
-                    <Tag size={10} />
-                    <Plus size={10} />
-                  </button>
                 )}
+
+                {/* Folder selector */}
+                <div ref={folderDropdownRef} className="relative">
+                  <button
+                    onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
+                    className={`flex items-center gap-1.5 ${showEnvSelector ? "" : "-ml-2"} px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors`}
+                  >
+                    <FolderIcon
+                      size={12}
+                      style={
+                        currentFolder?.color
+                          ? { color: currentFolder.color }
+                          : undefined
+                      }
+                    />
+                    <span>
+                      {currentFolder?.name ?? t("notes.noFolder", "Notes")}
+                    </span>
+                    <ChevronDown size={10} />
+                  </button>
+                  {folderDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+                      <button
+                        onClick={() => handleFolderSelect(null)}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors ${!localFolderId ? "text-accent" : "text-text"}`}
+                      >
+                        {t("notes.noFolder", "Notes")}
+                      </button>
+                      {folders.map((folder) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => handleFolderSelect(folder.id)}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${localFolderId === folder.id ? "text-accent" : "text-text"}`}
+                        >
+                          <FolderIcon
+                            size={12}
+                            style={
+                              folder.color ? { color: folder.color } : undefined
+                            }
+                          />
+                          {folder.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Tags */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {sessionTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/5 text-text"
+                      style={
+                        tag.color
+                          ? {
+                              backgroundColor: `${tag.color}20`,
+                              color: tag.color,
+                            }
+                          : undefined
+                      }
+                    >
+                      {tag.name}
+                      <button
+                        onClick={() => handleRemoveTag(tag.id)}
+                        className="hover:text-red-400 transition-colors"
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+
+                  {/* Add tag */}
+                  {tagInputOpen ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        ref={tagInputRef}
+                        type="text"
+                        value={tagInputValue}
+                        onChange={(e) => setTagInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleCreateAndAddTag();
+                          if (e.key === "Escape") {
+                            setTagInputOpen(false);
+                            setTagInputValue("");
+                          }
+                        }}
+                        placeholder={t("notes.newTag", "New tag")}
+                        className="w-20 px-2 py-0.5 text-xs rounded border border-border bg-transparent focus:outline-none focus:border-accent"
+                      />
+                      {availableTags.length > 0 && (
+                        <div className="flex gap-1">
+                          {availableTags.slice(0, 3).map((tag) => (
+                            <button
+                              key={tag.id}
+                              onClick={() => {
+                                handleAddTag(tag.id);
+                                setTagInputOpen(false);
+                              }}
+                              className="px-1.5 py-0.5 rounded text-xs bg-accent/5 text-text-secondary hover:text-text transition-colors"
+                              style={
+                                tag.color
+                                  ? {
+                                      backgroundColor: `${tag.color}20`,
+                                      color: tag.color,
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {tag.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setTagInputOpen(true)}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors"
+                    >
+                      <Tag size={10} />
+                      <Plus size={10} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+
+              {/* Attachments row */}
+              <AttachmentsRow
+                sessionId={session.id}
+                attachments={attachments}
+                onAttachmentsChange={() => refreshAttachments(session.id)}
+                disabled={false}
+              />
+            </>
           )}
         </div>
         <div className="max-w-3xl mx-auto overflow-hidden break-words">

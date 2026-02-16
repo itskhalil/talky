@@ -1,9 +1,10 @@
-use crate::llm_client::ChatMessage;
+use crate::llm_client::{ChatMessage, ContentPart, ImageUrl};
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::session::{
-    Folder, MeetingNotes, Session, SessionManager, Tag, TranscriptSegment,
+    Attachment, Folder, MeetingNotes, Session, SessionManager, Tag, TranscriptSegment,
 };
 use crate::managers::transcription::TranscriptionManager;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
@@ -174,14 +175,8 @@ pub async fn generate_session_summary(
     );
 
     let messages = vec![
-        ChatMessage {
-            role: "system".to_string(),
-            content: system_message,
-        },
-        ChatMessage {
-            role: "user".to_string(),
-            content: user_message,
-        },
+        ChatMessage::text("system", system_message),
+        ChatMessage::text("user", user_message),
     ];
 
     let result = crate::llm_client::send_chat_completion(&base_url, &api_key, &model, messages)
@@ -326,21 +321,85 @@ pub async fn generate_session_summary_stream(
         user_notes
     };
 
-    let user_message = format!(
+    // Fetch attachments for this session
+    let attachments = sm.get_attachments(&session_id).map_err(|e| e.to_string())?;
+
+    // Build document context from attachments
+    let mut document_context = String::new();
+    let mut image_parts: Vec<ContentPart> = Vec::new();
+
+    for att in &attachments {
+        if att.mime_type.starts_with("image/") {
+            // Include images directly if they exist
+            if let Ok(bytes) = std::fs::read(&att.file_path) {
+                let base64_data = BASE64.encode(&bytes);
+                let data_url = format!("data:{};base64,{}", att.mime_type, base64_data);
+                image_parts.push(ContentPart::ImageUrl {
+                    image_url: ImageUrl { url: data_url },
+                });
+                log::info!(
+                    "[enhance-notes] Including image attachment: {} ({} bytes)",
+                    att.filename,
+                    bytes.len()
+                );
+            }
+        } else if att.mime_type == "application/pdf" {
+            // For PDFs, use extracted text if available
+            if let Some(ref text) = att.extracted_text {
+                if !text.is_empty() {
+                    document_context
+                        .push_str(&format!("\n\n## DOCUMENT: {}\n{}\n", att.filename, text));
+                    log::info!(
+                        "[enhance-notes] Including PDF text: {} ({} chars)",
+                        att.filename,
+                        text.len()
+                    );
+                }
+            }
+        }
+    }
+
+    // Build the user message with document context
+    let mut user_message = format!(
         "## MEETING CONTEXT\nTitle: {}\nDuration: {}\n\n## USER'S NOTES\n{}\n\n## TRANSCRIPT\n{}",
         session_title, duration, notes_section, transcript_text
     );
 
-    let messages = vec![
-        ChatMessage {
-            role: "system".to_string(),
-            content: system_message.clone(),
-        },
-        ChatMessage {
-            role: "user".to_string(),
-            content: user_message.clone(),
-        },
-    ];
+    if !document_context.is_empty() {
+        user_message.push_str(&format!("\n\n## ATTACHED DOCUMENTS{}", document_context));
+    }
+
+    // Build messages - use multimodal if we have images, otherwise text-only
+    let messages = if image_parts.is_empty() {
+        vec![
+            ChatMessage::text("system", system_message.clone()),
+            ChatMessage::text("user", user_message.clone()),
+        ]
+    } else {
+        // For multimodal, include text first then images
+        let mut parts = vec![ContentPart::Text {
+            text: user_message.clone(),
+        }];
+        parts.extend(image_parts);
+
+        vec![
+            ChatMessage::text("system", system_message.clone()),
+            ChatMessage::multimodal("user", parts),
+        ]
+    };
+
+    log::info!(
+        "[enhance-notes] Including {} attachments ({} images, {} with extracted text)",
+        attachments.len(),
+        attachments
+            .iter()
+            .filter(|a| a.mime_type.starts_with("image/"))
+            .count(),
+        attachments
+            .iter()
+            .filter(|a| a.extracted_text.is_some())
+            .count()
+    );
 
     // Log the full context being sent to the model
     log::info!(
@@ -900,3 +959,98 @@ pub fn get_sessions_by_tag(app: AppHandle, tag_id: String) -> Result<Vec<Session
     let sm = app.state::<Arc<SessionManager>>();
     sm.get_sessions_by_tag(&tag_id).map_err(|e| e.to_string())
 }
+
+// ==================== Attachment Commands ====================
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_attachment(
+    app: AppHandle,
+    session_id: String,
+    source_path: String,
+    filename: String,
+    mime_type: String,
+) -> Result<Attachment, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.add_attachment(&session_id, &source_path, &filename, &mime_type)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_attachments(app: AppHandle, session_id: String) -> Result<Vec<Attachment>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.get_attachments(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_attachment(app: AppHandle, attachment_id: String) -> Result<Option<Attachment>, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.get_attachment(&attachment_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_attachment(app: AppHandle, attachment_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.delete_attachment(&attachment_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn open_attachment(app: AppHandle, attachment_id: String) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let attachment = sm
+        .get_attachment(&attachment_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Attachment not found".to_string())?;
+
+    // Open file in default application
+    tauri_plugin_opener::open_path(&attachment.file_path, None::<&str>).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn extract_pdf_text(app: AppHandle, attachment_id: String) -> Result<String, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let attachment = sm
+        .get_attachment(&attachment_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Attachment not found".to_string())?;
+
+    if attachment.mime_type != "application/pdf" {
+        return Err("Attachment is not a PDF".to_string());
+    }
+
+    // Extract text from PDF
+    let text = pdf_extract::extract_text(&attachment.file_path)
+        .map_err(|e| format!("Failed to extract PDF text: {}", e))?;
+
+    // Limit text to reasonable size (200 pages worth, roughly 500KB)
+    let max_chars = 500_000;
+    let text = if text.len() > max_chars {
+        log::warn!(
+            "[pdf-extract] Truncating PDF text from {} to {} chars",
+            text.len(),
+            max_chars
+        );
+        text[..max_chars].to_string()
+    } else {
+        text
+    };
+
+    // Save extracted text to database
+    sm.update_attachment_extracted_text(&attachment_id, Some(&text))
+        .map_err(|e| e.to_string())?;
+
+    log::info!(
+        "[pdf-extract] Extracted {} chars from {}",
+        text.len(),
+        attachment.filename
+    );
+
+    Ok(text)
+}
+
