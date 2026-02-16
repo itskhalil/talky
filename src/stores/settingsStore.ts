@@ -73,6 +73,7 @@ const DEFAULT_AUDIO_DEVICE: AudioDevice = {
 const settingUpdaters: {
   [K in keyof Settings]?: (value: Settings[K]) => Promise<unknown>;
 } = {
+  user_name: (value) => commands.changeUserNameSetting(value as string),
   font_size: (value) => commands.changeFontSizeSetting(value as any),
   autostart_enabled: (value) =>
     commands.changeAutostartSetting(value as boolean),

@@ -413,6 +413,11 @@
         "description": "Debug: Disable the floating pill window during recording"
       }
     },
+    "userName": {
+      "title": "Your Name",
+      "description": "Personalizes AI summaries and highlights when you're mentioned in transcripts",
+      "placeholder": "Enter your name"
+    },
     "appearance": {
       "title": "Appearance",
       "fontSize": {

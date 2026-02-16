@@ -96,12 +96,21 @@ pub async fn generate_session_summary(
         return Err("No transcript segments to summarize".to_string());
     }
 
+    let settings = crate::settings::get_settings(&app);
+
+    // Determine the label for the user's speech
+    let user_label = if settings.user_name.trim().is_empty() {
+        "[You]".to_string()
+    } else {
+        format!("[{}]", settings.user_name.trim())
+    };
+
     // Build timestamped transcript
     let transcript_text: String = segments
         .iter()
         .map(|seg| {
             let label = if seg.source == "mic" {
-                "[You]"
+                &user_label
             } else {
                 "[Other]"
             };
@@ -140,8 +149,6 @@ pub async fn generate_session_summary(
         .and_then(|n| n.user_notes)
         .unwrap_or_default();
 
-    let settings = crate::settings::get_settings(&app);
-
     // Get session's environment_id
     let session = sm
         .get_session(&session_id)
@@ -160,6 +167,16 @@ pub async fn generate_session_summary(
         system_message.push_str(&format!(
             "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
             settings.custom_words.join(", ")
+        ));
+    }
+
+    // Inject user identity when name is set
+    if !settings.user_name.trim().is_empty() {
+        let name = settings.user_name.trim();
+        system_message.push_str(&format!(
+            "\n\nUSER IDENTITY: {} is the person who recorded this meeting. \
+             Their speech is labeled [{}] in the transcript.",
+            name, name
         ));
     }
 
@@ -248,12 +265,21 @@ pub async fn generate_session_summary_stream(
         return Err("No transcript segments to summarize".to_string());
     }
 
+    let settings = crate::settings::get_settings(&app);
+
+    // Determine the label for the user's speech
+    let user_label = if settings.user_name.trim().is_empty() {
+        "[You]".to_string()
+    } else {
+        format!("[{}]", settings.user_name.trim())
+    };
+
     // Build timestamped transcript
     let transcript_text: String = segments
         .iter()
         .map(|seg| {
             let label = if seg.source == "mic" {
-                "[You]"
+                &user_label
             } else {
                 "[Other]"
             };
@@ -292,8 +318,6 @@ pub async fn generate_session_summary_stream(
         .and_then(|n| n.user_notes)
         .unwrap_or_default();
 
-    let settings = crate::settings::get_settings(&app);
-
     // Get session's environment_id
     let session = sm
         .get_session(&session_id)
@@ -312,6 +336,16 @@ pub async fn generate_session_summary_stream(
         system_message.push_str(&format!(
             "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
             settings.custom_words.join(", ")
+        ));
+    }
+
+    // Inject user identity when name is set
+    if !settings.user_name.trim().is_empty() {
+        let name = settings.user_name.trim();
+        system_message.push_str(&format!(
+            "\n\nUSER IDENTITY: {} is the person who recorded this meeting. \
+             Their speech is labeled [{}] in the transcript.",
+            name, name
         ));
     }
 

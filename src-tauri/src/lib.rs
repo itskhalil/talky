@@ -329,6 +329,7 @@ pub fn run() {
 
     let specta_builder = Builder::<tauri::Wry>::new().commands(collect_commands![
         show_main_from_pill,
+        commands::settings::change_user_name_setting,
         commands::settings::change_font_size_setting,
         commands::settings::change_autostart_setting,
         commands::settings::change_translate_to_english_setting,
