@@ -155,11 +155,16 @@ pub async fn generate_session_summary(
 
     let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
 
-    // Inject custom words into the prompt for vocabulary correction
-    if !settings.custom_words.is_empty() {
+    // Inject custom words (+ user name) into the prompt for vocabulary correction
+    let mut vocab = settings.custom_words.clone();
+    let user_name_trimmed = settings.user_name.trim().to_string();
+    if !user_name_trimmed.is_empty() && !vocab.contains(&user_name_trimmed) {
+        vocab.push(user_name_trimmed);
+    }
+    if !vocab.is_empty() {
         system_message.push_str(&format!(
             "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
-            settings.custom_words.join(", ")
+            vocab.join(", ")
         ));
     }
 
@@ -317,11 +322,16 @@ pub async fn generate_session_summary_stream(
 
     let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
 
-    // Inject custom words into the prompt for vocabulary correction
-    if !settings.custom_words.is_empty() {
+    // Inject custom words (+ user name) into the prompt for vocabulary correction
+    let mut vocab = settings.custom_words.clone();
+    let user_name_trimmed = settings.user_name.trim().to_string();
+    if !user_name_trimmed.is_empty() && !vocab.contains(&user_name_trimmed) {
+        vocab.push(user_name_trimmed);
+    }
+    if !vocab.is_empty() {
         system_message.push_str(&format!(
             "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
-            settings.custom_words.join(", ")
+            vocab.join(", ")
         ));
     }
 
