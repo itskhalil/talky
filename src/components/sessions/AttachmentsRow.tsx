@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Paperclip, X, FileText, Image, Plus, Loader2 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -64,11 +64,6 @@ function getFileIcon(mimeType: string) {
   return <Paperclip size={12} className="text-text-secondary" />;
 }
 
-function isValidExtension(filename: string): boolean {
-  const ext = filename.toLowerCase().split(".").pop() || "";
-  return SUPPORTED_EXTENSIONS.includes(ext);
-}
-
 interface AttachmentChipProps {
   attachment: Attachment;
   onOpen: () => void;
@@ -114,7 +109,7 @@ function AttachmentChip({
 
       {/* Image preview tooltip */}
       {showPreview && previewUrl && (
-        <div className="absolute bottom-full left-0 mb-2 p-1 bg-background border border-border rounded-lg shadow-lg z-50">
+        <div className="absolute top-full left-0 mt-2 p-1 bg-background border border-border rounded-lg shadow-lg z-50">
           <img
             src={previewUrl}
             alt={attachment.filename}
@@ -134,8 +129,6 @@ export function AttachmentsRow({
 }: AttachmentsRowProps) {
   const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   // Handle file upload (shared between dialog and drag-drop)
   const uploadFiles = useCallback(
@@ -239,77 +232,13 @@ export function AttachmentsRow({
     }
   }, []);
 
-  // Drag and drop handlers
-  const handleDragOver = useCallback(
-    (e: React.DragEvent) => {
-      if (disabled) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(true);
-    },
-    [disabled],
-  );
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Only set dragging to false if we're leaving the drop zone entirely
-    if (
-      dropZoneRef.current &&
-      !dropZoneRef.current.contains(e.relatedTarget as Node)
-    ) {
-      setIsDragging(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
-
-      if (disabled || uploading) return;
-
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length === 0) return;
-
-      // Filter to valid files and check extensions
-      const validFiles = files.filter((f) => isValidExtension(f.name));
-      if (validFiles.length === 0) {
-        toast.error(t("sessions.attachments.unsupportedType"));
-        return;
-      }
-
-      // For drag-drop in Tauri, we get File objects but need paths
-      // Unfortunately, web File objects don't expose full paths for security
-      // We need to use the file dialog for now - drag-drop will only work
-      // if Tauri's fs plugin supports it in the future
-      // For now, show a message to use the file picker
-      toast.info(t("sessions.attachments.addFiles"));
-      handleAddFiles();
-    },
-    [disabled, uploading, t, handleAddFiles],
-  );
-
   // Don't render anything if no attachments and disabled
   if (attachments.length === 0 && disabled) {
     return null;
   }
 
   return (
-    <div
-      ref={dropZoneRef}
-      className={`flex items-center gap-2 flex-wrap mt-2 p-2 -mx-2 rounded-md transition-colors ${
-        isDragging
-          ? "bg-accent/10 border border-dashed border-accent"
-          : "border border-transparent"
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <Paperclip size={12} className="text-text-secondary/50" />
-
+    <div className="flex items-center gap-1.5">
       {/* Attachment chips */}
       {attachments.map((att) => (
         <AttachmentChip
@@ -327,25 +256,18 @@ export function AttachmentsRow({
         <button
           onClick={handleAddFiles}
           disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors disabled:opacity-50"
-          title={t("sessions.attachments.add")}
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors disabled:opacity-50"
+          title={t("sessions.attachments.addHint")}
         >
           {uploading ? (
             <Loader2 size={10} className="animate-spin" />
           ) : (
-            <Plus size={10} />
-          )}
-          {attachments.length === 0 && (
-            <span>{t("sessions.attachments.add")}</span>
+            <>
+              <Paperclip size={10} />
+              <Plus size={10} />
+            </>
           )}
         </button>
-      )}
-
-      {/* Drop zone indicator */}
-      {isDragging && (
-        <span className="text-xs text-accent">
-          {t("sessions.attachments.addFiles")}
-        </span>
       )}
     </div>
   );
