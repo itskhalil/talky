@@ -704,9 +704,10 @@ export function NoteView({
   const handleCopyTranscript = async () => {
     const text = transcript
       .map((seg) => {
+        const label = seg.source === "mic" ? (userName ? `[${userName}]` : "[You]") : "[Other]";
         const mins = Math.floor(seg.start_ms / 60000);
         const secs = Math.floor((seg.start_ms % 60000) / 1000);
-        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}  ${seg.text}`;
+        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")} ${label} ${seg.text}`;
       })
       .join("\n");
     await navigator.clipboard.writeText(text);
