@@ -23,6 +23,9 @@ import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
 import { AttachmentsRow } from "./AttachmentsRow";
 import { useAttachments } from "@/stores/sessionStore";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 import { useGlobalChat, type ChatMessage } from "@/hooks/useGlobalChat";
 import { useSettings } from "@/hooks/useSettings";
 import { useOrganizationStore } from "@/stores/organizationStore";
@@ -530,6 +533,85 @@ export function NoteView({
     }
   }, [tagInputOpen]);
 
+  // Drag & drop file handling for attachments
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  useEffect(() => {
+    if (!session?.id) return;
+
+    const sessionId = session.id;
+    const supportedExtensions = ["pdf", "jpg", "jpeg", "png", "gif", "webp"];
+
+    const getMimeType = (filename: string): string => {
+      const ext = filename.toLowerCase().split(".").pop() || "";
+      switch (ext) {
+        case "pdf":
+          return "application/pdf";
+        case "jpg":
+        case "jpeg":
+          return "image/jpeg";
+        case "png":
+          return "image/png";
+        case "gif":
+          return "image/gif";
+        case "webp":
+          return "image/webp";
+        default:
+          return "application/octet-stream";
+      }
+    };
+
+    const isSupported = (path: string): boolean => {
+      const ext = path.toLowerCase().split(".").pop() || "";
+      return supportedExtensions.includes(ext);
+    };
+
+    const unlisten = getCurrentWindow().onDragDropEvent(async (event) => {
+      if (event.payload.type === "over") {
+        setIsDraggingFile(true);
+      } else if (event.payload.type === "leave") {
+        setIsDraggingFile(false);
+      } else if (event.payload.type === "drop") {
+        setIsDraggingFile(false);
+        const paths = event.payload.paths;
+        const validPaths = paths.filter(isSupported);
+
+        if (validPaths.length === 0 && paths.length > 0) {
+          toast.error(t("sessions.attachments.unsupportedType"));
+          return;
+        }
+
+        for (const path of validPaths) {
+          const filename = path.split(/[/\\]/).pop() || "file";
+          const mimeType = getMimeType(filename);
+
+          try {
+            const attachment = await invoke<{ id: string; mime_type: string }>(
+              "add_attachment",
+              { sessionId, sourcePath: path, filename, mimeType },
+            );
+
+            // Extract PDF text in background
+            if (attachment.mime_type === "application/pdf") {
+              invoke("extract_pdf_text", {
+                attachmentId: attachment.id,
+              }).catch((e) => console.warn("PDF extraction failed:", e));
+            }
+          } catch (e) {
+            console.error("Failed to add attachment:", e);
+            toast.error(t("sessions.attachments.uploadError"));
+          }
+        }
+
+        refreshAttachments(sessionId);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [session?.id, refreshAttachments, t]);
+
   const handleFolderSelect = async (folderId: string | null) => {
     if (session?.id) {
       setLocalFolderId(folderId);
@@ -791,6 +873,14 @@ export function NoteView({
 
   return (
     <div className="flex flex-col h-full relative">
+      {/* File drop overlay */}
+      {isDraggingFile && (
+        <div className="absolute inset-0 z-50 bg-black/20 rounded-lg flex items-center justify-center pointer-events-none">
+          <div className="bg-background px-4 py-2 rounded-lg shadow-lg text-sm text-text">
+            {t("sessions.attachments.addFiles")}
+          </div>
+        </div>
+      )}
       {/* macOS title bar drag region */}
       <div data-tauri-drag-region className="h-7 w-full shrink-0" />
       {findBarOpen && onCloseFindBar && (
@@ -1038,15 +1128,15 @@ export function NoteView({
                     </button>
                   )}
                 </div>
-              </div>
 
-              {/* Attachments row */}
-              <AttachmentsRow
-                sessionId={session.id}
-                attachments={attachments}
-                onAttachmentsChange={() => refreshAttachments(session.id)}
-                disabled={false}
-              />
+                {/* Attachments */}
+                <AttachmentsRow
+                  sessionId={session.id}
+                  attachments={attachments}
+                  onAttachmentsChange={() => refreshAttachments(session.id)}
+                  disabled={false}
+                />
+              </div>
             </>
           )}
         </div>

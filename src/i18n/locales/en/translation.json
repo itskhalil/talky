@@ -567,6 +567,7 @@
     },
     "attachments": {
       "add": "Add document",
+      "addHint": "Add images or documents (pdf) as extra context",
       "addFiles": "Add files",
       "delete": "Remove attachment",
       "open": "Open file",
