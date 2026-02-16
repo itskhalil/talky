@@ -10,6 +10,15 @@ use tauri_plugin_autostart::ManagerExt;
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_user_name_setting(app: AppHandle, name: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.user_name = name;
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_font_size_setting(app: AppHandle, size: FontSize) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.font_size = size;

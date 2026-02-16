@@ -320,6 +320,11 @@
         "settings": "Paramètres :"
       }
     },
+    "userName": {
+      "title": "Your Name",
+      "description": "Personalizes AI summaries and highlights when you're mentioned in transcripts",
+      "placeholder": "Enter your name"
+    },
     "about": {
       "title": "À propos",
       "version": {

@@ -7,6 +7,7 @@ import { z } from "zod";
 import * as chrono from "chrono-node";
 import { commands } from "@/bindings";
 import { getEffectiveEnvironment } from "@/hooks/useEffectiveEnvironment";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -212,8 +213,14 @@ ${recentSessions.map((s) => `- ${s.title} (${new Date(s.started_at * 1000).toLoc
 - Returns full content for 1-3 matches, snippets for more
 `;
 
-      const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
+      // Inject user identity if configured
+      const userName = useSettingsStore.getState().settings?.user_name?.trim();
+      const userIdentity = userName
+        ? `The user's name is ${userName}.\n`
+        : "";
 
+      const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
+${userIdentity}
 ${toolDescription}${contextInstructions}
 I am currently in a meeting, so keep your answer direct and clear. Be brief - I need to get my focus back to the meeting. In most cases, a handful of short bullets is best.
 

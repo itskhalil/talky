@@ -7,6 +7,7 @@ import { SettingsGroup } from "../../ui/SettingsGroup";
 import { Alert } from "../../ui/Alert";
 import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
+import { UserNameSetting } from "./UserNameSetting";
 import { EnvironmentsSection } from "../environments/EnvironmentsSection";
 import { UpdateBanner } from "../../update-checker";
 
@@ -18,6 +19,7 @@ export const GeneralSettings: React.FC = () => {
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
       <UpdateBanner />
+      <UserNameSetting />
       <SettingsGroup title={t("settings.appearance.title")}>
         <FontSizeSetting descriptionMode="tooltip" grouped />
       </SettingsGroup>

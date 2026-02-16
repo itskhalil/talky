@@ -200,6 +200,8 @@ pub struct AppSettings {
     /// When None, uses the default app data directory.
     /// This allows storing data in iCloud Drive or other backup-friendly locations.
     #[serde(default)]
+    pub user_name: String,
+    #[serde(default)]
     pub data_directory: Option<String>,
     #[serde(default)]
     pub font_size: FontSize,
@@ -574,6 +576,7 @@ pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 
 pub fn get_default_settings() -> AppSettings {
     AppSettings {
+        user_name: String::new(),
         data_directory: None,
         font_size: FontSize::default(),
         autostart_enabled: default_autostart_enabled(),

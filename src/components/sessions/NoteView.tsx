@@ -812,14 +812,28 @@ export function NoteView({
     onEnhancedNotesChange?.(tagged);
   };
 
+  const userName = settings?.user_name?.trim();
+
+  // Regex for whole-word, case-insensitive match of the user's name (for transcript highlighting)
+  const userNameRegex = useMemo(() => {
+    if (!userName) return null;
+    try {
+      const escaped = userName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`\\b${escaped}\\b`, "i");
+    } catch {
+      return null;
+    }
+  }, [userName]);
+
   const getTranscriptText = useCallback(() => {
+    const userLabel = userName ? `[${userName}]` : "[You]";
     return transcript
       .map((seg) => {
-        const label = seg.source === "mic" ? "[You]" : "[Other]";
+        const label = seg.source === "mic" ? userLabel : "[Other]";
         return `[${formatMs(seg.start_ms)}] ${label}: ${seg.text}`;
       })
       .join("\n");
-  }, [transcript]);
+  }, [transcript, userName]);
 
   const getUserNotesText = useCallback(() => {
     return userNotes;
@@ -1281,8 +1295,16 @@ export function NoteView({
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {transcript.map((seg) => (
-                          <div key={seg.id} className="flex gap-3 text-xs">
+                        {transcript.map((seg) => {
+                          const isMentioned =
+                            userNameRegex &&
+                            seg.source !== "mic" &&
+                            userNameRegex.test(seg.text);
+                          return (
+                          <div
+                            key={seg.id}
+                            className={`flex gap-3 text-xs ${isMentioned ? "bg-yellow-500/10 rounded px-1 -mx-1" : ""}`}
+                          >
                             <span
                               data-ui
                               className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums select-none"
@@ -1301,7 +1323,8 @@ export function NoteView({
                               {seg.text}
                             </span>
                           </div>
-                        ))}
+                          );
+                        })}
                         <div ref={transcriptEndRef} />
                       </div>
                     )}
