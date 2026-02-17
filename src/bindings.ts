@@ -980,17 +980,17 @@ async extractPdfText(attachmentId: string) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async exportNoteAsMarkdown(sessionId: string, filePath: string) : Promise<Result<null, string>> {
+async exportNoteAsMarkdown(sessionId: string, filePath: string, includeNotes: boolean, includeEnhanced: boolean, includeTranscript: boolean) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("export_note_as_markdown", { sessionId, filePath }) };
+    return { status: "ok", data: await TAURI_INVOKE("export_note_as_markdown", { sessionId, filePath, includeNotes, includeEnhanced, includeTranscript }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async exportAllNotesAsMarkdown(directoryPath: string) : Promise<Result<number, string>> {
+async exportAllNotesAsMarkdown(directoryPath: string, includeNotes: boolean, includeEnhanced: boolean, includeTranscript: boolean) : Promise<Result<number, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("export_all_notes_as_markdown", { directoryPath }) };
+    return { status: "ok", data: await TAURI_INVOKE("export_all_notes_as_markdown", { directoryPath, includeNotes, includeEnhanced, includeTranscript }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

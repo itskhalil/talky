@@ -8,7 +8,13 @@
     "successSingle": "Poznámka úspěšně exportována",
     "successMultiple": "Exportováno {{count}} poznámek",
     "noNoteSelected": "Není vybrána žádná poznámka",
-    "error": "Export selhal: {{error}}"
+    "error": "Export selhal: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "Nastavení...",

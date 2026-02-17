@@ -11,10 +11,17 @@ import {
   PanelLeftClose,
   Settings,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { save, open } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useOsType } from "@/hooks/useOsType";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
+import {
+  ExportDialog,
+  type ExportOptions,
+} from "@/components/ui/ExportDialog";
 import {
   useSessionStore,
   useSelectedSession,
@@ -83,6 +90,8 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const summary = useSummary();
   const selectedCache = useSelectedCache();
 
+  const exportDialog = useSessionStore((s) => s.exportDialog);
+
   const {
     initialize,
     selectSession,
@@ -97,6 +106,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     enhanceNotes,
     dismissEnhancePrompt,
     setViewMode,
+    closeExportDialog,
     cleanup,
   } = useSessionStore.getState();
 
@@ -252,6 +262,74 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     return () => cleanup();
   }, []);
 
+  const handleExportConfirm = useCallback(
+    async (options: ExportOptions) => {
+      closeExportDialog();
+      const { selectedSessionId: sid, sessions: allSessions } =
+        useSessionStore.getState();
+
+      if (exportDialog.mode === "single") {
+        if (!sid) return;
+        const sess = allSessions.find((s) => s.id === sid);
+        const rawTitle = sess?.title || "Note";
+        const title =
+          osType === "windows"
+            ? rawTitle.replace(/[:<>/]/g, "-").replace(/[\\*?"|]/g, " ")
+            : rawTitle.replace(/[/:]/g, "-");
+        const dateStr = sess?.started_at
+          ? new Date(sess.started_at * 1000).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0];
+        const defaultName = `${dateStr} ${title}`;
+
+        try {
+          const filePath = await save({
+            defaultPath: `${defaultName}.md`,
+            filters: [{ name: "Markdown", extensions: ["md"] }],
+          });
+
+          if (filePath) {
+            await invoke<void>("export_note_as_markdown", {
+              sessionId: sid,
+              filePath,
+              includeNotes: options.notes,
+              includeEnhanced: options.enhanced,
+              includeTranscript: options.transcript,
+            });
+            toast.success(t("export.successSingle"));
+          }
+        } catch (error) {
+          console.error("Export failed:", error);
+          toast.error(t("export.error", { error: String(error) }));
+        }
+      } else {
+        try {
+          const directoryPath = await open({
+            directory: true,
+            multiple: false,
+            title: t("export.selectFolder"),
+          });
+
+          if (directoryPath && typeof directoryPath === "string") {
+            const count = await invoke<number>(
+              "export_all_notes_as_markdown",
+              {
+                directoryPath,
+                includeNotes: options.notes,
+                includeEnhanced: options.enhanced,
+                includeTranscript: options.transcript,
+              },
+            );
+            toast.success(t("export.successMultiple", { count }));
+          }
+        } catch (error) {
+          console.error("Export failed:", error);
+          toast.error(t("export.error", { error: String(error) }));
+        }
+      }
+    },
+    [exportDialog.mode, closeExportDialog, t],
+  );
+
   const isSelectedRecording =
     isRecording && recordingSessionId === selectedSessionId;
 
@@ -341,6 +419,18 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           <EmptyState onNewNote={createNote} />
         )}
       </div>
+
+      <ExportDialog
+        open={exportDialog.open}
+        title={t(
+          exportDialog.mode === "single"
+            ? "export.dialogTitle"
+            : "export.dialogTitleAll",
+        )}
+        hasEnhanced={exportDialog.hasEnhanced}
+        onConfirm={handleExportConfirm}
+        onCancel={closeExportDialog}
+      />
     </div>
   );
 }

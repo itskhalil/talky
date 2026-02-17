@@ -8,7 +8,13 @@
     "successSingle": "Notatka wyeksportowana pomyślnie",
     "successMultiple": "Wyeksportowano {{count}} notatek",
     "noNoteSelected": "Nie wybrano notatki",
-    "error": "Eksport nie powiódł się: {{error}}"
+    "error": "Eksport nie powiódł się: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "Ustawienia...",

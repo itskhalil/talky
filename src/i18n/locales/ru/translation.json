@@ -8,7 +8,13 @@
     "successSingle": "Заметка успешно экспортирована",
     "successMultiple": "Экспортировано {{count}} заметок",
     "noNoteSelected": "Заметка не выбрана",
-    "error": "Ошибка экспорта: {{error}}"
+    "error": "Ошибка экспорта: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "Настройки...",

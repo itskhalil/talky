@@ -9,7 +9,13 @@
     "successSingle": "Xuất ghi chú thành công",
     "successMultiple": "Đã xuất {{count}} ghi chú",
     "noNoteSelected": "Chưa chọn ghi chú nào",
-    "error": "Xuất thất bại: {{error}}"
+    "error": "Xuất thất bại: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "newNote": "Ghi Chú Mới",
