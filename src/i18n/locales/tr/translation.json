@@ -8,7 +8,13 @@
     "successSingle": "Not başarıyla dışa aktarıldı",
     "successMultiple": "{{count}} not dışa aktarıldı",
     "noNoteSelected": "Not seçilmedi",
-    "error": "Dışa aktarma başarısız: {{error}}"
+    "error": "Dışa aktarma başarısız: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "Ayarlar...",

@@ -8,7 +8,13 @@
     "successSingle": "笔记导出成功",
     "successMultiple": "已导出 {{count}} 条笔记",
     "noNoteSelected": "未选择笔记",
-    "error": "导出失败: {{error}}"
+    "error": "导出失败: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "设置...",

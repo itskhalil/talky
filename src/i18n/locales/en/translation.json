@@ -8,7 +8,13 @@
     "successSingle": "Note exported successfully",
     "successMultiple": "Exported {{count}} notes",
     "noNoteSelected": "No note selected",
-    "error": "Export failed: {{error}}"
+    "error": "Export failed: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "newNote": "New Note",

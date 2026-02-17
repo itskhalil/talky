@@ -8,7 +8,13 @@
     "successSingle": "ノートをエクスポートしました",
     "successMultiple": "{{count}}件のノートをエクスポートしました",
     "noNoteSelected": "ノートが選択されていません",
-    "error": "エクスポートに失敗しました: {{error}}"
+    "error": "エクスポートに失敗しました: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "設定...",

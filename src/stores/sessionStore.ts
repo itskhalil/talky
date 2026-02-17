@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { save, open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import i18n from "@/i18n";
 import { commands, type MeetingNotes, type Attachment } from "@/bindings";
@@ -352,7 +351,16 @@ interface SessionStore {
   streamingEnhancedNotes: Record<string, string>;
   enhanceStreaming: Record<string, boolean>;
 
+  // Export dialog state
+  exportDialog: {
+    open: boolean;
+    mode: "single" | "all";
+    hasEnhanced: boolean;
+  };
+
   // Actions
+  openExportDialog: (mode: "single" | "all", hasEnhanced: boolean) => void;
+  closeExportDialog: () => void;
   selectSession: (id: string) => void;
   loadSessions: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -407,6 +415,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   // Streaming state
   streamingEnhancedNotes: {},
   enhanceStreaming: {},
+
+  // Export dialog state
+  exportDialog: { open: false, mode: "single", hasEnhanced: false },
+
+  openExportDialog: (mode, hasEnhanced) =>
+    set({ exportDialog: { open: true, mode, hasEnhanced } }),
+  closeExportDialog: () =>
+    set((s) => ({ exportDialog: { ...s.exportDialog, open: false } })),
 
   _saveTimers: new Map(),
   _lastSavedEnhancedNotes: new Map(),
@@ -702,8 +718,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
     // Listen for menu export current note request
     unlisteners.push(
-      await listen("menu-export-current", async () => {
-        const { selectedSessionId, sessions } = get();
+      await listen("menu-export-current", () => {
+        const { selectedSessionId, cache } = get();
         const t = i18n.t.bind(i18n);
 
         if (!selectedSessionId) {
@@ -711,55 +727,18 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           return;
         }
 
-        const session = sessions.find((s) => s.id === selectedSessionId);
-        const title = session?.title || "Note";
-        const dateStr = session?.started_at
-          ? new Date(session.started_at * 1000).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0];
-        const defaultName = `${dateStr} ${title}`;
-
-        try {
-          const filePath = await save({
-            defaultPath: `${defaultName}.md`,
-            filters: [{ name: "Markdown", extensions: ["md"] }],
-          });
-
-          if (filePath) {
-            const result = await invoke<void>("export_note_as_markdown", {
-              sessionId: selectedSessionId,
-              filePath,
-            });
-            toast.success(t("export.successSingle"));
-          }
-        } catch (error) {
-          console.error("Export failed:", error);
-          toast.error(t("export.error", { error: String(error) }));
-        }
+        const cached = cache[selectedSessionId];
+        const hasEnhanced = !!(
+          cached?.enhancedNotes && cached.enhancedNotes.trim()
+        );
+        get().openExportDialog("single", hasEnhanced);
       }),
     );
 
     // Listen for menu export all notes request
     unlisteners.push(
-      await listen("menu-export-all", async () => {
-        const t = i18n.t.bind(i18n);
-
-        try {
-          const directoryPath = await open({
-            directory: true,
-            multiple: false,
-            title: t("export.selectFolder"),
-          });
-
-          if (directoryPath && typeof directoryPath === "string") {
-            const count = await invoke<number>("export_all_notes_as_markdown", {
-              directoryPath,
-            });
-            toast.success(t("export.successMultiple", { count }));
-          }
-        } catch (error) {
-          console.error("Export failed:", error);
-          toast.error(t("export.error", { error: String(error) }));
-        }
+      await listen("menu-export-all", () => {
+        get().openExportDialog("all", true);
       }),
     );
 

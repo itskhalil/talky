@@ -8,7 +8,13 @@
     "successSingle": "Nota exportada com sucesso",
     "successMultiple": "{{count}} notas exportadas",
     "noNoteSelected": "Nenhuma nota selecionada",
-    "error": "Falha ao exportar: {{error}}"
+    "error": "Falha ao exportar: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "Configurações...",

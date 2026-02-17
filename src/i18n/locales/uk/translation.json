@@ -8,7 +8,13 @@
     "successSingle": "Нотатку успішно експортовано",
     "successMultiple": "Експортовано {{count}} нотаток",
     "noNoteSelected": "Нотатку не вибрано",
-    "error": "Помилка експорту: {{error}}"
+    "error": "Помилка експорту: {{error}}",
+    "dialogTitle": "Export Note",
+    "dialogTitleAll": "Export All Notes",
+    "includeNotes": "Notes",
+    "includeEnhanced": "Enhanced Notes",
+    "includeTranscript": "Transcript",
+    "nothingSelected": "Select at least one section"
   },
   "tray": {
     "settings": "Налаштування...",
