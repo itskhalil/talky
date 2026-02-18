@@ -103,7 +103,7 @@ pub async fn generate_session_summary(
         .iter()
         .map(|seg| {
             let label = if seg.source == "mic" {
-                "[User]"
+                "[Mic]"
             } else {
                 "[Other]"
             };
@@ -173,10 +173,19 @@ pub async fn generate_session_summary(
         let name = settings.user_name.trim();
         system_message.push_str(&format!(
             "\n\nUSER IDENTITY: {} is the person who recorded this meeting. \
-             Their speech is labeled [User] in the transcript.",
+             Their microphone audio is labeled [Mic] in the transcript.",
             name
         ));
     }
+
+    // Explain what transcript labels mean so the LLM handles in-person meetings correctly
+    system_message.push_str(
+        "\n\nSPEAKER CONTEXT: Transcript labels indicate audio sources, not individual speakers.\
+         \n- [Mic] = the recorder's microphone. In in-person or hybrid meetings, this captures everyone in the room.\
+         \n- [Other] = system audio from remote participants (e.g. a video call).\
+         \nIf only [Mic] segments appear, multiple speakers are likely mixed together. \
+         Do not assume one person said everything."
+    );
 
     let notes_section = if user_notes.trim().is_empty() {
         "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].".to_string()
@@ -270,7 +279,7 @@ pub async fn generate_session_summary_stream(
         .iter()
         .map(|seg| {
             let label = if seg.source == "mic" {
-                "[User]"
+                "[Mic]"
             } else {
                 "[Other]"
             };
@@ -340,10 +349,19 @@ pub async fn generate_session_summary_stream(
         let name = settings.user_name.trim();
         system_message.push_str(&format!(
             "\n\nUSER IDENTITY: {} is the person who recorded this meeting. \
-             Their speech is labeled [User] in the transcript.",
+             Their microphone audio is labeled [Mic] in the transcript.",
             name
         ));
     }
+
+    // Explain what transcript labels mean so the LLM handles in-person meetings correctly
+    system_message.push_str(
+        "\n\nSPEAKER CONTEXT: Transcript labels indicate audio sources, not individual speakers.\
+         \n- [Mic] = the recorder's microphone. In in-person or hybrid meetings, this captures everyone in the room.\
+         \n- [Other] = system audio from remote participants (e.g. a video call).\
+         \nIf only [Mic] segments appear, multiple speakers are likely mixed together. \
+         Do not assume one person said everything."
+    );
 
     let notes_section = if user_notes.trim().is_empty() {
         "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].".to_string()
