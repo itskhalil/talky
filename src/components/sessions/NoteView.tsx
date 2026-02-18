@@ -108,7 +108,10 @@ function highlightName(text: string, regex: RegExp): React.ReactNode {
     acc.push(part);
     if (i < matches.length) {
       acc.push(
-        <mark key={i} className="bg-yellow-500/20 text-inherit rounded-sm px-0.5">
+        <mark
+          key={i}
+          className="bg-yellow-500/20 text-inherit rounded-sm px-0.5"
+        >
           {matches[i]}
         </mark>,
       );
@@ -684,8 +687,19 @@ export function NoteView({
       text = userNotes;
     }
 
-    // Get HTML from editor for rich copy (works in Outlook, Word, Google Docs)
-    const html = activeEditor?.getHTML() ?? "";
+    // Get HTML from editor for rich copy.
+    // TipTap wraps text inside <li> with <p> tags which breaks Slack's paste
+    // handler (nested bullets get flattened). Unwrap them for compatibility.
+    const rawHtml = activeEditor?.getHTML() ?? "";
+    const doc = new DOMParser().parseFromString(rawHtml, "text/html");
+    doc.querySelectorAll("li > p").forEach((p) => {
+      const li = p.parentElement!;
+      while (p.firstChild) {
+        li.insertBefore(p.firstChild, p);
+      }
+      p.remove();
+    });
+    const html = doc.body.innerHTML;
 
     try {
       await navigator.clipboard.write([
@@ -1313,10 +1327,7 @@ export function NoteView({
                     ) : (
                       <div className="space-y-2">
                         {transcript.map((seg) => (
-                          <div
-                            key={seg.id}
-                            className="flex gap-3 text-xs"
-                          >
+                          <div key={seg.id} className="flex gap-3 text-xs">
                             <span
                               data-ui
                               className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums select-none"
