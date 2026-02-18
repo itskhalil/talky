@@ -21,6 +21,10 @@ const PROMPT_PATH = join(
   AI_DIR,
   "../src-tauri/resources/prompts/enhance_notes.txt",
 );
+const USER_TEMPLATE_PATH = join(
+  AI_DIR,
+  "../src-tauri/resources/prompts/enhance_notes_user.txt",
+);
 const EXAMPLES_DIR = join(AI_DIR, "Examples");
 
 interface Provider {
@@ -28,15 +32,26 @@ interface Provider {
   base_url: string;
 }
 
+interface ModelEnvironment {
+  id: string;
+  name: string;
+  api_key: string;
+  base_url: string;
+  chat_model: string;
+  summarisation_model: string;
+}
+
 function loadSettings() {
   const raw = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
   const s = raw.settings;
-  const providerId: string = s.post_process_provider_id;
-  const provider: Provider = s.post_process_providers.find(
-    (p: Provider) => p.id === providerId,
+  const defaultEnvId: string = s.default_environment_id;
+  const env: ModelEnvironment = s.model_environments.find(
+    (e: ModelEnvironment) => e.id === defaultEnvId,
   );
-  const apiKey: string = s.post_process_api_keys[providerId] ?? "";
-  const model: string = s.post_process_models[providerId] ?? "";
+  if (!env) throw new Error(`Default environment ${defaultEnvId} not found`);
+  const provider: Provider = { id: env.name.toLowerCase(), base_url: env.base_url };
+  const apiKey: string = env.api_key;
+  const model: string = env.summarisation_model;
   return { provider, apiKey, model };
 }
 
@@ -222,14 +237,24 @@ async function main() {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      samples: { type: "string", default: "1" },
+      samples: { type: "string", default: "2" },
+      example: { type: "string" },
     },
   });
   const numSamples = Math.max(1, parseInt(values.samples!, 10));
 
   const { provider, apiKey, model } = loadSettings();
-  const prompt = readFileSync(PROMPT_PATH, "utf-8");
-  const examples = loadExamples();
+  const systemPrompt = readFileSync(PROMPT_PATH, "utf-8");
+  const userTemplate = readFileSync(USER_TEMPLATE_PATH, "utf-8");
+  let examples = loadExamples();
+  if (values.example) {
+    const filter = values.example.toLowerCase();
+    examples = examples.filter((e) => e.name.toLowerCase().includes(filter));
+    if (examples.length === 0) {
+      console.error(`No examples matching "${values.example}"`);
+      process.exit(1);
+    }
+  }
 
   console.log(
     `Provider: ${provider.id} | Model: ${model} | Samples: ${numSamples}`,
@@ -242,7 +267,7 @@ async function main() {
   mkdirSync(runDir, { recursive: true });
 
   // Snapshot prompt and metadata
-  writeFileSync(join(runDir, "prompt.txt"), prompt);
+  writeFileSync(join(runDir, "prompt.txt"), `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER TEMPLATE ===\n${userTemplate}`);
   writeFileSync(
     join(runDir, "meta.json"),
     JSON.stringify(
@@ -254,17 +279,22 @@ async function main() {
 
   // allScores[exName][sampleIdx] = scores object
   const allScores: Record<string, any[]> = {};
+  // Word counts: goldenWords[exName], outputWords[exName][sampleIdx]
+  const goldenWords: Record<string, number> = {};
+  const outputWords: Record<string, number[]> = {};
 
   // Run all examples in parallel
   await Promise.all(
     examples.map(async (ex) => {
       console.log(`--- ${ex.name} ---`);
       allScores[ex.name] = [];
+      outputWords[ex.name] = [];
+      goldenWords[ex.name] = ex.golden.split(/\s+/).filter(Boolean).length;
 
       const notesSection = ex.notes?.trim()
         ? ex.notes
-        : "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].";
-      const userMessage = `## MEETING CONTEXT\nTitle: ${ex.name}\nDuration: unknown\n\n## USER'S NOTES\n${notesSection}\n\n## TRANSCRIPT\n${ex.transcript}`;
+        : "No notes were taken.";
+      const userMessage = `<user_notes>\n${notesSection}\n</user_notes>\n\n<transcript>\n${ex.transcript}\n</transcript>\n\n${userTemplate}`;
 
       for (let s = 1; s <= numSamples; s++) {
         const suffix = numSamples > 1 ? `_${s}` : "";
@@ -277,10 +307,12 @@ async function main() {
           provider,
           apiKey,
           model,
-          prompt,
+          systemPrompt,
           userMessage,
         );
         writeFileSync(join(runDir, `${label}.md`), output);
+        const wc = output.split(/\s+/).filter(Boolean).length;
+        outputWords[ex.name].push(wc);
 
         console.log(
           `  [${ex.name}] Judging${numSamples > 1 ? ` sample ${s}` : ""}...`,
@@ -309,7 +341,7 @@ async function main() {
         const scoreStr = DIMS.map(
           (d) => `${d}=${scores[d]?.score ?? "?"}`,
         ).join(" ");
-        console.log(`  [${ex.name}] Scores: ${scoreStr}\n`);
+        console.log(`  [${ex.name}] Scores: ${scoreStr} | words: ${wc} (golden: ${goldenWords[ex.name]})\n`);
       }
     }),
   );
@@ -321,13 +353,13 @@ async function main() {
   if (numSamples > 1) {
     // Per-sample detail
     summary += `## Per-Sample Scores\n\n`;
-    summary += `| Example | Sample | ${DIMS.join(" | ")} |\n`;
-    summary += `| --- | --- | ${DIMS.map(() => "---").join(" | ")} |\n`;
+    summary += `| Example | Sample | ${DIMS.join(" | ")} | words | golden |\n`;
+    summary += `| --- | --- | ${DIMS.map(() => "---").join(" | ")} | --- | --- |\n`;
     for (const ex of examples) {
       for (let s = 0; s < allScores[ex.name].length; s++) {
         const sc = allScores[ex.name][s];
         const row = DIMS.map((d) => sc[d]?.score ?? "?").join(" | ");
-        summary += `| ${ex.name} | ${s + 1} | ${row} |\n`;
+        summary += `| ${ex.name} | ${s + 1} | ${row} | ${outputWords[ex.name][s]} | ${goldenWords[ex.name]} |\n`;
       }
     }
     summary += `\n`;
@@ -335,8 +367,8 @@ async function main() {
 
   // Averages table
   summary += `## ${numSamples > 1 ? "Averages" : "Scores"}\n\n`;
-  summary += `| Example | ${DIMS.join(" | ")} |\n`;
-  summary += `| --- | ${DIMS.map(() => "---").join(" | ")} |\n`;
+  summary += `| Example | ${DIMS.join(" | ")} | words | golden |\n`;
+  summary += `| --- | ${DIMS.map(() => "---").join(" | ")} | --- | --- |\n`;
 
   for (const ex of examples) {
     const samples = allScores[ex.name];
@@ -348,7 +380,10 @@ async function main() {
         ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)
         : "?";
     }).join(" | ");
-    summary += `| ${ex.name} | ${row} |\n`;
+    const avgWords = outputWords[ex.name].length
+      ? Math.round(outputWords[ex.name].reduce((a, b) => a + b, 0) / outputWords[ex.name].length)
+      : "?";
+    summary += `| ${ex.name} | ${row} | ${avgWords} | ${goldenWords[ex.name]} |\n`;
   }
 
   // Grand averages
@@ -362,7 +397,11 @@ async function main() {
       ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)
       : "?";
   });
-  summary += `| **Average** | ${grandAvgs.join(" | ")} |\n`;
+  const allOutputWords = examples.flatMap((e) => outputWords[e.name]);
+  const allGoldenWords = examples.map((e) => goldenWords[e.name]);
+  const avgOutputWords = allOutputWords.length ? Math.round(allOutputWords.reduce((a, b) => a + b, 0) / allOutputWords.length) : "?";
+  const avgGoldenWords = allGoldenWords.length ? Math.round(allGoldenWords.reduce((a, b) => a + b, 0) / allGoldenWords.length) : "?";
+  summary += `| **Average** | ${grandAvgs.join(" | ")} | ${avgOutputWords} | ${avgGoldenWords} |\n`;
 
   writeFileSync(join(runDir, "summary.md"), summary);
   writeFileSync(join(runDir, "feedback.md"), "");

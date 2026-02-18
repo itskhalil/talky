@@ -117,24 +117,6 @@ pub async fn generate_session_summary(
         .collect::<Vec<_>>()
         .join("\n");
 
-    // Compute duration from transcript span
-    let duration = if let (Some(first), Some(last)) = (segments.first(), segments.last()) {
-        let total_ms = last.end_ms - first.start_ms;
-        let total_secs = total_ms / 1000;
-        let mins = total_secs / 60;
-        let secs = total_secs % 60;
-        format!("{}m {}s", mins, secs)
-    } else {
-        "Unknown".to_string()
-    };
-
-    // Fetch session title
-    let session_title = sm
-        .get_session(&session_id)
-        .map_err(|e| e.to_string())?
-        .map(|s| s.title)
-        .unwrap_or_default();
-
     // Fetch user notes
     let user_notes = sm
         .get_meeting_notes(&session_id)
@@ -188,14 +170,15 @@ pub async fn generate_session_summary(
     );
 
     let notes_section = if user_notes.trim().is_empty() {
-        "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].".to_string()
+        "No notes were taken.".to_string()
     } else {
         user_notes
     };
 
+    let user_instructions = include_str!("../../resources/prompts/enhance_notes_user.txt");
     let user_message = format!(
-        "## MEETING CONTEXT\nTitle: {}\nDuration: {}\n\n## USER'S NOTES\n{}\n\n## TRANSCRIPT\n{}",
-        session_title, duration, notes_section, transcript_text
+        "<user_notes>\n{}\n</user_notes>\n\n<transcript>\n{}\n</transcript>\n\n{}",
+        notes_section, transcript_text, user_instructions
     );
 
     let messages = vec![
@@ -293,24 +276,6 @@ pub async fn generate_session_summary_stream(
         .collect::<Vec<_>>()
         .join("\n");
 
-    // Compute duration from transcript span
-    let duration = if let (Some(first), Some(last)) = (segments.first(), segments.last()) {
-        let total_ms = last.end_ms - first.start_ms;
-        let total_secs = total_ms / 1000;
-        let mins = total_secs / 60;
-        let secs = total_secs % 60;
-        format!("{}m {}s", mins, secs)
-    } else {
-        "Unknown".to_string()
-    };
-
-    // Fetch session title
-    let session_title = sm
-        .get_session(&session_id)
-        .map_err(|e| e.to_string())?
-        .map(|s| s.title)
-        .unwrap_or_default();
-
     // Fetch user notes
     let user_notes = sm
         .get_meeting_notes(&session_id)
@@ -364,7 +329,7 @@ pub async fn generate_session_summary_stream(
     );
 
     let notes_section = if user_notes.trim().is_empty() {
-        "No notes were taken. Generate concise notes from the transcript, marking all lines as [ai].".to_string()
+        "No notes were taken.".to_string()
     } else {
         user_notes
     };
@@ -407,15 +372,17 @@ pub async fn generate_session_summary_stream(
         }
     }
 
-    // Build the user message with document context
-    let mut user_message = format!(
-        "## MEETING CONTEXT\nTitle: {}\nDuration: {}\n\n## USER'S NOTES\n{}\n\n## TRANSCRIPT\n{}",
-        session_title, duration, notes_section, transcript_text
-    );
-
+    // Build the user message: inputs first (XML tags), then instructions
+    let user_instructions = include_str!("../../resources/prompts/enhance_notes_user.txt");
+    let mut attachments_section = String::new();
     if !document_context.is_empty() {
-        user_message.push_str(&format!("\n\n## ATTACHED DOCUMENTS{}", document_context));
+        attachments_section = format!("\n\n<attachments>{}</attachments>", document_context);
     }
+
+    let user_message = format!(
+        "<user_notes>\n{}\n</user_notes>\n\n<transcript>\n{}\n</transcript>{}\n\n{}",
+        notes_section, transcript_text, attachments_section, user_instructions
+    );
 
     // Build messages - use multimodal if we have images, otherwise text-only
     let messages = if image_parts.is_empty() {
