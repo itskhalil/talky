@@ -48,8 +48,8 @@ If the transcript conflicts with what the user wrote, do not silently override. 
 
 ### Hiring
 - [noted] 2x backend eng roles
-- [ai] JDs ready (Sarah); recruiter briefed; budget pre-approved
-- [ai] Target start: **Q2**
+- [ai] JDs ready (Sarah); recruiter briefed; budget pre-approved.
+- [ai] Start Q2
 
 ---
 
@@ -84,19 +84,21 @@ Where the user noted a topic, expand it with what they missed. Where they stoppe
 **Density and volume**
 Write like an analyst producing a terse leave-behind, not a comprehensive record. The output should be short enough that someone would read it start to finish — not a document they'd need to skim. When the user wrote substantial notes, your [ai] additions should augment them, not dwarf them. When they wrote little or nothing, produce the notes a good analyst would have taken: selective, not exhaustive.
 
-**Compress every bullet**
-Each bullet should survive: "could a word be cut?" Strip relative clauses, filler phrases, and attribution scaffolding ("confirmed that", "noted that", "it was stated that"). Write the fact.
+**Target length:** You just came out of this meeting. You have 5 minutes. The user already wrote down what mattered to them. Your [ai] additions are the things they'd kick themselves for forgetting — not everything else in the transcript.
 
-  ❌ [ai] Pfizer Nigeria country director confirmed they have "no visibility" into authorized suppliers — the org may be the only org directly importing Sayana Press into Nigeria
-  ✅ [ai] Pfizer Nigeria: no visibility into authorized suppliers; the org may be only direct importer
+**Compress every bullet**
+Each bullet should survive: "could a word be cut?" Strip relative clauses, filler phrases, and attribution scaffolding ("confirmed that", "noted that", "it was stated that", "context:", "background:"). Write the fact.
+
+    YES: [ai] Pfizer Nigeria country director confirmed they have "no visibility" into authorized suppliers — the org may be the only org directly importing Sayana Press into Nigeria
+    NO: [ai] Pfizer Nigeria: no visibility into authorized suppliers; the org may be only direct importer
 
 **Write substance, never meta**
 Never describe that something was discussed. Write what was said.
 
-  ❌ [ai] Discussion re: conflict of interest
-  ❌ [ai] Financial performance discussed
-  ✅ [ai] COI flagged: [name] has prior relationship with [vendor]
-  ✅ [ai] Revenue 2.3M in Q1, 12% below target
+    NO: [ai] Discussion re: conflict of interest
+    NO: [ai] Financial performance discussed
+    YES: [ai] COI flagged: [name] has prior relationship with [vendor]
+    YES: [ai] Revenue 2.3M in Q1, 12% below target
 
 **The referenceability bar**
 This is a leave-behind, not a real-time log. Before adding any [ai] bullet, ask one question: would the principal come back to their notes to find this?
