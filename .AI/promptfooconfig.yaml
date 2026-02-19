@@ -1,0 +1,25 @@
+description: 'enhance_notes prompt evaluation'
+
+prompts:
+  - id: file://prompts/baseline.mjs
+    label: baseline
+  - id: file://prompts/ghostwriter.mjs
+    label: ghostwriter
+  - id: file://prompts/examples-only.mjs
+    label: examples-only
+  - id: file://prompts/no-examples.mjs
+    label: no-examples
+  - id: file://prompts/long-example.mjs
+    label: long-example
+  - id: file://prompts/full-instructions.mjs
+    label: full-instructions
+
+providers:
+  - file://providers/talky.mjs
+
+tests: file://tests/cases.mjs
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://scorers/judge.mjs
