@@ -1,18 +1,16 @@
-description: 'enhance_notes prompt evaluation'
+description: 'enhance_notes prompt evaluation — scorer calibration (additions 1.5x, steep terse penalty)'
 
 prompts:
-  - id: file://prompts/baseline.mjs
-    label: baseline
-  - id: file://prompts/ghostwriter.mjs
-    label: ghostwriter
-  - id: file://prompts/examples-only.mjs
-    label: examples-only
-  - id: file://prompts/no-examples.mjs
-    label: no-examples
-  - id: file://prompts/long-example.mjs
-    label: long-example
-  - id: file://prompts/full-instructions.mjs
-    label: full-instructions
+  - id: file://prompts/gate.mjs
+    label: gate (current prod)
+  - id: file://prompts/no-ceiling.mjs
+    label: no-ceiling
+  - id: file://prompts/reframe.mjs
+    label: reframe
+  - id: file://prompts/combined.mjs
+    label: combined
+  - id: file://prompts/radical.mjs
+    label: radical
 
 providers:
   - file://providers/talky.mjs
