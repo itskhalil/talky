@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 
-const TICK_MS = 180;
+const TICK_MS = 100;
 
-// Two sine frequencies per bar with irrational ratios — prevents repeating patterns
-// so each bar drifts independently and their relative heights shift over time.
-const BAR_FREQ: [number, number][] = [
-  [0.31, 0.47],
-  [0.37, 0.53],
-  [0.43, 0.61],
+// Two sine frequencies per bar with irrational ratios — prevents repeating patterns.
+// Phase offsets (~120° apart) ensure neighbouring bars are always at different heights.
+const BAR_FREQ: [number, number, number][] = [
+  [0.31, 0.47, 0],
+  [0.37, 0.53, 2.09],
+  [0.43, 0.61, 4.19],
 ];
 const BASE = 0.7;
 const SWING = 0.3; // multiplier oscillates in [BASE-SWING, BASE+SWING] = [0.4, 1.0]
+
+// Static bar heights (not recording)
+const STATIC_HEIGHTS = [10, 14, 8];
 
 interface WaveformBarsProps {
   amplitude: { mic: number; speaker: number };
@@ -23,15 +26,16 @@ export function WaveformBars({
   isRecording,
   size = "md",
 }: WaveformBarsProps) {
-  const cy = size === "sm" ? 12 : 12;
-  const barWidth = size === "sm" ? 3 : 3;
-  const gap = size === "sm" ? 6.5 : 6.5;
-  const svgWidth = size === "sm" ? 22 : 22;
-  const svgHeight = size === "sm" ? 22 : 22;
+  const cy = 12;
+  const barWidth = 3;
+  const gap = 6.5;
+  const svgWidth = 22;
+  const svgHeight = 22;
+  const startX = 4;
 
-  const [multipliers, setMultipliers] = useState<[number, number, number]>([
-    0.7, 1.0, 0.5,
-  ]);
+  const [multipliers, setMultipliers] = useState<number[]>(
+    () => STATIC_HEIGHTS.map((h) => h / 16), // normalise to ~multiplier scale
+  );
   const tickRef = useRef(0);
 
   const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
@@ -39,7 +43,7 @@ export function WaveformBars({
 
   useEffect(() => {
     if (!isRecording) {
-      setMultipliers([0.7, 1.0, 0.5]);
+      setMultipliers(STATIC_HEIGHTS.map((h) => h / 16));
       tickRef.current = 0;
       return;
     }
@@ -48,23 +52,21 @@ export function WaveformBars({
       tickRef.current += 1;
       const t = tickRef.current;
       setMultipliers(
-        BAR_FREQ.map(([f1, f2]) => {
-          const wave = (Math.sin(t * f1) + Math.sin(t * f2) * 0.6) / 1.6;
+        BAR_FREQ.map(([f1, f2, phase]) => {
+          const wave =
+            (Math.sin(t * f1 + phase) + Math.sin(t * f2 + phase) * 0.6) / 1.6;
           return BASE + wave * SWING;
-        }) as [number, number, number],
+        }),
       );
     }, TICK_MS);
 
     return () => clearInterval(id);
   }, [isRecording]);
 
-  if (isRecording) {
-    const minH = 4;
-    const maxH = 16;
-    const h1 = minH + clamped * (maxH - minH) * multipliers[0];
-    const h2 = minH + clamped * (maxH - minH) * multipliers[1];
-    const h3 = minH + clamped * (maxH - minH) * multipliers[2];
+  const minH = 4;
+  const maxH = 16;
 
+  if (isRecording) {
     return (
       <svg
         width={svgWidth}
@@ -72,33 +74,21 @@ export function WaveformBars({
         viewBox="0 0 24 24"
         className="text-green-500"
       >
-        <rect
-          x="4"
-          y={cy - h1 / 2}
-          width={barWidth}
-          height={h1}
-          rx="1.5"
-          fill="currentColor"
-          style={{ transition: "y 0.18s ease, height 0.18s ease" }}
-        />
-        <rect
-          x={4 + gap}
-          y={cy - h2 / 2}
-          width={barWidth}
-          height={h2}
-          rx="1.5"
-          fill="currentColor"
-          style={{ transition: "y 0.18s ease, height 0.18s ease" }}
-        />
-        <rect
-          x={4 + gap * 2}
-          y={cy - h3 / 2}
-          width={barWidth}
-          height={h3}
-          rx="1.5"
-          fill="currentColor"
-          style={{ transition: "y 0.18s ease, height 0.18s ease" }}
-        />
+        {multipliers.map((m, i) => {
+          const h = minH + clamped * (maxH - minH) * m;
+          return (
+            <rect
+              key={i}
+              x={startX + i * gap}
+              y={cy - h / 2}
+              width={barWidth}
+              height={h}
+              rx="1.5"
+              fill="currentColor"
+              style={{ transition: "y 0.1s ease, height 0.1s ease" }}
+            />
+          );
+        })}
       </svg>
     );
   }
@@ -111,30 +101,17 @@ export function WaveformBars({
       viewBox="0 0 24 24"
       className="text-text-secondary/60"
     >
-      <rect
-        x="4"
-        y={cy - 5}
-        width={barWidth}
-        height={10}
-        rx="1.5"
-        fill="currentColor"
-      />
-      <rect
-        x={4 + gap}
-        y={cy - 7}
-        width={barWidth}
-        height={14}
-        rx="1.5"
-        fill="currentColor"
-      />
-      <rect
-        x={4 + gap * 2}
-        y={cy - 4}
-        width={barWidth}
-        height={8}
-        rx="1.5"
-        fill="currentColor"
-      />
+      {STATIC_HEIGHTS.map((h, i) => (
+        <rect
+          key={i}
+          x={startX + i * gap}
+          y={cy - h / 2}
+          width={barWidth}
+          height={h}
+          rx="1.5"
+          fill="currentColor"
+        />
+      ))}
     </svg>
   );
 }
