@@ -31,3 +31,10 @@ recording_*
 .crush/
 .AI/Examples/
 .AI/eval-runs/
+.AI/.env
+.AI/eval-output/
+.AI/results.json
+.AI/results-summary.md
+.AI/research.txt
+.AI/regression evals/
+PROMPT CHANGES.md

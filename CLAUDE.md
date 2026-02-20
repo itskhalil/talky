@@ -32,6 +32,31 @@ mkdir -p src-tauri/resources/models
 curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
 ```
 
+**Prompt Evaluation (enhance_notes):**
+
+```bash
+# Run eval (all prompt variants side-by-side)
+# Produces results.json + results-summary.md (compact markdown with scores, reasoning, outputs)
+npm run eval
+
+# Regenerate summary from existing results.json (no re-run)
+npm run eval:summary
+
+# View results in browser
+npm run eval:view
+
+# Create a new prompt variant for A/B testing
+.AI/new-variant.sh <variant-name>
+# Then edit .AI/prompt-variants/<variant-name>/system.txt and user.txt
+# Add the variant to .AI/promptfooconfig.yaml under 'prompts:'
+
+# Promote a winning variant to production
+cp .AI/prompt-variants/<variant>/system.txt src-tauri/resources/prompts/enhance_notes.txt
+cp .AI/prompt-variants/<variant>/user.txt src-tauri/resources/prompts/enhance_notes_user.txt
+```
+
+Requires `ANTHROPIC_API_KEY` env var (set in `.AI/.env` or export in shell).
+
 ## Architecture Overview
 
 Talky is a cross-platform desktop speech-to-text app built with Tauri 2.x (Rust backend + React/TypeScript frontend).

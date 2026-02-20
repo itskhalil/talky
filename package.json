@@ -13,7 +13,10 @@
     "format": "prettier --write . && cd src-tauri && cargo fmt",
     "format:check": "prettier --check . && cd src-tauri && cargo fmt -- --check",
     "format:frontend": "prettier --write .",
-    "format:backend": "cd src-tauri && cargo fmt"
+    "format:backend": "cd src-tauri && cargo fmt",
+    "eval": "cd .AI && npx promptfoo eval --repeat 2 -j 8 --output results.json && node summarize-results.mjs",
+    "eval:summary": "node .AI/summarize-results.mjs",
+    "eval:view": "cd .AI && npx promptfoo view"
   },
   "dependencies": {
     "@ai-sdk-tool/parser": "^3.3.1",
@@ -67,6 +70,7 @@
     "prettier": "^3.6.2",
     "tsx": "^4.21.0",
     "typescript": "~5.6.3",
+    "promptfoo": "^0.120.25",
     "vite": "^6.4.1"
   }
 }
