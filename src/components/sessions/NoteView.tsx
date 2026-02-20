@@ -38,6 +38,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   parseInlineContent as parseInline,
   inlineToMarkdown,
+  stripNoteTags,
 } from "@/utils/markdownParser";
 
 /**
@@ -678,15 +679,15 @@ export function NoteView({
     setActiveEditor(editor);
   }, []);
 
-  const handleCopyNotes = async () => {
-    let text = "";
+  const getCleanedNotesText = (): string => {
     if (viewMode === "enhanced" && enhancedNotes) {
-      text = enhancedNotes
-        .replace(/\*{0,2}\[(?:noted|ai)\]\*{0,2} /g, "")
-        .replace(/\*{4}/g, "");
-    } else {
-      text = userNotes;
+      return stripNoteTags(enhancedNotes);
     }
+    return userNotes;
+  };
+
+  const handleCopyNotes = async () => {
+    const text = getCleanedNotesText();
 
     // Get HTML from editor for rich copy.
     // TipTap wraps text inside <li> with <p> tags which breaks Slack's paste
@@ -719,15 +720,7 @@ export function NoteView({
   };
 
   const handleCopyAsBullets = async () => {
-    let text = "";
-    if (viewMode === "enhanced" && enhancedNotes) {
-      text = enhancedNotes
-        .replace(/\*{0,2}\[(?:noted|ai)\]\*{0,2} /g, "")
-        .replace(/\*{4}/g, "");
-    } else {
-      text = userNotes;
-    }
-    const formatted = formatNotesForLogseq(text);
+    const formatted = formatNotesForLogseq(getCleanedNotesText());
     await navigator.clipboard.writeText(formatted);
     setBulletsCopied(true);
     setTimeout(() => setBulletsCopied(false), 1500);

@@ -1,5 +1,7 @@
 use crate::managers::session::SessionManager;
 use chrono::{Local, TimeZone};
+use once_cell::sync::Lazy;
+use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -16,14 +18,17 @@ fn sanitize_filename(name: &str) -> String {
         .collect()
 }
 
-/// Strip [ai] and [noted] tags from notes content
+static TAG_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\*{0,2}\[(?:noted|ai)\]\*{0,2} ").unwrap());
+static BOLD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*{4}").unwrap());
+
+/// Strip [ai] and [noted] tags (with optional bold wrapping) from notes content
 fn strip_tags(content: &str) -> String {
     content
         .lines()
         .map(|line| {
-            line.trim_start_matches("[ai]")
-                .trim_start_matches("[noted]")
-                .trim_start()
+            let stripped = TAG_RE.replace_all(line, "");
+            BOLD_RE.replace_all(&stripped, "").to_string()
         })
         .collect::<Vec<_>>()
         .join("\n")

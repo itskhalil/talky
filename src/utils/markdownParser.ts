@@ -1,6 +1,16 @@
 import { JSONContent } from "@tiptap/core";
 
 /**
+ * Strip [noted] and [ai] source tags (with optional bold wrapping) from notes text.
+ * Matches the same pattern used by the Rust backend export.
+ */
+export function stripNoteTags(text: string): string {
+  return text
+    .replace(/\*{0,2}\[(?:noted|ai)\]\*{0,2} /g, "")
+    .replace(/\*{4}/g, "");
+}
+
+/**
  * Parse inline content (bold, italic) from markdown text.
  * Handles **bold**, *italic*, and ***bold italic*** patterns.
  */
