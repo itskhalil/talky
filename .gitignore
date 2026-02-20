@@ -29,15 +29,16 @@ dist-ssr
 /target/
 recording_*
 .crush/
-.AI/Examples/
-.AI/eval-runs/
-.AI/.env
-.AI/eval-output/
-.AI/results.json
-.AI/results-summary.md
-.AI/results/
-.AI/prompt-variants/
-.AI/prompts/
-.AI/research.txt
-.AI/regression evals/
+# .AI/ — default-ignore. Only allowlisted infrastructure files are tracked.
+.AI/**
+!.AI/EVAL_REVIEW_GUIDE.md
+!.AI/new-variant.sh
+!.AI/promptfooconfig.yaml
+!.AI/summarize-results.mjs
+!.AI/providers/
+!.AI/providers/talky.mjs
+!.AI/scorers/
+!.AI/scorers/judge.mjs
+!.AI/tests/
+!.AI/tests/cases.mjs
 PROMPT CHANGES.md

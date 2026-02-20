@@ -127,6 +127,8 @@ src/i18n/
 
 ## Code Style
 
+**Private data:** The `.AI/` directory contains real meeting transcripts and eval results with real names. Never commit private data — names, meeting content, transcript excerpts — to any tracked file. The `.AI/` gitignore defaults to ignoring everything; only infrastructure files are allowlisted.
+
 **Rust:**
 
 - Run `cargo fmt` and `cargo clippy` before committing
