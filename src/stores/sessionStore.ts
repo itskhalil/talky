@@ -300,6 +300,13 @@ function wordOverlapScore(line1: string, line2: string): number {
   return union > 0 ? intersection / union : 0;
 }
 
+/** Strip inline reasoning preamble (everything before and including ---NOTES--- delimiter) */
+function stripNotesDelimiter(text: string): string {
+  const delimiter = "---NOTES---";
+  const idx = text.indexOf(delimiter);
+  return idx >= 0 ? text.slice(idx + delimiter.length).trimStart() : text;
+}
+
 /** Strip blank lines and standalone tags from LLM-generated enhanced notes */
 function stripBlankLines(text: string): string {
   return text
@@ -772,7 +779,9 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           // Stream complete - move accumulated text to cache and clear streaming state
           set((s) => {
             const rawAccumulated = s.streamingEnhancedNotes[session_id] || "";
-            const accumulatedText = stripBlankLines(rawAccumulated);
+            const accumulatedText = stripNotesDelimiter(
+              stripBlankLines(rawAccumulated),
+            );
 
             // Minimal logging - main debug info is in Rust logs
             if (accumulatedText.length === 0 && rawAccumulated.length > 0) {

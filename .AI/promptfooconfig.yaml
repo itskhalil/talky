@@ -1,18 +1,14 @@
-description: 'enhance_notes prompt evaluation — scorer calibration (additions 1.5x, steep terse penalty)'
+description: 'enhance_notes prompt evaluation — action items variants (v6 base, repeat 3)'
 
 prompts:
   - id: file://prompts/gate.mjs
     label: gate (current prod)
-  - id: file://prompts/gate-ex3.mjs
-    label: gate-ex3
-  - id: file://prompts/reason-inline.mjs
-    label: reason-inline (v1)
-  - id: file://prompts/reason-inline-v2.mjs
-    label: reason-inline-v2
-  - id: file://prompts/reason-inline-v3.mjs
-    label: reason-inline-v3
-  - id: file://prompts/reason-inline-v4.mjs
-    label: reason-inline-v4
+  - id: file://prompts/reason-inline-v6.mjs
+    label: reason-inline-v6
+  - id: file://prompts/actions-remove.mjs
+    label: actions-remove
+  - id: file://prompts/actions-explicit.mjs
+    label: actions-explicit
 
 providers:
   - file://providers/talky.mjs

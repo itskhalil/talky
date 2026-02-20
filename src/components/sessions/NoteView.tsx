@@ -792,9 +792,17 @@ export function NoteView({
   }, [enhancedNotes]);
 
   // Compute streaming JSON for TipTap rendering during enhance streaming
+  // Strip inline reasoning preamble (before ---NOTES--- delimiter) so it's never shown
   const streamingJSON = useMemo(() => {
     if (enhanceStreaming && streamingEnhancedNotes) {
-      return parseEnhancedToTiptapJSON(streamingEnhancedNotes);
+      const delimiter = "---NOTES---";
+      const idx = streamingEnhancedNotes.indexOf(delimiter);
+      const notesText =
+        idx >= 0
+          ? streamingEnhancedNotes.slice(idx + delimiter.length).trimStart()
+          : null;
+      if (!notesText) return null;
+      return parseEnhancedToTiptapJSON(notesText);
     }
     return null;
   }, [enhanceStreaming, streamingEnhancedNotes]);
@@ -1183,8 +1191,8 @@ export function NoteView({
           {/* Content area */}
           {hasEnhanced && viewMode === "enhanced" ? (
             <>
-              {/* Show loading spinner only before first chunk arrives */}
-              {enhanceLoading && !streamingEnhancedNotes && (
+              {/* Show loading spinner until notes content starts streaming (after ---NOTES--- delimiter) */}
+              {enhanceLoading && !streamingJSON && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary pt-2">
                   <Loader2 size={16} className="animate-spin" />
                   {t("sessions.enhancing")}

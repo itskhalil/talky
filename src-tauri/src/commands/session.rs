@@ -9,6 +9,17 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
+/// Strip inline reasoning preamble (everything before and including ---NOTES--- delimiter).
+/// If no delimiter is found, returns the input unchanged.
+fn strip_notes_delimiter(input: &str) -> String {
+    const DELIMITER: &str = "---NOTES---";
+    if let Some(pos) = input.find(DELIMITER) {
+        input[pos + DELIMITER.len()..].trim_start_matches('\n').to_string()
+    } else {
+        input.to_string()
+    }
+}
+
 /// Strip all blank lines from model output.
 fn strip_model_blank_lines(input: &str) -> String {
     input
@@ -196,8 +207,8 @@ pub async fn generate_session_summary(
         result.len()
     );
 
-    // Strip blank lines from model output before saving
-    let cleaned = strip_model_blank_lines(&result);
+    // Strip blank lines and inline reasoning preamble before saving
+    let cleaned = strip_notes_delimiter(&strip_model_blank_lines(&result));
 
     log::info!(
         "[enhance-notes] After strip (non-stream) | session={} before={} after={}",
@@ -456,8 +467,8 @@ pub async fn generate_session_summary_stream(
         result
     );
 
-    // Strip blank lines from model output before saving
-    let cleaned = strip_model_blank_lines(&result);
+    // Strip blank lines and inline reasoning preamble before saving
+    let cleaned = strip_notes_delimiter(&strip_model_blank_lines(&result));
 
     log::info!(
         "[enhance-notes] After strip | session={} before={} after={} stripped={}",

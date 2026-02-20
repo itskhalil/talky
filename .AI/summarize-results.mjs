@@ -198,7 +198,9 @@ function buildTestCaseDetails(tc) {
       const ow = wordCount(outputText);
       const gw = wordCount(goldenText);
 
-      md += `**Scores:** ${dimLine} | ${ow}w (golden ${gw}w)\n\n`;
+      const bs = analyseBullets(outputText);
+      const gs = analyseBullets(goldenText);
+      md += `**Scores:** ${dimLine} | ${ow}w ${bs.numBullets}b ${bs.avgWords.toFixed(1)}w/b (golden ${gw}w ${gs.numBullets}b ${gs.avgWords.toFixed(1)}w/b)\n\n`;
 
       // Problems / fatal flaw
       const reason = r.gradingResult?.componentResults?.[0]?.reason

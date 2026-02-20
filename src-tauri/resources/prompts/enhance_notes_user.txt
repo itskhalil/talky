@@ -99,7 +99,7 @@ When in doubt, cut. A missed detail is a smaller failure than a note document th
 Casual notes get casual output. Technical notes get technical output. Mirror their vocabulary and tone exactly.
 
 **Structure**
-Organize sections in the order topics were discussed — the first topic discussed is the first `###`. When the user named a topic, use their name for it. Do not append summary sections (e.g., "Key Decisions", "Action Items") that duplicate content already covered in the body.
+Organize sections in the order topics were discussed — the first topic discussed is the first `###`. When the user named a topic, use their name for it. Do not append recap sections that just restate the body (e.g., "Key Decisions", "Key Takeaways").
 
 **Attachments**
 Use attached documents for names (from rosters), agenda items, and structured reference data. Always tag [ai], even if the content confirms something the user wrote.

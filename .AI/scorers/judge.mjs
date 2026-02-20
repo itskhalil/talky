@@ -13,13 +13,16 @@ Before scoring, identify any FATAL flaws — output that fundamentally fails the
 - Adds so much AI content it drowns out what the user cared about
 - Anchors on the user's sparse notes and misses important topics from the meeting (decisions, commitments, action items that the golden covered)
 
+NOT a fatal flaw: a short "Next steps" or similar section that collects concrete action items (who does what, by when). This is useful note-taking, not a summary — as long as the items are specific commitments, not vague recaps.
+
 Then score 1-5 on each dimension:
 
 1. **Voice** — Does it sound like the user?
    - 5: Same vocabulary, tone, and style as user's notes — their shorthand and phrasing preserved
    - 3: Some AI-ification of language or phrasing
    - 1: Sounds like a different person wrote it entirely
-   - PENALIZE: paraphrasing the user's own words into neutral summary language, replacing shorthand with full sentences, addressing the user as "you/your" (notes are written BY the user not TO them), reordering topics away from the meeting's chronological flow when the user's notes don't impose a different structure
+   - PENALIZE: paraphrasing the user's own words into neutral summary language, replacing shorthand with full sentences, addressing the user as "you/your" (notes are written BY the user not TO them), using the user's name in narrative third-person ("The user's perspective was...", "The user felt that..."), reordering topics away from the meeting's chronological flow when the user's notes don't impose a different structure
+   - DO NOT PENALIZE: using the user's name in action items and attributions ("The user to follow up with X", "The user offered to help with Y") — this is natural in meeting notes where multiple people have action items
 
 2. **Density** — Terse bullets, not prose?
    - 5: Compressed facts, scannable — you could skim this in 30 seconds
@@ -39,6 +42,7 @@ Then score 1-5 on each dimension:
    - 3: Usable but cluttered or flat
    - 1: Over-fragmented with separators, or wall of text
    - NOTE: [ai]-tagged sections/headers are fine — that's proper attribution, not clutter
+   - NOTE: A closing "Next steps" section collecting concrete action items is good structure, not clutter
 
 5. **Additions** — Do [ai] lines add genuinely useful context?
    - 5: Surfaces the important things the user would want but missed — compare against the golden
