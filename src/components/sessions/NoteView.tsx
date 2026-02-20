@@ -22,6 +22,7 @@ import {
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
 import { AttachmentsRow } from "./AttachmentsRow";
+import { WaveformBars } from "@/components/ui/WaveformBars";
 import { useAttachments } from "@/stores/sessionStore";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
@@ -1395,84 +1396,7 @@ export function NoteView({
                 onClick={() => setPanelOpen(!panelOpen)}
                 className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-green-500" : "text-text-secondary/60"}`}
               >
-                {(() => {
-                  const cy = 12;
-                  if (isRecording) {
-                    const amp =
-                      Math.max(amplitude.mic, amplitude.speaker) / 1000;
-                    const clamped = Math.min(Math.max(amp * 1.5, 0), 1);
-                    const minH = 4;
-                    const maxH = 16;
-                    const h1 = minH + clamped * (maxH - minH) * 0.7;
-                    const h2 = minH + clamped * (maxH - minH);
-                    const h3 = minH + clamped * (maxH - minH) * 0.5;
-                    return (
-                      <svg width="22" height="22" viewBox="0 0 24 24">
-                        <rect
-                          x="4"
-                          y={cy - h1 / 2}
-                          width="3"
-                          height={h1}
-                          rx="1.5"
-                          fill="currentColor"
-                          style={{
-                            transition: "y 0.1s ease, height 0.1s ease",
-                          }}
-                        />
-                        <rect
-                          x="10.5"
-                          y={cy - h2 / 2}
-                          width="3"
-                          height={h2}
-                          rx="1.5"
-                          fill="currentColor"
-                          style={{
-                            transition: "y 0.1s ease, height 0.1s ease",
-                          }}
-                        />
-                        <rect
-                          x="17"
-                          y={cy - h3 / 2}
-                          width="3"
-                          height={h3}
-                          rx="1.5"
-                          fill="currentColor"
-                          style={{
-                            transition: "y 0.1s ease, height 0.1s ease",
-                          }}
-                        />
-                      </svg>
-                    );
-                  }
-                  return (
-                    <svg width="22" height="22" viewBox="0 0 24 24">
-                      <rect
-                        x="4"
-                        y={cy - 5}
-                        width="3"
-                        height={10}
-                        rx="1.5"
-                        fill="currentColor"
-                      />
-                      <rect
-                        x="10.5"
-                        y={cy - 7}
-                        width="3"
-                        height={14}
-                        rx="1.5"
-                        fill="currentColor"
-                      />
-                      <rect
-                        x="17"
-                        y={cy - 4}
-                        width="3"
-                        height={8}
-                        rx="1.5"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  );
-                })()}
+                <WaveformBars amplitude={amplitude} isRecording={isRecording} />
                 {panelOpen ? (
                   <ChevronDown size={16} />
                 ) : (
