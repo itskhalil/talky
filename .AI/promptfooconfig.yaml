@@ -3,14 +3,16 @@ description: 'enhance_notes prompt evaluation — scorer calibration (additions 
 prompts:
   - id: file://prompts/gate.mjs
     label: gate (current prod)
-  - id: file://prompts/no-ceiling.mjs
-    label: no-ceiling
-  - id: file://prompts/reframe.mjs
-    label: reframe
-  - id: file://prompts/combined.mjs
-    label: combined
-  - id: file://prompts/radical.mjs
-    label: radical
+  - id: file://prompts/gate-ex3.mjs
+    label: gate-ex3
+  - id: file://prompts/reason-inline.mjs
+    label: reason-inline (v1)
+  - id: file://prompts/reason-inline-v2.mjs
+    label: reason-inline-v2
+  - id: file://prompts/reason-inline-v3.mjs
+    label: reason-inline-v3
+  - id: file://prompts/reason-inline-v4.mjs
+    label: reason-inline-v4
 
 providers:
   - file://providers/talky.mjs

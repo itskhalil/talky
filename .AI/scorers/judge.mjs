@@ -125,6 +125,12 @@ function bulletStats(text) {
 export default async function (output, context) {
   const { vars } = context;
 
+  // Strip inline reasoning (before ---NOTES--- delimiter) if present
+  const notesDelimiter = '---NOTES---';
+  if (output.includes(notesDelimiter)) {
+    output = output.split(notesDelimiter).pop().trim();
+  }
+
   const judgeMsg = buildJudgeMessage(
     vars.notes,
     vars.transcript,

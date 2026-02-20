@@ -1,10 +1,11 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_PATH = join(__dirname, 'results.json');
-const OUTPUT_PATH = join(__dirname, 'results-summary.md');
+const RESULTS_DIR = join(__dirname, 'results');
+const SUMMARY_PATH = join(RESULTS_DIR, 'summary.md');
 
 const DIMS = ['voice', 'density', 'clarity', 'readability', 'additions', 'conciseness'];
 const JUDGE_DIMS = ['voice', 'density', 'clarity', 'readability', 'additions'];
@@ -172,63 +173,60 @@ function extractDimReasoning(r) {
   return map;
 }
 
-function buildDetails() {
-  let md = '## Details\n\n';
+function buildTestCaseDetails(tc) {
+  let md = `# ${tc}\n\n`;
 
-  for (const tc of testCases) {
-    md += `---\n\n`;
-    for (const v of variants) {
-      const runs = grouped[tc]?.[v] ?? [];
-      if (runs.length === 0) continue;
+  for (const v of variants) {
+    const runs = grouped[tc]?.[v] ?? [];
+    if (runs.length === 0) continue;
 
-      const avgScore = avg(runs.map(r => r.score));
-      md += `### ${tc} × ${v} — ${avgScore.toFixed(3)}\n\n`;
+    const avgScore = avg(runs.map(r => r.score));
+    md += `## ${v} — ${avgScore.toFixed(3)}\n\n`;
 
-      for (let i = 0; i < runs.length; i++) {
-        const r = runs[i];
-        if (runs.length > 1) md += `#### Run ${i + 1}\n\n`;
+    for (let i = 0; i < runs.length; i++) {
+      const r = runs[i];
+      if (runs.length > 1) md += `### Run ${i + 1}\n\n`;
 
-        // Dimension scores summary line
-        const ns = r.gradingResult?.namedScores ?? {};
-        const dimLine = JUDGE_DIMS
-          .map(d => `${d}=${typeof ns[d] === 'number' ? (ns[d] * 5).toFixed(0) : '?'}`)
-          .join(' ');
+      // Dimension scores summary line
+      const ns = r.gradingResult?.namedScores ?? {};
+      const dimLine = JUDGE_DIMS
+        .map(d => `${d}=${typeof ns[d] === 'number' ? (ns[d] * 5).toFixed(0) : '?'}`)
+        .join(' ');
 
-        const outputText = r.response?.output ?? '';
-        const goldenText = r.vars?.golden ?? r.testCase?.vars?.golden ?? '';
-        const ow = wordCount(outputText);
-        const gw = wordCount(goldenText);
+      const outputText = r.response?.output ?? '';
+      const goldenText = r.vars?.golden ?? r.testCase?.vars?.golden ?? '';
+      const ow = wordCount(outputText);
+      const gw = wordCount(goldenText);
 
-        md += `**Scores:** ${dimLine} | ${ow}w (golden ${gw}w)\n\n`;
+      md += `**Scores:** ${dimLine} | ${ow}w (golden ${gw}w)\n\n`;
 
-        // Problems / fatal flaw
-        const reason = r.gradingResult?.componentResults?.[0]?.reason
-          ?? r.gradingResult?.reason ?? '';
-        if (reason.startsWith('Fatal flaw:')) {
-          md += `**Fatal:** ${reason}\n\n`;
-        } else if (reason.startsWith('Tagging gate')) {
-          md += `**Tagging gate failure:** ${reason}\n\n`;
-        } else if (reason && reason !== 'No problems found' && reason !== 'All assertions passed') {
-          md += `**Problems:** ${reason}\n\n`;
-        }
-
-        // Per-dimension reasoning
-        const dimMap = extractDimReasoning(r);
-        const reasonedDims = JUDGE_DIMS.filter(d => dimMap[d]?.reason);
-        if (reasonedDims.length > 0) {
-          md += '**Reasoning:**\n';
-          for (const d of reasonedDims) {
-            md += `- **${d}** (${(dimMap[d].score * 5).toFixed(0)}/5): ${dimMap[d].reason}\n`;
-          }
-          md += '\n';
-        }
-
-        // Model output
-        md += '**Output:**\n\n';
-        md += '````markdown\n';
-        md += outputText.trim();
-        md += '\n````\n\n';
+      // Problems / fatal flaw
+      const reason = r.gradingResult?.componentResults?.[0]?.reason
+        ?? r.gradingResult?.reason ?? '';
+      if (reason.startsWith('Fatal flaw:')) {
+        md += `**Fatal:** ${reason}\n\n`;
+      } else if (reason.startsWith('Tagging gate')) {
+        md += `**Tagging gate failure:** ${reason}\n\n`;
+      } else if (reason && reason !== 'No problems found' && reason !== 'All assertions passed') {
+        md += `**Problems:** ${reason}\n\n`;
       }
+
+      // Per-dimension reasoning
+      const dimMap = extractDimReasoning(r);
+      const reasonedDims = JUDGE_DIMS.filter(d => dimMap[d]?.reason);
+      if (reasonedDims.length > 0) {
+        md += '**Reasoning:**\n';
+        for (const d of reasonedDims) {
+          md += `- **${d}** (${(dimMap[d].score * 5).toFixed(0)}/5): ${dimMap[d].reason}\n`;
+        }
+        md += '\n';
+      }
+
+      // Model output
+      md += '**Output:**\n\n';
+      md += '````markdown\n';
+      md += outputText.trim();
+      md += '\n````\n\n';
     }
   }
 
@@ -237,15 +235,31 @@ function buildDetails() {
 
 // --- Assemble ---
 
+mkdirSync(RESULTS_DIR, { recursive: true });
+
 const timestamp = data.results?.timestamp ?? new Date().toISOString();
 
+// Summary file (score matrix + dimensions + bullet stats)
 let summary = `# Eval Summary — ${timestamp}\n\n`;
 summary += buildScoreMatrix() + '\n';
 summary += buildDimAverages() + '\n';
 summary += buildBulletStats();
-summary += buildDetails();
 
-writeFileSync(OUTPUT_PATH, summary);
+writeFileSync(SUMMARY_PATH, summary);
+const summaryKB = (Buffer.byteLength(summary) / 1024).toFixed(1);
 
-const sizeKB = (Buffer.byteLength(summary) / 1024).toFixed(1);
-console.log(`Written ${OUTPUT_PATH} (${sizeKB} KB, ${testCases.length} tests × ${variants.length} variants × ${repeatCount} repeats)`);
+// Per-test-case detail files
+let totalDetailsKB = 0;
+for (const tc of testCases) {
+  const details = buildTestCaseDetails(tc);
+  const detailPath = join(RESULTS_DIR, `${tc}.md`);
+  writeFileSync(detailPath, details);
+  const kb = Buffer.byteLength(details) / 1024;
+  totalDetailsKB += kb;
+  console.log(`  ${tc}.md (${kb.toFixed(1)} KB)`);
+}
+
+console.log(`\nWritten to ${RESULTS_DIR}/`);
+console.log(`  summary.md (${summaryKB} KB)`);
+console.log(`  ${testCases.length} detail files (${totalDetailsKB.toFixed(1)} KB total)`);
+console.log(`  ${testCases.length} tests × ${variants.length} variants × ${repeatCount} repeats`);
