@@ -35,6 +35,7 @@ recording_*
 .AI/eval-output/
 .AI/results.json
 .AI/results-summary.md
+.AI/results/
 .AI/research.txt
 .AI/regression evals/
 PROMPT CHANGES.md

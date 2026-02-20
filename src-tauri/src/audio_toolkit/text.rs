@@ -49,9 +49,11 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
         let mut best_score = f64::MAX;
 
         for (i, custom_word_lower) in custom_words_lower.iter().enumerate() {
-            // Skip if lengths are too different (optimization)
-            let len_diff = (cleaned_word.len() as i32 - custom_word_lower.len() as i32).abs();
-            if len_diff > 5 {
+            // Skip if lengths are too different (ratio-based to prevent short words
+            // like "TG" from matching unrelated longer words like "tough")
+            let len_ratio = cleaned_word.len().min(custom_word_lower.len()) as f64
+                / cleaned_word.len().max(custom_word_lower.len()) as f64;
+            if len_ratio < 0.5 {
                 continue;
             }
 
@@ -70,9 +72,6 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
             // Only apply phonetic boost when words are similar length.
             // This prevents false positives like "order" -> "Zephyra" where
             // phonetic similarity exists but lengths differ significantly.
-            let len_ratio = cleaned_word.len().min(custom_word_lower.len()) as f64
-                / cleaned_word.len().max(custom_word_lower.len()) as f64;
-
             let combined_score = if phonetic_match && len_ratio > 0.8 {
                 levenshtein_score * 0.5 // Moderate boost for phonetic matches with similar length
             } else {
@@ -754,5 +753,21 @@ mod tests {
         // Length ratio 6/6 = 1.0 > 0.8, phonetic boost applies
         let result = apply_custom_words("the sphink system", &vec!["SPHINX".to_string()], 0.21);
         assert_eq!(result, "the SPHINX system");
+    }
+
+    #[test]
+    fn test_rejects_short_acronym_matching_longer_word() {
+        // "tough" (5 chars) should NOT become "TG" (2 chars)
+        // Length ratio 2/5 = 0.4 < 0.5, skipped by length gate
+        let result =
+            apply_custom_words("tough pill to swallow", &vec!["TG".to_string()], 0.21);
+        assert_eq!(result, "tough pill to swallow");
+    }
+
+    #[test]
+    fn test_short_acronym_exact_match_still_works() {
+        // "tg" should still become "TG" when it's an exact match
+        let result = apply_custom_words("tg is here", &vec!["TG".to_string()], 0.21);
+        assert_eq!(result, "TG is here");
     }
 }
