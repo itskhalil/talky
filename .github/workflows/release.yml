@@ -155,18 +155,16 @@ jobs:
             console.log(`Copying ${windowsAssets.length} Windows assets...`);
 
             for (const asset of windowsAssets) {
-              console.log(`Downloading ${asset.name}...`);
+              console.log(`Downloading ${asset.name} via browser_download_url...`);
 
-              const { data: assetData } = await github.rest.repos.getReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                asset_id: asset.id,
-                headers: {
-                  Accept: 'application/octet-stream'
-                }
-              });
+              // Use fetch with browser_download_url to avoid Octokit redirect issues
+              const response = await fetch(asset.browser_download_url);
+              if (!response.ok) {
+                throw new Error(`Failed to download ${asset.name}: ${response.status} ${response.statusText}`);
+              }
+              const assetData = Buffer.from(await response.arrayBuffer());
 
-              console.log(`Uploading ${asset.name} to new release...`);
+              console.log(`Uploading ${asset.name} to new release (${assetData.length} bytes)...`);
 
               await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
@@ -222,17 +220,14 @@ jobs:
                 continue;
               }
 
-              console.log(`Downloading ${asset.name}...`);
+              console.log(`Downloading ${asset.name} via browser_download_url...`);
 
-              // Download the asset
-              const { data: assetData } = await github.rest.repos.getReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                asset_id: asset.id,
-                headers: {
-                  Accept: 'application/octet-stream'
-                }
-              });
+              // Use fetch with browser_download_url to avoid Octokit redirect issues
+              const response = await fetch(asset.browser_download_url);
+              if (!response.ok) {
+                throw new Error(`Failed to download ${asset.name}: ${response.status} ${response.statusText}`);
+              }
+              const assetData = Buffer.from(await response.arrayBuffer());
 
               // Delete existing version-agnostic asset if it exists
               const existingAsset = release.assets.find(a => a.name === mapping.newName);
