@@ -59,29 +59,30 @@ pub async fn run_session_transcription_loop(
     };
 
     // Initialize VAD for segmentation (does NOT filter audio, only detects speech transitions)
-    let vad: Option<Box<dyn crate::audio_toolkit::VoiceActivityDetector>> =
-        match app.path().resolve(
+    let vad: Option<Box<dyn crate::audio_toolkit::VoiceActivityDetector>> = match app
+        .path()
+        .resolve(
             "resources/models/silero_vad_v4.onnx",
             tauri::path::BaseDirectory::Resource,
         ) {
-            Ok(vad_path) => match SileroVad::new(&vad_path, 0.15).map(|v| v.with_smoothing(2, 13)) {
-                Ok(silero) => {
-                    log::info!("VAD initialized successfully");
-                    Some(Box::new(silero))
-                }
-                Err(e) => {
-                    log::warn!(
-                        "VAD init failed, running without voice activity detection: {}",
-                        e
-                    );
-                    None
-                }
-            },
+        Ok(vad_path) => match SileroVad::new(&vad_path, 0.15).map(|v| v.with_smoothing(2, 13)) {
+            Ok(silero) => {
+                log::info!("VAD initialized successfully");
+                Some(Box::new(silero))
+            }
             Err(e) => {
-                log::warn!("Failed to resolve VAD model path: {}", e);
+                log::warn!(
+                    "VAD init failed, running without voice activity detection: {}",
+                    e
+                );
                 None
             }
-        };
+        },
+        Err(e) => {
+            log::warn!("Failed to resolve VAD model path: {}", e);
+            None
+        }
+    };
 
     // Both mic and speaker streams are already resampled to 16kHz,
     // so Pipeline resamplers act as identity (16k→16k).

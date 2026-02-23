@@ -481,11 +481,7 @@ impl TranscriptionManager {
             vocab.push(user_name);
         }
         let corrected = if !vocab.is_empty() {
-            apply_custom_words(
-                &result,
-                &vocab,
-                settings.word_correction_threshold,
-            )
+            apply_custom_words(&result, &vocab, settings.word_correction_threshold)
         } else {
             result
         };

@@ -1,5 +1,7 @@
+use crate::managers::audio::AudioRecordingManager;
 use crate::settings;
 use crate::tray_i18n::get_tray_translations;
+use std::sync::Arc;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIcon;
 use tauri::{AppHandle, Manager, Theme};
@@ -54,17 +56,13 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
     #[cfg(not(target_os = "macos"))]
     let quit_accelerator = Some("Ctrl+Q");
 
-    // Static menu items - both actions always available
+    // Check if currently recording to conditionally show stop recording item
+    let is_recording = app
+        .try_state::<Arc<AudioRecordingManager>>()
+        .is_some_and(|rm| rm.is_recording());
+
     let new_note_item = MenuItem::with_id(app, "new_note", &strings.new_note, true, None::<&str>)
         .expect("failed to create new note item");
-    let stop_recording_item = MenuItem::with_id(
-        app,
-        "stop_recording",
-        &strings.stop_recording,
-        true,
-        None::<&str>,
-    )
-    .expect("failed to create stop recording item");
 
     let app_name = MenuItem::with_id(app, "app_name", "Talky", false, None::<&str>)
         .expect("failed to create app name item");
@@ -72,18 +70,41 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
         .expect("failed to create quit item");
     let separator = || PredefinedMenuItem::separator(app).expect("failed to create separator");
 
-    let menu = Menu::with_items(
-        app,
-        &[
-            &app_name,
-            &separator(),
-            &new_note_item,
-            &stop_recording_item,
-            &separator(),
-            &quit_i,
-        ],
-    )
-    .expect("failed to create menu");
+    let menu = if is_recording {
+        let stop_recording_item = MenuItem::with_id(
+            app,
+            "stop_recording",
+            &strings.stop_recording,
+            true,
+            None::<&str>,
+        )
+        .expect("failed to create stop recording item");
+
+        Menu::with_items(
+            app,
+            &[
+                &app_name,
+                &separator(),
+                &new_note_item,
+                &stop_recording_item,
+                &separator(),
+                &quit_i,
+            ],
+        )
+        .expect("failed to create menu")
+    } else {
+        Menu::with_items(
+            app,
+            &[
+                &app_name,
+                &separator(),
+                &new_note_item,
+                &separator(),
+                &quit_i,
+            ],
+        )
+        .expect("failed to create menu")
+    };
 
     let tray = app.state::<TrayIcon>();
     let _ = tray.set_menu(Some(menu));
