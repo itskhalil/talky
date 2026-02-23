@@ -220,14 +220,17 @@ jobs:
                 continue;
               }
 
-              console.log(`Downloading ${asset.name} via browser_download_url...`);
+              console.log(`Downloading ${asset.name}...`);
 
-              // Use fetch with browser_download_url to avoid Octokit redirect issues
-              const response = await fetch(asset.browser_download_url);
-              if (!response.ok) {
-                throw new Error(`Failed to download ${asset.name}: ${response.status} ${response.statusText}`);
-              }
-              const assetData = Buffer.from(await response.arrayBuffer());
+              // Download asset via Octokit API (authenticated, works for draft releases)
+              const { data: assetData } = await github.rest.repos.getReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                asset_id: asset.id,
+                headers: {
+                  Accept: 'application/octet-stream'
+                }
+              });
 
               // Delete existing version-agnostic asset if it exists
               const existingAsset = release.assets.find(a => a.name === mapping.newName);
