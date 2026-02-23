@@ -308,6 +308,28 @@ pub fn change_skip_mic_on_speaker_energy_setting(
     Ok(())
 }
 
+// Global Shortcut Commands
+#[tauri::command]
+#[specta::specta]
+pub fn change_new_recording_shortcut_setting(
+    app: AppHandle,
+    shortcut: Option<String>,
+) -> Result<(), String> {
+    // Unregister any existing shortcuts first
+    crate::shortcut::unregister_all_shortcuts(&app)?;
+
+    // Register new shortcut if provided
+    if let Some(ref s) = shortcut {
+        crate::shortcut::register_new_recording_shortcut(&app, s)?;
+    }
+
+    // Save to settings
+    let mut settings = get_settings(&app);
+    settings.new_recording_shortcut = shortcut;
+    write_settings(&app, settings);
+    Ok(())
+}
+
 // Model Environment Commands
 #[tauri::command]
 #[specta::specta]

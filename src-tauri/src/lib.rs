@@ -14,6 +14,7 @@ mod platform;
 #[cfg(target_os = "macos")]
 mod power_events;
 mod settings;
+mod shortcut;
 mod tray;
 mod tray_i18n;
 mod utils;
@@ -280,6 +281,9 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         let _ = autostart_manager.disable();
     }
 
+    // Register global shortcuts from saved settings
+    shortcut::init_from_settings(app_handle);
+
     // Start power event monitoring (detects system sleep to stop recording gracefully)
     #[cfg(target_os = "macos")]
     power_events::start_monitoring(app_handle.clone());
@@ -352,6 +356,7 @@ pub fn run() {
         commands::settings::change_app_language_setting,
         commands::settings::change_update_checks_setting,
         commands::settings::change_copy_as_bullets_setting,
+        commands::settings::change_new_recording_shortcut_setting,
         commands::settings::get_environments,
         commands::settings::create_environment,
         commands::settings::update_environment,
@@ -509,6 +514,9 @@ pub fn run() {
                 )
                 .build(),
         );
+
+    // Global shortcut plugin for configurable keyboard shortcuts
+    let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
     // Autostart plugin - MacosLauncher param only used on macOS, ignored on Windows/Linux
     let builder = builder.plugin(tauri_plugin_autostart::init(

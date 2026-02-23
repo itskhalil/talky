@@ -14,7 +14,9 @@ use tauri::{AppHandle, Manager};
 fn strip_notes_delimiter(input: &str) -> String {
     const DELIMITER: &str = "---NOTES---";
     if let Some(pos) = input.find(DELIMITER) {
-        input[pos + DELIMITER.len()..].trim_start_matches('\n').to_string()
+        input[pos + DELIMITER.len()..]
+            .trim_start_matches('\n')
+            .to_string()
     } else {
         input.to_string()
     }
@@ -578,6 +580,8 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
         crate::actions::run_session_transcription_loop(app_clone, sid, time_offset_ms).await;
     });
 
+    crate::tray::update_tray_menu(&app, None);
+
     Ok(())
 }
 
@@ -597,6 +601,7 @@ pub fn stop_session_recording(app: AppHandle, session_id: String) -> Result<(), 
     rm.stop_session_recording();
 
     crate::hide_pill_window(&app);
+    crate::tray::update_tray_menu(&app, None);
 
     Ok(())
 }
@@ -678,6 +683,9 @@ pub fn reactivate_session(app: AppHandle, session_id: String) -> Result<Session,
     let session = sm
         .reactivate_session(&session_id)
         .map_err(|e| e.to_string())?;
+
+    crate::tray::update_tray_menu(&app, None);
+
     Ok(session)
 }
 
@@ -696,6 +704,7 @@ pub fn end_session(app: AppHandle) -> Result<Option<Session>, String> {
     let session = sm.end_session().map_err(|e| e.to_string())?;
 
     crate::hide_pill_window(&app);
+    crate::tray::update_tray_menu(&app, None);
 
     Ok(session)
 }
@@ -1079,4 +1088,3 @@ pub async fn extract_pdf_text(app: AppHandle, attachment_id: String) -> Result<S
 
     Ok(text)
 }
-

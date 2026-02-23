@@ -120,6 +120,10 @@ const settingUpdaters: {
     commands.changeSpeakerEnergyThresholdSetting(value as number),
   skip_mic_on_speaker_energy: (value) =>
     commands.changeSkipMicOnSpeakerEnergySetting(value as boolean),
+  new_recording_shortcut: (value) =>
+    commands.changeNewRecordingShortcutSetting(
+      (value as string | null) ?? null,
+    ),
 };
 
 export const useSettingsStore = create<SettingsStore>()(

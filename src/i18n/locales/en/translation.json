@@ -436,6 +436,13 @@
     },
     "keyboard": {
       "title": "Keyboard Shortcuts",
+      "globalShortcuts": "Global Shortcuts",
+      "globalShortcutsDescription": "These shortcuts work even when Talky is in the background",
+      "newRecording": "New recording",
+      "newRecordingDescription": "Create a new note and start recording",
+      "pressKeys": "Press a key combination...",
+      "clearShortcut": "Clear",
+      "noShortcutSet": "Not set",
       "actions": {
         "newNote": "Create new note",
         "search": "Search",

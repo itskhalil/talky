@@ -759,8 +759,7 @@ mod tests {
     fn test_rejects_short_acronym_matching_longer_word() {
         // "tough" (5 chars) should NOT become "TG" (2 chars)
         // Length ratio 2/5 = 0.4 < 0.5, skipped by length gate
-        let result =
-            apply_custom_words("tough pill to swallow", &vec!["TG".to_string()], 0.21);
+        let result = apply_custom_words("tough pill to swallow", &vec!["TG".to_string()], 0.21);
         assert_eq!(result, "tough pill to swallow");
     }
 
