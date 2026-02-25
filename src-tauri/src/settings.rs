@@ -223,8 +223,6 @@ pub struct AppSettings {
     pub selected_language: String,
     #[serde(default = "default_debug_mode")]
     pub debug_mode: bool,
-    #[serde(default = "default_hide_cloud_models")]
-    pub hide_cloud_models: bool,
     #[serde(default = "default_log_level")]
     pub log_level: LogLevel,
     #[serde(default)]
@@ -324,10 +322,6 @@ fn default_selected_language() -> String {
 
 fn default_debug_mode() -> bool {
     false
-}
-
-fn default_hide_cloud_models() -> bool {
-    true
 }
 
 fn default_log_level() -> LogLevel {
@@ -591,7 +585,6 @@ pub fn get_default_settings() -> AppSettings {
         translate_to_english: false,
         selected_language: "auto".to_string(),
         debug_mode: false,
-        hide_cloud_models: true,
         log_level: default_log_level(),
         custom_words: Vec::new(),
         model_unload_timeout: ModelUnloadTimeout::default(),

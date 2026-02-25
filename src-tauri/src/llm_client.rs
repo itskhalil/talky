@@ -17,6 +17,11 @@ fn truncate_str(s: &str, max_bytes: usize) -> &str {
     &s[..end]
 }
 
+/// Detect Anthropic provider from base URL
+fn is_anthropic(base_url: &str) -> bool {
+    base_url.contains("anthropic.com")
+}
+
 /// Content part for multimodal messages
 #[derive(Debug, Serialize, Clone)]
 #[serde(tag = "type")]
@@ -75,6 +80,8 @@ impl ChatMessage {
     }
 }
 
+// --- OpenAI request/response types ---
+
 #[derive(Debug, Serialize)]
 struct ChatCompletionRequest {
     model: String,
@@ -96,6 +103,147 @@ struct ChatMessageResponse {
     content: Option<String>,
 }
 
+// --- Anthropic request/response types ---
+
+#[derive(Debug, Serialize)]
+struct AnthropicMessagesRequest {
+    model: String,
+    max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+    messages: Vec<AnthropicMessage>,
+}
+
+#[derive(Debug, Serialize)]
+struct AnthropicMessagesRequestStream {
+    model: String,
+    max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+    messages: Vec<AnthropicMessage>,
+    stream: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct AnthropicMessage {
+    role: String,
+    content: AnthropicContent,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum AnthropicContent {
+    Text(String),
+    Blocks(Vec<AnthropicContentBlock>),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+enum AnthropicContentBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image")]
+    Image { source: AnthropicImageSource },
+}
+
+#[derive(Debug, Serialize)]
+struct AnthropicImageSource {
+    #[serde(rename = "type")]
+    source_type: String,
+    media_type: String,
+    data: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnthropicMessagesResponse {
+    content: Vec<AnthropicResponseContent>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnthropicResponseContent {
+    #[serde(rename = "type")]
+    _type: String,
+    text: Option<String>,
+}
+
+/// Convert ChatMessages to Anthropic format, extracting system messages
+fn to_anthropic_format(messages: Vec<ChatMessage>) -> (Option<String>, Vec<AnthropicMessage>) {
+    let mut system = None;
+    let mut anthropic_messages = Vec::new();
+
+    for msg in messages {
+        if msg.role == "system" {
+            // Extract system message as top-level system string
+            system = Some(match &msg.content {
+                MessageContent::Text(s) => s.clone(),
+                MessageContent::Parts(parts) => parts
+                    .iter()
+                    .filter_map(|p| match p {
+                        ContentPart::Text { text } => Some(text.as_str()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            });
+            continue;
+        }
+
+        let content = match msg.content {
+            MessageContent::Text(s) => AnthropicContent::Text(s),
+            MessageContent::Parts(parts) => {
+                let blocks: Vec<AnthropicContentBlock> = parts
+                    .into_iter()
+                    .map(|part| match part {
+                        ContentPart::Text { text } => AnthropicContentBlock::Text { text },
+                        ContentPart::ImageUrl { image_url } => {
+                            // Parse data URL: data:image/jpeg;base64,<data>
+                            let url = &image_url.url;
+                            let (media_type, data) =
+                                if let Some(rest) = url.strip_prefix("data:") {
+                                    if let Some((mime, b64)) = rest.split_once(";base64,") {
+                                        (mime.to_string(), b64.to_string())
+                                    } else {
+                                        ("image/jpeg".to_string(), rest.to_string())
+                                    }
+                                } else {
+                                    ("image/jpeg".to_string(), url.clone())
+                                };
+                            AnthropicContentBlock::Image {
+                                source: AnthropicImageSource {
+                                    source_type: "base64".to_string(),
+                                    media_type,
+                                    data,
+                                },
+                            }
+                        }
+                    })
+                    .collect();
+                AnthropicContent::Blocks(blocks)
+            }
+        };
+
+        anthropic_messages.push(AnthropicMessage {
+            role: msg.role,
+            content,
+        });
+    }
+
+    (system, anthropic_messages)
+}
+
+/// Check if an SSE event signals end of stream
+fn is_stream_done(data: &str, provider_id: &str) -> bool {
+    if provider_id == "anthropic" {
+        // Anthropic sends {"type":"message_stop"} as the final event
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
+            return parsed.get("type").and_then(|t| t.as_str()) == Some("message_stop");
+        }
+        false
+    } else {
+        data.trim() == "[DONE]"
+    }
+}
+
 /// Build headers for API requests (detects provider from base_url)
 fn build_headers(base_url: &str, api_key: &str) -> Result<HeaderMap, String> {
     let mut headers = HeaderMap::new();
@@ -112,8 +260,7 @@ fn build_headers(base_url: &str, api_key: &str) -> Result<HeaderMap, String> {
     headers.insert("X-Title", HeaderValue::from_static("Talky"));
 
     if !api_key.is_empty() {
-        // Detect Anthropic from base_url
-        if base_url.contains("anthropic.com") {
+        if is_anthropic(base_url) {
             headers.insert(
                 "x-api-key",
                 HeaderValue::from_str(api_key)
@@ -141,7 +288,7 @@ fn create_client(base_url: &str, api_key: &str) -> Result<reqwest::Client, Strin
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }
 
-/// Send a chat completion request to an OpenAI-compatible API
+/// Send a chat completion request (supports OpenAI-compatible and Anthropic APIs)
 /// Returns Ok(Some(content)) on success, Ok(None) if response has no content,
 /// or Err on actual errors (HTTP, parsing, etc.)
 pub async fn send_chat_completion(
@@ -151,48 +298,89 @@ pub async fn send_chat_completion(
     messages: Vec<ChatMessage>,
 ) -> Result<Option<String>, String> {
     let base_url = base_url.trim_end_matches('/');
-    let url = format!("{}/chat/completions", base_url);
-
-    debug!("Sending chat completion request to: {}", url);
-
     let client = create_client(base_url, api_key)?;
 
-    let request_body = ChatCompletionRequest {
-        model: model.to_string(),
-        messages,
-    };
+    if is_anthropic(base_url) {
+        let url = format!("{}/messages", base_url);
+        debug!("Sending Anthropic messages request to: {}", url);
 
-    let response = client
-        .post(&url)
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| format!("HTTP request failed: {}", e))?;
+        let (system, anthropic_messages) = to_anthropic_format(messages);
+        let request_body = AnthropicMessagesRequest {
+            model: model.to_string(),
+            max_tokens: 8192,
+            system,
+            messages: anthropic_messages,
+        };
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
+        let response = client
+            .post(&url)
+            .json(&request_body)
+            .send()
             .await
-            .unwrap_or_else(|_| "Failed to read error response".to_string());
-        return Err(format!(
-            "API request failed with status {}: {}",
-            status, error_text
-        ));
+            .map_err(|e| format!("HTTP request failed: {}", e))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error response".to_string());
+            return Err(format!(
+                "API request failed with status {}: {}",
+                status, error_text
+            ));
+        }
+
+        let completion: AnthropicMessagesResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse Anthropic response: {}", e))?;
+
+        Ok(completion
+            .content
+            .iter()
+            .find_map(|block| block.text.clone()))
+    } else {
+        let url = format!("{}/chat/completions", base_url);
+        debug!("Sending chat completion request to: {}", url);
+
+        let request_body = ChatCompletionRequest {
+            model: model.to_string(),
+            messages,
+        };
+
+        let response = client
+            .post(&url)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| format!("HTTP request failed: {}", e))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error response".to_string());
+            return Err(format!(
+                "API request failed with status {}: {}",
+                status, error_text
+            ));
+        }
+
+        let completion: ChatCompletionResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse API response: {}", e))?;
+
+        Ok(completion
+            .choices
+            .first()
+            .and_then(|choice| choice.message.content.clone()))
     }
-
-    let completion: ChatCompletionResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse API response: {}", e))?;
-
-    Ok(completion
-        .choices
-        .first()
-        .and_then(|choice| choice.message.content.clone()))
 }
 
-/// Streaming chat completion request to an OpenAI-compatible API
+/// Streaming chat completion request (supports OpenAI-compatible and Anthropic APIs)
 /// Emits `enhance-notes-chunk` events for each text chunk
 /// Returns the accumulated full text when complete
 pub async fn stream_chat_completion(
@@ -204,7 +392,12 @@ pub async fn stream_chat_completion(
     messages: Vec<ChatMessage>,
 ) -> Result<String, String> {
     let base_url = base_url.trim_end_matches('/');
-    let url = format!("{}/chat/completions", base_url);
+    let use_anthropic = is_anthropic(base_url);
+    let url = if use_anthropic {
+        format!("{}/messages", base_url)
+    } else {
+        format!("{}/chat/completions", base_url)
+    };
 
     info!(
         "[enhance-notes] Starting stream | url={} model={} session={}",
@@ -214,18 +407,34 @@ pub async fn stream_chat_completion(
 
     let client = create_client(base_url, api_key)?;
 
-    let request_body = ChatCompletionRequestStream {
-        model: model.to_string(),
-        messages,
-        stream: true,
+    let response = if use_anthropic {
+        let (system, anthropic_messages) = to_anthropic_format(messages);
+        let request_body = AnthropicMessagesRequestStream {
+            model: model.to_string(),
+            max_tokens: 8192,
+            system,
+            messages: anthropic_messages,
+            stream: true,
+        };
+        client
+            .post(&url)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| format!("HTTP request failed: {}", e))?
+    } else {
+        let request_body = ChatCompletionRequestStream {
+            model: model.to_string(),
+            messages,
+            stream: true,
+        };
+        client
+            .post(&url)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| format!("HTTP request failed: {}", e))?
     };
-
-    let response = client
-        .post(&url)
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| format!("HTTP request failed: {}", e))?;
 
     let status = response.status();
     if !status.is_success() {
@@ -248,12 +457,7 @@ pub async fn stream_chat_completion(
     let mut chunk_count = 0u32;
     let mut emit_count = 0u32;
 
-    // Detect provider from URL for SSE parsing
-    let provider_id = if base_url.contains("anthropic.com") {
-        "anthropic"
-    } else {
-        "openai"
-    };
+    let provider_id = if use_anthropic { "anthropic" } else { "openai" };
 
     while let Some(chunk_result) = stream.next().await {
         let chunk = chunk_result.map_err(|e| format!("Stream read error: {}", e))?;
@@ -277,11 +481,16 @@ pub async fn stream_chat_completion(
                 continue;
             }
 
+            // Handle SSE event type lines (Anthropic sends "event: ..." lines)
+            if line.starts_with("event:") {
+                continue;
+            }
+
             if let Some(data) = line.strip_prefix("data: ") {
-                if data.trim() == "[DONE]" {
+                if is_stream_done(data, provider_id) {
                     // Stream complete
                     info!(
-                        "[enhance-notes] Stream complete [DONE] | total_chars={} chunks_received={} chunks_emitted={}",
+                        "[enhance-notes] Stream complete | total_chars={} chunks_received={} chunks_emitted={}",
                         accumulated.len(),
                         chunk_count,
                         emit_count
@@ -326,9 +535,9 @@ pub async fn stream_chat_completion(
         }
     }
 
-    // Emit final done event if stream ended without [DONE]
+    // Emit final done event if stream ended without explicit termination
     info!(
-        "[enhance-notes] Stream ended (no [DONE]) | total_chars={} chunks_received={} chunks_emitted={}",
+        "[enhance-notes] Stream ended (no done signal) | total_chars={} chunks_received={} chunks_emitted={}",
         accumulated.len(),
         chunk_count,
         emit_count

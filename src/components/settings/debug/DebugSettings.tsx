@@ -4,7 +4,6 @@ import { WordCorrectionThreshold } from "./WordCorrectionThreshold";
 import { SpeakerEnergyThreshold } from "./SpeakerEnergyThreshold";
 import { SkipMicOnSpeakerEnergyToggle } from "./SkipMicOnSpeakerEnergyToggle";
 import { LogLevelSelector } from "./LogLevelSelector";
-import { HideCloudModelsToggle } from "./HideCloudModelsToggle";
 import { CopyAsBulletsToggle } from "./CopyAsBulletsToggle";
 import { DisableSpeakerCaptureToggle } from "./DisableSpeakerCaptureToggle";
 import { DisableModelLoadingToggle } from "./DisableModelLoadingToggle";
@@ -22,7 +21,6 @@ export const DebugSettings: React.FC = () => {
       <SettingsGroup title={t("settings.debug.title")}>
         <LogLevelSelector grouped={true} />
         <UpdateChecksToggle descriptionMode="tooltip" grouped={true} />
-        <HideCloudModelsToggle descriptionMode="tooltip" grouped={true} />
         <CopyAsBulletsToggle descriptionMode="tooltip" grouped={true} />
         <WordCorrectionThreshold descriptionMode="tooltip" grouped={true} />
         <SpeakerEnergyThreshold descriptionMode="tooltip" grouped={true} />

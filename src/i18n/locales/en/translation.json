@@ -346,10 +346,6 @@
         "label": "Check for Updates",
         "description": "Automatically check for new versions of Talky"
       },
-      "hideCloudModels": {
-        "label": "Hide Cloud Models",
-        "description": "Only show the Custom provider for AI models"
-      },
       "copyAsBullets": {
         "label": "Copy as Bullets",
         "description": "Show button to copy notes as bullet points (for Logseq, Roam, etc.)"
