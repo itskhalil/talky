@@ -21,12 +21,14 @@ import {
   Sparkles,
   Send,
   Loader,
+  ArrowDownCircle,
 } from "lucide-react";
 import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { commands } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useUpdateChecker } from "@/components/update-checker";
 
 interface Session {
   id: string;
@@ -129,6 +131,13 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   onOpenSettings,
 }) => {
   const { t } = useTranslation();
+  const {
+    updateAvailable,
+    updateChecksEnabled,
+    isInstalling,
+    downloadProgress,
+    installUpdate,
+  } = useUpdateChecker();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Session[] | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
@@ -803,17 +812,39 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom: settings */}
-      <div className="flex items-center px-3 h-[50px] border-t border-border">
-        <button
-          onClick={onOpenSettings}
-          className="relative p-2 rounded-lg hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
-        >
-          <Settings size={20} />
-          {suggestionCount > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
-          )}
-        </button>
+      {/* Bottom: update banner + settings */}
+      <div className="border-t border-border">
+        {updateChecksEnabled && updateAvailable && (
+          <button
+            onClick={installUpdate}
+            disabled={isInstalling}
+            className="flex items-center gap-2 w-full px-3 py-2.5 text-logo-primary hover:bg-logo-primary/5 transition-colors disabled:opacity-50"
+          >
+            <ArrowDownCircle size={16} className="shrink-0" />
+            <span className="text-sm font-medium truncate">
+              {isInstalling
+                ? downloadProgress === 100
+                  ? t("footer.installing")
+                  : downloadProgress > 0
+                    ? t("footer.downloading", {
+                        progress: downloadProgress.toString().padStart(3),
+                      })
+                    : t("footer.preparing")
+                : t("settings.general.updateBanner.message")}
+            </span>
+          </button>
+        )}
+        <div className="flex items-center px-3 h-[50px]">
+          <button
+            onClick={onOpenSettings}
+            className="relative p-2 rounded-lg hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
+          >
+            <Settings size={20} />
+            {suggestionCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Delete confirmation dialog */}
