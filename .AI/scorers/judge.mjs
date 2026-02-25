@@ -126,6 +126,12 @@ function bulletStats(text) {
   };
 }
 
+function chainBulletCount(text) {
+  const lines = text.split('\n');
+  const bullets = lines.filter(l => l.trim().match(/^- /));
+  return bullets.filter(b => b.includes(';') || b.includes(' — ')).length;
+}
+
 export default async function (output, context) {
   const { vars } = context;
 
@@ -134,6 +140,14 @@ export default async function (output, context) {
   if (output.includes(notesDelimiter)) {
     output = output.split(notesDelimiter).pop().trim();
   }
+
+  // Normalize [added] → [ai] so variants using alternate tag names are judged fairly
+  output = output.replace(/\[added\]/g, '[ai]');
+
+  // Normalize suffix tags → prefix for fair judging against prefix-tagged goldens
+  output = output.replace(/^(\s*- )(.+) \[(noted|ai)\]$/gm, '$1[$3] $2');
+  output = output.replace(/^([^#\-\s\n].+) \[(noted|ai)\]$/gm, '[$2] $1');
+
 
   const judgeMsg = buildJudgeMessage(
     vars.notes,
@@ -176,12 +190,15 @@ export default async function (output, context) {
   const goldenWords = wordCount(vars.golden);
   const conciseness = goldenWords > 0 ? Math.min(1, goldenWords / outputWords) : 1;
   const bullets = bulletStats(output);
+  const chainBullets = chainBulletCount(output);
 
   // — tagging gate —
   // Tagging is correctness, not quality. Handle it separately so a tagging bug
   // doesn't trade off against voice or density scores.
+  // Skip tagging gate if output intentionally has no tags (e.g. no-tags variant)
+  const hasAnyTags = /\[ai\]/.test(output);
   const taggingScore = scores.tagging?.score;
-  if (typeof taggingScore === 'number' && taggingScore < TAGGING_PASS_THRESHOLD) {
+  if (hasAnyTags && typeof taggingScore === 'number' && taggingScore < TAGGING_PASS_THRESHOLD) {
     return {
       pass: false,
       score: taggingScore / 5,
@@ -190,6 +207,7 @@ export default async function (output, context) {
         ...buildNamedScores(scores),
         conciseness,
         ...bullets,
+        chain_bullets: chainBullets,
       },
       componentResults: [{
         pass: false,
@@ -211,6 +229,7 @@ export default async function (output, context) {
         ...buildNamedScores(scores),
         conciseness,
         ...bullets,
+        chain_bullets: chainBullets,
       },
       componentResults: buildComponentResults(scores),
     };
@@ -245,6 +264,7 @@ export default async function (output, context) {
       ...buildNamedScores(scores),
       conciseness,
       ...bullets,
+      chain_bullets: chainBullets,
     },
     componentResults: buildComponentResults(scores),
   };

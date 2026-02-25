@@ -5,10 +5,14 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXAMPLES_DIR = join(__dirname, '..', 'Examples');
 
+// Exclude cases used as in-prompt examples to avoid biasing scores
+const EXCLUDE = [];
+
 export default function () {
   const cases = [];
 
   for (const dir of readdirSync(EXAMPLES_DIR)) {
+    if (EXCLUDE.includes(dir)) continue;
     const exDir = join(EXAMPLES_DIR, dir);
     let files;
     try {
@@ -22,7 +26,7 @@ export default function () {
     );
     const enhancedFile = files.find((f) => f.includes('enhanced'));
     const notesFile = files.find(
-      (f) => f.includes('notes') && !f.endsWith('.png'),
+      (f) => f.includes(' - notes') && !f.endsWith('.png'),
     );
 
     if (!transcriptFile || !enhancedFile) continue;

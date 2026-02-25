@@ -1,14 +1,14 @@
-description: 'enhance_notes prompt evaluation — action items variants (v6 base, repeat 3)'
+description: 'enhance_notes — Round 19: no-notes 2x2 (suppression × example)'
 
 prompts:
-  - id: file://prompts/gate.mjs
-    label: gate (current prod)
-  - id: file://prompts/reason-inline-v6.mjs
-    label: reason-inline-v6
-  - id: file://prompts/actions-remove.mjs
-    label: actions-remove
-  - id: file://prompts/actions-explicit.mjs
-    label: actions-explicit
+  - id: file://prompts/generate-then-tag.mjs
+    label: gtt-baseline
+  - id: file://prompts/gtt-capture.mjs
+    label: gtt-suppress
+  - id: file://prompts/gtt-example-only.mjs
+    label: gtt-example-only
+  - id: file://prompts/gtt-example.mjs
+    label: gtt-both
 
 providers:
   - file://providers/talky.mjs

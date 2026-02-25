@@ -111,33 +111,41 @@ function analyseBullets(text) {
   const lines = text.split('\n');
   const bulletLines = lines.filter(l => /^\s*- /.test(l));
   const bulletWordCounts = bulletLines.map(l => wordCount(l.replace(/^\s*- /, '')));
+  const chainCount = bulletLines.filter(b => b.includes(';') || b.includes(' — ')).length;
   return {
     totalWords: wordCount(text),
     numBullets: bulletLines.length,
     avgWords: bulletWordCounts.length > 0 ? avg(bulletWordCounts) : 0,
     medWords: median(bulletWordCounts),
     maxWords: bulletWordCounts.length > 0 ? Math.max(...bulletWordCounts) : 0,
+    chainBullets: chainCount,
   };
+}
+
+function getGoldenText(tc) {
+  return grouped[tc]?.[variants[0]]?.[0]?.vars?.golden
+    ?? grouped[tc]?.[variants[0]]?.[0]?.testCase?.vars?.golden ?? '';
 }
 
 function buildBulletStats() {
   let md = '## Bullet Stats (per-variant averages)\n\n';
 
-  const hdr = '| Variant | Words | Bullets | Avg w/bullet | Med w/bullet | Max w/bullet |';
-  const sep = '|---|---:|---:|---:|---:|---:|';
+  const hdr = '| Variant | Words | Bullets | Avg w/b | Med w/b | Max w/b | Chain |';
+  const sep = '|---|---:|---:|---:|---:|---:|---:|';
 
   for (const tc of testCases) {
-    const goldenText = grouped[tc]?.[variants[0]]?.[0]?.vars?.golden
-      ?? grouped[tc]?.[variants[0]]?.[0]?.testCase?.vars?.golden ?? '';
-    const goldenWords = wordCount(goldenText);
-    md += `### ${tc} (golden ${goldenWords}w)\n\n${hdr}\n${sep}\n`;
+    const goldenStats = analyseBullets(getGoldenText(tc));
+    md += `### ${tc}\n\n${hdr}\n${sep}\n`;
+
+    // Golden reference row
+    md += `| **golden** | ${goldenStats.totalWords} | ${goldenStats.numBullets} | ${goldenStats.avgWords.toFixed(1)} | ${goldenStats.medWords.toFixed(1)} | ${goldenStats.maxWords} | ${goldenStats.chainBullets} |\n`;
 
     for (const v of variants) {
       const runs = grouped[tc]?.[v] ?? [];
       if (runs.length === 0) continue;
       const stats = runs.map(r => analyseBullets(r.response?.output ?? ''));
       const a = (fn) => avg(stats.map(fn));
-      md += `| ${v} | ${a(s => s.totalWords).toFixed(0)} | ${a(s => s.numBullets).toFixed(1)} | ${a(s => s.avgWords).toFixed(1)} | ${a(s => s.medWords).toFixed(1)} | ${a(s => s.maxWords).toFixed(0)} |\n`;
+      md += `| ${v} | ${a(s => s.totalWords).toFixed(0)} | ${a(s => s.numBullets).toFixed(1)} | ${a(s => s.avgWords).toFixed(1)} | ${a(s => s.medWords).toFixed(1)} | ${a(s => s.maxWords).toFixed(0)} | ${a(s => s.chainBullets).toFixed(1)} |\n`;
     }
     md += '\n';
   }
@@ -153,9 +161,87 @@ function buildBulletStats() {
     }
     if (allStats.length === 0) continue;
     const a = (fn) => avg(allStats.map(fn));
-    md += `| ${v} | ${a(s => s.totalWords).toFixed(0)} | ${a(s => s.numBullets).toFixed(1)} | ${a(s => s.avgWords).toFixed(1)} | ${a(s => s.medWords).toFixed(1)} | ${a(s => s.maxWords).toFixed(0)} |\n`;
+    md += `| ${v} | ${a(s => s.totalWords).toFixed(0)} | ${a(s => s.numBullets).toFixed(1)} | ${a(s => s.avgWords).toFixed(1)} | ${a(s => s.medWords).toFixed(1)} | ${a(s => s.maxWords).toFixed(0)} | ${a(s => s.chainBullets).toFixed(1)} |\n`;
   }
   md += '\n';
+
+  // Ratio tables vs golden
+  md += buildRatioTables();
+
+  return md;
+}
+
+function buildRatioTables() {
+  let md = '## Ratios vs Golden\n\n';
+
+  const ratioMetrics = [
+    { label: 'Word Count', fn: (s) => s.totalWords },
+    { label: 'Bullet Count', fn: (s) => s.numBullets },
+    { label: 'Words per Bullet', fn: (s) => s.avgWords },
+  ];
+
+  for (const { label, fn } of ratioMetrics) {
+    md += `### ${label} (output / golden)\n\n`;
+    md += `| Test Case | ${variants.join(' | ')} |\n`;
+    md += `|---|${variants.map(() => '---:').join('|')}|\n`;
+
+    const variantTotals = Object.fromEntries(variants.map(v => [v, []]));
+
+    for (const tc of testCases) {
+      const goldenVal = fn(analyseBullets(getGoldenText(tc)));
+      if (!goldenVal || goldenVal === 0) {
+        md += `| ${tc} | ${variants.map(() => '—').join(' | ')} |\n`;
+        continue;
+      }
+      const cells = variants.map(v => {
+        const runs = grouped[tc]?.[v] ?? [];
+        if (runs.length === 0) return '—';
+        const stats = runs.map(r => analyseBullets(r.response?.output ?? ''));
+        const variantVal = avg(stats.map(fn));
+        const ratio = variantVal / goldenVal;
+        variantTotals[v].push(ratio);
+        return `${ratio.toFixed(2)}x`;
+      });
+      md += `| ${tc} | ${cells.join(' | ')} |\n`;
+    }
+
+    const avgCells = variants.map(v => {
+      const vals = variantTotals[v];
+      return vals.length > 0 ? `**${avg(vals).toFixed(2)}x**` : '—';
+    });
+    md += `| **Average** | ${avgCells.join(' | ')} |\n\n`;
+  }
+
+  // Chain bullets: diff vs golden (output - golden), not ratio
+  md += `### Chain Bullets (output − golden)\n\n`;
+  md += `| Test Case (golden) | ${variants.join(' | ')} |\n`;
+  md += `|---|${variants.map(() => '---:').join('|')}|\n`;
+
+  const chainTotals = Object.fromEntries(variants.map(v => [v, []]));
+
+  for (const tc of testCases) {
+    const goldenChain = analyseBullets(getGoldenText(tc)).chainBullets;
+    const cells = variants.map(v => {
+      const runs = grouped[tc]?.[v] ?? [];
+      if (runs.length === 0) return '—';
+      const stats = runs.map(r => analyseBullets(r.response?.output ?? ''));
+      const variantVal = avg(stats.map(s => s.chainBullets));
+      const diff = variantVal - goldenChain;
+      chainTotals[v].push(diff);
+      const sign = diff >= 0 ? '+' : '';
+      return `${sign}${diff.toFixed(1)}`;
+    });
+    md += `| ${tc} (${goldenChain}) | ${cells.join(' | ')} |\n`;
+  }
+
+  const chainAvgCells = variants.map(v => {
+    const vals = chainTotals[v];
+    if (vals.length === 0) return '—';
+    const a = avg(vals);
+    const sign = a >= 0 ? '+' : '';
+    return `**${sign}${a.toFixed(1)}**`;
+  });
+  md += `| **Average** | ${chainAvgCells.join(' | ')} |\n\n`;
 
   return md;
 }

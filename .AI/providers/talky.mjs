@@ -7,12 +7,18 @@ const SETTINGS_PATH = join(
   'Library/Application Support/com.khalil.talky/settings_store.json',
 );
 
-function loadSettings() {
+function loadSettings(envName) {
   const raw = JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
   const s = raw.settings;
-  const defaultEnvId = s.default_environment_id;
-  const env = s.model_environments.find((e) => e.id === defaultEnvId);
-  if (!env) throw new Error(`Default environment ${defaultEnvId} not found`);
+  let env;
+  if (envName) {
+    env = s.model_environments.find((e) => e.name === envName);
+    if (!env) throw new Error(`Environment "${envName}" not found`);
+  } else {
+    const defaultEnvId = s.default_environment_id;
+    env = s.model_environments.find((e) => e.id === defaultEnvId);
+    if (!env) throw new Error(`Default environment ${defaultEnvId} not found`);
+  }
   return {
     providerId: env.name.toLowerCase(),
     baseUrl: env.base_url,
@@ -25,9 +31,9 @@ function loadSettings() {
  * Call the LLM using the Talky settings store.
  * Accepts a messages array [{ role, content }] and an optional model override.
  */
-export async function callLLM(messages, modelOverride) {
-  const settings = loadSettings();
-  const model = modelOverride || settings.model;
+export async function callLLM(messages, modelOverride, config = {}) {
+  const settings = loadSettings(config.environment);
+  let model = config.model || modelOverride || settings.model;
 
   if (settings.providerId === 'anthropic') {
     const systemMessages = messages.filter((m) => m.role === 'system');
@@ -35,9 +41,10 @@ export async function callLLM(messages, modelOverride) {
 
     const body = {
       model,
-      max_tokens: 8192,
+      max_tokens: config.max_tokens ?? 8192,
       messages: nonSystemMessages,
     };
+    if (config.temperature !== undefined) body.temperature = config.temperature;
     if (systemMessages.length > 0) {
       body.system = systemMessages.map((m) => m.content).join('\n\n');
     }
@@ -61,13 +68,16 @@ export async function callLLM(messages, modelOverride) {
   }
 
   // OpenAI-compatible providers
+  const body = { model, max_tokens: config.max_tokens ?? 8192, messages };
+  if (config.temperature !== undefined) body.temperature = config.temperature;
+
   const res = await fetch(`${settings.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${settings.apiKey}`,
     },
-    body: JSON.stringify({ model, max_tokens: 8192, messages }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -93,10 +103,15 @@ export default class TalkyProvider {
 
   async callApi(prompt) {
     let messages;
+    let config = {};
     try {
       const parsed = JSON.parse(prompt);
       if (Array.isArray(parsed)) {
-        messages = parsed;
+        const configMsg = parsed.find((m) => m.role === '__config');
+        if (configMsg) {
+          config = JSON.parse(configMsg.content);
+        }
+        messages = parsed.filter((m) => m.role !== '__config');
       } else {
         messages = [{ role: 'user', content: prompt }];
       }
@@ -105,7 +120,10 @@ export default class TalkyProvider {
     }
 
     try {
-      const output = await callLLM(messages, process.env.EVAL_MODEL);
+      let output = await callLLM(messages, process.env.EVAL_MODEL, config);
+      if (config.stripTags) {
+        output = output.replace(/\[(noted|ai)\]\s?/g, '');
+      }
       return { output };
     } catch (err) {
       return { error: err.message };
