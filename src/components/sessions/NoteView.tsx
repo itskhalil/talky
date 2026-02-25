@@ -6,7 +6,7 @@ import {
   ChevronDown,
   Square,
   Sparkles,
-  Loader2,
+  Loader,
   Copy,
   Check,
   Send,
@@ -1194,7 +1194,7 @@ export function NoteView({
               {/* Show loading spinner until notes content starts streaming (after ---NOTES--- delimiter) */}
               {enhanceLoading && !streamingJSON && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary pt-2">
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader size={16} className="animate-spin-slow" />
                   {t("sessions.enhancing")}
                 </div>
               )}
@@ -1232,7 +1232,7 @@ export function NoteView({
               {/* Summary display */}
               {summaryLoading && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary mb-5">
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader size={16} className="animate-spin-slow" />
                   {t("sessions.summaryLoading")}
                 </div>
               )}
@@ -1364,7 +1364,7 @@ export function NoteView({
                       chat.messages[chat.messages.length - 1]?.role !==
                         "assistant" && (
                         <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                          <Loader2 size={16} className="animate-spin" />
+                          <Loader size={16} className="animate-spin-slow" />
                           {t("sessions.chat.thinking")}
                         </div>
                       )}
@@ -1534,7 +1534,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-text-secondary">
-            <Loader2 size={16} className="animate-spin" />
+            <Loader size={16} className="animate-spin-slow" />
             {t("sessions.chat.thinking")}
           </div>
         )}

@@ -71,10 +71,8 @@
   .font-display {
     font-family: var(--font-display);
   }
-  /* Prevent wobble on spinning icons */
-  .animate-spin {
-    transform-origin: center center;
-    display: inline-block;
+  .animate-spin-slow {
+    animation: spin 2s linear infinite;
   }
 }
 

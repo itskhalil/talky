@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Paperclip, X, FileText, Image, Plus, Loader2 } from "lucide-react";
+import { Paperclip, X, FileText, Image, Plus, Loader } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
@@ -260,7 +260,7 @@ export function AttachmentsRow({
           title={t("sessions.attachments.addHint")}
         >
           {uploading ? (
-            <Loader2 size={10} className="animate-spin" />
+            <Loader size={10} className="animate-spin-slow" />
           ) : (
             <>
               <Paperclip size={10} />

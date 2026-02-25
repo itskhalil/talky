@@ -20,7 +20,7 @@ import {
   ChevronDown,
   Sparkles,
   Send,
-  Loader2,
+  Loader,
 } from "lucide-react";
 import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
@@ -689,9 +689,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     ) : (
-                      <Loader2
+                      <Loader
                         size={16}
-                        className="animate-spin text-text-secondary"
+                        className="animate-spin-slow text-text-secondary"
                       />
                     )}
                   </div>
