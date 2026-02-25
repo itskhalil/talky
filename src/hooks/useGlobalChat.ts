@@ -5,7 +5,6 @@ import { streamText, tool, wrapLanguageModel } from "ai";
 import { hermesToolMiddleware } from "@ai-sdk-tool/parser";
 import { z } from "zod";
 import * as chrono from "chrono-node";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { commands } from "@/bindings";
 import { getEffectiveEnvironment } from "@/hooks/useEffectiveEnvironment";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -238,7 +237,6 @@ ${recentMeetingsList}${currentNoteContext}`;
           const anthropic = createAnthropic({
             apiKey: effectiveApiKey,
             baseURL: baseUrl,
-            fetch: tauriFetch,
             headers: {
               "anthropic-dangerous-direct-browser-access": "true",
             },
@@ -248,7 +246,6 @@ ${recentMeetingsList}${currentNoteContext}`;
           const openai = createOpenAI({
             apiKey: effectiveApiKey,
             baseURL: baseUrl,
-            fetch: tauriFetch,
           });
           aiModel = openai.chat(model);
         }
