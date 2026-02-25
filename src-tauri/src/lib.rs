@@ -7,7 +7,6 @@ mod commands;
 mod helpers;
 mod llm_client;
 mod managers;
-mod memory;
 mod menu;
 #[cfg(target_os = "macos")]
 mod mic_detect;
@@ -458,11 +457,6 @@ pub fn run() {
         commands::session::delete_attachment,
         commands::session::open_attachment,
         commands::session::extract_pdf_text,
-        // Memory commands
-        commands::get_memory,
-        commands::update_memory_content,
-        commands::clear_memory,
-        commands::change_memory_enabled_setting,
         // Export commands
         commands::export::export_note_as_markdown,
         commands::export::export_all_notes_as_markdown,

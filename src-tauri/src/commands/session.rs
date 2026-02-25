@@ -205,22 +205,6 @@ pub async fn generate_session_summary(
          Do not assume one person said everything."
     );
 
-    // Inject memory when available and enabled
-    if settings.memory_enabled {
-        if let Ok(memory) = crate::memory::load_memory(&app) {
-            if !memory.content.is_empty() {
-                system_message.push_str(&format!(
-                    "\n\n<memory>\n{}\n</memory>\n\n\
-                     MEMORY USAGE: The above is context from your recent meetings. \
-                     Use it to recognize ongoing threads, avoid restating known context, \
-                     and connect new information to existing patterns. \
-                     Do NOT force references — only use when it genuinely improves the notes.",
-                    memory.content
-                ));
-            }
-        }
-    }
-
     let has_notes = !user_notes.trim().is_empty();
     let notes_section = if has_notes {
         user_notes
@@ -282,10 +266,6 @@ pub async fn generate_session_summary(
         Some(false),
     )
     .map_err(|e| e.to_string())?;
-
-    // Spawn background memory update
-    let session_title = session.title.clone();
-    crate::memory::spawn_memory_update(app, session_id, session_title, cleaned.clone());
 
     Ok(cleaned)
 }
@@ -389,22 +369,6 @@ pub async fn generate_session_summary_stream(
          \nIf only [Mic] segments appear, multiple speakers are likely mixed together. \
          Do not assume one person said everything."
     );
-
-    // Inject memory when available and enabled
-    if settings.memory_enabled {
-        if let Ok(memory) = crate::memory::load_memory(&app) {
-            if !memory.content.is_empty() {
-                system_message.push_str(&format!(
-                    "\n\n<memory>\n{}\n</memory>\n\n\
-                     MEMORY USAGE: The above is context from your recent meetings. \
-                     Use it to recognize ongoing threads, avoid restating known context, \
-                     and connect new information to existing patterns. \
-                     Do NOT force references — only use when it genuinely improves the notes.",
-                    memory.content
-                ));
-            }
-        }
-    }
 
     let has_notes = !user_notes.trim().is_empty();
     let notes_section = if has_notes {
@@ -576,14 +540,10 @@ pub async fn generate_session_summary_stream(
         None,
         None,
         None,
-        Some(cleaned.clone()),
+        Some(cleaned),
         Some(false),
     )
     .map_err(|e| e.to_string())?;
-
-    // Spawn background memory update
-    let session_title = session.title.clone();
-    crate::memory::spawn_memory_update(app, session_id, session_title, cleaned);
 
     Ok(())
 }

@@ -1,15 +1,19 @@
-description: 'enhance_notes — Round 21: memory validation'
+description: 'enhance_notes — Round 19: no-notes 2x2 (suppression × example)'
 
 prompts:
-  - id: file://prompts/baseline.mjs
-    label: baseline
-  - id: file://prompts/memory.mjs
-    label: memory
+  - id: file://prompts/generate-then-tag.mjs
+    label: gtt-baseline
+  - id: file://prompts/gtt-capture.mjs
+    label: gtt-suppress
+  - id: file://prompts/gtt-example-only.mjs
+    label: gtt-example-only
+  - id: file://prompts/gtt-example.mjs
+    label: gtt-both
 
 providers:
   - file://providers/talky.mjs
 
-tests: file://tests/all-cases.mjs
+tests: file://tests/cases.mjs
 
 defaultTest:
   assert:

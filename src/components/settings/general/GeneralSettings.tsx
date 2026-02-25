@@ -9,7 +9,6 @@ import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
 import { UserNameSetting } from "./UserNameSetting";
 import { EnvironmentsSection } from "../environments/EnvironmentsSection";
-import { MemorySettings } from "../MemorySettings";
 import { UpdateBanner } from "../../update-checker";
 
 export const GeneralSettings: React.FC = () => {
@@ -35,7 +34,6 @@ export const GeneralSettings: React.FC = () => {
         <CustomWords descriptionMode="tooltip" grouped />
       </SettingsGroup>
       <EnvironmentsSection />
-      <MemorySettings />
     </div>
   );
 };

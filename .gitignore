@@ -41,12 +41,4 @@ recording_*
 !.AI/scorers/judge.mjs
 !.AI/tests/
 !.AI/tests/cases.mjs
-!.AI/tests/memory-cases.mjs
-!.AI/tests/all-cases.mjs
-!.AI/prompts/
-!.AI/prompts/memory.mjs
-!.AI/prompt-variants/
-!.AI/prompt-variants/memory/
-!.AI/prompt-variants/memory/system.txt
-!.AI/prompt-variants/memory/user.txt
 PROMPT CHANGES.md

@@ -269,9 +269,6 @@ pub struct AppSettings {
     #[serde(default)]
     pub new_recording_shortcut: Option<String>,
 
-    #[serde(default = "default_memory_enabled")]
-    pub memory_enabled: bool,
-
     // Debug flags for Windows crash diagnosis
     #[serde(default)]
     pub debug_disable_speaker_capture: bool,
@@ -302,10 +299,6 @@ fn default_speaker_energy_threshold() -> f32 {
 }
 
 fn default_skip_mic_on_speaker_energy() -> bool {
-    true
-}
-
-fn default_memory_enabled() -> bool {
     true
 }
 
@@ -620,7 +613,6 @@ pub fn get_default_settings() -> AppSettings {
         model_environments: Vec::new(),
         default_environment_id: None,
         new_recording_shortcut: None,
-        memory_enabled: default_memory_enabled(),
         debug_disable_speaker_capture: false,
         debug_disable_model_loading: false,
         debug_disable_pill_window: default_debug_disable_pill_window(),
