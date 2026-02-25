@@ -20,3 +20,5 @@ export { RecordingRetentionPeriodSelector } from "./RecordingRetentionPeriod";
 export { AutostartToggle } from "./AutostartToggle";
 export { UpdateChecksToggle } from "./UpdateChecksToggle";
 export { EnvironmentsSection } from "./environments/EnvironmentsSection";
+export { MemoryToggle } from "./MemoryToggle";
+export { MemorySettings } from "./MemorySettings";

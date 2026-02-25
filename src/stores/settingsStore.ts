@@ -124,6 +124,8 @@ const settingUpdaters: {
     commands.changeNewRecordingShortcutSetting(
       (value as string | null) ?? null,
     ),
+  memory_enabled: (value) =>
+    commands.changeMemoryEnabledSetting(value as boolean),
 };
 
 export const useSettingsStore = create<SettingsStore>()(

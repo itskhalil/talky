@@ -280,6 +280,18 @@ pub fn set_data_directory(
             );
         }
 
+        // Copy memory.json
+        let source_memory = source_dir.join("memory.json");
+        let target_memory = target_dir.join("memory.json");
+        if source_memory.exists() && !target_memory.exists() {
+            std::fs::copy(&source_memory, &target_memory).ok();
+            log::info!(
+                "Migrated memory.json from {:?} to {:?}",
+                source_memory,
+                target_memory
+            );
+        }
+
         // Also copy WAL files if they exist (for SQLite)
         for wal_ext in &["-wal", "-shm"] {
             let source_sessions_wal = source_dir.join(format!("sessions.db{}", wal_ext));
@@ -302,6 +314,41 @@ pub fn set_data_directory(
     write_settings(&app, settings);
 
     log::info!("Data directory updated. App restart required.");
+    Ok(())
+}
+
+// --- Memory commands ---
+
+#[specta::specta]
+#[tauri::command]
+pub fn get_memory(app: AppHandle) -> Result<crate::memory::Memory, String> {
+    crate::memory::load_memory(&app)
+}
+
+#[specta::specta]
+#[tauri::command]
+pub fn update_memory_content(app: AppHandle, content: String) -> Result<(), String> {
+    let mut memory = crate::memory::load_memory(&app)?;
+    memory.content = content;
+    memory.updated_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    crate::memory::save_memory(&app, &memory)
+}
+
+#[specta::specta]
+#[tauri::command]
+pub fn clear_memory(app: AppHandle) -> Result<(), String> {
+    crate::memory::clear_memory(&app)
+}
+
+#[specta::specta]
+#[tauri::command]
+pub fn change_memory_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.memory_enabled = enabled;
+    write_settings(&app, settings);
     Ok(())
 }
 

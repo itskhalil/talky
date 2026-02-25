@@ -127,6 +127,23 @@
   "settings": {
     "back": "Back",
     "title": "Settings",
+    "memory": {
+      "title": "Memory",
+      "toggle": {
+        "label": "Meeting Memory",
+        "description": "Build context from past meetings to improve future note enhancement. Memory updates automatically after each meeting."
+      },
+      "view": "View",
+      "edit": "Edit",
+      "clear": "Clear",
+      "modalTitle": "Meeting Memory",
+      "empty": "No memory yet. Memory will be created after your first enhanced meeting.",
+      "cancelEdit": "Cancel",
+      "clearConfirm": {
+        "title": "Clear Memory",
+        "message": "This will delete all accumulated meeting context. Memory will start fresh from your next meeting."
+      }
+    },
     "general": {
       "title": "General",
       "updateBanner": {
@@ -616,6 +633,7 @@
     "appName": "talky",
     "loading": "Loading...",
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "reset": "Reset",
     "add": "Add",
