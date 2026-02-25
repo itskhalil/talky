@@ -227,10 +227,6 @@ I am currently in a meeting, so keep your answer direct and clear. Be brief - I 
 
 ${recentMeetingsList}${currentNoteContext}`;
 
-      console.log("[global-chat] === REQUEST ===");
-      console.log("[global-chat] system prompt:", systemPrompt);
-      console.log("[global-chat] messages:", newMessages);
-
       const abortController = new AbortController();
       abortRef.current = abortController;
 
@@ -238,51 +234,11 @@ ${recentMeetingsList}${currentNoteContext}`;
         // Build the AI SDK provider based on base_url
         let aiModel;
         const isAnthropic = baseUrl.includes("anthropic.com");
-
-        // Debug wrapper for tauriFetch to log requests/responses
-        const debugFetch: typeof tauriFetch = async (input, init) => {
-          const url = typeof input === "string" ? input : input.url;
-          console.log("[global-chat] fetch START:", {
-            url,
-            method: init?.method ?? "GET",
-            headers: init?.headers,
-            bodyLength: init?.body
-              ? String(init.body).slice(0, 500) + "..."
-              : undefined,
-          });
-          const startTime = Date.now();
-          try {
-            const response = await tauriFetch(input, init);
-            console.log("[global-chat] fetch RESPONSE:", {
-              url,
-              status: response.status,
-              statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries()),
-              elapsed: `${Date.now() - startTime}ms`,
-            });
-            return response;
-          } catch (fetchErr) {
-            console.error("[global-chat] fetch ERROR:", {
-              url,
-              error: fetchErr,
-              elapsed: `${Date.now() - startTime}ms`,
-            });
-            throw fetchErr;
-          }
-        };
-
-        console.log("[global-chat] creating provider:", {
-          isAnthropic,
-          baseUrl,
-          model,
-          hasApiKey: !!effectiveApiKey,
-        });
-
         if (isAnthropic) {
           const anthropic = createAnthropic({
             apiKey: effectiveApiKey,
             baseURL: baseUrl,
-            fetch: debugFetch,
+            fetch: tauriFetch,
             headers: {
               "anthropic-dangerous-direct-browser-access": "true",
             },
@@ -292,7 +248,7 @@ ${recentMeetingsList}${currentNoteContext}`;
           const openai = createOpenAI({
             apiKey: effectiveApiKey,
             baseURL: baseUrl,
-            fetch: debugFetch,
+            fetch: tauriFetch,
           });
           aiModel = openai.chat(model);
         }
@@ -387,13 +343,6 @@ ${recentMeetingsList}${currentNoteContext}`;
               // Apply date filter if provided
               if (dateHint) {
                 const parsed = chrono.parse(dateHint, new Date());
-                console.log("[global-chat] date filter:", {
-                  dateHint,
-                  parsed: parsed.map((p) => ({
-                    start: p.start.date(),
-                    end: p.end?.date(),
-                  })),
-                });
                 if (parsed.length > 0) {
                   const ref = parsed[0];
                   // Use start of day for filtering (midnight to midnight)
@@ -403,24 +352,9 @@ ${recentMeetingsList}${currentNoteContext}`;
                   if (!ref.end) {
                     endDate.setHours(23, 59, 59, 999);
                   }
-                  console.log("[global-chat] filtering notes:", {
-                    startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
-                    noteCount: notes.length,
-                    noteDates: notes.map((n) => ({
-                      title: n.title,
-                      date: new Date(n.started_at * 1000).toISOString(),
-                    })),
-                  });
                   notes = notes.filter((n) => {
                     const d = new Date(n.started_at * 1000);
-                    const matches = d >= startDate && d <= endDate;
-                    console.log("[global-chat] note filter:", {
-                      title: n.title,
-                      noteDate: d.toISOString(),
-                      matches,
-                    });
-                    return matches;
+                    return d >= startDate && d <= endDate;
                   });
                 }
               }
@@ -476,9 +410,6 @@ ${recentMeetingsList}${currentNoteContext}`;
         };
         const tools = isInNoteChat ? undefined : searchNotesTool;
 
-        console.log("[global-chat] calling streamText...");
-        const streamStartTime = Date.now();
-
         const result = streamText({
           model: finalModel,
           system: systemPrompt,
@@ -487,18 +418,11 @@ ${recentMeetingsList}${currentNoteContext}`;
           abortSignal: abortController.signal,
         });
 
-        console.log("[global-chat] streamText returned (promise), awaiting...");
-
         // Add empty assistant message and stream into it
         const assistantIdx = newMessages.length;
         setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
         const resolved = await result;
-
-        console.log(
-          "[global-chat] stream resolved, entering iteration. Elapsed:",
-          `${Date.now() - streamStartTime}ms`,
-        );
 
         // Collect tool results for manual multi-step
         const collectedToolResults: Array<{
@@ -508,32 +432,16 @@ ${recentMeetingsList}${currentNoteContext}`;
         }> = [];
 
         let textContent = "";
-        let partCount = 0;
         for await (const part of resolved.fullStream) {
-          partCount++;
-          if (partCount <= 3 || partCount % 10 === 0) {
-            console.log("[global-chat] stream part:", {
-              partCount,
-              type: part.type,
-              elapsed: `${Date.now() - streamStartTime}ms`,
-            });
-          }
           if (abortController.signal.aborted) break;
 
           // Collect tool results for manual multi-step
           if (part.type === "tool-result") {
-            console.log(
-              "[global-chat] tool-result:",
-              part.toolName,
-              part.output,
-            );
             collectedToolResults.push({
               toolCallId: part.toolCallId,
               toolName: part.toolName,
               result: part.output,
             });
-          } else if (part.type === "tool-call") {
-            console.log("[global-chat] tool-call:", part.toolName, part);
           } else if (part.type === "text-delta") {
             // Try possible property names for the text delta
             const delta =
@@ -554,18 +462,6 @@ ${recentMeetingsList}${currentNoteContext}`;
             }
           }
         }
-
-        console.log("[global-chat] === RESPONSE ===");
-        console.log("[global-chat] stream complete:", {
-          partCount,
-          textLength: textContent.length,
-          elapsed: `${Date.now() - streamStartTime}ms`,
-        });
-        console.log(
-          "[global-chat] text:",
-          textContent.slice(0, 500) || "(no text)",
-        );
-        console.log("[global-chat] tool results:", collectedToolResults.length);
 
         // Strip any raw tool call JSON from the response (from middleware)
         // This handles both "just JSON" and "JSON followed by text" cases
@@ -648,14 +544,9 @@ ${recentMeetingsList}${currentNoteContext}`;
           }
         }
       } catch (err: unknown) {
-        console.error("[global-chat] ERROR:", {
-          name: err instanceof Error ? err.name : "unknown",
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-          raw: err,
-        });
+        console.error("[global-chat] error:", err);
         if (err instanceof Error && err.name === "AbortError") {
-          console.log("[global-chat] request aborted by user");
+          // User aborted
         } else {
           const errorMsg = err instanceof Error ? err.message : String(err);
           setError(errorMsg);
