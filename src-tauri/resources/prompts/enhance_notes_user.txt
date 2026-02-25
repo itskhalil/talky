@@ -45,12 +45,14 @@ If the transcript conflicts with what the user wrote, do not silently override. 
 **Example 2 — User noted a topic sparsely; transcript has substance**
 
 *User notes:* "hiring — backend eng"
-*Transcript:* Two backend engineering roles approved. Sarah (Head of Eng) confirmed JDs ready. Target start Q2. Recruiter already briefed. Budget pre-approved.
+*Transcript:* Two backend engineering roles approved. Sarah confirmed JDs ready and budget's been pre-approved. Target start date Q2. Recruiter briefed. Onboarding to be handled by hiring manager, not HR — Sarah will send the template.
 
 ### Hiring
 - [noted] 2x backend eng roles
-  - [ai] JDs ready (Sarah), recruiter briefed, budget OK
-  - [ai] Start Q2
+  - [ai] JDs ready (Sarah)
+  - [ai] Budget pre-approved
+  - [ai] Recruiter briefed, start Q2
+  - [ai] Onboarding: hiring manager owns it, Sarah to send template
 
 ---
 
@@ -105,7 +107,7 @@ Organize sections in the order topics were discussed — the first topic discuss
 Use attached documents for names (from rosters), agenda items, and structured reference data. Always tag [ai], even if the content confirms something the user wrote.
 
 **If no notes are provided**
-Generate structured notes from the transcript using [ai] throughout. Follow the order topics were discussed. Write what a senior analyst would have taken: the 8–12 most referenceable items from the entire meeting. Not a transcript summary — the items worth finding next week.
+Generate structured notes from the transcript using [ai] throughout. Follow the order topics were discussed. Write what you'd have taken if you'd been fully present and attentive. Not a transcript summary — the things worth finding next week.
 
 ---
 

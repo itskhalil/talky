@@ -42,6 +42,29 @@ fn strip_model_blank_lines(input: &str) -> String {
         .join("\n")
 }
 
+/// For no-notes cases, remove suppressive constraints that hurt content generation.
+/// Based on Round 19 finding: "Default is nothing" and "User's notes are canonical"
+/// are load-bearing for notes-present cases but harmful when no notes exist.
+fn relax_for_no_notes(system: &mut String, user_instructions: &str) -> String {
+    *system = system.replace("Just the 2-3 things", "Just the things");
+    user_instructions
+        .replace(
+            "**The user's notes are canonical**\n\
+             Never modify what they wrote. Their approximations, phrasings, abbreviations, \
+             and level of detail are intentional. If they wrote \"~100k\", write \"~100k\". \
+             If they wrote \"Kubernetes\", write \"Kubernetes\" even if the transcript heard \
+             \"cooper nets\". Add around them; never change them.\n\n",
+            "",
+        )
+        .replace(
+            "**Default is nothing**\n\
+             The transcript is not a checklist to cover. Every [ai] line competes with the \
+             user's notes for the reader's attention. Add only what passes the referenceability \
+             bar.\n\n",
+            "",
+        )
+}
+
 /// Force-flush any buffered audio through the transcription pipeline.
 /// Called before chat so the transcript is as up-to-date as possible.
 #[tauri::command]
@@ -182,13 +205,19 @@ pub async fn generate_session_summary(
          Do not assume one person said everything."
     );
 
-    let notes_section = if user_notes.trim().is_empty() {
-        "No notes were taken.".to_string()
-    } else {
+    let has_notes = !user_notes.trim().is_empty();
+    let notes_section = if has_notes {
         user_notes
+    } else {
+        "No notes were taken.".to_string()
     };
 
-    let user_instructions = include_str!("../../resources/prompts/enhance_notes_user.txt");
+    let raw_user_instructions = include_str!("../../resources/prompts/enhance_notes_user.txt");
+    let user_instructions = if has_notes {
+        raw_user_instructions.to_string()
+    } else {
+        relax_for_no_notes(&mut system_message, raw_user_instructions)
+    };
     let user_message = format!(
         "<user_notes>\n{}\n</user_notes>\n\n<transcript>\n{}\n</transcript>\n\n{}",
         notes_section, transcript_text, user_instructions
@@ -341,10 +370,11 @@ pub async fn generate_session_summary_stream(
          Do not assume one person said everything."
     );
 
-    let notes_section = if user_notes.trim().is_empty() {
-        "No notes were taken.".to_string()
-    } else {
+    let has_notes = !user_notes.trim().is_empty();
+    let notes_section = if has_notes {
         user_notes
+    } else {
+        "No notes were taken.".to_string()
     };
 
     // Fetch attachments for this session
@@ -386,7 +416,12 @@ pub async fn generate_session_summary_stream(
     }
 
     // Build the user message: inputs first (XML tags), then instructions
-    let user_instructions = include_str!("../../resources/prompts/enhance_notes_user.txt");
+    let raw_user_instructions = include_str!("../../resources/prompts/enhance_notes_user.txt");
+    let user_instructions = if has_notes {
+        raw_user_instructions.to_string()
+    } else {
+        relax_for_no_notes(&mut system_message, raw_user_instructions)
+    };
     let mut attachments_section = String::new();
     if !document_context.is_empty() {
         attachments_section = format!("\n\n<attachments>{}</attachments>", document_context);
