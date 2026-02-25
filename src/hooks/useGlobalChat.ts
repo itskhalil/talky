@@ -283,6 +283,9 @@ ${recentMeetingsList}${currentNoteContext}`;
             apiKey: effectiveApiKey,
             baseURL: baseUrl,
             fetch: debugFetch,
+            headers: {
+              "anthropic-dangerous-direct-browser-access": "true",
+            },
           });
           aiModel = anthropic(model);
         } else {
