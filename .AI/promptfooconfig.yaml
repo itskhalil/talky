@@ -1,14 +1,8 @@
-description: 'enhance_notes — Round 19: no-notes 2x2 (suppression × example)'
+description: 'enhance_notes — baseline (clean-all promoted Round 22)'
 
 prompts:
-  - id: file://prompts/generate-then-tag.mjs
-    label: gtt-baseline
-  - id: file://prompts/gtt-capture.mjs
-    label: gtt-suppress
-  - id: file://prompts/gtt-example-only.mjs
-    label: gtt-example-only
-  - id: file://prompts/gtt-example.mjs
-    label: gtt-both
+  - id: file://prompts/baseline.mjs
+    label: baseline
 
 providers:
   - file://providers/talky.mjs

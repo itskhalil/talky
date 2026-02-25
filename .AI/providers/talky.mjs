@@ -124,6 +124,16 @@ export default class TalkyProvider {
       if (config.stripTags) {
         output = output.replace(/\[(noted|ai)\]\s?/g, '');
       }
+      if (config.cleanPunctuation) {
+        // Replace " — " (em-dash with spaces) with ". " and capitalize next char
+        output = output.replace(/ — ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
+        output = output.replace(/ — /g, '. ');
+        // Replace "— " at start of continuation (no leading space) with ". "
+        output = output.replace(/— ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
+        output = output.replace(/— /g, '. ');
+        // Replace "; " with ". " and capitalize next char
+        output = output.replace(/; ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
+      }
       return { output };
     } catch (err) {
       return { error: err.message };

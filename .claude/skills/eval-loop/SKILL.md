@@ -98,6 +98,7 @@ Update `.AI/EVAL_REVIEW_GUIDE.md`:
 - Add the round to the History section with full results table
 - Update research principles if anything was confirmed/refuted
 - Add new failure modes if discovered
+- **NEVER include personal details** — no real names, meeting content, transcript excerpts, or company-specific context. The guide is a git-tracked file. Keep writeups abstract (e.g. "a recurring standup" not "the SHIVA standup", "a management thread" not "the Rene coaching thread").
 
 ## Output
 

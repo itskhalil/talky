@@ -136,7 +136,7 @@ The model should calibrate what matters based on the type of meeting. In a simpl
 ### The no-notes complex conversation gap (no-notes-complex)
 When the user provides no notes AND the conversation is emotionally/contextually dense (not a simple business meeting), the model struggles. Gate scores 0.438-0.453 in early rounds. Inline reasoning improved this (v6 to 0.664, actions-remove to 0.561) but it remained below 0.8 through Round 17 (0.531 with generate-then-tag).
 
-**Partially fixed (Round 19):** Root cause identified as suppressive constraints ("Default is nothing", "User's notes are canonical") that are irrelevant for no-notes cases. Deterministic prompt swap (removing these for no-notes cases) improved no-notes-complex to 0.730 — the highest score ever for this case. Trade-off: no-notes-personal regresses modestly (0.941 → 0.900) from over-extraction at 1.74x golden word count.
+**Partially fixed (Round 19):** Root cause identified as suppressive constraints ("Default is nothing", "User's notes are canonical") that are irrelevant for no-notes cases. Deterministic prompt swap (removing these for no-notes cases) improved no-notes-complex to 0.730 — the highest score ever for this case. Trade-off: no-notes-personal regresses modestly (0.941 → 0.900) from over-extraction at 1.74x golden word count. Round 21 variants remain below 0.6 on this case (0.489–0.569) — it continues to be the hardest case in the suite.
 
 ### Interview editorializing from reasoning step
 On interview-format meetings where the user is the interviewer, the reasoning step encourages analytical framing that produces editorial judgments in the notes rather than observational notes. v6 on dense-interview (0.700) adds evaluative content like "standard but not distinctive", "Most original idea" and a low-value section about the interviewer's own explanation to the candidate. It also misses the entire "His questions" section from the golden. **Partially fixed (Round 7):** actions-remove recovered dense-interview to 0.810 (+0.118 over v6) by removing "Action Items" from the list of prohibited section types, which let the model capture the candidate's questions and concrete commitments naturally.
@@ -146,6 +146,8 @@ Explicit per-bullet word limits ("aim for 10 words or fewer") cause the model to
 
 ### Prompt register contradiction (em-dashes)
 The production prompt contains 12+ em-dashes in its instructions while simultaneously instructing: "If a bullet needs a semicolon or em-dash to chain ideas, split it into separate bullets." The prompt models heavy em-dash usage while telling the model not to use them. Principle #13 (instruction register primes output register) predicts the concrete exposure overrides the splitting instruction. Round 9 confirmed: split-example (which demonstrated splitting in Example 2) did not reduce chain_bullets (chain rate 41% vs baseline's 38%). The in-prompt examples already demonstrate 4-6 w/b fragments, yet the model produces 15 w/b. The prompt's own verbose register (full sentences, em-dashes, 15+ w/line in instruction text) may be the dominant register signal, outweighing the short examples.
+
+**Partially addressed (Round 21):** clean-all (removing em-dashes from prompt text) reduced chains from +4.9 to +1.8 vs golden AND reduced w/b from 1.44x to 1.36x — confirming that prompt punctuation patterns drive output structural habits (principle #36). Instructing the model to split chains (style-guide) doesn't work — it consolidates instead. Removing the em-dashes from the prompt itself is more effective than telling the model not to use them.
 
 ### Emotional framing as verbosity license
 The "sting" framing ("What from this meeting would sting to have forgotten?") was intended to increase selectivity. Instead, it broadened inclusion — most of a meeting transcript contains things that "might sting." The model interprets the emotional frame as a mandate to be thorough rather than selective. Density collapsed to 2.9/5, the worst in the eval. This validates research principle #6 (models default to verbosity due to RLHF) — emotional appeals don't counteract this bias.
@@ -251,267 +253,47 @@ Tested gate-ex3 (enhanced examples), combined-compress (per-bullet word limits),
 
 ### Round 5: reasoning gates (inline reasoning before notes)
 
-Variants: reason-inline (v1), reason-inline-v2, reason-inline-v3, reason-inline-v4. All write 1-3 sentences before `---NOTES---`. **Winner: v2 (+0.025 over gate)** but not promoted — voice dropped to 3.7, conciseness to 0.74. Key finding: reasoning that *characterizes* meeting nature calibrates register; reasoning that *lists* content creates a checklist the model exhaustively covers (v4 scored 0.938 on no-notes-personal but 0.310 on dense-review-q1). Third-person reasoning text primes analyst mode in the notes. **Direction:** anti-listing constraint + first-person framing + 1-2 sentence limit.
+Variants: v1-v4. All write 1-3 sentences before `---NOTES---`. v2 won (+0.025) but not promoted — voice dropped to 3.7. Key finding: reasoning that *characterizes* meeting nature calibrates register; reasoning that *lists* content creates a checklist the model exhaustively covers. Third-person reasoning primes analyst mode.
 
 ### Round 6: first-person reasoning fix (v5, v6)
 
-Acted on Round 5's recommendation. Both variants add 1-2 sentence reasoning with first-person framing ("Write your thought/thinking") and anti-listing language. 4 variants (gate, v2, v5, v6), 8 test cases, 2 runs each.
+Fixed Round 5's voice regression with first-person framing + anti-listing language. **v6 won (+0.038)** — "What would sting to forget? Write your thinking — not a list." Voice recovered to 4.0, large sparse/no-notes gains. Cost: dense-interview −0.061. **Promoted.**
 
-- **v5** — Nature characterization: "what kind of meeting this was... what makes this one different. Write your thought"
-- **v6** — Importance calibration + anti-listing: "What would sting to forget? Are conclusions enough, or does reasoning matter? Write your thinking — not a list of what was covered."
+### Round 7: action items structure (actions-remove)
 
-| Variant | Avg | dense-bus | no-notes-pers | dense-int | dense-q1 | dense-q4 | sparse-short | sparse-fb | no-notes-cplx |
-|---|---|---|---|---|---|---|---|---|---|
-| gate | 0.791 | 0.909 | 0.775 | 0.761 | 0.931 | 0.910 | 0.805 | 0.823 | 0.416 |
-| v2 | 0.787 | 0.858 | 0.908 | 0.738 | 0.773 | 0.929 | 0.800 | 0.678 | 0.609 |
-| v5 | 0.802 | 0.888 | 0.878 | 0.736 | 0.817 | 0.877 | 0.900 | 0.732 | 0.588 |
-| **v6** | **0.829** | 0.883 | 0.931 | 0.700 | 0.906 | 0.898 | 0.862 | 0.793 | 0.664 |
+Removed "Action Items" from the recap-section prohibition (kept "Key Decisions" ban). **actions-remove won (+0.024)** — fixed Round 6's dense-interview regression (+0.118). actions-explicit (instructing a Next Steps section) was worse. **Promoted.**
 
-**Winner: v6 (+0.038 over gate).** Best average across all rounds. Voice 4.0 (from v2's 3.6), conciseness 0.87 (from v2's 0.78), ~20% more words than gate (512w vs 413w) with similar bullet density (15.4 w/bullet vs 15.9). dense-review-q1 essentially solved (0.906, only -0.025 vs gate). Large sparse/no-notes gains: no-notes-complex +0.248, no-notes-personal +0.156, sparse-short +0.057. Main cost: dense-interview -0.061 (editorializing on interview-format meetings).
+### Rounds 8-9: calibrate + compress + split-example
 
-v6 was promoted to production. v5's nature characterization is slightly better on emotional/feedback cases (sparse-short 0.900 vs 0.862) but less robust overall.
-
-### Round 7: action items structure (actions-remove, actions-explicit)
-
-Variants: actions-remove, actions-explicit. Small edit to v6's user prompt Structure guideline. v6 prohibited "Action Items" sections alongside "Key Decisions"; actions-remove drops "Action Items" from the prohibition (just bans recap sections like "Key Decisions", "Key Takeaways"). actions-explicit goes further and explicitly instructs a `### Next steps` section for concrete commitments. 4 variants (gate, v6, actions-remove, actions-explicit), 8 test cases, 3 runs each.
-
-| Variant | Avg | dense-bus | no-notes-pers | dense-int | dense-q1 | dense-q4 | sparse-short | sparse-fb | no-notes-cplx |
-|---|---|---|---|---|---|---|---|---|---|
-| gate | 0.756 | 0.880 | 0.756 | 0.735 | 0.903 | 0.817 | 0.749 | 0.775 | 0.438 |
-| v6 | 0.791 | 0.871 | 0.880 | 0.692 | 0.831 | 0.923 | 0.791 | 0.786 | 0.553 |
-| **actions-remove** | **0.815** | 0.864 | 0.890 | 0.810 | 0.833 | 0.908 | 0.821 | 0.834 | 0.561 |
-| actions-explicit | 0.793 | 0.843 | 0.897 | 0.713 | 0.824 | 0.908 | 0.828 | 0.771 | 0.563 |
-
-**Winner: actions-remove (+0.024 over v6, +0.059 over gate).** Fixed the dense-interview regression from Round 6: 0.810 vs v6's 0.692 (+0.118). Also improved sparse-feedback: 0.834 vs v6's 0.786. Voice held at 4.0, additions jumped to 4.4. Conciseness slightly lower (0.84 vs v6's 0.86). actions-explicit was worse (0.793) — explicitly instructing a "Next steps" section was less effective than simply removing the prohibition.
-
-**actions-remove was promoted to production.** Open issues: no-notes-complex still below 0.8 (0.561), third-person voice slips on no-notes cases.
-
-### Round 8: calibrate + compress (interview coverage, bullet compression)
-
-Two independent variants targeting issues found in eval-8 (interview — sparse reaction-paragraph notes for a clear-reject interview):
-
-**Problem 1 — Output too short for interviews.** The model treated the user's reaction paragraph as "user has it covered" and produced ~160w. For interviews, the referenceable surface area is larger (hiring decisions, feedback write-ups, candidate comparisons). Root cause: the "2-3 things" / "3 topics" numeric ceiling in the system prompt.
-
-**Problem 2 — Bullets too long.** Individual bullets use formal noun phrases instead of casual shorthand. The prompt says "write fragments" and "compress every bullet" but the model doesn't match.
-
-- **calibrate** — system prompt only. Removes numeric caps ("2-3 things" → "The things", "3 topics" → "the substance"), adds "How much did your notes actually cover?" to reasoning step. Tests whether the selectivity frame alone (without numeric ceiling) is sufficient.
-- **compress** — user prompt only. Adds a second compression YES/NO example showing register-level compression (formal noun phrases → casual shorthand). Tests whether a better compression example teaches shorter bullets.
-
-New test case: `sparse-interview` — interview with sparse reaction-paragraph notes (not structured notes). Tests whether the model can produce appropriately-detailed interview notes from a user brain-dump.
-
-### Round 9: calibrate + compress + split-example
-
-Three variants tested independently. 9 test cases (added sparse-interview), 3 repeats each.
-
-- **calibrate** — system prompt. Removes numeric caps ("2-3 things" → "The things"), adds "How much did your notes actually cover?" to reasoning step.
-- **compress** — user prompt. Adds YES/NO compression example (formal noun phrases → casual shorthand).
-- **split-example** — user prompt. Example 2 modified so transcript tempts semicolon chaining, output demonstrates correct split. Goldens updated: chained bullets split in 4 goldens. Judge updated: deterministic `chain_bullets` metric added.
-
-| Variant | Avg | dense-bus | dense-int | dense-q1 | dense-q4 | no-cplx | no-pers | sp-fb | sp-int | sp-short |
-|---|---|---|---|---|---|---|---|---|---|---|
-| baseline | 0.788 | 0.820 | 0.764 | 0.847 | 0.928 | 0.534 | 0.985 | 0.808 | 0.613 | 0.795 |
-| calibrate | 0.746 | 0.771 | 0.667 | 0.691 | 0.881 | 0.741 | 0.874 | 0.576 | 0.696 | 0.818 |
-| compress | 0.750 | 0.718 | 0.713 | 0.823 | 0.846 | 0.530 | 0.925 | 0.838 | 0.523 | 0.829 |
-| **split-example** | **0.815** | 0.799 | 0.738 | 0.878 | 0.913 | 0.603 | 0.938 | 0.847 | 0.730 | 0.885 |
-
-**calibrate (0.746, -0.042) — FAILED.** Conciseness collapsed to 0.64, word count ballooned 45% (708w avg vs 487w). sparse-feedback exploded to 2.64x golden. Only no-notes-complex improved (0.741 vs 0.534). **Confirms Round 1: the numeric ceiling is load-bearing.**
-
-**compress (0.750, -0.038) — FAILED.** Avg w/b unchanged (15.2 vs 15.1). sparse-interview regressed from tagging gate failures. A single YES/NO compression example is insufficient to override RLHF-trained verbosity.
-
-**split-example (0.815, +0.027) — WINNER.** Large sparse/no-notes gains: sparse-interview +0.117, sparse-short +0.090, no-notes-complex +0.069. No meaningful dense-case regression. Voice improved to 4.1, clarity to 4.8. However, chain_bullets did NOT decrease (chain rate 41% vs baseline's 38%). The splitting example didn't reduce chaining. The prompt's own heavy em-dash usage likely overrides both the instruction and the example (see Known failure modes: Prompt register contradiction).
-
-Avg w/b across all variants: baseline 1.50x golden, split-example 1.56x golden. The w/b gap remains the most persistent unsolved problem.
-
-**split-example promoted to production.**
+Tested removing numeric caps ("2-3 things"), adding compression examples, and modifying Example 2 to demonstrate bullet splitting. **calibrate failed** — confirms Round 1: numeric ceiling is load-bearing. **compress failed** — single YES/NO example can't override RLHF verbosity. **split-example won (+0.027)** — large sparse gains, no dense regressions. Chain bullets didn't improve despite splitting example. **Promoted.**
 
 ### Round 10: terse-register + clean-emdash (prompt register test)
 
-Two variants testing whether the prompt's linguistic style drives output w/b. 4 variants (baseline, split-example, terse-register, clean-emdash), 9 test cases, 4 repeats each (144 runs).
-
-- **terse-register** — Full rewrite of instruction text in terse fragment style. 25% fewer words in user prompt. All em-dashes removed. Same semantic content.
-- **clean-emdash** — Only em-dashes and semicolons replaced with periods/colons. No restructuring. Minimal intervention.
-
-| Variant | Avg | dense-bus | dense-int | dense-q1 | dense-q4 | no-cplx | no-pers | sp-fb | sp-int | sp-short |
-|---|---|---|---|---|---|---|---|---|---|---|
-| baseline | 0.791 | 0.803 | 0.698 | 0.871 | 0.931 | 0.556 | 0.910 | 0.799 | 0.661 | 0.892 |
-| split-example | **0.810** | 0.841 | 0.758 | 0.875 | 0.909 | 0.553 | 0.909 | 0.840 | 0.745 | 0.856 |
-| terse-register | 0.790 | 0.843 | 0.713 | 0.862 | 0.886 | 0.546 | 0.892 | 0.799 | 0.705 | 0.865 |
-| clean-emdash | 0.791 | 0.867 | 0.730 | 0.758 | 0.915 | 0.548 | 0.913 | 0.820 | 0.692 | 0.874 |
-
-**terse-register (0.790, -0.001) — FAILED.** w/b unchanged (1.55x vs baseline's 1.52x). Verbosity actually INCREASED (+10% word count) from bullet proliferation — the model wrote more fragments, not shorter ones. Conciseness dropped to 0.80. Voice dropped to 3.9. A shorter prompt did NOT produce shorter output.
-
-**clean-emdash (0.791, =baseline) — NULL RESULT.** w/b: 1.50x (≈baseline). Chain bullets: +4.1 (slightly better than baseline's +4.5 but within noise). The model doesn't care about the prompt's punctuation. dense-review-q1 regressed to 0.758 (density 2-3 from over-enrichment), but this is run variance, not a systematic effect.
-
-**split-example confirmed at 0.810 (+0.019 over baseline).** With 4 repeats, consistent with Round 9's +0.027. sparse-short regressed slightly (additions 5→4, missing "pattern of exclusion" framing) but gains on sparse-interview/feedback outweigh.
-
-**Key finding: principle #15 refuted.** The model's ~15 w/b (1.5x golden) is invariant to prompt register. This is an RLHF-trained default, not a prompt-driven behavior. All prompt-level attempts to reduce w/b have now failed (Rounds 4, 9, 10). w/b should be treated as a fixed model constraint.
-
-**Key metrics:** avg w/b ratio vs golden (target: <1.3x, currently 1.50x), chain_bullets rate (currently ~40%), density score (must hold at 3.7+).
-
-**Regression risk:** Low. Semantic content is unchanged. The risk is that terser instructions are harder for the model to parse, which could hurt on edge cases. Watch for tagging errors and structural problems.
+Tested whether prompt linguistic style drives output w/b. terse-register (full rewrite in fragment style) was null — w/b unchanged. clean-emdash (replacing em-dashes with periods) was null. **Established principle #15: w/b is invariant to prompt register.** An RLHF-trained default, not prompt-driven.
 
 ### Round 11: no-notes-frame + clean-emdash-v2
 
-Two variants. 3 variants (baseline, no-notes-frame, clean-emdash-v2), 9 test cases, 4 repeats each (108 runs).
-
-- **no-notes-frame** — user prompt only. Changes the "If no notes are provided" section: removes "senior analyst" (frame break with ghostwriter), removes "8–12" numeric cap, stays in second-person ("Write what you'd have taken"). Targets no-notes-complex (0.553 persistent low).
-- **clean-emdash-v2** — system + user prompt. Rebases the Round 10 clean-emdash changes on the new baseline (split-example). Tests whether em-dash removal has any effect when combined with the split example.
-
-| Variant | Avg | dense-bus | dense-int | dense-q1 | dense-q4 | no-cplx | no-pers | sp-fb | sp-int | sp-short |
-|---|---|---|---|---|---|---|---|---|---|---|
-| baseline | 0.794 | 0.863 | 0.730 | 0.930 | 0.873 | 0.567 | 0.900 | 0.743 | 0.690 | 0.852 |
-| **no-notes-frame** | **0.802** | 0.843 | 0.754 | 0.853 | 0.892 | 0.626 | 0.902 | 0.721 | 0.760 | 0.868 |
-| clean-emdash-v2 | 0.787 | 0.813 | 0.725 | 0.871 | 0.879 | 0.607 | 0.929 | 0.728 | 0.709 | 0.823 |
-
-**no-notes-frame (0.802, +0.008) — PROMISING.** Target case no-notes-complex improved from 0.567 to 0.626 (+0.059), the highest score for this case outside of the failed calibrate variant. Model generated more bullets (14.3 vs 11.8) and more words (354 vs 335) — moving toward the golden's 30b/438w. no-notes-personal held at 0.902 but word count inflated from 1.14x to 1.42x golden (419w vs 336w). Notes-present cases were unchanged (same prompt text) — any movement is run variance. The mechanism works: removing the "senior analyst" frame break and "8–12" cap allows more content on no-notes cases. But the no-notes-personal inflation is a yellow flag.
-
-**clean-emdash-v2 (0.787, -0.007) — NULL.** Chain bullets improved on dense-review-q1 (+6.5 → -8.5) but worsened on dense-review-q4 (+16.3 → +22.0). Average chain diff +3.7 (vs baseline's +4.6) is inconsistent across cases. This is the second null result for em-dash removal (Round 10 was the first). **Em-dash removal as a strategy is closed** — the model's chaining behavior is not driven by the prompt's punctuation.
-
-**Key finding:** The "senior analyst" phrasing in the no-notes section IS a frame break. Removing it and the "8–12" cap allows the model to generate more content for complex no-notes conversations without breaking simpler no-notes cases. However, the improvement is modest (+0.059) and no-notes-personal inflation needs monitoring. Worth iterating: a version with a softer selectivity anchor (replacing the numeric cap with a qualitative one) could maintain gains while controlling inflation.
-
-**no-notes-frame promoted to production.** Em-dash removal closed as a strategy after two null results (Rounds 10, 11).
-
-**Open issues:** no-notes-complex still at 0.626 (below 0.8 target), dense-interview at 0.730-0.754, sparse-feedback volatile (0.721-0.743). Words-per-bullet remains at ~1.5x golden (RLHF floor). Chain bullets remain at ~+4 vs golden across all variants.
+Removed "senior analyst" frame break and "8-12" numeric cap from no-notes section. **no-notes-frame won (+0.008)** — no-notes-complex improved 0.567→0.626. Em-dash removal null for the second time — **closed as strategy.** **Promoted.**
 
 ### Round 12: full-example + split-notes (worked example, deterministic switching)
 
-Two variants targeting the persistent w/b ratio and no-notes coverage. 3 variants (baseline, full-example, split-notes), 8 test cases (dense-business excluded — used as the in-prompt example), 4 repeats each (96 runs).
+**full-example failed (−0.051)** — dense-business worked example biased toward that register, catastrophic on sparse cases. Taught selectivity but over-applied it. **split-notes failed (−0.027)** — deterministic prompt switching (separate no-notes prompt) didn't help. Model handles conditional instructions fine. Established principles #17-19: examples from one register bias toward it; deterministic switching is neutral; the model's compression mechanism is bullet-count not bullet-length.
 
-**Research context:** Deep research (Tasks #14, #16) identified: (A) the model has a fixed "output budget" — it distributes total words into fewer, longer bullets rather than many short ones (Round 4 confirmed: word limits caused proliferation at same total word count); (B) Granola.AI achieves terse fragments with off-the-shelf frontier models, proving the problem IS solvable at the prompt level; (C) short synthetic examples (3-4 lines) teach format but not judgment at scale (principle #7); (D) deterministic prompt switching eliminates 6 conditional instructions the model reads regardless of mode.
+### Round 13: temp, no-tags, compress-pass, gemini
 
-- **full-example** — user prompt. Adds a third worked example: complete 1,800-word real transcript segment (dense-business lines 70-109) + sparse user notes + 13-bullet golden at 6.5 w/b (7 [ai] + 6 [noted]). The transcript includes ~70% irrelevant content (Microsoft analogy, Perplexity dinner anecdote, mishearing confusion) that the golden correctly omits, teaching confident omission at scale. Tests whether a full worked example can teach both compression AND judgment.
-- **split-notes** — user prompt + custom loader. Two separate user.txt files selected by `hasNotes` flag. Notes-present prompt removes "If no notes are provided" section. No-notes prompt is a complete rewrite: simplified tagging (all [ai]), one adapted example, removed notes-specific guidelines ("user's notes are canonical", "Default is nothing", conflict handling). Tests whether eliminating irrelevant instructions improves each mode.
+Non-prompt interventions after 12 rounds failed to move w/b. **temp-0.3 promising (+0.017)** — quality lever, not compression lever. **no-tags breakthrough on w/b** (1.50x→1.20x) but tags are core to product UX. **compress-pass mixed** — achieves target w/b but damages voice. **gemini failed (−0.164)** — prompt is Claude-tuned. Established principles #20-23: tags drive chaining; temp is a quality lever; two-pass compression damages voice; cross-model prompts don't transfer.
 
-| Variant | Avg | dense-int | dense-q1 | dense-q4 | no-cplx | no-pers | sp-fb | sp-int | sp-short |
-|---|---|---|---|---|---|---|---|---|---|
-| baseline | 0.778 | 0.730 | 0.864 | 0.912 | 0.582 | 0.930 | 0.808 | 0.742 | 0.654 |
-| full-example | 0.727 | 0.746 | 0.846 | 0.915 | 0.582 | 0.904 | 0.700 | 0.680 | 0.443 |
-| split-notes | 0.751 | 0.738 | 0.830 | 0.908 | 0.500 | 0.894 | 0.815 | 0.675 | 0.646 |
+### Round 14a: tagging experiments (tag-strip, asymmetric, light, no-tags)
 
-**full-example (0.727, -0.051) — FAILED.** The dense-business example biased the model toward that register. Catastrophic on sparse cases: sparse-short 0.443 (-0.211), sparse-feedback 0.700 (-0.108), sparse-interview 0.680 (-0.062). The model learned "be brief" but expressed it by cutting bullets entirely (0.73x golden bullet count) rather than shortening them. w/b ratio unchanged (1.46x vs baseline's 1.47x). One positive signal: total word count dropped to 1.17x golden (from 1.31x) and conciseness improved to 0.89 (from 0.84). The example taught selectivity but over-applied it.
+Controlled follow-up to R13's no-tags breakthrough. **tag-strip** ruled out judge bias against tags. **asymmetric-tags failed** — model can't reliably tag only user-sourced lines. **light-tags failed** — tagging instructions are structural scaffolding. **no-tags replicated** w/b improvement but voice/readability drop. Established principles #27-28: [ai] tag drives verbosity (behavioral, not mechanical); tags are load-bearing scaffolding. **Tagging as a lever closed** — all configurations tested.
 
-**split-notes (0.751, -0.027) — FAILED.** The separate no-notes prompt didn't help no-notes cases — no-notes-complex actually worsened (0.500 vs 0.582). Small win on sparse-feedback (0.815 vs 0.808) but losses everywhere else. Removing the conditional instructions had no measurable benefit. The model doesn't seem confused by seeing instructions for the other mode.
+### Round 14b: reasoning architecture variants
 
-**Key findings:**
+Tested structured-reason, section-scaffold, fast-reason. All null or failed on w/b. **section-scaffold catastrophic (−0.307)** — Haiku headers bleed corporate framing. fast-reason had best-ever voice (4.1) and conciseness but cut too much content. Established principles #24-26: w/b invariant to reasoning architecture; two-call architectures don't justify complexity; register decoupling trades content for voice.
 
-17. **Full worked examples teach selectivity, not compression.** The dense-business example successfully made the model more selective (fewer bullets, lower word count, better conciseness scores). But it over-corrected on sparse cases — it learned "cut aggressively" from a case where the user had dense notes, then applied that to cases where the user needs MORE content. A worked example from ONE register biases toward that register. Any future full-example attempt would need examples from multiple registers (dense + sparse + no-notes), which would make the prompt very long (principle #4: prompt length signals output length).
+### Round 15: conditional tagging
 
-18. **Deterministic prompt switching is neutral.** The model handles conditional instructions fine — removing them doesn't help. The no-notes problem is about content generation depth, not instruction confusion. This closes the hypothesis that conditional instructions degrade performance.
-
-19. **The model's compression mechanism is bullet-count, not bullet-length.** Across 12 rounds, every attempt to influence w/b has failed. But the model CAN and DOES adjust total output by changing how many bullets it generates. The full-example variant proved this: conciseness 0.89, word ratio 1.17x — but at 0.73x bullet count. The model has a "verbosity dial" but it operates on bullet count, not bullet length. Per-bullet w/b appears to be a fixed property of the model.
-
-**Open issues:** no-notes-complex remains the weakest case (0.500-0.582). w/b ratio locked at ~1.45x golden across all 12 rounds. sparse-interview and dense-interview both below 0.75. The fundamental challenge: making the model produce MORE bullets that are each SHORTER — the opposite of its natural tendency.
-
-### Round 13: temp, no-tags, compress-pass, gemini (parameter + format experiments)
-
-Five variants testing non-prompt-level interventions after 12 rounds of prompt changes failed to move w/b. 5 variants (baseline, temp-0.3, no-tags, compress-pass, gemini), 8 test cases, 4 repeats each (160 runs).
-
-**Research context:** Deep research (Task #a7ee0fd) identified: (A) Anthropic explicitly trains against short bullet points ("NEVER output a series of overly short bullet points"); (B) Granola uses plain text without bullet tags; (C) [noted]/[ai] tagging creates completeness pressure (principle #10); (D) API parameters (temperature, max_tokens) had never been tested; (E) two-pass compression (post-pass) solves TTFT concerns of the earlier pre-pass approach.
-
-- **temp-0.3** — temperature 0.3 via `__config` passthrough. Same prompt. Tests whether lower temperature improves consistency.
-- **no-tags** — user prompt. Removed entire Tagging section, removed all [noted]/[ai] tags from examples, changed format to `- content` instead of `- [tag] content`, removed tag references from guidelines. Tests whether tags create completeness pressure.
-- **compress-pass** — two-pass. Pass 1: generate notes normally (callLLM direct). Pass 2: provider executes compression prompt ("compress each bullet to under 10 words, keep structure and tags"). Tests post-hoc compression.
-- **gemini** — model override to gemini-3-pro-preview via same Helsing proxy. Same prompt. Tests whether w/b floor is Claude-specific (Anthropic training signal hypothesis).
-
-| Variant | Avg | dense-int | dense-q1 | dense-q4 | no-cplx | no-pers | sp-fb | sp-int | sp-short |
-|---|---|---|---|---|---|---|---|---|---|
-| baseline | 0.783 | 0.746 | 0.896 | 0.901 | 0.557 | 0.858 | 0.726 | 0.698 | 0.884 |
-| **temp-0.3** | **0.800** | 0.685 | 0.898 | 0.906 | 0.578 | 0.919 | 0.825 | 0.738 | 0.851 |
-| **no-tags** | **0.795** | 0.773 | 0.823 | 0.909 | 0.533 | 0.946 | 0.843 | 0.666 | 0.869 |
-| compress-pass | 0.749 | 0.687 | 0.885 | 0.874 | 0.513 | 0.915 | 0.775 | 0.605 | 0.742 |
-| gemini | 0.619 | 0.619 | 0.749 | 0.613 | 0.396 | 0.716 | 0.536 | 0.707 | 0.613 |
-
-**temp-0.3 (0.800, +0.017) — PROMISING.** Best overall score. Large gains on sparse/no-notes cases (sparse-feedback +0.099, no-notes-personal +0.061, sparse-interview +0.040). w/b ratio essentially unchanged (1.46x vs 1.50x). This is a quality/consistency lever, not a compression lever. Clarity dropped 4.8 → 4.5 (possible formulaic language from low temperature). Needs qualitative review of actual outputs to determine if the score improvement reflects genuine quality or just reduced variance.
-
-**no-tags (0.795, +0.012) — BREAKTHROUGH ON W/B.** First variant in 13 rounds to meaningfully move w/b: 1.50x → 1.20x (−20%). Also improved bullet count (0.83x → 0.89x golden), chain bullets (+5.1 → −0.7), density (3.6 → 3.9), conciseness (0.83 → 0.90), and voice (3.9 → 4.0). Dense-review-q1 regressed (0.896 → 0.823) due to structural formatting breakdown — without tags the model loses the consistent `- [tag] content` pattern and outputs bare text under headings. Additions slightly lower (4.2 → 4.0). **However, tags are core to the product UX** — cannot simply remove them without understanding what specifically drives the improvement and whether it can be achieved while keeping tags.
-
-**Unresolved question:** Does the judge score no-tags higher partly because untagged output *looks* more natural to the judge LLM? The w/b metric is mechanically affected (tag tokens add ~1 word per bullet, accounting for ~30% of the w/b gap). A controlled test is needed: strip tags from baseline output before judging, compare scores. This would isolate judge bias from genuine behavioral improvement.
-
-**compress-pass (0.749, -0.034) — MIXED.** Same w/b as no-tags (1.20x) but voice dropped to 3.6 (compression strips tone) and clarity dropped to 4.5 (compression can make bullets ambiguous). Word count nearly perfect (0.97x golden) but over-compresses some cases. Chain bullets unchanged (+5.3). Conciseness excellent (0.94). The mechanism works (brute-force post-hoc compression) but the quality cost is too high in current form.
-
-**gemini (0.619, -0.164) — FAILED.** Catastrophic quality drop across all dimensions: voice 3.0, clarity 3.8, additions 3.1. Bullet count 0.66x golden (massive under-generation). The prompt is tuned for Claude's behavior patterns and Gemini cannot follow it. Not viable without a separate prompt. Does confirm Gemini has lower w/b (1.28x) but this is from under-generating, not better compression.
-
-**Key findings:**
-
-20. **Tags are the primary driver of over-chaining.** no-tags eliminated excess chain bullets (+5.1 → −0.7) while compress-pass didn't help at all (+5.3). When tagging every line, the model creates long runs of [ai] bullets exploring topics. Without tags, it naturally produces more focused groupings.
-
-21. **Temperature 0.3 is a quality lever, not a compression lever.** Improves score (+0.017) without affecting w/b. Useful for stacking with other changes but doesn't solve the core problem.
-
-22. **Two-pass compression achieves target w/b but damages voice.** compress-pass proves the w/b IS achievable (1.20x) while keeping tags, but the compression step strips natural tone (voice 3.6 vs 4.0). A better compression prompt that preserves voice could recover this.
-
-23. **Gemini cannot use Claude-optimized prompts.** The prompt is deeply tuned for Claude's instruction-following patterns. Cross-model testing requires per-model prompt optimization.
-
-### Round 14b: reasoning architecture variants (structured-reason, section-scaffold, fast-reason)
-
-Three variants testing whether decoupling reasoning from note-writing reduces w/b ratio and analytical tone bleed. 4 variants (baseline, structured-reason, section-scaffold, fast-reason), 9 test cases, 3 repeats each (108 runs).
-
-- **structured-reason** — system prompt. Replaces free-form reasoning with structured fields (`Meeting:`, `Register:`, `Capture:`) before `---NOTES---`. Single call, no latency change.
-- **section-scaffold** — two calls. Haiku generates section headers with characterizations of what to capture (not what was discussed). Main model fills in notes under each section.
-- **fast-reason** — two calls. Haiku generates casual 2-3 sentence characterization ("Hey, the big thing from that call was..."). Main model reads this as context from a "colleague."
-
-| Variant | Avg | dense-bus | dense-int | dense-q1 | dense-q4 | no-cplx | no-pers | sp-fb | sp-int | sp-short |
-|---|---|---|---|---|---|---|---|---|---|---|
-| baseline | 0.799 | 0.835 | 0.748 | 0.891 | 0.923 | 0.535 | 0.882 | 0.834 | 0.774 | 0.766 |
-| structured-reason | 0.805 | 0.877 | 0.752 | 0.921 | 0.921 | 0.540 | 0.928 | 0.716 | 0.738 | 0.851 |
-| section-scaffold | 0.492 | 0.463 | 0.267 | 0.407 | 0.543 | 0.584 | 0.655 | 0.383 | 0.529 | 0.596 |
-| fast-reason | 0.778 | 0.894 | 0.725 | 0.880 | 0.913 | 0.502 | 0.897 | 0.703 | 0.741 | 0.750 |
-
-**section-scaffold (0.492, -0.307) — FAILED.** Catastrophic. Haiku's section headers bleed corporate framing into the final output ("Performance feedback — specific examples and perception concerns"). Over-fragments into 5-8 sections. Word count 2.23x golden, bullet proliferation 1.40x. Voice 2.8, density 2.3.
-
-**structured-reason (0.805, +0.006) — NULL.** Marginal average improvement. The structured fields work mechanically (Register field correctly identifies user's style) and prevent analytical tone bleed (voice 4.0). But w/b ratio unchanged (1.48x vs 1.51x). sparse-feedback regressed to 0.716 (-0.118) — the Capture field encourages comprehensive coverage on emotionally complex cases. sparse-short improved to 0.851 (+0.085) from better section structure.
-
-**fast-reason (0.778, -0.021) — NULL.** Best conciseness (1.08x word ratio) and voice (4.1) of any variant ever tested. The casual colleague note successfully prevents analytical register. But additions drop to 4.0 (vs 4.3) — the model interprets casual context as license to be terse, cutting too much.
-
-**Key findings:**
-
-24. **w/b ratio is invariant to reasoning architecture.** Three different reasoning decoupling strategies all land at 1.48-1.60x, same as baseline's 1.51x. Combined with Rounds 4, 9, 10, 12 (prompt-level attempts), the ~1.5x floor is confirmed across both prompt text and prompt architecture. No prompt-level approach has moved this metric.
-
-25. **Two-call architectures don't justify their complexity.** Both section-scaffold and fast-reason add latency and Haiku cost for results that are equivalent to or worse than baseline. The Haiku pre-pass either over-structures (scaffold) or under-primes (fast-reason).
-
-26. **Register decoupling works for voice but hurts content.** fast-reason achieves 4.1 voice and 0.89 conciseness — best ever — but at the cost of additions (4.0). The model treats casual context as permission to omit.
-
-### Round 14a: tagging experiments (tag-strip, asymmetric-tags, light-tags, no-tags)
-
-Controlled follow-up to R13's no-tags w/b breakthrough (1.50x→1.20x). Tests judge bias, partial tagging, and replication. 5 variants, 9 test cases (dense-business restored), 2 repeats each (90 runs).
-
-- **tag-strip** — Same prompt as baseline. Provider strips tags from output before judging. Controls for judge bias.
-- **asymmetric-tags** — Only `[noted]` on user-sourced lines. AI additions untagged.
-- **light-tags** — Both tags, tagging instructions reduced to a single line.
-- **no-tags** — R13 variant rerun with all 9 cases.
-
-| Variant | Avg | dense-bus | dense-int | dense-q1 | dense-q4 | no-cplx | no-pers | sp-fb | sp-int | sp-short |
-|---|---|---|---|---|---|---|---|---|---|---|
-| baseline | 0.798 | 0.815 | 0.791 | 0.842 | 0.905 | 0.664 | 0.846 | 0.783 | 0.661 | 0.877 |
-| tag-strip | 0.781 | 0.802 | 0.650 | 0.784 | 0.872 | 0.572 | 0.938 | 0.832 | 0.682 | 0.900 |
-| asymmetric-tags | 0.778 | 0.784 | 0.638 | 0.822 | 0.848 | 0.589 | 0.892 | 0.797 | 0.684 | 0.946 |
-| light-tags | 0.751 | 0.830 | 0.695 | 0.822 | 0.862 | 0.477 | 0.898 | 0.726 | 0.700 | 0.750 |
-| no-tags | 0.798 | 0.800 | 0.774 | 0.849 | 0.903 | 0.533 | 0.954 | 0.813 | 0.632 | 0.923 |
-
-**tag-strip (0.781, −0.017) — NULL.** Judge is NOT biased against tags — scored below baseline. w/b difference (1.50x→1.43x) is mechanical (tag tokens ~0.07x).
-
-**asymmetric-tags (0.778, −0.020) — FAILED.** Model can't reliably implement asymmetric tagging — mistagged lines in both directions. dense-interview 0.638.
-
-**light-tags (0.751, −0.047) — FAILED.** Worst overall. no-notes-complex 0.477. Tagging instructions are structural scaffolding — reducing them hurts across the board.
-
-**no-tags (0.798, =baseline) — NULL (confirms R13).** w/b 1.21x replicates, but voice (3.6), readability (4.3), additions (3.8) all drop. Lateral move, not improvement.
-
-**Key findings:**
-
-27. **[ai] tag drives verbosity.** w/b decomposes: baseline 1.50x → tag-strip 1.43x (mechanical) → no-tags 1.21x (behavioral). Judge bias ruled out by tag-strip control.
-
-28. **Tags are load-bearing scaffolding.** Reducing (light-tags) or removing (no-tags) tags trades w/b for voice/readability. The tagging instructions guide the model's note-writing approach, not just classification.
-
-**Tagging as a lever is closed.** All configurations tested — none improve overall quality.
-
-**Open issues after R14:** no-notes-complex still below 0.6. w/b locked at ~1.5x (RLHF floor). sparse-feedback volatile.
-
-### Round 15: conditional tagging (conditional-tags)
-
-No-tags prompt for no-notes cases, baseline for notes-present. 2 variants, 9 cases, 4 repeats (72 runs).
-
-**conditional-tags (0.800, +0.003) — NULL.** no-notes-personal held (0.923) with better w/b (1.54x vs 1.94x), but no-notes-complex regressed (0.503, −0.082) — removing classification pressure also reduces content generation on a case that already under-generates.
-
-**Open issues after R15:** no-notes-complex below 0.6 across 15 rounds. w/b locked at ~1.5x. Prompt-level improvement space exhausted.
+No-tags prompt for no-notes, baseline for notes-present. **Null (+0.003).** Removing classification pressure also reduces content generation on cases that already under-generate. **Closed:** no-notes-complex below 0.6 across 15 rounds, w/b locked at ~1.5x, prompt-level improvement space exhausted.
 
 ### Round 16: suffix-tags, jot-frame, first-token (tag position + frame verb)
 
@@ -607,9 +389,66 @@ Core hypothesis: the 530-word structured Guidelines section in the user prompt p
 
 **Expected signals:** vibes and stripped are the key comparison — if both beat baseline, subtraction is the mechanism. If vibes beats stripped, the narrative adds value. delta-frame and verb-flag test orthogonal system-prompt hypotheses. prompt-artifact tests against principle #15. anti-helpful tests a new emotional framing direction.
 
+**Result: failed round.** No variant cleared the +0.015 promotion threshold on clean data. anti-helpful was closest at +0.018 but driven by sparse-short gains; excluding that case it's +0.003.
+
+| Variant | Avg | Delta | Verdict |
+|---|---|---|---|
+| anti-helpful | 0.804 | +0.018 | PROMISING — best conciseness (0.88, 1.25x words), no dense regressions |
+| prompt-artifact | 0.790 | +0.004 | NULL — confirms principle #15 for third time |
+| verb-flag | 0.785 | -0.001 | NULL — "flag" doesn't beat "jot" |
+| vibes | 0.778 | -0.008 | FAILED — narrative hurts no-notes cases (−0.054 complex, −0.119 personal) |
+| delta-frame | 0.766 | -0.020 | FAILED — verbosity bomb (1.70x words, conciseness 0.68) |
+| stripped | 0.751 | -0.035 | FAILED — guidelines are net positive |
+
+33. **Guidelines carry load that examples can't replace.** stripped (−0.035) proves the guidelines are net positive. Voice preservation ("canonical notes"), selectivity ("default is nothing"), and no-notes handling are load-bearing — the examples don't implicitly teach them.
+34. **Framing exclusion as value works; framing inclusion emotionally doesn't.** anti-helpful's "thorough = useless" is directionally opposite to Round 4's "sting" ("what would sting to forget?"). Sting broadened inclusion. Anti-helpful narrows it (best word count, best conciseness). Emotional framing about what to INCLUDE licenses comprehensiveness; about what to EXCLUDE licenses selectivity.
+35. **Analytical task reframing drives verbosity.** delta-frame's "what changed?" made the model cover MORE topics to enumerate deltas, not fewer — same mechanism as Round 4's sting. Task frames that require comprehensive assessment before filtering produce more output, not less.
+
+### Rounds 21–22: em-dash chain reduction (style-guide, clean-all, regex-clean)
+
+Targeted the em-dash chaining problem identified in principle #15/#16. Three approaches in Round 21: instructional style guide, broad prompt punctuation cleanup, and post-processing regex. Round 22 confirmed clean-all with n=8 (4 additional repeats merged with Round 21 data).
+
+- **style-guide** — Added explicit style guide section to user prompt: "If a bullet chains two ideas with a semicolon or em-dash, split into separate bullets. Each bullet = one idea."
+- **clean-all** — Removed em-dashes and semicolons from the prompt text itself (system + user prompt), replacing with periods or restructuring. Tests whether the model's chaining habit is mimicked from prompt punctuation.
+- **regex-clean** — Post-processing pass replacing ` — ` and `;` in output with `. ` via regex.
+
+Round 21 results (n=4):
+
+| Variant | Avg | Delta | w/b | Verdict |
+|---|---|---|---|---|
+| style-guide | 0.815 | +0.021 | 1.50x | FAILED — chains reduced by consolidation (fewer, longer bullets), not splitting. w/b increased from 1.44x to 1.50x |
+| clean-all | 0.807 | +0.013 | 1.36x | PROMISING |
+| regex-clean | 0.797 | +0.003 | 1.39x | FAILED — artifacts in ~half of replacements (broken headers, mid-sentence periods, damaged quotes) |
+
+**style-guide** clears the +0.015 threshold numerically (+0.021) but the mechanism is wrong. Bullet count drops to 0.82x golden while w/b rises to 1.50x — the model absorbs chained ideas into single longer bullets instead of splitting them. This is consolidation, not compression.
+
+**regex-clean** produces visible artifacts: periods in headers ("### Deployed Design. Context Setting"), broken mid-sentence ("When pushed for specifics. On LSEG redesign"), damaged quotes. Context-unaware replacement is not viable.
+
+Round 22 confirmation (n=8, merged with Round 21):
+
+| Test Case | baseline | clean-all | delta |
+|---|---|---|---|
+| dense-business | 0.794 | 0.887 | +0.093 |
+| dense-interview | 0.734 | 0.756 | +0.022 |
+| dense-review-q1 | 0.877 | 0.869 | -0.008 |
+| dense-review-q4 | 0.910 | 0.892 | -0.017 |
+| no-notes-complex | 0.552 | 0.580 | +0.028 |
+| no-notes-personal | 0.930 | 0.946 | +0.016 |
+| sparse-feedback | 0.732 | 0.833 | +0.101 |
+| sparse-interview | 0.748 | 0.674 | -0.074 |
+| sparse-short | 0.861 | 0.875 | +0.014 |
+| **Average** | **0.793** | **0.812** | **+0.019** |
+
+**clean-all confirmed and promoted.** +0.019 at n=8, above the +0.015 threshold. Wins 6 of 9 cases. Bullet stats confirm the mechanism: w/b drops 14.4 → 13.8, chains drop 11.7 → 8.8, bullet count roughly flat (+0.4). Genuine split-and-compress behavior. dense-business is notably more stable under clean-all (spread 0.110 vs baseline's 0.494).
+
+**sparse-interview regression is real** (−0.074 at n=8). Score distributions barely overlap — clean-all clusters 0.588–0.784 vs baseline's 0.675–0.877. The case's editorial voice relies on dashes and fragments; removing em-dashes from the prompt dampens that register. Accepted as a trade-off given the 6-case improvement and overall +0.019 delta.
+
+36. **Prompt punctuation patterns affect output structural habits.** Em-dash removal from prompt text reduces output chaining (clean-all: chains 11.7 → 8.8) even though linguistic register doesn't affect w/b (principle #15). The mechanism is behavioral mimicry: the model reproduces structural patterns it sees in instructions. This is distinct from register priming (#13) — it's about punctuation structure, not word choice or tone.
+37. **HOW chains are replaced matters more than WHETHER they're reduced.** Instructional chain-splitting (style-guide) causes consolidation — fewer, longer bullets, w/b increases. Prompt punctuation cleanup (clean-all) causes genuine splitting — more, shorter bullets, w/b decreases. The instruction "split chained bullets" is interpreted as "merge the ideas into one comprehensive bullet" rather than "make two short bullets." Modeling the desired structure in the prompt itself is more effective than describing it.
+
 ### Ideas for future rounds
 
-- **Production implementation of generate-then-tag.** The two-pass architecture needs to be implemented in the Rust backend (currently single-pass). See production discussion below.
+- **sparse-interview recovery.** clean-all's regression on this case (−0.074) is the main known weakness. Could test whether adding an em-dash back into the examples (specifically Example 2 or a new interview-style example) recovers the editorial register without reintroducing chaining elsewhere.
 - **No-notes-personal tuning.** The suppression removal causes ~1.74x golden word count on personal conversations. Could be addressed by adding a softer restraint to the no-notes variant, or may be acceptable as-is.
 
 ## The eval loop

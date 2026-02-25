@@ -82,3 +82,7 @@ Structure your review as:
 5. **Qualitative Review** — per-case observations from reading outputs
 6. **Key Findings** — what we learned
 7. **Recommendations** — what to promote, what to try next
+
+## Privacy
+
+**NEVER include personal details in any git-tracked output** (including `EVAL_REVIEW_GUIDE.md`). No real names, meeting content, transcript excerpts, or company-specific context. Keep references abstract — e.g. "a recurring standup" not the specific meeting name, "a management thread" not the people involved.
