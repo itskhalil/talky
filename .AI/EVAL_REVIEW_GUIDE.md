@@ -591,6 +591,22 @@ Round 18 confounded suppression removal with the example swap. Full factorial de
 
 32. **In-prompt examples calibrate density, not just format.** The no-notes example (6 concise bullets for a simple transcript) taught the model to be brief on ALL no-notes cases, including complex ones that need more coverage. Examples set density expectations from their output length, independent of their instructions. This extends principle #17 (full-example taught selectivity that over-corrected on sparse cases).
 
+### Round 20: vibes over rules (frame quality vs rule quantity)
+
+Six variants testing whether the prompt's mode of instruction matters more than its content. Motivated by the observation that frame-level changes (Round 16's "jot" verb, Round 17's generate-then-tag) produced larger improvements than any rule-based change across 19 rounds.
+
+Core hypothesis: the 530-word structured Guidelines section in the user prompt pulls the model out of the ghostwriter frame established by the system prompt. The model switches from "being a person at their desk" to "parsing a requirements document." Replacing or removing the guidelines should improve output by keeping the model in-frame.
+
+**Variants:**
+- **vibes** — Guidelines replaced with ~200-word natural-language narrative about how the user relates to their notes. Tests: does giving the model a mental model of the user (vibes) beat giving it rules?
+- **stripped** — Guidelines removed entirely. Tests: were the guidelines net-positive at all? (Subtraction control)
+- **delta-frame** — System prompt reframed as "what changed?" instead of "what would you have jotted?" Tests: does task framing drive selectivity?
+- **verb-flag** — "Jot" → "Flag" in system prompt. Tests: is there a better embodied verb? (Follows Round 16's "jot" breakthrough)
+- **prompt-artifact** — Guidelines rewritten as terse bullet fragments (prompt register matches output register). Tests: does density-level register matching work? (Note: Round 10 terse-register was null, but this uses note-style bullets vs terse prose)
+- **anti-helpful** — System prompt appends: "thorough notes feel productive when you write them and useless when you read them." Tests: does explicitly inverting the helpfulness gradient toward selectivity work? (Differs from Round 4 "sting" — that framed inclusion emotionally; this frames exclusion emotionally)
+
+**Expected signals:** vibes and stripped are the key comparison — if both beat baseline, subtraction is the mechanism. If vibes beats stripped, the narrative adds value. delta-frame and verb-flag test orthogonal system-prompt hypotheses. prompt-artifact tests against principle #15. anti-helpful tests a new emotional framing direction.
+
 ### Ideas for future rounds
 
 - **Production implementation of generate-then-tag.** The two-pass architecture needs to be implemented in the Rust backend (currently single-pass). See production discussion below.
