@@ -130,7 +130,7 @@
     "general": {
       "title": "General",
       "updateBanner": {
-        "message": "A new version is available",
+        "message": "Update available",
         "install": "Install Update"
       },
       "language": {

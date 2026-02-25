@@ -21,7 +21,7 @@ import {
   Sparkles,
   Send,
   Loader,
-  ArrowDownCircle,
+  ArrowDown,
 } from "lucide-react";
 import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
@@ -762,10 +762,10 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         )}
 
         {/* Chat input bar */}
-        <div className="flex items-center gap-2 px-3 py-3">
+        <div className="flex items-center gap-2 px-3 py-2.5">
           <button
             onClick={() => setChatExpanded(!chatExpanded)}
-            className={`p-1.5 rounded-md transition-colors ${
+            className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
               chatExpanded
                 ? "bg-accent/10 text-accent"
                 : "text-text-secondary hover:bg-accent/10 hover:text-text"
@@ -812,38 +812,38 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom: update banner + settings */}
+      {/* Bottom: settings + update banner */}
       <div className="border-t border-border">
-        {updateChecksEnabled && updateAvailable && (
-          <button
-            onClick={installUpdate}
-            disabled={isInstalling}
-            className="flex items-center gap-2 w-full px-3 py-2.5 text-logo-primary hover:bg-logo-primary/5 transition-colors disabled:opacity-50"
-          >
-            <ArrowDownCircle size={16} className="shrink-0" />
-            <span className="text-sm font-medium truncate">
-              {isInstalling
-                ? downloadProgress === 100
-                  ? t("footer.installing")
-                  : downloadProgress > 0
-                    ? t("footer.downloading", {
-                        progress: downloadProgress.toString().padStart(3),
-                      })
-                    : t("footer.preparing")
-                : t("settings.general.updateBanner.message")}
-            </span>
-          </button>
-        )}
-        <div className="flex items-center px-3 h-[50px]">
+        <div className="flex items-center gap-2 px-3 py-2.5">
           <button
             onClick={onOpenSettings}
-            className="relative p-2 rounded-lg hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
+            className="relative w-6 h-6 flex items-center justify-center rounded-lg hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
           >
             <Settings size={20} />
             {suggestionCount > 0 && (
               <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
             )}
           </button>
+          {updateChecksEnabled && updateAvailable && (
+            <button
+              onClick={installUpdate}
+              disabled={isInstalling}
+              className="flex items-center gap-1.5 ml-auto px-2.5 py-1 rounded-full bg-background-ui text-white text-xs font-medium hover:bg-background-ui/90 transition-colors disabled:opacity-50"
+            >
+              <span className="truncate">
+                {isInstalling
+                  ? downloadProgress === 100
+                    ? t("footer.installing")
+                    : downloadProgress > 0
+                      ? t("footer.downloading", {
+                          progress: downloadProgress.toString().padStart(3),
+                        })
+                      : t("footer.preparing")
+                  : t("settings.general.updateBanner.message")}
+              </span>
+              <ArrowDown size={12} strokeWidth={2.5} />
+            </button>
+          )}
         </div>
       </div>
 
