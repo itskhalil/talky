@@ -25,7 +25,7 @@
     "global-shortcut:allow-unregister-all",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "https://**" }, { "url": "http://**" }]
+      "allow": [{ "url": "https://*:*" }, { "url": "http://*:*" }]
     },
     "fs:read-files",
     "fs:allow-resource-read-recursive",
