@@ -65,7 +65,7 @@ pub async fn run_session_transcription_loop(
             "resources/models/silero_vad_v4.onnx",
             tauri::path::BaseDirectory::Resource,
         ) {
-        Ok(vad_path) => match SileroVad::new(&vad_path, 0.15).map(|v| v.with_smoothing(2, 13)) {
+        Ok(vad_path) => match SileroVad::new(&vad_path, 0.15).map(|v| v.with_smoothing(2, 25)) {
             Ok(silero) => {
                 log::info!("VAD initialized successfully");
                 Some(Box::new(silero))
