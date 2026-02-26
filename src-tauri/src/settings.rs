@@ -299,7 +299,7 @@ fn default_speaker_energy_threshold() -> f32 {
 }
 
 fn default_mic_energy_threshold() -> f32 {
-    0.01
+    0.02
 }
 
 fn default_skip_mic_on_speaker_energy() -> bool {
