@@ -18,6 +18,7 @@ import {
   Tag,
   Plus,
   Globe,
+  Search,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
@@ -96,6 +97,7 @@ interface NoteViewProps {
   viewMode: "notes" | "enhanced";
   onViewModeChange: (mode: "notes" | "enhanced") => void;
   findBarOpen?: boolean;
+  showReplace?: boolean;
   onCloseFindBar?: () => void;
   // Streaming props
   streamingEnhancedNotes?: string | null;
@@ -434,6 +436,7 @@ export function NoteView({
   viewMode,
   onViewModeChange,
   findBarOpen,
+  showReplace,
   onCloseFindBar,
   streamingEnhancedNotes,
   enhanceStreaming,
@@ -464,6 +467,11 @@ export function NoteView({
   const [sessionTags, setSessionTags] = useState<TagType[]>([]);
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [tagInputValue, setTagInputValue] = useState("");
+  const [transcriptSearchOpen, setTranscriptSearchOpen] = useState(false);
+  const [transcriptSearchQuery, setTranscriptSearchQuery] = useState("");
+  const [transcriptCurrentMatch, setTranscriptCurrentMatch] = useState(0);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
+  const transcriptSearchInputRef = useRef<HTMLInputElement>(null);
   const [localFolderId, setLocalFolderId] = useState<string | null>(
     session?.folder_id ?? null,
   );
@@ -859,6 +867,109 @@ export function NoteView({
     }
   }, [userName]);
 
+  // Compute total search matches across all transcript segments
+  const totalMatches = useMemo(() => {
+    if (!transcriptSearchQuery) return 0;
+    const query = transcriptSearchQuery.toLowerCase();
+    let count = 0;
+    for (const seg of transcript) {
+      const text = seg.text.toLowerCase();
+      let idx = 0;
+      while ((idx = text.indexOf(query, idx)) !== -1) {
+        count++;
+        idx += query.length;
+      }
+    }
+    return count;
+  }, [transcript, transcriptSearchQuery]);
+
+  // Reset current match when query changes
+  useEffect(() => {
+    setTranscriptCurrentMatch(0);
+  }, [transcriptSearchQuery]);
+
+  // Scroll current match into view
+  useEffect(() => {
+    if (!transcriptSearchQuery || totalMatches === 0) return;
+    const container = transcriptScrollRef.current;
+    if (!container) return;
+    const marks = container.querySelectorAll(
+      ".transcript-search-highlight--current",
+    );
+    if (marks.length > 0) {
+      marks[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [transcriptCurrentMatch, transcriptSearchQuery, totalMatches]);
+
+  // Focus search input when opening
+  useEffect(() => {
+    if (transcriptSearchOpen && transcriptSearchInputRef.current) {
+      transcriptSearchInputRef.current.focus();
+    }
+  }, [transcriptSearchOpen]);
+
+  const handleTranscriptSearchPrev = useCallback(() => {
+    setTranscriptCurrentMatch((prev) =>
+      totalMatches === 0 ? 0 : (prev - 1 + totalMatches) % totalMatches,
+    );
+  }, [totalMatches]);
+
+  const handleTranscriptSearchNext = useCallback(() => {
+    setTranscriptCurrentMatch((prev) =>
+      totalMatches === 0 ? 0 : (prev + 1) % totalMatches,
+    );
+  }, [totalMatches]);
+
+  const handleTranscriptSearchClose = useCallback(() => {
+    setTranscriptSearchOpen(false);
+    setTranscriptSearchQuery("");
+    setTranscriptCurrentMatch(0);
+  }, []);
+
+  /**
+   * Highlight search matches in transcript text.
+   * `startIndex` is the cumulative match count from prior segments.
+   */
+  const highlightSearch = useCallback(
+    (
+      text: string,
+      query: string,
+      startIndex: number,
+      currentMatch: number,
+    ): React.ReactNode => {
+      if (!query) return text;
+      const lowerText = text.toLowerCase();
+      const lowerQuery = query.toLowerCase();
+      const parts: React.ReactNode[] = [];
+      let lastEnd = 0;
+      let matchIdx = startIndex;
+
+      let pos = 0;
+      while ((pos = lowerText.indexOf(lowerQuery, pos)) !== -1) {
+        if (pos > lastEnd) {
+          parts.push(text.slice(lastEnd, pos));
+        }
+        const isCurrent = matchIdx === currentMatch;
+        parts.push(
+          <mark
+            key={`search-${matchIdx}`}
+            className={`transcript-search-highlight${isCurrent ? " transcript-search-highlight--current" : ""}`}
+          >
+            {text.slice(pos, pos + query.length)}
+          </mark>,
+        );
+        lastEnd = pos + query.length;
+        pos = lastEnd;
+        matchIdx++;
+      }
+      if (lastEnd < text.length) {
+        parts.push(text.slice(lastEnd));
+      }
+      return parts.length > 0 ? parts : text;
+    },
+    [],
+  );
+
   const getTranscriptText = useCallback(() => {
     return transcript
       .map((seg) => {
@@ -932,7 +1043,12 @@ export function NoteView({
       <div data-tauri-drag-region className="h-7 w-full shrink-0" />
       {findBarOpen && onCloseFindBar && (
         <div className="absolute top-8 right-4 z-20 w-80">
-          <FindBar editor={activeEditor} onClose={onCloseFindBar} />
+          <FindBar
+            editor={activeEditor}
+            onClose={onCloseFindBar}
+            showReplace={showReplace}
+            editable={activeEditor?.isEditable ?? false}
+          />
         </div>
       )}
       {/* Pinned toggle + copy controls */}
@@ -1289,17 +1405,31 @@ export function NoteView({
                   )}
                 </button>
                 {panelMode === "transcript" && transcript.length > 0 && (
-                  <button
-                    onClick={handleCopyTranscript}
-                    className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
-                    title={t("sessions.copyTranscript")}
-                  >
-                    {transcriptCopied ? (
-                      <Check size={12} className="text-green-500" />
-                    ) : (
-                      <Copy size={12} />
-                    )}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setTranscriptSearchOpen((prev) => !prev);
+                        if (transcriptSearchOpen) {
+                          handleTranscriptSearchClose();
+                        }
+                      }}
+                      className={`p-1 rounded-md transition-colors ${transcriptSearchOpen ? "text-text bg-text/8" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                      title={t("sessions.searchTranscript")}
+                    >
+                      <Search size={12} />
+                    </button>
+                    <button
+                      onClick={handleCopyTranscript}
+                      className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                      title={t("sessions.copyTranscript")}
+                    >
+                      {transcriptCopied ? (
+                        <Check size={12} className="text-green-500" />
+                      ) : (
+                        <Copy size={12} />
+                      )}
+                    </button>
+                  </>
                 )}
                 {panelMode === "chat" && chat.messages.length > 0 && (
                   <button
@@ -1318,8 +1448,68 @@ export function NoteView({
                 </button>
               </div>
 
+              {/* Transcript search bar */}
+              {transcriptSearchOpen && panelMode === "transcript" && (
+                <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-border">
+                  <Search
+                    size={12}
+                    className="text-text-secondary/50 shrink-0"
+                  />
+                  <input
+                    ref={transcriptSearchInputRef}
+                    type="text"
+                    value={transcriptSearchQuery}
+                    onChange={(e) => setTranscriptSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (e.shiftKey) {
+                          handleTranscriptSearchPrev();
+                        } else {
+                          handleTranscriptSearchNext();
+                        }
+                      }
+                      if (e.key === "Escape") {
+                        handleTranscriptSearchClose();
+                      }
+                    }}
+                    placeholder={t("sessions.searchTranscript")}
+                    className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary/40 min-w-0"
+                  />
+                  <span className="text-[10px] text-text-secondary/50 tabular-nums shrink-0">
+                    {transcriptSearchQuery
+                      ? totalMatches > 0
+                        ? `${transcriptCurrentMatch + 1} / ${totalMatches}`
+                        : t("sessions.noSearchMatches")
+                      : ""}
+                  </span>
+                  <button
+                    onClick={handleTranscriptSearchPrev}
+                    disabled={totalMatches === 0}
+                    className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors disabled:opacity-30"
+                  >
+                    <ChevronUp size={12} />
+                  </button>
+                  <button
+                    onClick={handleTranscriptSearchNext}
+                    disabled={totalMatches === 0}
+                    className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors disabled:opacity-30"
+                  >
+                    <ChevronDown size={12} />
+                  </button>
+                  <button
+                    onClick={handleTranscriptSearchClose}
+                    className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+
               {/* Panel content */}
-              <div className="max-h-64 overflow-y-auto px-5 pt-2 pb-2 select-text">
+              <div
+                ref={transcriptScrollRef}
+                className="max-h-64 overflow-y-auto px-5 pt-2 pb-2 select-text"
+              >
                 {panelMode === "transcript" ? (
                   <>
                     {transcript.length === 0 ? (
@@ -1328,29 +1518,52 @@ export function NoteView({
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {transcript.map((seg) => (
-                          <div key={seg.id} className="flex gap-3 text-xs">
-                            <span
-                              data-ui
-                              className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums select-none"
-                            >
-                              {formatMs(seg.start_ms)}
-                            </span>
-                            <span
-                              data-ui
-                              className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
-                            >
-                              {seg.source === "mic"
-                                ? t("sessions.sourceMe")
-                                : t("sessions.sourceThem")}
-                            </span>
-                            <span className="text-xs leading-relaxed text-text">
-                              {userNameRegex && seg.source !== "mic"
-                                ? highlightName(seg.text, userNameRegex)
-                                : seg.text}
-                            </span>
-                          </div>
-                        ))}
+                        {transcript.map((seg, segIdx) => {
+                          // Count matches in prior segments for startIndex
+                          let startIndex = 0;
+                          if (transcriptSearchQuery) {
+                            const q = transcriptSearchQuery.toLowerCase();
+                            for (let i = 0; i < segIdx; i++) {
+                              const txt = transcript[i].text.toLowerCase();
+                              let idx = 0;
+                              while ((idx = txt.indexOf(q, idx)) !== -1) {
+                                startIndex++;
+                                idx += q.length;
+                              }
+                            }
+                          }
+
+                          return (
+                            <div key={seg.id} className="flex gap-3 text-xs">
+                              <span
+                                data-ui
+                                className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums select-none"
+                              >
+                                {formatMs(seg.start_ms)}
+                              </span>
+                              <span
+                                data-ui
+                                className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
+                              >
+                                {seg.source === "mic"
+                                  ? t("sessions.sourceMe")
+                                  : t("sessions.sourceThem")}
+                              </span>
+                              <span className="text-xs leading-relaxed text-text">
+                                {transcriptSearchQuery
+                                  ? highlightSearch(
+                                      seg.text,
+                                      transcriptSearchQuery,
+                                      startIndex,
+                                      transcriptCurrentMatch,
+                                    )
+                                  : userNameRegex && seg.source !== "mic"
+                                    ? highlightName(seg.text, userNameRegex)
+                                    : seg.text}
+                              </span>
+                            </div>
+                          );
+                        })}
                         <div ref={transcriptEndRef} />
                       </div>
                     )}

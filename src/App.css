@@ -106,6 +106,15 @@ body::before {
   stroke-width: 1;
 }
 
+/* Transcript search highlights */
+.transcript-search-highlight {
+  background-color: rgb(234 179 8 / 0.25);
+  border-radius: 2px;
+}
+.transcript-search-highlight--current {
+  background-color: rgb(234 179 8 / 0.55);
+}
+
 /* Smooth scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

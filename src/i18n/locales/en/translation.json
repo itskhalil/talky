@@ -508,6 +508,9 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "findPlaceholder": "Find in note...",
+    "replacePlaceholder": "Replace with...",
+    "replace": "Replace",
+    "replaceAll": "Replace All",
     "noMatches": "No matches",
     "emptyState": "Select a note or create a new one",
     "recording": "Recording",
@@ -567,6 +570,8 @@
     "copyNotes": "Copy notes",
     "copyAsBullets": "Copy as bullets",
     "copyTranscript": "Copy transcript",
+    "searchTranscript": "Search transcript...",
+    "noSearchMatches": "No matches",
     "consentWarning": "Ask for consent before transcribing conversations",
     "toolbar": {
       "bold": "Bold",

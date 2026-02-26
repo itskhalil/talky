@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronUp, ChevronDown, X } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronRight, X } from "lucide-react";
 import type { Editor } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -93,6 +93,28 @@ function getNthMatchPos(
   return result;
 }
 
+/** Collect document positions of all matches. */
+function getAllMatchPositions(
+  doc: Editor["state"]["doc"],
+  searchTerm: string,
+): number[] {
+  if (!searchTerm) return [];
+  const lower = searchTerm.toLowerCase();
+  const positions: number[] = [];
+  doc.descendants((node, pos) => {
+    if (!node.isText || !node.text) return;
+    const text = node.text.toLowerCase();
+    let from = 0;
+    for (;;) {
+      const idx = text.indexOf(lower, from);
+      if (idx === -1) break;
+      positions.push(pos + idx);
+      from = idx + 1;
+    }
+  });
+  return positions;
+}
+
 const findPlugin = new Plugin({
   key: FIND_PLUGIN_KEY,
   state: {
@@ -118,15 +140,33 @@ const findPlugin = new Plugin({
 interface FindBarProps {
   editor: Editor | null;
   onClose: () => void;
+  showReplace?: boolean;
+  editable?: boolean;
 }
 
-export function FindBar({ editor, onClose }: FindBarProps) {
+export function FindBar({
+  editor,
+  onClose,
+  showReplace: showReplaceProp,
+  editable = true,
+}: FindBarProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [currentMatch, setCurrentMatch] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
+  const [replaceText, setReplaceText] = useState("");
+  const [replaceVisible, setReplaceVisible] = useState(
+    showReplaceProp ?? false,
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const pluginRegistered = useRef(false);
+
+  // Sync replaceVisible when showReplace prop changes
+  useEffect(() => {
+    if (showReplaceProp !== undefined) {
+      setReplaceVisible(showReplaceProp);
+    }
+  }, [showReplaceProp]);
 
   // Register plugin on mount, unregister on unmount
   useEffect(() => {
@@ -207,6 +247,46 @@ export function FindBar({ editor, onClose }: FindBarProps) {
     scrollToMatch(query, prev);
   };
 
+  const replaceCurrent = () => {
+    if (!editor || totalMatches === 0 || !query) return;
+    const pos = getNthMatchPos(editor.state.doc, query, currentMatch);
+    if (pos == null) return;
+
+    const tr = editor.state.tr.insertText(replaceText, pos, pos + query.length);
+    editor.view.dispatch(tr);
+
+    // Recount matches and adjust index
+    const newTotal = countMatches(editor.state.doc, query);
+    const newIndex = newTotal === 0 ? 0 : Math.min(currentMatch, newTotal - 1);
+    setTotalMatches(newTotal);
+    setCurrentMatch(newIndex);
+    dispatchFind(query, newIndex);
+    if (newTotal > 0) scrollToMatch(query, newIndex);
+  };
+
+  const replaceAll = () => {
+    if (!editor || totalMatches === 0 || !query) return;
+    const positions = getAllMatchPositions(editor.state.doc, query);
+    if (positions.length === 0) return;
+
+    // Replace in reverse order to preserve earlier positions
+    let tr = editor.state.tr;
+    for (let i = positions.length - 1; i >= 0; i--) {
+      tr = tr.insertText(
+        replaceText,
+        positions[i],
+        positions[i] + query.length,
+      );
+    }
+    editor.view.dispatch(tr);
+
+    // Reset match state
+    const newTotal = countMatches(editor.state.doc, query);
+    setTotalMatches(newTotal);
+    setCurrentMatch(0);
+    dispatchFind(query, 0);
+  };
+
   const handleClose = () => {
     dispatchFind("", 0);
     setQuery("");
@@ -225,44 +305,91 @@ export function FindBar({ editor, onClose }: FindBarProps) {
     }
   };
 
+  const showReplaceRow = replaceVisible && editable;
+
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-lg shadow-md">
-      <input
-        ref={inputRef}
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={t("notes.findPlaceholder", "Find in note...")}
-        className="flex-1 text-sm bg-transparent border-none outline-none text-text placeholder:text-text-secondary min-w-0"
-      />
-      {query && (
-        <span className="text-xs text-text-secondary whitespace-nowrap" data-ui>
-          {totalMatches > 0
-            ? `${currentMatch + 1} of ${totalMatches}`
-            : t("notes.noMatches", "No matches")}
-        </span>
+    <div className="flex flex-col gap-1.5 px-3 py-2 bg-background border border-border rounded-lg shadow-md">
+      {/* Find row */}
+      <div className="flex items-center gap-2">
+        {editable && (
+          <button
+            onClick={() => setReplaceVisible(!replaceVisible)}
+            className="p-0.5 rounded text-text-secondary hover:text-text transition-colors"
+          >
+            <ChevronRight
+              size={14}
+              className={`transition-transform ${replaceVisible ? "rotate-90" : ""}`}
+            />
+          </button>
+        )}
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={t("notes.findPlaceholder", "Find in note...")}
+          className="flex-1 text-sm bg-transparent border-none outline-none text-text placeholder:text-text-secondary min-w-0"
+        />
+        {query && (
+          <span
+            className="text-xs text-text-secondary whitespace-nowrap"
+            data-ui
+          >
+            {totalMatches > 0
+              ? `${currentMatch + 1} of ${totalMatches}`
+              : t("notes.noMatches", "No matches")}
+          </span>
+        )}
+        <button
+          onClick={goPrev}
+          disabled={totalMatches === 0}
+          className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
+        >
+          <ChevronUp size={16} />
+        </button>
+        <button
+          onClick={goNext}
+          disabled={totalMatches === 0}
+          className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
+        >
+          <ChevronDown size={16} />
+        </button>
+        <button
+          onClick={handleClose}
+          className="p-1 rounded text-text-secondary hover:text-text transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Replace row */}
+      {showReplaceRow && (
+        <div className="flex items-center gap-2 pl-5">
+          <input
+            type="text"
+            value={replaceText}
+            onChange={(e) => setReplaceText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t("notes.replacePlaceholder", "Replace with...")}
+            className="flex-1 text-sm bg-transparent border-none outline-none text-text placeholder:text-text-secondary min-w-0"
+          />
+          <button
+            onClick={replaceCurrent}
+            disabled={totalMatches === 0}
+            className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:text-text hover:bg-accent/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+          >
+            {t("notes.replace", "Replace")}
+          </button>
+          <button
+            onClick={replaceAll}
+            disabled={totalMatches === 0}
+            className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:text-text hover:bg-accent/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+          >
+            {t("notes.replaceAll", "Replace All")}
+          </button>
+        </div>
       )}
-      <button
-        onClick={goPrev}
-        disabled={totalMatches === 0}
-        className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
-      >
-        <ChevronUp size={16} />
-      </button>
-      <button
-        onClick={goNext}
-        disabled={totalMatches === 0}
-        className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
-      >
-        <ChevronDown size={16} />
-      </button>
-      <button
-        onClick={handleClose}
-        className="p-1 rounded text-text-secondary hover:text-text transition-colors"
-      >
-        <X size={16} />
-      </button>
     </div>
   );
 }

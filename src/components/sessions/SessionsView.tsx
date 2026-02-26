@@ -18,10 +18,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useOsType } from "@/hooks/useOsType";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
-import {
-  ExportDialog,
-  type ExportOptions,
-} from "@/components/ui/ExportDialog";
+import { ExportDialog, type ExportOptions } from "@/components/ui/ExportDialog";
 import {
   useSessionStore,
   useSelectedSession,
@@ -111,6 +108,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   } = useSessionStore.getState();
 
   const [findBarOpen, setFindBarOpen] = useState(false);
+  const [showReplace, setShowReplace] = useState(false);
 
   // Resizable sidebar
   const SIDEBAR_MIN = 200;
@@ -242,17 +240,34 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   }, [sidebarCollapsed, handleExpandSidebar]);
 
   const toggleFindBar = useCallback(() => {
-    setFindBarOpen((prev) => !prev);
+    setFindBarOpen((prev) => {
+      if (!prev) setShowReplace(false);
+      return !prev;
+    });
+  }, []);
+
+  const toggleReplaceBar = useCallback(() => {
+    setFindBarOpen((prev) => {
+      if (!prev) {
+        setShowReplace(true);
+        return true;
+      }
+      // Bar already open — toggle replace visibility
+      setShowReplace((r) => !r);
+      return prev;
+    });
   }, []);
 
   const closeFindBar = useCallback(() => {
     setFindBarOpen(false);
+    setShowReplace(false);
   }, []);
 
   useKeyboardShortcuts({
     onOpenSettings,
     onToggleFindBar: toggleFindBar,
     onCloseFindBar: closeFindBar,
+    onToggleReplaceBar: toggleReplaceBar,
     findBarOpen,
     onExpandSidebar: handleExpandSidebar,
   });
@@ -310,15 +325,12 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           });
 
           if (directoryPath && typeof directoryPath === "string") {
-            const count = await invoke<number>(
-              "export_all_notes_as_markdown",
-              {
-                directoryPath,
-                includeNotes: options.notes,
-                includeEnhanced: options.enhanced,
-                includeTranscript: options.transcript,
-              },
-            );
+            const count = await invoke<number>("export_all_notes_as_markdown", {
+              directoryPath,
+              includeNotes: options.notes,
+              includeEnhanced: options.enhanced,
+              includeTranscript: options.transcript,
+            });
             toast.success(t("export.successMultiple", { count }));
           }
         } catch (error) {
@@ -411,6 +423,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             findBarOpen={findBarOpen}
+            showReplace={showReplace}
             onCloseFindBar={closeFindBar}
             streamingEnhancedNotes={streamingEnhancedNotes}
             enhanceStreaming={enhanceStreaming}

@@ -14,6 +14,7 @@ interface KeyboardShortcutsOptions {
   onOpenSettings: () => void;
   onToggleFindBar?: () => void;
   onCloseFindBar?: () => void;
+  onToggleReplaceBar?: () => void;
   findBarOpen?: boolean;
   onExpandSidebar?: () => void;
 }
@@ -22,6 +23,7 @@ export function useKeyboardShortcuts({
   onOpenSettings,
   onToggleFindBar,
   onCloseFindBar,
+  onToggleReplaceBar,
   findBarOpen,
   onExpandSidebar,
 }: KeyboardShortcutsOptions) {
@@ -79,6 +81,12 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      if (mod && e.key === "h") {
+        e.preventDefault();
+        onToggleReplaceBar?.();
+        return;
+      }
+
       // Non-modifier shortcuts — only when not in a text input
       if (!isTextInput(document.activeElement)) {
         if (e.key === "ArrowDown") {
@@ -115,6 +123,7 @@ export function useKeyboardShortcuts({
     onOpenSettings,
     onToggleFindBar,
     onCloseFindBar,
+    onToggleReplaceBar,
     findBarOpen,
     onExpandSidebar,
   ]);
