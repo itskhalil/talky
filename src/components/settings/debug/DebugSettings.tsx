@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { WordCorrectionThreshold } from "./WordCorrectionThreshold";
 import { SpeakerEnergyThreshold } from "./SpeakerEnergyThreshold";
+import { MicEnergyThreshold } from "./MicEnergyThreshold";
 import { SkipMicOnSpeakerEnergyToggle } from "./SkipMicOnSpeakerEnergyToggle";
 import { LogLevelSelector } from "./LogLevelSelector";
 import { CopyAsBulletsToggle } from "./CopyAsBulletsToggle";
@@ -24,6 +25,7 @@ export const DebugSettings: React.FC = () => {
         <CopyAsBulletsToggle descriptionMode="tooltip" grouped={true} />
         <WordCorrectionThreshold descriptionMode="tooltip" grouped={true} />
         <SpeakerEnergyThreshold descriptionMode="tooltip" grouped={true} />
+        <MicEnergyThreshold descriptionMode="tooltip" grouped={true} />
         <SkipMicOnSpeakerEnergyToggle
           descriptionMode="tooltip"
           grouped={true}

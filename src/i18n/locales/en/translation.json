@@ -362,6 +362,10 @@
         "title": "Speaker Energy Threshold",
         "description": "Skip mic transcription when speaker audio exceeds this level (echo suppression)"
       },
+      "micEnergyThreshold": {
+        "title": "Mic Energy Threshold",
+        "description": "Minimum mic energy (post-AEC) to preserve speech when speaker is active. Lower values keep quieter speech."
+      },
       "skipMicOnSpeakerEnergy": {
         "label": "Skip Mic When Speaker Active",
         "description": "Disable to test if AEC alone handles echo well enough for rapid conversations"
