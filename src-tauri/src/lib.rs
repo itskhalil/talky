@@ -1,5 +1,6 @@
 mod actions;
 mod aec;
+mod crash_reporter;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 pub mod audio_toolkit;
@@ -538,6 +539,7 @@ pub fn run() {
             FILE_LOG_LEVEL.store(file_log_level.to_level_filter() as u8, Ordering::Relaxed);
             let app_handle = app.handle().clone();
 
+            crash_reporter::check_for_crash_reports(&app_handle);
             initialize_core_logic(&app_handle);
 
             // Set up application menu (macOS uses app-level menu bar)
