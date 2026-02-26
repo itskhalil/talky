@@ -99,6 +99,12 @@ jobs:
           echo "VULKAN_SDK=$vulkanPath" >> $env:GITHUB_ENV
           echo "$vulkanPath\Bin" >> $env:GITHUB_PATH
 
+      - name: Enable debug symbols for dSYM (macOS)
+        if: startsWith(inputs.platform, 'macos')
+        run: |
+          echo "CARGO_PROFILE_RELEASE_DEBUG=1" >> $GITHUB_ENV
+          echo "CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=packed" >> $GITHUB_ENV
+
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
         env:
@@ -110,6 +116,26 @@ jobs:
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseId: ${{ inputs.release-id }}
           args: ${{ inputs.build-args }}
+
+      - name: Archive and upload dSYM (macOS)
+        if: startsWith(inputs.platform, 'macos')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DSYM_DIR="src-tauri/target/${{ inputs.target }}/release/talky.dSYM"
+          DSYM_ZIP="${{ inputs.asset-prefix }}_${{ steps.get-version.outputs.version }}_${{ inputs.target }}.dSYM.zip"
+          zip -r "$DSYM_ZIP" "$DSYM_DIR"
+          if [ -n "${{ inputs.release-id }}" ]; then
+            gh release upload "v${{ steps.get-version.outputs.version }}" "$DSYM_ZIP"
+          fi
+
+      - name: Upload dSYM artifact (macOS)
+        if: inputs.upload-artifacts && startsWith(inputs.platform, 'macos')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.asset-prefix }}-${{ inputs.target }}-dsym
+          path: "*.dSYM.zip"
+          retention-days: 30
 
       - name: Upload macOS artifacts
         if: inputs.upload-artifacts && startsWith(inputs.platform, 'macos')

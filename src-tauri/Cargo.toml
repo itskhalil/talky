@@ -112,5 +112,5 @@ windows = { version = "0.58", features = [
 [profile.release]
 lto = true
 codegen-units = 1
-strip = true
+strip = true   # Binary is stripped; dSYM is archived separately in CI
 panic = "abort"
