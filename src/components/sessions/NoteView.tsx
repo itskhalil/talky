@@ -769,17 +769,14 @@ export function NoteView({
   }, [session?.id]);
 
   const panelWasOpen = useRef(panelOpen);
-  const prevPanelMode = useRef(panelMode);
   useEffect(() => {
     if (panelOpen && panelMode === "transcript") {
       const justOpened = !panelWasOpen.current;
-      const justSwitchedToTranscript = prevPanelMode.current !== "transcript";
       transcriptEndRef.current?.scrollIntoView({
-        behavior: justOpened || justSwitchedToTranscript ? "instant" : "smooth",
+        behavior: justOpened ? "instant" : "smooth",
       });
     }
     panelWasOpen.current = panelOpen;
-    prevPanelMode.current = panelMode;
   }, [transcript, panelOpen, panelMode]);
 
   // Reset scroll when switching view modes so title stays visible.
