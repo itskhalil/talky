@@ -159,6 +159,7 @@ export function FindBar({
     showReplaceProp ?? false,
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
   const pluginRegistered = useRef(false);
 
   // Sync replaceVisible when showReplace prop changes
@@ -302,94 +303,107 @@ export function FindBar({
       e.preventDefault();
       if (e.shiftKey) goPrev();
       else goNext();
+    } else if (e.key === "Tab" && showReplaceRow) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        inputRef.current?.focus();
+      } else {
+        replaceInputRef.current?.focus();
+      }
     }
   };
 
   const showReplaceRow = replaceVisible && editable;
 
   return (
-    <div className="flex flex-col gap-1.5 px-3 py-2 bg-background border border-border rounded-lg shadow-md">
-      {/* Find row */}
-      <div className="flex items-center gap-2">
-        {editable && (
-          <button
-            onClick={() => setReplaceVisible(!replaceVisible)}
-            className="p-0.5 rounded text-text-secondary hover:text-text transition-colors"
-          >
-            <ChevronRight
-              size={14}
-              className={`transition-transform ${replaceVisible ? "rotate-90" : ""}`}
-            />
-          </button>
-        )}
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t("notes.findPlaceholder", "Find in note...")}
-          className="flex-1 text-sm bg-transparent border-none outline-none text-text placeholder:text-text-secondary min-w-0"
-        />
-        {query && (
-          <span
-            className="text-xs text-text-secondary whitespace-nowrap"
-            data-ui
-          >
-            {totalMatches > 0
-              ? `${currentMatch + 1} of ${totalMatches}`
-              : t("notes.noMatches", "No matches")}
-          </span>
-        )}
+    <div className="flex gap-2 px-3 py-2 bg-background border border-border rounded-lg shadow-md">
+      {/* Chevron column */}
+      {editable && (
         <button
-          onClick={goPrev}
-          disabled={totalMatches === 0}
-          className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
+          onClick={() => setReplaceVisible(!replaceVisible)}
+          className="p-0.5 mt-1 rounded text-text-secondary hover:text-text transition-colors self-start"
         >
-          <ChevronUp size={16} />
+          <ChevronRight
+            size={14}
+            className={`transition-transform ${replaceVisible ? "rotate-90" : ""}`}
+          />
         </button>
-        <button
-          onClick={goNext}
-          disabled={totalMatches === 0}
-          className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
-        >
-          <ChevronDown size={16} />
-        </button>
-        <button
-          onClick={handleClose}
-          className="p-1 rounded text-text-secondary hover:text-text transition-colors"
-        >
-          <X size={16} />
-        </button>
-      </div>
+      )}
 
-      {/* Replace row */}
-      {showReplaceRow && (
-        <div className="flex items-center gap-2 pl-5">
+      {/* Content column */}
+      <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+        {/* Find row */}
+        <div className="flex items-center gap-2">
           <input
+            ref={inputRef}
             type="text"
-            value={replaceText}
-            onChange={(e) => setReplaceText(e.target.value)}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t("notes.replacePlaceholder", "Replace with...")}
+            placeholder={t("notes.findPlaceholder", "Find in note...")}
             className="flex-1 text-sm bg-transparent border-none outline-none text-text placeholder:text-text-secondary min-w-0"
           />
+          {query && (
+            <span
+              className="text-xs text-text-secondary whitespace-nowrap"
+              data-ui
+            >
+              {totalMatches > 0
+                ? `${currentMatch + 1} of ${totalMatches}`
+                : t("notes.noMatches", "No matches")}
+            </span>
+          )}
           <button
-            onClick={replaceCurrent}
+            onClick={goPrev}
             disabled={totalMatches === 0}
-            className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:text-text hover:bg-accent/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+            className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
           >
-            {t("notes.replace", "Replace")}
+            <ChevronUp size={16} />
           </button>
           <button
-            onClick={replaceAll}
+            onClick={goNext}
             disabled={totalMatches === 0}
-            className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:text-text hover:bg-accent/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+            className="p-1 rounded text-text-secondary hover:text-text disabled:opacity-30 transition-colors"
           >
-            {t("notes.replaceAll", "Replace All")}
+            <ChevronDown size={16} />
+          </button>
+          <button
+            onClick={handleClose}
+            className="p-1 rounded text-text-secondary hover:text-text transition-colors"
+          >
+            <X size={16} />
           </button>
         </div>
-      )}
+
+        {/* Replace row */}
+        {showReplaceRow && (
+          <div className="flex items-center gap-2">
+            <input
+              ref={replaceInputRef}
+              type="text"
+              value={replaceText}
+              onChange={(e) => setReplaceText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t("notes.replacePlaceholder", "Replace with...")}
+              className="flex-1 text-sm bg-transparent border-none outline-none text-text placeholder:text-text-secondary min-w-0"
+            />
+            <button
+              onClick={replaceCurrent}
+              disabled={totalMatches === 0}
+              className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:text-text hover:bg-accent/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+            >
+              {t("notes.replace", "Replace")}
+            </button>
+            <button
+              onClick={replaceAll}
+              disabled={totalMatches === 0}
+              className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:text-text hover:bg-accent/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+            >
+              {t("notes.replaceAll", "Replace All")}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
