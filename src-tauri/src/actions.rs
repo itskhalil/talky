@@ -41,11 +41,10 @@ pub async fn run_session_transcription_loop(
     // Read speaker energy settings
     let settings = crate::settings::get_settings(&app);
     let speaker_energy_threshold = settings.speaker_energy_threshold;
-    let mic_energy_threshold = settings.mic_energy_threshold;
     let skip_mic_on_speaker_energy = settings.skip_mic_on_speaker_energy;
     info!(
-        "Speaker energy threshold: {:.4}, mic energy threshold: {:.4}, skip_mic_on_speaker_energy: {}",
-        speaker_energy_threshold, mic_energy_threshold, skip_mic_on_speaker_energy
+        "Speaker energy threshold: {:.4}, skip_mic_on_speaker_energy: {}",
+        speaker_energy_threshold, skip_mic_on_speaker_energy
     );
 
     let aec = match crate::aec::AEC::new() {
@@ -399,7 +398,6 @@ pub async fn run_session_transcription_loop(
                 const WINDOW_MS: usize = 200; // 200ms windows for speaker energy filtering
                 let (filtered_mic, windows_zeroed) = pipeline.take_filtered_mic(
                     speaker_energy_threshold,
-                    mic_energy_threshold,
                     WINDOW_MS,
                     OVERLAP_SAMPLES,
                 );

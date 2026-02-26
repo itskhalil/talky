@@ -277,7 +277,6 @@ impl Pipeline {
     pub fn take_filtered_mic(
         &mut self,
         threshold: f32,
-        mic_threshold: f32,
         window_ms: usize,
         overlap_samples: usize,
     ) -> (Vec<f32>, usize) {
@@ -321,36 +320,18 @@ impl Pipeline {
                 let spk_rms = (spk_sum_sq / spk_window.len() as f32).sqrt();
 
                 if spk_rms > threshold {
-                    // Speaker is active — check if mic has real speech (post-AEC)
-                    let mic_window = &filtered[mic_start..mic_end];
-                    let mic_sum_sq: f32 = mic_window.iter().map(|x| x * x).sum();
-                    let mic_rms = (mic_sum_sq / mic_window.len() as f32).sqrt();
-
-                    if mic_rms < mic_threshold {
-                        // Mic is quiet post-AEC: likely residual echo, zero it
-                        for sample in &mut filtered[mic_start..mic_end] {
-                            *sample = 0.0;
-                        }
-                        windows_zeroed += 1;
-                        log::debug!(
-                            "Window {}/{}: speaker active (spk_rms={:.4} > {:.4}), mic quiet (mic_rms={:.4} < {:.4}), zeroing",
-                            i + 1,
-                            num_windows,
-                            spk_rms,
-                            threshold,
-                            mic_rms,
-                            mic_threshold
-                        );
-                    } else {
-                        log::debug!(
-                            "Window {}/{}: speaker active (spk_rms={:.4}) but mic has speech (mic_rms={:.4} >= {:.4}), keeping",
-                            i + 1,
-                            num_windows,
-                            spk_rms,
-                            mic_rms,
-                            mic_threshold
-                        );
+                    // Zero out this mic window (speaker was active)
+                    for sample in &mut filtered[mic_start..mic_end] {
+                        *sample = 0.0;
                     }
+                    windows_zeroed += 1;
+                    log::debug!(
+                        "Window {}/{}: speaker active (rms={:.4} > {:.4}), zeroing mic",
+                        i + 1,
+                        num_windows,
+                        spk_rms,
+                        threshold
+                    );
                 }
             }
         }

@@ -298,19 +298,6 @@ pub fn change_speaker_energy_threshold_setting(
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_mic_energy_threshold_setting(
-    app: AppHandle,
-    threshold: f32,
-) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    // Clamp to valid range: 0.001 to 0.5
-    settings.mic_energy_threshold = threshold.clamp(0.001, 0.5);
-    write_settings(&app, settings);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn change_skip_mic_on_speaker_energy_setting(
     app: AppHandle,
     enabled: bool,

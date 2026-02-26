@@ -118,8 +118,6 @@ const settingUpdaters: {
     commands.changeWordSuggestionsEnabled(value as boolean),
   speaker_energy_threshold: (value) =>
     commands.changeSpeakerEnergyThresholdSetting(value as number),
-  mic_energy_threshold: (value) =>
-    commands.changeMicEnergyThresholdSetting(value as number),
   skip_mic_on_speaker_energy: (value) =>
     commands.changeSkipMicOnSpeakerEnergySetting(value as boolean),
   new_recording_shortcut: (value) =>
