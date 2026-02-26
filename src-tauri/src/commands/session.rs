@@ -173,6 +173,15 @@ pub async fn generate_session_summary(
 
     let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
 
+    // Inject meeting title so the model knows who/what the meeting is about
+    let title = session.title.trim();
+    if !title.is_empty() {
+        system_message.push_str(&format!(
+            "\n\nMEETING TITLE: \"{}\"",
+            title
+        ));
+    }
+
     // Inject custom words (+ user name) into the prompt for vocabulary correction
     let mut vocab = settings.custom_words.clone();
     let user_name_trimmed = settings.user_name.trim().to_string();
@@ -181,7 +190,7 @@ pub async fn generate_session_summary(
     }
     if !vocab.is_empty() {
         system_message.push_str(&format!(
-            "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
+            "\n\nDOMAIN VOCABULARY (spelling reference only): {}\nUse these spellings when the transcript contains a misheard or misspelled version of one of these terms. These are spelling hints, not context — do not assume a term is relevant to this meeting just because it appears in this list.",
             vocab.join(", ")
         ));
     }
@@ -338,6 +347,15 @@ pub async fn generate_session_summary_stream(
 
     let mut system_message = include_str!("../../resources/prompts/enhance_notes.txt").to_string();
 
+    // Inject meeting title so the model knows who/what the meeting is about
+    let title = session.title.trim();
+    if !title.is_empty() {
+        system_message.push_str(&format!(
+            "\n\nMEETING TITLE: \"{}\"",
+            title
+        ));
+    }
+
     // Inject custom words (+ user name) into the prompt for vocabulary correction
     let mut vocab = settings.custom_words.clone();
     let user_name_trimmed = settings.user_name.trim().to_string();
@@ -346,7 +364,7 @@ pub async fn generate_session_summary_stream(
     }
     if !vocab.is_empty() {
         system_message.push_str(&format!(
-            "\n\nDOMAIN VOCABULARY: The following terms are important and should be spelled exactly as shown: {}\nIf the transcript contains misspellings or misheard versions of these terms, correct them.",
+            "\n\nDOMAIN VOCABULARY (spelling reference only): {}\nUse these spellings when the transcript contains a misheard or misspelled version of one of these terms. These are spelling hints, not context — do not assume a term is relevant to this meeting just because it appears in this list.",
             vocab.join(", ")
         ));
     }
