@@ -126,6 +126,15 @@ impl Pipeline {
 
         // Accumulate RAW audio (AEC needs unmodified samples to preserve amplitude relationship)
         self.accumulated_spk.extend_from_slice(samples);
+
+        // Safety cap: if accumulated_spk grows beyond 2× the max chunk size (30s), trim it.
+        // This prevents unbounded growth if the mic stops producing samples for an extended
+        // period (e.g., device disconnected) while the speaker keeps streaming.
+        const MAX_SPK_ACCUMULATION: usize = 16000 * 30; // 30s at 16kHz
+        if self.accumulated_spk.len() > MAX_SPK_ACCUMULATION {
+            let drain_to = self.accumulated_spk.len() - 16000 * 15; // keep most recent 15s
+            self.accumulated_spk.drain(..drain_to);
+        }
     }
 
     /// Poll for pipeline events.
@@ -291,13 +300,14 @@ impl Pipeline {
             return (mic, 0);
         }
 
-        let mut filtered = mic.clone();
+        // Filter in-place — we already own `mic` via mem::take, no clone needed
+        let mut filtered = mic;
         let mut windows_zeroed = 0;
-        let num_windows = mic.len().saturating_sub(1) / window_samples + 1;
+        let num_windows = filtered.len().saturating_sub(1) / window_samples + 1;
 
         for i in 0..num_windows {
             let mic_start = i * window_samples;
-            let mic_end = ((i + 1) * window_samples).min(mic.len());
+            let mic_end = ((i + 1) * window_samples).min(filtered.len());
 
             // Calculate corresponding speaker window
             // Speaker audio may be shorter or longer, so clamp indices

@@ -29,7 +29,7 @@ use managers::model::ModelManager;
 use managers::session::SessionManager;
 use managers::transcription::TranscriptionManager;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tauri::image::Image;
 
 use tauri::tray::TrayIconBuilder;
@@ -63,6 +63,10 @@ fn get_user_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Box<dyn std::err
 // Global atomic to store the file log level filter
 // We use u8 to store the log::LevelFilter as a number
 pub static FILE_LOG_LEVEL: AtomicU8 = AtomicU8::new(log::LevelFilter::Debug as u8);
+
+// Seeded during setup() from app.path().app_log_dir() so the panic hook can write
+// synchronously without hardcoding the bundle identifier.
+static PANIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 fn level_filter_from_u8(value: u8) -> log::LevelFilter {
     match value {
@@ -322,10 +326,24 @@ pub fn run() {
                     .map(|s| s.as_str())
             })
             .unwrap_or("Unknown panic");
-        // Use eprintln as a fallback since logging may not be initialized or may fail
         eprintln!("PANIC at {}: {}", location, message);
-        // Also try to log it properly
-        log::error!("PANIC at {}: {}", location, message);
+
+        // Write synchronously to the log file. log::error! goes through tauri-plugin-log's
+        // background writer thread, which never flushes before abort() kills the process.
+        // PANIC_LOG_PATH is seeded in setup(); panics before setup completes fall back to
+        // eprintln only.
+        if let Some(log_path) = PANIC_LOG_PATH.get() {
+            use std::io::Write;
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open(&log_path) {
+                // Avoid calling chrono or any external code in the panic hook — use a simple
+                // seconds-since-epoch timestamp instead.
+                let secs = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let _ = writeln!(file, "[t={}s][PANIC] at {}: {}", secs, location, message);
+            }
+        }
     }));
 
     // Parse console logging directives from RUST_LOG, falling back to info-level logging
@@ -538,6 +556,10 @@ pub fn run() {
             // Store the file log level in the atomic for the filter to use
             FILE_LOG_LEVEL.store(file_log_level.to_level_filter() as u8, Ordering::Relaxed);
             let app_handle = app.handle().clone();
+
+            if let Ok(log_dir) = app.path().app_log_dir() {
+                let _ = PANIC_LOG_PATH.set(log_dir.join("talky.log"));
+            }
 
             log::info!("Talky v{}", app.package_info().version);
             crash_reporter::check_for_crash_reports(&app_handle);
