@@ -1386,7 +1386,7 @@ export function NoteView({
           {panelOpen && (
             <div className="border-b border-border">
               {/* Tab switcher */}
-              <div className="flex items-center gap-1 px-4 pt-2 pb-1.5 border-b border-border">
+              <div className="flex items-center gap-1 px-4 pt-2 pb-1.5">
                 <button
                   onClick={() => setPanelMode("transcript")}
                   className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/50 hover:text-text-secondary"}`}
