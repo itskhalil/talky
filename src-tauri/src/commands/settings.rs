@@ -330,6 +330,15 @@ pub fn change_new_recording_shortcut_setting(
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn change_meeting_end_action_setting(app: AppHandle, action: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.meeting_end_action = action;
+    write_settings(&app, settings);
+    Ok(())
+}
+
 // Model Environment Commands
 #[tauri::command]
 #[specta::specta]

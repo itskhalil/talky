@@ -684,10 +684,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     );
 
     // Listen for meeting ended notification (when meeting app stops using mic)
-    // Shows window and toast with option to stop recording
+    // Behavior depends on meeting_end_action setting: "stop_recording" or "notify"
     unlisteners.push(
       await listen<string>("meeting-ended", async (event) => {
         const appName = event.payload;
+        const meetingEndAction =
+          useSettingsStore.getState().settings?.meeting_end_action ??
+          "stop_recording";
+
         // Show and focus the window (wrapped in try-catch so toast still shows)
         try {
           const win = getCurrentWindow();
@@ -696,22 +700,32 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         } catch {
           // Window operations may fail if permissions not granted
         }
-        // Show toast with stop recording action (persists until dismissed)
-        toast(`${appName} ended`, {
-          description: "Still recording - stop now?",
-          action: {
-            label: "Stop",
-            onClick: () => {
-              const { stopRecording } = get();
-              stopRecording();
+
+        if (meetingEndAction === "stop_recording") {
+          const { stopRecording } = get();
+          stopRecording();
+          toast(`${appName} ended`, {
+            description: i18n.t("sessions.meetingEndedStopped"),
+            duration: 4000,
+          });
+        } else {
+          // "notify" - show persistent toast with Stop/Dismiss buttons
+          toast(`${appName} ended`, {
+            description: i18n.t("sessions.meetingEndedNotify"),
+            action: {
+              label: i18n.t("sessions.stopRecording"),
+              onClick: () => {
+                const { stopRecording } = get();
+                stopRecording();
+              },
             },
-          },
-          cancel: {
-            label: "Dismiss",
-            onClick: () => {},
-          },
-          duration: Infinity,
-        });
+            cancel: {
+              label: i18n.t("common.close"),
+              onClick: () => {},
+            },
+            duration: Infinity,
+          });
+        }
       }),
     );
 

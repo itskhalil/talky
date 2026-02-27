@@ -269,6 +269,9 @@ pub struct AppSettings {
     #[serde(default)]
     pub new_recording_shortcut: Option<String>,
 
+    #[serde(default = "default_meeting_end_action")]
+    pub meeting_end_action: String,
+
     // Debug flags for Windows crash diagnosis
     #[serde(default)]
     pub debug_disable_speaker_capture: bool,
@@ -276,6 +279,10 @@ pub struct AppSettings {
     pub debug_disable_model_loading: bool,
     #[serde(default = "default_debug_disable_pill_window")]
     pub debug_disable_pill_window: bool,
+}
+
+fn default_meeting_end_action() -> String {
+    "stop_recording".to_string()
 }
 
 fn default_debug_disable_pill_window() -> bool {
@@ -613,6 +620,7 @@ pub fn get_default_settings() -> AppSettings {
         model_environments: Vec::new(),
         default_environment_id: None,
         new_recording_shortcut: None,
+        meeting_end_action: default_meeting_end_action(),
         debug_disable_speaker_capture: false,
         debug_disable_model_loading: false,
         debug_disable_pill_window: default_debug_disable_pill_window(),

@@ -376,6 +376,7 @@ pub fn run() {
         commands::settings::change_update_checks_setting,
         commands::settings::change_copy_as_bullets_setting,
         commands::settings::change_new_recording_shortcut_setting,
+        commands::settings::change_meeting_end_action_setting,
         commands::settings::get_environments,
         commands::settings::create_environment,
         commands::settings::update_environment,

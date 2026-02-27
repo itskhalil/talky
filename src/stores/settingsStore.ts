@@ -124,6 +124,8 @@ const settingUpdaters: {
     commands.changeNewRecordingShortcutSetting(
       (value as string | null) ?? null,
     ),
+  meeting_end_action: (value) =>
+    commands.changeMeetingEndActionSetting(value as string),
 };
 
 export const useSettingsStore = create<SettingsStore>()(
