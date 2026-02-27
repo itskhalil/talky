@@ -493,7 +493,7 @@ pub fn run() {
         LogBuilder::new()
             .level(log::LevelFilter::Trace) // Set to most verbose level globally
             .max_file_size(500_000)
-            .rotation_strategy(RotationStrategy::KeepAll)
+            .rotation_strategy(RotationStrategy::KeepSome(10))
             .clear_targets()
             .targets([
                 // Console output respects RUST_LOG environment variable
