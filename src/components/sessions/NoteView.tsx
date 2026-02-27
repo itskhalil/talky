@@ -1221,7 +1221,7 @@ export function NoteView({
                   {sessionTags.map((tag) => (
                     <span
                       key={tag.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/5 text-text"
+                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs bg-accent/5 text-text"
                       style={
                         tag.color
                           ? {
@@ -1287,9 +1287,9 @@ export function NoteView({
                   ) : (
                     <button
                       onClick={() => setTagInputOpen(true)}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors"
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors"
                     >
-                      <Tag size={10} />
+                      <Tag size={12} />
                       <Plus size={10} />
                     </button>
                   )}

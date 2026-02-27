@@ -85,7 +85,7 @@ function AttachmentChip({
 
   return (
     <div
-      className="group relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs bg-accent/5 text-text hover:bg-accent/10 transition-colors"
+      className="group relative inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-accent/5 text-text hover:bg-accent/10 transition-colors"
       onMouseEnter={() => isImage && setShowPreview(true)}
       onMouseLeave={() => setShowPreview(false)}
     >
@@ -256,14 +256,14 @@ export function AttachmentsRow({
         <button
           onClick={handleAddFiles}
           disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors disabled:opacity-50"
           title={t("sessions.attachments.addHint")}
         >
           {uploading ? (
             <Loader size={10} className="animate-spin-slow" />
           ) : (
             <>
-              <Paperclip size={10} />
+              <Paperclip size={12} />
               <Plus size={10} />
             </>
           )}
