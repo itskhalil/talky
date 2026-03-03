@@ -366,6 +366,10 @@
         "label": "Skip Mic When Speaker Active",
         "description": "Disable to test if AEC alone handles echo well enough for rapid conversations"
       },
+      "saveDebugRecordings": {
+        "label": "Save debug recordings",
+        "description": "Save raw mic and speaker audio from each session to disk for pipeline evaluation. Keeps the last 5 recordings. Files are written to the debug_recordings folder in your app data directory."
+      },
       "historyLimit": {
         "title": "History Limit",
         "description": "Maximum number of history entries to keep",

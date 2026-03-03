@@ -42,6 +42,8 @@ pub async fn run_session_transcription_loop(
     let settings = crate::settings::get_settings(&app);
     let speaker_energy_threshold = settings.speaker_energy_threshold;
     let skip_mic_on_speaker_energy = settings.skip_mic_on_speaker_energy;
+    let save_debug_recordings = settings.debug_mode && settings.save_debug_recordings;
+    let debug_recordings_max_count = settings.debug_recordings_max_count as usize;
     info!(
         "Speaker energy threshold: {:.4}, skip_mic_on_speaker_energy: {}",
         speaker_energy_threshold, skip_mic_on_speaker_energy
@@ -57,6 +59,7 @@ pub async fn run_session_transcription_loop(
             None
         }
     };
+    let aec_enabled = aec.is_some();
 
     // Initialize VAD for segmentation (does NOT filter audio, only detects speech transitions)
     let vad: Option<Box<dyn crate::audio_toolkit::VoiceActivityDetector>> = match app
@@ -95,6 +98,34 @@ pub async fn run_session_transcription_loop(
     );
 
     let session_start = Instant::now();
+
+    // Create a streaming debug writer if debug recording is enabled.
+    // Captures raw (pre-pipeline) mic and speaker audio for offline pipeline eval.
+    let mut debug_writer: Option<crate::debug_recording::DebugRecordingWriter> =
+        if save_debug_recordings {
+            match crate::get_user_data_dir(&app) {
+                Ok(data_dir) => {
+                    let session_dir = data_dir.join("debug_recordings").join(&session_id);
+                    match crate::debug_recording::DebugRecordingWriter::create(session_dir) {
+                        Ok(w) => {
+                            log::info!("Debug recording started for session {}", session_id);
+                            Some(w)
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to start debug recording: {}", e);
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Could not resolve data dir for debug recording: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
     let mut tick = interval(Duration::from_millis(POLL_INTERVAL_MS));
     let mut pending_spk_samples: Vec<f32> = Vec::new();
     let mut spk_silent_polls: u32 = 0;
@@ -136,6 +167,9 @@ pub async fn run_session_transcription_loop(
             if rm.is_recording() {
                 let final_chunk = rm.take_session_chunk();
                 if !final_chunk.is_empty() {
+                    if let Some(ref mut w) = debug_writer {
+                        w.write_mic(&final_chunk);
+                    }
                     pipeline.push_mic(&final_chunk);
                 }
             }
@@ -143,6 +177,9 @@ pub async fn run_session_transcription_loop(
             // Flush remaining speaker audio
             let final_spk = sm.take_speaker_samples();
             if !final_spk.is_empty() {
+                if let Some(ref mut w) = debug_writer {
+                    w.write_spk(&final_spk);
+                }
                 pipeline.push_spk(&final_spk);
                 pending_spk_samples.extend_from_slice(&final_spk);
             }
@@ -199,6 +236,50 @@ pub async fn run_session_transcription_loop(
                 }
             }
 
+            // Finalize debug recording: write metadata.json and enforce retention limit.
+            if let Some(writer) = debug_writer.take() {
+                let segments = sm
+                    .get_session_transcript(&session_id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|s| crate::debug_recording::RecordingSegment {
+                        text: s.text,
+                        source: s.source,
+                        start_ms: s.start_ms,
+                        end_ms: s.end_ms,
+                    })
+                    .collect();
+                let metadata = crate::debug_recording::RecordingMetadata {
+                    version: 1,
+                    session_id: session_id.clone(),
+                    recorded_at: crate::debug_recording::now_rfc3339(),
+                    duration_seconds: session_start.elapsed().as_secs_f64(),
+                    pipeline_config: crate::debug_recording::PipelineConfig {
+                        vad_threshold: 0.15,
+                        vad_onset_frames: 2,
+                        vad_hangover_frames: 25,
+                        aec_enabled,
+                        speaker_energy_threshold,
+                        mic_energy_threshold,
+                        skip_mic_on_speaker_energy,
+                        dedup_similarity_threshold: 0.80,
+                        dedup_time_overlap_ms: 300,
+                        min_chunk_samples: MIN_CHUNK_SAMPLES,
+                        max_chunk_samples: MAX_CHUNK_SAMPLES,
+                    },
+                    transcript_segments: segments,
+                };
+                if let Err(e) = writer.finalize(metadata) {
+                    log::warn!("Failed to finalize debug recording: {}", e);
+                }
+                if let Ok(data_dir) = crate::get_user_data_dir(&app) {
+                    let _ = crate::debug_recording::cleanup_old_recordings(
+                        &data_dir.join("debug_recordings"),
+                        debug_recordings_max_count,
+                    );
+                }
+            }
+
             debug!("Session transcription loop ended for {}", session_id);
             let _ = app.emit("transcription-flush-complete", &session_id);
             break;
@@ -211,6 +292,9 @@ pub async fn run_session_transcription_loop(
                 mic_chunk_start = Instant::now();
             }
             mic_has_samples = true;
+            if let Some(ref mut w) = debug_writer {
+                w.write_mic(&new_mic);
+            }
             pipeline.push_mic(&new_mic);
         }
 
@@ -227,6 +311,9 @@ pub async fn run_session_transcription_loop(
             );
             if pending_spk_samples.is_empty() {
                 spk_chunk_start = Instant::now();
+            }
+            if let Some(ref mut w) = debug_writer {
+                w.write_spk(&new_spk);
             }
             pipeline.push_spk(&new_spk);
             pending_spk_samples.extend_from_slice(&new_spk);

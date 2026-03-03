@@ -1,5 +1,6 @@
 mod actions;
 mod aec;
+mod debug_recording;
 mod crash_reporter;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
@@ -44,7 +45,7 @@ use std::path::PathBuf;
 
 /// Returns the directory where user data (sessions.db, history.db) should be stored.
 /// Uses the custom data directory from settings if set, otherwise the default app data directory.
-fn get_user_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub(crate) fn get_user_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let settings = get_settings(app_handle);
 
     if let Some(custom_dir) = settings.data_directory {
@@ -372,6 +373,7 @@ pub fn run() {
         commands::settings::change_word_suggestions_enabled,
         commands::settings::change_speaker_energy_threshold_setting,
         commands::settings::change_skip_mic_on_speaker_energy_setting,
+        commands::settings::change_save_debug_recordings_setting,
         commands::settings::change_app_language_setting,
         commands::settings::change_update_checks_setting,
         commands::settings::change_copy_as_bullets_setting,

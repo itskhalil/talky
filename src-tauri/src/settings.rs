@@ -279,6 +279,12 @@ pub struct AppSettings {
     pub debug_disable_model_loading: bool,
     #[serde(default = "default_debug_disable_pill_window")]
     pub debug_disable_pill_window: bool,
+
+    // Audio pipeline eval: save raw mic+spk WAV files for offline pipeline iteration
+    #[serde(default)]
+    pub save_debug_recordings: bool,
+    #[serde(default = "default_debug_recordings_max_count")]
+    pub debug_recordings_max_count: u8,
 }
 
 fn default_meeting_end_action() -> String {
@@ -295,6 +301,10 @@ fn default_debug_disable_pill_window() -> bool {
     {
         false
     }
+}
+
+fn default_debug_recordings_max_count() -> u8 {
+    5
 }
 
 fn default_word_suggestions_enabled() -> bool {
@@ -624,6 +634,8 @@ pub fn get_default_settings() -> AppSettings {
         debug_disable_speaker_capture: false,
         debug_disable_model_loading: false,
         debug_disable_pill_window: default_debug_disable_pill_window(),
+        save_debug_recordings: false,
+        debug_recordings_max_count: default_debug_recordings_max_count(),
     }
 }
 

@@ -8,6 +8,7 @@ import { CopyAsBulletsToggle } from "./CopyAsBulletsToggle";
 import { DisableSpeakerCaptureToggle } from "./DisableSpeakerCaptureToggle";
 import { DisableModelLoadingToggle } from "./DisableModelLoadingToggle";
 import { DisablePillWindowToggle } from "./DisablePillWindowToggle";
+import { SaveDebugRecordingsToggle } from "./SaveDebugRecordingsToggle";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { ClamshellMicrophoneSelector } from "../ClamshellMicrophoneSelector";
 import { UpdateChecksToggle } from "../UpdateChecksToggle";
@@ -36,6 +37,7 @@ export const DebugSettings: React.FC = () => {
         <DisableSpeakerCaptureToggle descriptionMode="tooltip" grouped={true} />
         <DisableModelLoadingToggle descriptionMode="tooltip" grouped={true} />
         <DisablePillWindowToggle descriptionMode="tooltip" grouped={true} />
+        <SaveDebugRecordingsToggle descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
     </div>
   );
