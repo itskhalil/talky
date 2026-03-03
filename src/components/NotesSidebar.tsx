@@ -742,11 +742,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                         setChatEnvId(env.id);
                         setChatEnvDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${
-                        effectiveChatEnvId === env.id
-                          ? "text-accent"
-                          : "text-text"
-                      }`}
+                      className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
                     >
                       <span
                         className="w-2 h-2 rounded-full"

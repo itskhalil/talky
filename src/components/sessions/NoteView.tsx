@@ -1151,12 +1151,7 @@ export function NoteView({
                           <button
                             key={env.id}
                             onClick={() => handleEnvSelect(env.id)}
-                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${
-                              (session?.environment_id ?? defaultEnvId) ===
-                              env.id
-                                ? "text-accent"
-                                : "text-text"
-                            }`}
+                            className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
                           >
                             <span
                               className="w-2 h-2 rounded-full"
@@ -1193,7 +1188,7 @@ export function NoteView({
                     <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
                       <button
                         onClick={() => handleFolderSelect(null)}
-                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors ${!localFolderId ? "text-accent" : "text-text"}`}
+                        className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors"
                       >
                         {t("notes.noFolder", "Notes")}
                       </button>
@@ -1201,7 +1196,7 @@ export function NoteView({
                         <button
                           key={folder.id}
                           onClick={() => handleFolderSelect(folder.id)}
-                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent/10 transition-colors flex items-center gap-2 ${localFolderId === folder.id ? "text-accent" : "text-text"}`}
+                          className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
                         >
                           <FolderIcon
                             size={12}
