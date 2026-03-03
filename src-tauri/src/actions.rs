@@ -41,6 +41,7 @@ pub async fn run_session_transcription_loop(
     // Read speaker energy settings
     let settings = crate::settings::get_settings(&app);
     let speaker_energy_threshold = settings.speaker_energy_threshold;
+    let mic_energy_threshold = settings.mic_energy_threshold;
     let skip_mic_on_speaker_energy = settings.skip_mic_on_speaker_energy;
     let save_debug_recordings = settings.debug_mode && settings.save_debug_recordings;
     let debug_recordings_max_count = settings.debug_recordings_max_count as usize;
