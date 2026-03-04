@@ -1,8 +1,14 @@
-description: 'enhance_notes — baseline (clean-all promoted Round 22)'
+description: 'enhance_notes — baseline + template variants'
 
 prompts:
   - id: file://prompts/baseline.mjs
     label: baseline
+  - id: file://prompts/template-1on1.mjs
+    label: template-1on1
+  - id: file://prompts/template-standup.mjs
+    label: template-standup
+  - id: file://prompts/template-hiring.mjs
+    label: template-hiring
 
 providers:
   - file://providers/talky.mjs
