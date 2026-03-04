@@ -126,6 +126,8 @@ const settingUpdaters: {
     ),
   meeting_end_action: (value) =>
     commands.changeMeetingEndActionSetting(value as string),
+  save_debug_recordings: (value) =>
+    commands.changeSaveDebugRecordingsSetting(value as boolean),
 };
 
 export const useSettingsStore = create<SettingsStore>()(
