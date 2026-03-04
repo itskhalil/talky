@@ -25,105 +25,27 @@ npm run format            # Prettier + cargo fmt
 npm run format:check      # Check formatting without changes
 ```
 
-**Model Setup (Required for Development):**
-
-```bash
-mkdir -p src-tauri/resources/models
-curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
-```
-
-**Prompt Evaluation (enhance_notes):**
-
-```bash
-# Run eval (all prompt variants side-by-side)
-# Produces results.json + results-summary.md (compact markdown with scores, reasoning, outputs)
-npm run eval
-
-# Regenerate summary from existing results.json (no re-run)
-npm run eval:summary
-
-# View results in browser
-npm run eval:view
-
-# Create a new prompt variant for A/B testing
-.AI/new-variant.sh <variant-name>
-# Then edit .AI/prompt-variants/<variant-name>/system.txt and user.txt
-# Add the variant to .AI/promptfooconfig.yaml under 'prompts:'
-
-# Promote a winning variant to production
-cp .AI/prompt-variants/<variant>/system.txt src-tauri/resources/prompts/enhance_notes.txt
-cp .AI/prompt-variants/<variant>/user.txt src-tauri/resources/prompts/enhance_notes_user.txt
-```
-
-Requires `ANTHROPIC_API_KEY` env var (set in `.AI/.env` or export in shell).
-
 ## Architecture Overview
 
 Talky is a cross-platform desktop speech-to-text app built with Tauri 2.x (Rust backend + React/TypeScript frontend).
 
-### Backend Structure (src-tauri/src/)
+**Backend** (`src-tauri/src/`): Manager pattern — core logic in `managers/` (audio, transcription, session, model, history). Tauri commands in `commands/`. Audio pipeline in `audio_toolkit/`.
 
-- `lib.rs` - Main entry point, Tauri setup, manager initialization
-- `managers/` - Core business logic:
-  - `audio.rs` - Audio recording and device management
-  - `model.rs` - Model downloading and management
-  - `transcription.rs` - Speech-to-text processing pipeline
-  - `session.rs` - Notes/session lifecycle and transcript storage
-  - `history.rs` - Transcription history storage
-- `audio_toolkit/` - Low-level audio processing:
-  - `audio/` - Device enumeration, recording, resampling
-  - `vad/` - Voice Activity Detection (Silero VAD)
-- `commands/` - Tauri command handlers for frontend communication
-  - `session.rs` - Note creation, recording start/stop, transcript and meeting notes CRUD
-- `actions.rs` - Shortcut actions and the session transcription loop (`run_session_transcription_loop`)
-- `shortcut.rs` - Global keyboard shortcut handling
-- `settings.rs` - Application settings management
+**Frontend** (`src/`): React + TypeScript + Tailwind. Zustand stores in `stores/`. Tauri command bindings auto-generated in `bindings.ts` (via tauri-specta).
 
-### Frontend Structure (src/)
-
-- `App.tsx` - Main component with onboarding flow
-- `components/sessions/` - Notes UI (list view, detail view with Notes/Transcript tabs, recording controls)
-- `components/settings/` - Settings UI (35+ files)
-- `components/model-selector/` - Model management interface
-- `components/onboarding/` - First-run experience
-- `hooks/useSettings.ts`, `useModels.ts` - State management hooks
-- `stores/settingsStore.ts` - Zustand store for settings
-- `bindings.ts` - Auto-generated Tauri type bindings (via tauri-specta)
-- `overlay/` - Recording overlay window code
-
-### Key Patterns
-
-**Manager Pattern:** Core functionality organized into managers (Audio, Model, Transcription) initialized at startup and managed via Tauri state.
-
-**Command-Event Architecture:** Frontend → Backend via Tauri commands; Backend → Frontend via events.
-
-**Notes (Sessions):** A "Note" is the primary entity. Users create a Note, optionally type freeform notes, and can start/stop recording multiple times within a single Note. Recording produces a live transcript (mic + speaker channels). Backend uses "session" naming internally; UI uses "Note".
-
-**Pipeline Processing:** Audio → VAD → Whisper/Parakeet → Text output → Clipboard/Paste
-
-**State Flow:** Zustand → Tauri Command → Rust State → Persistence (tauri-plugin-store)
+**Key concepts:**
+- A "Note" (UI) = "session" (backend) — the primary entity. Users create Notes, type freeform text, and start/stop recording within them.
+- Audio pipeline: Audio → VAD → Whisper/Parakeet → Text
+- Frontend → Backend via Tauri commands; Backend → Frontend via events
 
 ## Internationalization (i18n)
 
-All user-facing strings must use i18next translations. ESLint enforces this (no hardcoded strings in JSX).
+All user-facing strings use i18next (ESLint enforces no hardcoded strings in JSX). Translations live in `src/i18n/locales/en/translation.json`.
 
 **Adding new text:**
 
 1. Add key to `src/i18n/locales/en/translation.json`
 2. Use in component: `const { t } = useTranslation(); t('key.path')`
-
-**File structure:**
-
-```
-src/i18n/
-├── index.ts           # i18n setup
-├── languages.ts       # Language metadata
-└── locales/
-    ├── en/translation.json  # English (source)
-    ├── es/translation.json  # Spanish
-    ├── fr/translation.json  # French
-    └── vi/translation.json  # Vietnamese
-```
 
 ## Code Style
 
@@ -133,7 +55,6 @@ src/i18n/
 
 - Run `cargo fmt` and `cargo clippy` before committing
 - Handle errors explicitly (avoid unwrap in production)
-- Use descriptive names, add doc comments for public APIs
 
 **TypeScript/React:**
 
@@ -144,23 +65,11 @@ src/i18n/
 
 ## Commit Guidelines
 
-Use conventional commits:
-
-- `feat:` new features
-- `fix:` bug fixes
-- `docs:` documentation
-- `refactor:` code refactoring
-- `chore:` maintenance
+Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`
 
 ## Debug Mode
 
 Access debug features: `Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows/Linux)
-
-## Platform Notes
-
-- **macOS**: Metal acceleration, accessibility permissions required
-- **Windows**: Vulkan acceleration, code signing
-- **Linux**: OpenBLAS + Vulkan, limited Wayland support, overlay disabled by default
 
 ## Claude Code Build Instructions
 
