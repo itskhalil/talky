@@ -51,10 +51,16 @@ interface NotesSidebarProps {
 }
 
 function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleDateString(undefined, {
+  const date = new Date(timestamp * 1000);
+  const datePart = date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
+  const timePart = date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${datePart}, ${timePart}`;
 }
 
 type DateGroup = "today" | "yesterday" | "thisWeek" | "lastWeek" | "earlier";

@@ -1123,9 +1123,20 @@ export function NoteView({
             className="w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden font-display"
           />
 
-          {/* Environment, Folder and Tags */}
+          {/* Date/time + metadata row */}
           {session && (
             <>
+              <p className="text-xs text-text-secondary mt-1.5 mb-0.5">
+                {new Date(session.started_at * 1000).toLocaleDateString(
+                  undefined,
+                  { month: "long", day: "numeric", year: "numeric" },
+                )}
+                {", "}
+                {new Date(session.started_at * 1000).toLocaleTimeString(
+                  undefined,
+                  { hour: "numeric", minute: "2-digit" },
+                )}
+              </p>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 {/* Environment selector - only show if 2+ environments */}
                 {showEnvSelector && (
