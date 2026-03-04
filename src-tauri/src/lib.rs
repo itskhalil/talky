@@ -541,6 +541,7 @@ pub fn run() {
                     tauri_plugin_window_state::StateFlags::POSITION
                         | tauri_plugin_window_state::StateFlags::SIZE,
                 )
+                .skip_initial_state("pill")
                 .build(),
         );
 
