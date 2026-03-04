@@ -541,7 +541,6 @@ pub fn run() {
                     tauri_plugin_window_state::StateFlags::POSITION
                         | tauri_plugin_window_state::StateFlags::SIZE,
                 )
-                .skip_initial_state("pill")
                 .build(),
         );
 
@@ -589,6 +588,22 @@ pub fn run() {
             }
 
             // Ensure pill window is hidden on startup (window-state may restore it)
+            // Reset pill size to config values — the window-state plugin may have
+            // restored a stale size from a previous session or different scale factor
+            if let Some(pill) = app_handle.get_webview_window("pill") {
+                if let Some(pill_conf) = app_handle
+                    .config()
+                    .app
+                    .windows
+                    .iter()
+                    .find(|w| w.label == "pill")
+                {
+                    let _ = pill.set_size(tauri::LogicalSize::new(
+                        pill_conf.width,
+                        pill_conf.height,
+                    ));
+                }
+            }
             hide_pill_window(&app_handle);
 
             Ok(())

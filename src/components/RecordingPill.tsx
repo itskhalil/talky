@@ -65,7 +65,7 @@ export function RecordingPill() {
       onMouseUp={handleMouseUp}
       className="w-full h-full p-1.5 box-border cursor-pointer"
     >
-      <div className="w-full h-full flex flex-col items-center justify-center gap-3 py-2 bg-background-sidebar border border-border rounded-[24px] shadow-lg pointer-events-none">
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 py-2 bg-[#edeae3] border border-black/6 rounded-[24px] shadow-lg pointer-events-none">
         {iconSrc && (
           <img
             src={iconSrc}
@@ -76,7 +76,7 @@ export function RecordingPill() {
           />
         )}
         <WaveformBars amplitude={amplitude} isRecording={true} />
-        <Maximize2 size={12} className="text-text-secondary/50" />
+        <Maximize2 size={12} className="text-[#7c7c78]/50" />
       </div>
     </div>
   );
