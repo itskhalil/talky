@@ -4,7 +4,7 @@ import { homedir } from 'os';
 
 const SETTINGS_PATH = join(
   homedir(),
-  'Library/Application Support/com.khalil.talky/settings_store.json',
+  'Library/Application Support/com.talky.app/settings_store.json',
 );
 
 function loadSettings(envName) {
