@@ -426,6 +426,12 @@
     },
     "recording": {
       "title": "Recording",
+      "meetingStartAction": {
+        "title": "When a meeting starts",
+        "description": "Action to take when a meeting app starts using the microphone",
+        "disabled": "Do nothing",
+        "notify": "Notify me"
+      },
       "meetingEndAction": {
         "title": "When meeting ends",
         "description": "What to do when a meeting app stops using the microphone",
@@ -581,6 +587,8 @@
     "copyTranscript": "Copy transcript",
     "searchTranscript": "Search transcript...",
     "noSearchMatches": "No matches",
+    "meetingStartedNotify": "Would you like to start recording?",
+    "startRecordingAction": "Start Recording",
     "meetingEndedStopped": "Recording stopped",
     "meetingEndedNotify": "Still recording - stop now?",
     "consentWarning": "Ask for consent before transcribing conversations",

@@ -11,6 +11,7 @@ import { UserNameSetting } from "./UserNameSetting";
 import { EnvironmentsSection } from "../environments/EnvironmentsSection";
 import { UpdateBanner } from "../../update-checker";
 import { MeetingEndActionSetting } from "./MeetingEndActionSetting";
+import { MeetingStartActionSetting } from "./MeetingStartActionSetting";
 
 export const GeneralSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -35,6 +36,7 @@ export const GeneralSettings: React.FC = () => {
         <CustomWords descriptionMode="tooltip" grouped />
       </SettingsGroup>
       <SettingsGroup title={t("settings.recording.title")}>
+        <MeetingStartActionSetting />
         <MeetingEndActionSetting />
       </SettingsGroup>
       <EnvironmentsSection />

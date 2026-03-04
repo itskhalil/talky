@@ -7,9 +7,6 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
 
-#[cfg(target_os = "macos")]
-use crate::mic_detect;
-
 const POLL_INTERVAL_MS: u64 = 250; // Faster polling for responsive VAD-based triggers
 const MIN_CHUNK_SAMPLES: usize = 16000; // 1s minimum at 16kHz
 const MAX_CHUNK_SAMPLES: usize = 16000 * 15; // 15s — force transcribe (safety net)
@@ -137,23 +134,6 @@ pub async fn run_session_transcription_loop(
     // Track previous mic transcription for prefix overlap removal
     let mut previous_mic_text = String::new();
 
-    // Meeting app detection: track meeting apps that use the mic during recording
-    #[cfg(target_os = "macos")]
-    let mut tracked_meeting_apps: std::collections::HashSet<String> =
-        mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
-    #[cfg(target_os = "macos")]
-    let mut last_meeting_check = Instant::now();
-    // Grace period tracking: apps that disappeared but may reappear during audio device switches
-    #[cfg(target_os = "macos")]
-    let mut pending_disappearances: std::collections::HashMap<String, Instant> =
-        std::collections::HashMap::new();
-    #[cfg(target_os = "macos")]
-    if !tracked_meeting_apps.is_empty() {
-        log::info!(
-            "Recording started with meeting apps: {:?}",
-            tracked_meeting_apps
-        );
-    }
 
     loop {
         tick.tick().await;
@@ -360,64 +340,6 @@ pub async fn run_session_transcription_loop(
                     speaker: (amp.spk_level * 1000.0) as u16,
                 },
             );
-        }
-
-        // Check for meeting app changes (every 2 seconds)
-        #[cfg(target_os = "macos")]
-        if last_meeting_check.elapsed() >= Duration::from_secs(2) {
-            last_meeting_check = Instant::now();
-            let current_apps = mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
-
-            // Track any new meeting apps that started using the mic
-            for app_id in &current_apps {
-                if !tracked_meeting_apps.contains(app_id) {
-                    log::info!(
-                        "Meeting app {} started using microphone",
-                        mic_detect::app_name(app_id)
-                    );
-                    tracked_meeting_apps.insert(app_id.clone());
-                }
-                // App reappeared - cancel any pending disappearance (e.g., during audio device switch)
-                if pending_disappearances.remove(app_id).is_some() {
-                    log::info!(
-                        "Meeting app {} reappeared (audio device switch?), cancelling pending notification",
-                        mic_detect::app_name(app_id)
-                    );
-                }
-            }
-
-            // Check which tracked meeting apps have stopped using the mic
-            for app_id in tracked_meeting_apps.clone() {
-                if !current_apps.contains(&app_id) {
-                    // Add to pending disappearances with current timestamp (don't emit yet)
-                    pending_disappearances
-                        .entry(app_id.clone())
-                        .or_insert_with(Instant::now);
-                }
-            }
-
-            // Process pending disappearances that have exceeded the grace period (2 seconds)
-            let grace_period = Duration::from_secs(2);
-            let expired: Vec<String> = pending_disappearances
-                .iter()
-                .filter(|(_, &timestamp)| timestamp.elapsed() >= grace_period)
-                .map(|(app_id, _)| app_id.clone())
-                .collect();
-
-            for app_id in expired {
-                pending_disappearances.remove(&app_id);
-                tracked_meeting_apps.remove(&app_id);
-
-                let name = mic_detect::app_name(&app_id);
-                log::info!(
-                    "Meeting app {} ({}) stopped using microphone (confirmed after grace period)",
-                    name,
-                    app_id
-                );
-
-                // Emit event for frontend to handle (show window + toast to stop recording)
-                let _ = app.emit("meeting-ended", name);
-            }
         }
 
         let now = session_start.elapsed().as_millis() as i64 + time_offset_ms;

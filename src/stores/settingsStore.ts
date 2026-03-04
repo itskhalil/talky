@@ -126,6 +126,8 @@ const settingUpdaters: {
     ),
   meeting_end_action: (value) =>
     commands.changeMeetingEndActionSetting(value as string),
+  meeting_start_action: (value) =>
+    commands.changeMeetingStartActionSetting(value as string),
   save_debug_recordings: (value) =>
     commands.changeSaveDebugRecordingsSetting(value as boolean),
 };

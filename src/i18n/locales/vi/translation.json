@@ -414,6 +414,8 @@
   "sessions": {
     "chat": {
       "whatDidIMiss": "Tôi đã bỏ lỡ gì?"
-    }
+    },
+    "meetingStartedNotify": "Would you like to start recording?",
+    "startRecordingAction": "Start Recording"
   }
 }

@@ -14,6 +14,8 @@ mod menu;
 mod mic_detect;
 mod platform;
 #[cfg(target_os = "macos")]
+mod meeting_monitor;
+#[cfg(target_os = "macos")]
 mod power_events;
 mod settings;
 mod shortcut;
@@ -293,6 +295,10 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // Start power event monitoring (detects system sleep to stop recording gracefully)
     #[cfg(target_os = "macos")]
     power_events::start_monitoring(app_handle.clone());
+
+    // Start meeting monitor (detects when meeting apps start/stop using the mic)
+    #[cfg(target_os = "macos")]
+    meeting_monitor::start_monitoring(app_handle.clone());
 }
 
 #[tauri::command]
@@ -379,6 +385,7 @@ pub fn run() {
         commands::settings::change_copy_as_bullets_setting,
         commands::settings::change_new_recording_shortcut_setting,
         commands::settings::change_meeting_end_action_setting,
+        commands::settings::change_meeting_start_action_setting,
         commands::settings::get_environments,
         commands::settings::create_environment,
         commands::settings::update_environment,

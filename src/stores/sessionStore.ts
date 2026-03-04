@@ -729,6 +729,48 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }),
     );
 
+    // Listen for meeting started notification (when meeting app starts using mic)
+    // Behavior depends on meeting_start_action setting: "disabled" or "notify"
+    unlisteners.push(
+      await listen<string>("meeting-started", async (event) => {
+        const appName = event.payload;
+        const { isRecording, createNote } = get();
+
+        if (isRecording) return; // already recording, nothing to do
+
+        const meetingStartAction =
+          useSettingsStore.getState().settings?.meeting_start_action ??
+          "disabled";
+
+        if (meetingStartAction === "disabled") return;
+
+        // Show and focus the window
+        try {
+          const win = getCurrentWindow();
+          await win.show();
+          await win.setFocus();
+        } catch {
+          // Window operations may fail if permissions not granted
+        }
+
+        // "notify" - show persistent toast with Start Recording / Close buttons
+        toast(`${appName} started`, {
+          description: i18n.t("sessions.meetingStartedNotify"),
+          action: {
+            label: i18n.t("sessions.startRecordingAction"),
+            onClick: () => {
+              createNote();
+            },
+          },
+          cancel: {
+            label: i18n.t("common.close"),
+            onClick: () => {},
+          },
+          duration: Infinity,
+        });
+      }),
+    );
+
     // Listen for tray new note request (uses same code path as UI button)
     unlisteners.push(
       await listen("tray-new-note", () => {

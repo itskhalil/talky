@@ -413,6 +413,8 @@
   "sessions": {
     "chat": {
       "whatDidIMiss": "¿Qué me perdí?"
-    }
+    },
+    "meetingStartedNotify": "Would you like to start recording?",
+    "startRecordingAction": "Start Recording"
   }
 }
