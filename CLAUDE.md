@@ -73,14 +73,10 @@ Access debug features: `Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows/Linux)
 
 ## Claude Code Build Instructions
 
-When running Rust builds (`cargo check`, `cargo build`, `cargo clippy`), always use the `skip-apple-intelligence` feature to avoid sandbox issues with Apple Intelligence SDK detection:
-
 ```bash
-cd src-tauri && cargo check --features skip-apple-intelligence
-cd src-tauri && cargo build --features skip-apple-intelligence
-cd src-tauri && cargo clippy --features skip-apple-intelligence
+cd src-tauri && cargo check
+cd src-tauri && cargo build
+cd src-tauri && cargo clippy
 ```
-
-This skips the Swift/xcrun compilation that gets blocked by Claude's sandbox on macOS.
 
 **Important:** Never change implementation plans to work around sandbox limitations. Ask the user to run blocked commands manually instead.

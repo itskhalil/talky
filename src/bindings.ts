@@ -380,13 +380,6 @@ async openUserDataDirectory() : Promise<Result<null, string>> {
 }
 },
 /**
- * Check if Apple Intelligence is available on this device.
- * Called by the frontend when the user selects Apple Intelligence provider.
- */
-async checkAppleIntelligenceAvailable() : Promise<boolean> {
-    return await TAURI_INVOKE("check_apple_intelligence_available");
-},
-/**
  * Check if Ollama is running and available at the given base URL.
  * Returns the list of installed model names if available, empty vec if not running.
  */
@@ -972,6 +965,14 @@ async addAttachment(sessionId: string, sourcePath: string, filename: string, mim
     else return { status: "error", error: e  as any };
 }
 },
+async addAttachmentFromBytes(sessionId: string, data: number[], filename: string, mimeType: string) : Promise<Result<Attachment, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_attachment_from_bytes", { sessionId, data, filename, mimeType }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getAttachments(sessionId: string) : Promise<Result<Attachment[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_attachments", { sessionId }) };
@@ -1080,10 +1081,6 @@ clamshellDetection: boolean;
  * Whether system sleep event handling is available
  */
 systemSleepEvents: boolean; 
-/**
- * Whether Apple Intelligence features are available
- */
-appleIntelligence: boolean; 
 /**
  * The current operating system
  */

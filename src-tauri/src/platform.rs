@@ -18,8 +18,6 @@ pub struct PlatformCapabilities {
     pub clamshell_detection: bool,
     /// Whether system sleep event handling is available
     pub system_sleep_events: bool,
-    /// Whether Apple Intelligence features are available
-    pub apple_intelligence: bool,
     /// The current operating system
     pub os: String,
 }
@@ -34,7 +32,6 @@ impl PlatformCapabilities {
                 meeting_detection: true,
                 clamshell_detection: true,
                 system_sleep_events: true,
-                apple_intelligence: cfg!(target_arch = "aarch64"),
                 os: "macos".to_string(),
             }
         }
@@ -46,7 +43,6 @@ impl PlatformCapabilities {
                 meeting_detection: false,   // Not yet implemented on Windows
                 clamshell_detection: false, // N/A on Windows
                 system_sleep_events: false, // Not yet implemented on Windows
-                apple_intelligence: false,
                 os: "windows".to_string(),
             }
         }
@@ -58,7 +54,6 @@ impl PlatformCapabilities {
                 meeting_detection: false,
                 clamshell_detection: false,
                 system_sleep_events: false,
-                apple_intelligence: false,
                 os: "linux".to_string(),
             }
         }
@@ -70,7 +65,6 @@ impl PlatformCapabilities {
                 meeting_detection: false,
                 clamshell_detection: false,
                 system_sleep_events: false,
-                apple_intelligence: false,
                 os: "unknown".to_string(),
             }
         }

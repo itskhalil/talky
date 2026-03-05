@@ -10,7 +10,6 @@ const defaultCapabilities: PlatformCapabilities = {
   meetingDetection: true,
   clamshellDetection: true,
   systemSleepEvents: true,
-  appleIntelligence: false,
   os: "macos",
 };
 

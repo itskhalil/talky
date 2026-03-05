@@ -2,8 +2,6 @@ mod actions;
 mod aec;
 mod debug_recording;
 mod crash_reporter;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-mod apple_intelligence;
 pub mod audio_toolkit;
 mod commands;
 mod helpers;
@@ -406,7 +404,6 @@ pub fn run() {
         commands::has_custom_data_directory,
         commands::set_data_directory,
         commands::open_user_data_directory,
-        commands::check_apple_intelligence_available,
         commands::check_ollama_available,
         platform::get_platform_capabilities,
         commands::models::get_available_models,
@@ -481,6 +478,7 @@ pub fn run() {
         commands::session::get_sessions_by_tag,
         // Attachment commands
         commands::session::add_attachment,
+        commands::session::add_attachment_from_bytes,
         commands::session::get_attachments,
         commands::session::get_attachment,
         commands::session::delete_attachment,
