@@ -619,10 +619,9 @@ export function NoteView({
           return;
         }
 
-        for (let i = 0; i < validPaths.length; i++) {
-          const path = validPaths[i];
+        for (const path of validPaths) {
           const rawFilename = path.split(/[/\\]/).pop() || "file";
-          const filename = normalizeAttachmentFilename(rawFilename, attachments.length + i);
+          const filename = normalizeAttachmentFilename(rawFilename);
           const mimeType = getMimeType(rawFilename);
 
           try {
@@ -1178,7 +1177,7 @@ export function NoteView({
 
           {/* Metadata line: date, folder, tags, attachments, add buttons */}
           {session && (
-            <div className="flex items-center gap-5 mt-1.5 flex-wrap text-xs text-text-secondary">
+            <div className="flex items-center gap-x-5 gap-y-2 mt-1.5 flex-wrap text-xs text-text-secondary">
               {/* Date + time */}
               <span>
                 {new Date(session.started_at * 1000).toLocaleDateString(

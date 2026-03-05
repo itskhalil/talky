@@ -154,10 +154,9 @@ export function AttachmentsRow({
 
       setUploading(true);
 
-      for (let i = 0; i < paths.length; i++) {
-        const path = paths[i];
+      for (const path of paths) {
         const rawFilename = path.split(/[/\\]/).pop() || "file";
-        const filename = normalizeAttachmentFilename(rawFilename, attachments.length + i);
+        const filename = normalizeAttachmentFilename(rawFilename);
         const mimeType = getMimeType(rawFilename);
 
         if (!SUPPORTED_TYPES.includes(mimeType)) {
