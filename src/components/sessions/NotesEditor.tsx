@@ -38,6 +38,7 @@ interface NotesEditorProps {
   initialJSON?: JSONContent | null;
   onJSONChange?: (json: JSONContent) => void;
   onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
+  onPasteImage?: (file: File) => void;
 }
 
 export function NotesEditor({
@@ -49,11 +50,14 @@ export function NotesEditor({
   initialJSON,
   onJSONChange,
   onEditorReady,
+  onPasteImage,
 }: NotesEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onJSONChangeRef = useRef(onJSONChange);
   onJSONChangeRef.current = onJSONChange;
+  const onPasteImageRef = useRef(onPasteImage);
+  onPasteImageRef.current = onPasteImage;
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
@@ -80,7 +84,21 @@ export function NotesEditor({
       content: "",
       editable: !disabled,
       editorProps: {
-        handlePaste: (view, event) => {
+        handlePaste: (_view, event) => {
+          // Image paste — intercept before any text handling
+          if (onPasteImageRef.current && event.clipboardData) {
+            const items = event.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+              const item = items[i];
+              if (item.kind === "file" && item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                if (file) {
+                  onPasteImageRef.current(file);
+                  return true;
+                }
+              }
+            }
+          }
           // Shift+paste = paste as plain text (Cmd+Shift+V / Ctrl+Shift+V)
           // Cast to access keyboard modifiers from the original event
           if ((event as ClipboardEvent & { shiftKey?: boolean }).shiftKey) {

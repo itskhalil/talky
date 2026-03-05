@@ -1059,6 +1059,51 @@ impl SessionManager {
         })
     }
 
+    /// Add an attachment to a session from raw bytes (e.g. clipboard paste)
+    pub fn add_attachment_from_bytes(
+        &self,
+        session_id: &str,
+        data: &[u8],
+        filename: &str,
+        mime_type: &str,
+    ) -> Result<Attachment> {
+        let file_size = data.len() as i64;
+        const MAX_SIZE: i64 = 25 * 1024 * 1024; // 25 MB
+        if file_size > MAX_SIZE {
+            return Err(anyhow::anyhow!("File too large (max 25 MB)"));
+        }
+
+        let id = Uuid::new_v4().to_string();
+        let attachments_dir = self.get_attachments_dir(session_id)?;
+        let dest_filename = format!("{}_{}", id, filename);
+        let dest_path = attachments_dir.join(&dest_filename);
+
+        fs::write(&dest_path, data)?;
+
+        let now = Utc::now().timestamp();
+        let file_path_str = dest_path.to_string_lossy().to_string();
+
+        let conn = self.get_connection()?;
+        conn.execute(
+            "INSERT INTO session_attachments (id, session_id, filename, file_path, mime_type, file_size, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, session_id, filename, file_path_str, mime_type, file_size, now],
+        )?;
+
+        info!("Attachment added from bytes: {} -> {}", filename, id);
+
+        Ok(Attachment {
+            id,
+            session_id: session_id.to_string(),
+            filename: filename.to_string(),
+            file_path: file_path_str,
+            mime_type: mime_type.to_string(),
+            file_size,
+            extracted_text: None,
+            created_at: now,
+        })
+    }
+
     /// Get all attachments for a session
     pub fn get_attachments(&self, session_id: &str) -> Result<Vec<Attachment>> {
         let conn = self.get_connection()?;

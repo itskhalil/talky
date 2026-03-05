@@ -1066,6 +1066,20 @@ pub fn add_attachment(
 
 #[tauri::command]
 #[specta::specta]
+pub fn add_attachment_from_bytes(
+    app: AppHandle,
+    session_id: String,
+    data: Vec<u8>,
+    filename: String,
+    mime_type: String,
+) -> Result<Attachment, String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.add_attachment_from_bytes(&session_id, &data, &filename, &mime_type)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn get_attachments(app: AppHandle, session_id: String) -> Result<Vec<Attachment>, String> {
     let sm = app.state::<Arc<SessionManager>>();
     sm.get_attachments(&session_id).map_err(|e| e.to_string())
