@@ -84,7 +84,7 @@ export function NotesEditor({
       content: "",
       editable: !disabled,
       editorProps: {
-        handlePaste: (_view, event) => {
+        handlePaste: (view, event) => {
           // Image paste — intercept before any text handling
           if (onPasteImageRef.current && event.clipboardData) {
             const items = event.clipboardData.items;
