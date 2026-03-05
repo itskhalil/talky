@@ -10,7 +10,7 @@ import { type Attachment } from "@/bindings";
 // File size limit: 25MB
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 // Maximum attachments per note
-const MAX_ATTACHMENTS = 10;
+const MAX_ATTACHMENTS = 20;
 // Supported MIME types
 const SUPPORTED_TYPES = [
   "application/pdf",
