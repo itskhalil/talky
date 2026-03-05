@@ -466,6 +466,7 @@
         "notesView": "Switch to notes view",
         "enhancedView": "Switch to enhanced view",
         "find": "Find in note",
+        "findAndReplace": "Find and replace",
         "toggleDebug": "Toggle debug mode",
         "navigateNotes": "Navigate notes",
         "escape": "Close / deselect"

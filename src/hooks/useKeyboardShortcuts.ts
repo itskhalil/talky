@@ -81,7 +81,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (mod && e.key === "h") {
+      if (mod && e.shiftKey && e.key === "h") {
         e.preventDefault();
         onToggleReplaceBar?.();
         return;

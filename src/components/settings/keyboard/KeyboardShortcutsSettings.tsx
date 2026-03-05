@@ -27,6 +27,10 @@ const shortcuts: Shortcut[] = [
   { keys: `${modKey}+2`, actionKey: "settings.keyboard.actions.enhancedView" },
   { keys: `${modKey}+F`, actionKey: "settings.keyboard.actions.find" },
   {
+    keys: `${modKey}+Shift+H`,
+    actionKey: "settings.keyboard.actions.findAndReplace",
+  },
+  {
     keys: `${modKey}+Shift+D`,
     actionKey: "settings.keyboard.actions.toggleDebug",
   },
