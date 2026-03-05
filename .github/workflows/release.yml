@@ -202,7 +202,8 @@ jobs:
             const assetMappings = [
               { pattern: /aarch64.*\.dmg$/, newName: 'Talky_aarch64.dmg' },
               { pattern: /x86_64.*\.dmg$|x64.*\.dmg$/, newName: 'Talky_x64.dmg' },
-              { pattern: /\.msi$/, newName: 'Talky_x64.msi' }
+              { pattern: /\.msi$/, newName: 'Talky_x64.msi' },
+              { pattern: /x64.*-setup\.exe$/, newName: 'Talky_x64-setup.exe' }
             ];
 
             // Get existing assets

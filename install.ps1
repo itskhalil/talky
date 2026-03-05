@@ -1,21 +1,23 @@
-#Requires -Version 5.1
 $ErrorActionPreference = "Stop"
 
 $Repo = "itskhalil/talky"
 $AppName = "Talky"
 
-# Detect architecture
-$Arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+# Detect architecture (using env var for PowerShell 5.1 compatibility)
+$Arch = $env:PROCESSOR_ARCHITECTURE
 switch ($Arch) {
-    "X64" { $ArchPattern = "x64" }
-    "Arm64" { $ArchPattern = "arm64" }
+    "AMD64" { $ArchPattern = "x64" }
+    "ARM64" { $ArchPattern = "arm64" }
     default {
         Write-Error "Unsupported architecture: $Arch"
-        exit 1
+        return
     }
 }
 
 Write-Host "Detected architecture: $ArchPattern"
+
+# Force TLS 1.2 (Windows PowerShell 5.1 defaults to TLS 1.0, GitHub requires 1.2)
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $DownloadUrl = "https://github.com/$Repo/releases/latest/download/Talky_${ArchPattern}-setup.exe"
 $InstallerPath = Join-Path $env:TEMP "Talky-setup.exe"
@@ -27,12 +29,11 @@ try {
     Write-Host ""
     Write-Host "Error: Failed to download $AppName."
     Write-Host "This could mean:"
-    Write-Host "  - No release is available yet"
     Write-Host "  - The installer for your architecture ($ArchPattern) is missing"
     Write-Host "  - Network connectivity issues"
     Write-Host ""
     Write-Host "Check releases at: https://github.com/$Repo/releases"
-    exit 1
+    return
 }
 
 Write-Host "Removing security restrictions..."
