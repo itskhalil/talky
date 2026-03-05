@@ -1115,6 +1115,23 @@ pub fn open_attachment(app: AppHandle, attachment_id: String) -> Result<(), Stri
 
 #[tauri::command]
 #[specta::specta]
+pub fn save_attachment(
+    app: AppHandle,
+    attachment_id: String,
+    destination: String,
+) -> Result<(), String> {
+    let sm = app.state::<Arc<SessionManager>>();
+    let attachment = sm
+        .get_attachment(&attachment_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Attachment not found".to_string())?;
+
+    std::fs::copy(&attachment.file_path, &destination).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn extract_pdf_text(app: AppHandle, attachment_id: String) -> Result<String, String> {
     let sm = app.state::<Arc<SessionManager>>();
     let attachment = sm

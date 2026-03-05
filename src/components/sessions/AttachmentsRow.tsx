@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Paperclip, X, FileText, Image, Plus, Loader } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -6,6 +6,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { type Attachment } from "@/bindings";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
+import { normalizeAttachmentFilename } from "@/utils/attachmentFilename";
 
 // File size limit: 25MB
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -68,6 +70,7 @@ interface AttachmentChipProps {
   attachment: Attachment;
   onOpen: () => void;
   onDelete: () => void;
+  onImageClick?: () => void;
   disabled: boolean;
   t: (key: string) => string;
 }
@@ -76,6 +79,7 @@ function AttachmentChip({
   attachment,
   onOpen,
   onDelete,
+  onImageClick,
   disabled,
   t,
 }: AttachmentChipProps) {
@@ -91,7 +95,7 @@ function AttachmentChip({
     >
       {getFileIcon(attachment.mime_type)}
       <button
-        onClick={onOpen}
+        onClick={isImage && onImageClick ? onImageClick : onOpen}
         className="hover:underline truncate max-w-[150px]"
         title={`${attachment.filename} (${formatFileSize(attachment.file_size)})`}
       >
@@ -129,6 +133,11 @@ export function AttachmentsRow({
 }: AttachmentsRowProps) {
   const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const imageAttachments = useMemo(
+    () => attachments.filter((a) => a.mime_type.startsWith("image/")),
+    [attachments],
+  );
 
   // Handle file upload (shared between dialog and drag-drop)
   const uploadFiles = useCallback(
@@ -145,9 +154,11 @@ export function AttachmentsRow({
 
       setUploading(true);
 
-      for (const path of paths) {
-        const filename = path.split(/[/\\]/).pop() || "file";
-        const mimeType = getMimeType(filename);
+      for (let i = 0; i < paths.length; i++) {
+        const path = paths[i];
+        const rawFilename = path.split(/[/\\]/).pop() || "file";
+        const filename = normalizeAttachmentFilename(rawFilename, attachments.length + i);
+        const mimeType = getMimeType(rawFilename);
 
         if (!SUPPORTED_TYPES.includes(mimeType)) {
           toast.error(t("sessions.attachments.unsupportedType"));
@@ -246,10 +257,23 @@ export function AttachmentsRow({
           attachment={att}
           onOpen={() => handleOpen(att.id)}
           onDelete={() => handleDelete(att.id)}
+          onImageClick={() => {
+            const idx = imageAttachments.findIndex((a) => a.id === att.id);
+            if (idx !== -1) setLightboxIndex(idx);
+          }}
           disabled={disabled}
           t={t}
         />
       ))}
+
+      {/* Image lightbox */}
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={imageAttachments}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
 
       {/* Add button */}
       {!disabled && (

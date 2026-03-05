@@ -1005,6 +1005,14 @@ async openAttachment(attachmentId: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async saveAttachment(attachmentId: string, destination: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_attachment", { attachmentId, destination }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async extractPdfText(attachmentId: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("extract_pdf_text", { attachmentId }) };

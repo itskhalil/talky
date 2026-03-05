@@ -24,6 +24,7 @@ import {
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
 import { AttachmentsRow, MAX_ATTACHMENTS } from "./AttachmentsRow";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { WaveformBars } from "@/components/ui/WaveformBars";
 import { useAttachments } from "@/stores/sessionStore";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -37,6 +38,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { JSONContent, Editor } from "@tiptap/core";
 import type { Tag as TagType } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { normalizeAttachmentFilename } from "@/utils/attachmentFilename";
 import {
   parseInlineContent as parseInline,
   inlineToMarkdown,
@@ -447,6 +449,11 @@ export function NoteView({
   const copyAsBulletsEnabled = getSetting("copy_as_bullets_enabled") ?? false;
   const attachments = useAttachments();
   const refreshAttachments = useSessionStore((s) => s.refreshAttachments);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const imageAttachments = useMemo(
+    () => attachments.filter((a) => a.mime_type.startsWith("image/")),
+    [attachments],
+  );
   const [panelOpen, setPanelOpen] = useState(false);
   const [showReenhanceWarning, setShowReenhanceWarning] = useState(false);
   const [panelMode, setPanelMode] = useState<"transcript" | "chat">(
@@ -612,9 +619,11 @@ export function NoteView({
           return;
         }
 
-        for (const path of validPaths) {
-          const filename = path.split(/[/\\]/).pop() || "file";
-          const mimeType = getMimeType(filename);
+        for (let i = 0; i < validPaths.length; i++) {
+          const path = validPaths[i];
+          const rawFilename = path.split(/[/\\]/).pop() || "file";
+          const filename = normalizeAttachmentFilename(rawFilename, attachments.length + i);
+          const mimeType = getMimeType(rawFilename);
 
           try {
             const attachment = await invoke<{ id: string; mime_type: string }>(
@@ -1293,10 +1302,15 @@ export function NoteView({
                     <Paperclip size={10} />
                     <button
                       onClick={async () => {
-                        try {
-                          await invoke("open_attachment", { attachmentId: att.id });
-                        } catch (e) {
-                          console.error("Failed to open attachment:", e);
+                        if (att.mime_type.startsWith("image/")) {
+                          const idx = imageAttachments.findIndex((a) => a.id === att.id);
+                          if (idx !== -1) setLightboxIndex(idx);
+                        } else {
+                          try {
+                            await invoke("open_attachment", { attachmentId: att.id });
+                          } catch (e) {
+                            console.error("Failed to open attachment:", e);
+                          }
                         }
                       }}
                       className="hover:underline"
@@ -1809,6 +1823,15 @@ export function NoteView({
         }}
         onCancel={() => setShowReenhanceWarning(false)}
       />
+
+      {/* Image lightbox */}
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={imageAttachments}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }

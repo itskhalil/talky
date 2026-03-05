@@ -483,6 +483,7 @@ pub fn run() {
         commands::session::get_attachment,
         commands::session::delete_attachment,
         commands::session::open_attachment,
+        commands::session::save_attachment,
         commands::session::extract_pdf_text,
         // Export commands
         commands::export::export_note_as_markdown,

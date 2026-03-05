@@ -615,7 +615,11 @@
       "pdf": "PDF",
       "image": "Image",
       "enhancingWith": "Enhancing with {{count}} document(s)...",
-      "pastedImage": "Image added from clipboard"
+      "pastedImage": "Image added from clipboard",
+      "lightboxSave": "Save image",
+      "lightboxClose": "Close image viewer",
+      "lightboxPrev": "Previous image",
+      "lightboxNext": "Next image"
     }
   },
   "footer": {
