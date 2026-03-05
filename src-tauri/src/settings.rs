@@ -754,12 +754,6 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         needs_save = true;
     }
 
-    // Migrate log level from old Debug default to Info
-    if settings.log_level == LogLevel::Debug {
-        settings.log_level = LogLevel::Info;
-        needs_save = true;
-    }
-
     if needs_save {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
