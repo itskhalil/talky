@@ -68,7 +68,7 @@
     ],
     "macOS": {
       "files": {},
-      "minimumSystemVersion": "10.15",
+      "minimumSystemVersion": "11.0",
       "entitlements": "Entitlements.plist"
     },
     "windows": {
