@@ -355,7 +355,7 @@ fn default_debug_mode() -> bool {
 }
 
 fn default_log_level() -> LogLevel {
-    LogLevel::Debug
+    LogLevel::Info
 }
 
 fn default_word_correction_threshold() -> f64 {
