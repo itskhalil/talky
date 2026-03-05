@@ -57,7 +57,6 @@ log = "0.4.25"
 env_filter = "0.1.0"
 tokio = "1.43.0"
 vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
-rodio = { git = "https://github.com/cjpais/rodio.git" }
 reqwest = { version = "0.12", features = ["json", "stream"] }
 futures-util = "0.3"
 rustfft = "6.4.0"
@@ -71,7 +70,6 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 tar = "0.4.44"
 flate2 = "1.0"
 transcribe-rs = { version = "0.2.2", features = ["whisper", "parakeet"] }
-ferrous-opencc = "0.2.3"
 ort = { version = "=2.0.0-rc.10", features = ["ndarray"] }
 ndarray = "0.16"
 realfft = "3.5.0"
