@@ -643,6 +643,49 @@ export function NoteView({
     };
   }, [session?.id, refreshAttachments, t]);
 
+  const handlePasteImage = useCallback(
+    async (file: File) => {
+      if (!session?.id) return;
+
+      const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(t("sessions.attachments.unsupportedType"));
+        return;
+      }
+
+      if (attachments.length >= 20) {
+        toast.error(t("sessions.attachments.tooManyFiles", { count: 20 }));
+        return;
+      }
+
+      const maxSize = 25 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error(t("sessions.attachments.fileTooLarge", { size: "25 MB" }));
+        return;
+      }
+
+      const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
+      const filename = `paste-${(attachments.length + 1).toString().padStart(3, "0")}.${ext}`;
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const data = Array.from(new Uint8Array(buffer));
+        await invoke("add_attachment_from_bytes", {
+          sessionId: session.id,
+          data,
+          filename,
+          mimeType: file.type,
+        });
+        refreshAttachments(session.id);
+        toast.success(t("sessions.attachments.pastedImage"));
+      } catch (e) {
+        console.error("Failed to paste image:", e);
+        toast.error(t("sessions.attachments.uploadError"));
+      }
+    },
+    [session?.id, attachments.length, refreshAttachments, t],
+  );
+
   const handleFolderSelect = async (folderId: string | null) => {
     if (session?.id) {
       setLocalFolderId(folderId);
@@ -1383,6 +1426,7 @@ export function NoteView({
                   initialJSON={enhancedJSON}
                   onJSONChange={handleEnhancedJSONChange}
                   onEditorReady={handleEditorReady}
+                  onPasteImage={handlePasteImage}
                 />
               )}
             </>
@@ -1416,6 +1460,7 @@ export function NoteView({
                 disabled={!notesLoaded}
                 placeholder={t("sessions.notesPlaceholder")}
                 onEditorReady={handleEditorReady}
+                onPasteImage={handlePasteImage}
               />
             </>
           )}
