@@ -439,7 +439,7 @@ impl TranscriptionManager {
                         "Whisper transcription completed in {:?}: '{}' ({} chars)",
                         start.elapsed(),
                         if result.text.len() > 80 {
-                            &result.text[..80]
+                            &result.text[..result.text.floor_char_boundary(80)]
                         } else {
                             &result.text
                         },
@@ -463,7 +463,7 @@ impl TranscriptionManager {
                         "Parakeet transcription completed in {:?}: '{}' ({} chars)",
                         start.elapsed(),
                         if result.text.len() > 80 {
-                            &result.text[..80]
+                            &result.text[..result.text.floor_char_boundary(80)]
                         } else {
                             &result.text
                         },

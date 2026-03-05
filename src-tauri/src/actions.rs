@@ -379,7 +379,7 @@ pub async fn run_session_transcription_loop(
                             info!(
                                 "Pre-flushed speaker audio for dedup: '{}'",
                                 if spk_text.len() > 50 {
-                                    &spk_text[..50]
+                                    &spk_text[..spk_text.floor_char_boundary(50)]
                                 } else {
                                     &spk_text
                                 }
@@ -447,7 +447,7 @@ pub async fn run_session_transcription_loop(
                         "Transcription result: {} samples -> '{}' ({} chars)",
                         audio_len,
                         if text.len() > 100 {
-                            &text[..100]
+                            &text[..text.floor_char_boundary(100)]
                         } else {
                             &text
                         },
