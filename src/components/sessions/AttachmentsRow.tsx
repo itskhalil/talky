@@ -256,15 +256,15 @@ export function AttachmentsRow({
         <button
           onClick={handleAddFiles}
           disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
-          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs text-text-secondary hover:bg-accent/10 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1 text-xs hover:text-text transition-colors disabled:opacity-50"
           title={t("sessions.attachments.addHint")}
         >
           {uploading ? (
             <Loader size={10} className="animate-spin-slow" />
           ) : (
             <>
-              <Paperclip size={12} />
-              <Plus size={10} />
+              <Paperclip size={10} />
+              <Plus size={8} />
             </>
           )}
         </button>
