@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Bump version across all project files: package.json, package-lock.json,
-# Cargo.toml, and tauri.conf.json.
+# Bump version, commit, push, and trigger a GitHub release.
 #
 # Usage:
 #   ./scripts/bump-version.sh patch   # 0.11.2 -> 0.11.3
@@ -25,8 +24,8 @@ esac
 
 echo "$current -> $new"
 
-# package.json (first occurrence only)
-sed -i '' "0,/\"version\": \"$current\"/s//\"version\": \"$new\"/" package.json
+# package.json (first "version" line only, via awk to avoid macOS sed issues)
+awk -v old="$current" -v new="$new" '!done && /"version":/ { sub(old, new); done=1 } 1' package.json > package.json.tmp && mv package.json.tmp package.json
 
 # tauri.conf.json
 sed -i '' "s/\"version\": \"$current\"/\"version\": \"$new\"/" src-tauri/tauri.conf.json
@@ -39,3 +38,13 @@ npm install --package-lock-only --silent 2>/dev/null
 (cd src-tauri && cargo generate-lockfile --quiet 2>/dev/null) || true
 
 echo "Bumped to $new"
+
+# Commit and push
+git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
+git commit -m "chore: bump version to v$new"
+git push
+
+# Trigger release workflow
+echo "Triggering release workflow..."
+gh workflow run release.yml
+echo "Release triggered — check https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions"
