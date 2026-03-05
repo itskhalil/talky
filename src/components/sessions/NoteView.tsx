@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
-import { AttachmentsRow } from "./AttachmentsRow";
+import { AttachmentsRow, MAX_ATTACHMENTS } from "./AttachmentsRow";
 import { WaveformBars } from "@/components/ui/WaveformBars";
 import { useAttachments } from "@/stores/sessionStore";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -653,8 +653,8 @@ export function NoteView({
         return;
       }
 
-      if (attachments.length >= 20) {
-        toast.error(t("sessions.attachments.tooManyFiles", { count: 20 }));
+      if (attachments.length >= MAX_ATTACHMENTS) {
+        toast.error(t("sessions.attachments.tooManyFiles", { count: MAX_ATTACHMENTS }));
         return;
       }
 
