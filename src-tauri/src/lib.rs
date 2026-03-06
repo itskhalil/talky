@@ -4,7 +4,6 @@ mod debug_recording;
 mod crash_reporter;
 pub mod audio_toolkit;
 mod commands;
-mod helpers;
 mod llm_client;
 mod managers;
 mod menu;
@@ -424,8 +423,6 @@ pub fn run() {
         commands::audio::get_available_output_devices,
         commands::audio::set_selected_output_device,
         commands::audio::get_selected_output_device,
-        commands::audio::set_clamshell_microphone,
-        commands::audio::get_clamshell_microphone,
         commands::audio::is_recording,
         commands::audio::request_system_audio_permission,
         commands::transcription::set_model_unload_timeout,
@@ -436,7 +433,6 @@ pub fn run() {
         commands::history::delete_history_entry,
         commands::history::update_history_limit,
         commands::history::update_recording_retention_period,
-        helpers::clamshell::is_laptop,
         commands::session::start_session,
         commands::session::start_session_recording,
         commands::session::stop_session_recording,

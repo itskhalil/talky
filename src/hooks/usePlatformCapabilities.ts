@@ -8,7 +8,6 @@ import { commands, type PlatformCapabilities } from "@/bindings";
 const defaultCapabilities: PlatformCapabilities = {
   speakerCapture: true,
   meetingDetection: true,
-  clamshellDetection: true,
   systemSleepEvents: true,
   os: "macos",
 };

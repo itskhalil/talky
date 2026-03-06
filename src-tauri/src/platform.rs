@@ -14,8 +14,6 @@ pub struct PlatformCapabilities {
     pub speaker_capture: bool,
     /// Whether meeting app detection is available
     pub meeting_detection: bool,
-    /// Whether clamshell (laptop lid closed) detection is available
-    pub clamshell_detection: bool,
     /// Whether system sleep event handling is available
     pub system_sleep_events: bool,
     /// The current operating system
@@ -30,7 +28,6 @@ impl PlatformCapabilities {
             Self {
                 speaker_capture: true,
                 meeting_detection: true,
-                clamshell_detection: true,
                 system_sleep_events: true,
                 os: "macos".to_string(),
             }
@@ -41,7 +38,6 @@ impl PlatformCapabilities {
             Self {
                 speaker_capture: true,
                 meeting_detection: false,   // Not yet implemented on Windows
-                clamshell_detection: false, // N/A on Windows
                 system_sleep_events: false, // Not yet implemented on Windows
                 os: "windows".to_string(),
             }
@@ -52,7 +48,6 @@ impl PlatformCapabilities {
             Self {
                 speaker_capture: false, // Not yet implemented on Linux
                 meeting_detection: false,
-                clamshell_detection: false,
                 system_sleep_events: false,
                 os: "linux".to_string(),
             }
@@ -63,7 +58,6 @@ impl PlatformCapabilities {
             Self {
                 speaker_capture: false,
                 meeting_detection: false,
-                clamshell_detection: false,
                 system_sleep_events: false,
                 os: "unknown".to_string(),
             }

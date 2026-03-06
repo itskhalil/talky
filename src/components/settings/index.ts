@@ -6,7 +6,6 @@ export { AboutSettings } from "./about/AboutSettings";
 
 // Individual setting components
 export { MicrophoneSelector } from "./MicrophoneSelector";
-export { ClamshellMicrophoneSelector } from "./ClamshellMicrophoneSelector";
 export { OutputDeviceSelector } from "./OutputDeviceSelector";
 export { TranslateToEnglish } from "./TranslateToEnglish";
 export { CustomWords } from "./CustomWords";

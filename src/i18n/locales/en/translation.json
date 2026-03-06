@@ -383,10 +383,6 @@
         "label": "Always-On Microphone",
         "description": "Keep microphone active for faster response"
       },
-      "clamshellMicrophone": {
-        "title": "Clamshell Microphone",
-        "description": "Microphone to use when laptop lid is closed"
-      },
       "postProcessingToggle": {
         "label": "Post Processing",
         "description": "Enable AI-powered text refinement after transcription"

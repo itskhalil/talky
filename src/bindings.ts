@@ -536,22 +536,6 @@ async getSelectedOutputDevice() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setClamshellMicrophone(deviceName: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_clamshell_microphone", { deviceName }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getClamshellMicrophone() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_clamshell_microphone") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async isRecording() : Promise<boolean> {
     return await TAURI_INVOKE("is_recording");
 },
@@ -622,20 +606,6 @@ async updateHistoryLimit(limit: number) : Promise<Result<null, string>> {
 async updateRecordingRetentionPeriod(period: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("update_recording_retention_period", { period }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Checks if the Mac is a laptop by detecting battery presence
- * 
- * This uses pmset to check for battery information.
- * Returns true if a battery is detected (laptop), false otherwise (desktop)
- */
-async isLaptop() : Promise<Result<boolean, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("is_laptop") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -1055,7 +1025,7 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number }
+user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number }
 export type Attachment = { id: string; session_id: string; filename: string; file_path: string; mime_type: string; file_size: number; extracted_text: string | null; created_at: number }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
@@ -1081,10 +1051,6 @@ speakerCapture: boolean;
  * Whether meeting app detection is available
  */
 meetingDetection: boolean; 
-/**
- * Whether clamshell (laptop lid closed) detection is available
- */
-clamshellDetection: boolean; 
 /**
  * Whether system sleep event handling is available
  */

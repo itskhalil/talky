@@ -211,8 +211,6 @@ pub struct AppSettings {
     #[serde(default)]
     pub selected_microphone: Option<String>,
     #[serde(default)]
-    pub clamshell_microphone: Option<String>,
-    #[serde(default)]
     pub selected_output_device: Option<String>,
     #[serde(default = "default_translate_to_english")]
     pub translate_to_english: bool,
@@ -592,7 +590,6 @@ pub fn get_default_settings() -> AppSettings {
         update_checks_enabled: default_update_checks_enabled(),
         selected_model: "".to_string(),
         selected_microphone: None,
-        clamshell_microphone: None,
         selected_output_device: None,
         translate_to_english: false,
         selected_language: "auto".to_string(),
