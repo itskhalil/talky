@@ -73,7 +73,7 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
             // This prevents false positives like "order" -> "Zephyra" where
             // phonetic similarity exists but lengths differ significantly.
             let combined_score = if phonetic_match && len_ratio > 0.8 {
-                levenshtein_score * 0.5 // Moderate boost for phonetic matches with similar length
+                levenshtein_score * 0.45 // Moderate boost for phonetic matches with similar length
             } else {
                 levenshtein_score
             };
@@ -194,6 +194,14 @@ fn is_repetitive_hallucination(text: &str) -> bool {
         while i + phrase_len <= words.len() {
             let phrase: Vec<&str> = words[i..i + phrase_len].to_vec();
             let phrase_lower: Vec<String> = phrase.iter().map(|w| w.to_lowercase()).collect();
+
+            // Skip phrases where all words are the same — that's a single-word
+            // stutter (handled by collapse_stutters), not a phrase hallucination
+            let distinct: std::collections::HashSet<&String> = phrase_lower.iter().collect();
+            if distinct.len() == 1 {
+                i += phrase_len;
+                continue;
+            }
 
             // Count how many times this phrase repeats consecutively
             let mut j = i + phrase_len;
@@ -571,9 +579,11 @@ mod tests {
 
     #[test]
     fn test_filter_stutter_mixed_case() {
+        // After collapsing 5 repetitions to "No", it's correctly classified as a
+        // single-word hallucination pattern — a lone "No" isn't useful output
         let text = "No NO no NO no";
         let result = filter_transcription_output(text);
-        assert_eq!(result, "No");
+        assert_eq!(result, "");
     }
 
     #[test]
