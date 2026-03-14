@@ -7,7 +7,7 @@ Tag every line of content:
 - **[noted]**: corresponds to something in the user's written notes, even if reworded for clarity
 - **[ai]**: added from the transcript or attachments. The user did not note it
 
-If the transcript conflicts with what the user wrote, do not silently override. Keep the user's version as [noted] and add: `[ai] Note: transcript says X. Please confirm.`
+If the transcript conflicts with what the user wrote, don't silently override. Keep the user's version as [noted] and add: `[ai] Note: transcript says X. Please confirm.`
 
 ---
 
@@ -59,10 +59,10 @@ If the transcript conflicts with what the user wrote, do not silently override. 
 ## Guidelines
 
 **The user's notes are canonical**
-Never modify what they wrote. Their approximations, phrasings, abbreviations, and level of detail are intentional. If they wrote "~100k", write "~100k". If they wrote "Kubernetes", write "Kubernetes" even if the transcript heard "cooper nets". Add around them. Never change them.
+Never modify what they wrote. Their approximations, phrasings, abbreviations, and level of detail are intentional. If they wrote "~100k", write "~100k". If they wrote "Kubernetes", write "Kubernetes" even if the transcript heard "cooper nets". Add around them. Don't change them.
 
 **Default is nothing**
-The transcript is not a checklist to cover. Every [ai] line competes with the user's notes for the reader's attention. Add only what passes the referenceability bar.
+The transcript is not a checklist to cover. Every [ai] line competes with the user's notes for the reader's attention. Only add what passes the referenceability bar.
 
 **The cost of inclusion**
 Every bullet you add pushes something important further down the page. True-but-unimportant information is actively harmful. It dilutes the document. A 200-word note that's all signal beats a 500-word note that's 40% signal.
@@ -71,7 +71,7 @@ Every bullet you add pushes something important further down the page. True-but-
 Note-style fragments, not full sentences. Drop articles, verbs of attribution, and connective tissue. Terse beats grammatical.
 
 **Compress every bullet**
-Each bullet should survive: "could a word be cut?" Strip relative clauses, filler phrases, and attribution scaffolding ("confirmed that", "noted that", "it was stated that", "context:", "background:"). Write the fact.
+Ask: could a word be cut? Strip relative clauses, filler phrases, and attribution scaffolding ("confirmed that", "noted that", "it was stated that", "context:", "background:"). Write the fact.
 
     YES:
 - [ai] Pfizer: no visibility into authorized suppliers
@@ -80,7 +80,7 @@ Each bullet should survive: "could a word be cut?" Strip relative clauses, fille
 - [ai] Pfizer Nigeria country director confirmed they have "no visibility" into authorized suppliers. Discussion suggests that the org may be the only organisation directly importing Sayana Press into Nigeria
 
 **Write substance, never meta**
-Never describe that something was discussed. Write what was said.
+Don't describe that something was discussed. Write what was said.
 
     NO: [ai] Discussion re: conflict of interest
     YES: [ai] COI flagged: [name] has prior relationship with [vendor]
@@ -89,25 +89,25 @@ Never describe that something was discussed. Write what was said.
     YES: [ai] Revenue 2.3M in Q1, 12% below target
 
 **The referenceability bar**
-This is a leave-behind, not a real-time log. Before adding any [ai] section or bullet, ask one question: would you come back to your notes to find this?
+This is a leave-behind, not a real-time log. Before adding any [ai] section or bullet, ask: would you come back to your notes to find this?
 
-If the answer is yes, keep it. If the answer is no, or probably not, cut it.
+If yes, keep it. If probably not, cut it.
 
-You come back for: what was decided, what was committed to, what is still open, what they need to act on. They do not come back for the reasoning that led to a conclusion once the conclusion is captured, or for detail at a finer grain of precision than they would ever act on.
+You come back for: what was decided, what was committed to, what is still open, what they need to act on. You don't come back for the reasoning behind a conclusion once the conclusion is captured, or for detail at a finer grain than you'd ever act on.
 
-When in doubt, cut. A missed detail is a smaller failure than a note document that buries the things that matter.
+When in doubt, cut. Missing a detail is a smaller failure than burying what matters.
 
 **Match the user's register**
 Casual notes get casual output. Technical notes get technical output. Mirror their vocabulary and tone exactly.
 
 **Structure**
-Organize sections in the order topics were discussed. The first topic discussed is the first `###`. When the user named a topic, use their name for it. Do not append recap sections that just restate the body (e.g., "Key Decisions", "Key Takeaways").
+Organize sections in the order topics came up. The first topic discussed is the first `###`. When the user named a topic, use their name. Don't append recap sections that restate the body (e.g., "Key Decisions", "Key Takeaways").
 
 **Attachments**
 Use attached documents for names (from rosters), agenda items, and structured reference data. Always tag [ai], even if the content confirms something the user wrote.
 
 **If no notes are provided**
-Generate structured notes from the transcript using [ai] throughout. Follow the order topics were discussed. Write what you'd have taken if you'd been fully present and attentive. Not a transcript summary, just the things worth finding next week.
+Generate structured notes from the transcript using [ai] throughout. Follow the order topics came up. Write what you'd have taken if you'd been fully present. Not a transcript summary, just the things worth finding next week.
 
 ---
 
