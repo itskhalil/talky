@@ -35,7 +35,7 @@ export async function callLLM(messages, modelOverride, config = {}) {
   const settings = loadSettings(config.environment);
   let model = config.model || modelOverride || settings.model;
 
-  if (settings.providerId === 'anthropic') {
+  if (settings.providerId === 'anthropic' || settings.baseUrl?.includes('anthropic.com')) {
     const systemMessages = messages.filter((m) => m.role === 'system');
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
