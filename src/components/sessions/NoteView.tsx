@@ -888,6 +888,13 @@ export function NoteView({
     return () => window.removeEventListener("resize", adjustTextareaHeight);
   }, [adjustTextareaHeight]);
 
+  // Re-adjust title height after fonts load (Cabinet Grotesk swaps in after system-ui)
+  useEffect(() => {
+    document.fonts.ready.then(() => {
+      adjustTextareaHeight();
+    });
+  }, [adjustTextareaHeight]);
+
   const handleTitleBlur = () => {
     const trimmed = titleValue.trim();
     if (trimmed && trimmed !== session?.title) {
