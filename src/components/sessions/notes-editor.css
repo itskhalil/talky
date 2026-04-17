@@ -171,7 +171,7 @@
 
 .notes-editor .tiptap ul[data-type="taskList"] > li {
   display: flex !important;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.45rem;
   margin: 0.1rem 0;
 }
@@ -182,8 +182,6 @@
   align-items: center;
   user-select: none;
   margin: 0;
-  /* Align checkbox with the first line of text. */
-  height: 1.4em;
 }
 
 .notes-editor
@@ -347,8 +345,7 @@
 
 .notes-editor-tablebar__menu {
   position: absolute;
-  /* Open upward so the dropdown doesn't overlap the table below. */
-  bottom: calc(100% + 4px);
+  top: calc(100% + 4px);
   left: 0;
   min-width: 11rem;
   background: var(--color-background);
