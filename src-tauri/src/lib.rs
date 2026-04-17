@@ -1,17 +1,17 @@
 mod actions;
 mod aec;
-mod debug_recording;
-mod crash_reporter;
 pub mod audio_toolkit;
 mod commands;
+mod crash_reporter;
+mod debug_recording;
 mod llm_client;
 mod managers;
+#[cfg(target_os = "macos")]
+mod meeting_monitor;
 mod menu;
 #[cfg(target_os = "macos")]
 mod mic_detect;
 mod platform;
-#[cfg(target_os = "macos")]
-mod meeting_monitor;
 #[cfg(target_os = "macos")]
 mod power_events;
 mod settings;
@@ -44,7 +44,9 @@ use std::path::PathBuf;
 
 /// Returns the directory where user data (sessions.db, history.db) should be stored.
 /// Uses the custom data directory from settings if set, otherwise the default app data directory.
-pub(crate) fn get_user_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub(crate) fn get_user_data_dir(
+    app_handle: &AppHandle,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let settings = get_settings(app_handle);
 
     if let Some(custom_dir) = settings.data_directory {
@@ -338,7 +340,11 @@ pub fn run() {
         // eprintln only.
         if let Some(log_path) = PANIC_LOG_PATH.get() {
             use std::io::Write;
-            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open(&log_path) {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&log_path)
+            {
                 // Avoid calling chrono or any external code in the panic hook — use a simple
                 // seconds-since-epoch timestamp instead.
                 let secs = std::time::SystemTime::now()
@@ -593,10 +599,8 @@ pub fn run() {
                     .iter()
                     .find(|w| w.label == "pill")
                 {
-                    let _ = pill.set_size(tauri::LogicalSize::new(
-                        pill_conf.width,
-                        pill_conf.height,
-                    ));
+                    let _ =
+                        pill.set_size(tauri::LogicalSize::new(pill_conf.width, pill_conf.height));
                 }
             }
             hide_pill_window(&app_handle);

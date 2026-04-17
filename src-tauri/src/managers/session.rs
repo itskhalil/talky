@@ -185,6 +185,24 @@ pub struct MeetingNotes {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct SearchHit {
+    pub session: Session,
+    /// Which column produced the match: "title" | "user_notes" | "enhanced_notes".
+    /// When only filters are active and query is empty, this is "title" with an empty snippet.
+    pub matched_field: String,
+    /// Short excerpt centered on the first match, with markdown noise stripped. Empty when no text match.
+    pub snippet: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type)]
+pub struct SearchFilters {
+    pub folder_id: Option<String>,
+    pub tag_ids: Option<Vec<String>>,
+    pub started_after: Option<i64>,
+    pub started_before: Option<i64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct TranscriptSegmentEvent {
     pub session_id: String,
     pub segment: TranscriptSegment,
@@ -368,21 +386,85 @@ impl SessionManager {
         Ok(segment)
     }
 
-    pub fn search_sessions(&self, query: &str) -> Result<Vec<Session>> {
+    pub fn search_sessions(&self, query: &str, filters: &SearchFilters) -> Result<Vec<SearchHit>> {
         let conn = self.get_connection()?;
-        let pattern = format!("%{}%", query);
-        let mut stmt = conn.prepare(
-            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id
-             FROM sessions s
-             LEFT JOIN meeting_notes mn ON mn.session_id = s.id
-             WHERE s.title LIKE ?1
-                OR mn.user_notes LIKE ?1
-                OR mn.enhanced_notes LIKE ?1
-             ORDER BY s.started_at DESC",
-        )?;
+        let trimmed = query.trim();
+        let has_query = !trimmed.is_empty();
 
-        let rows = stmt.query_map(params![pattern], |row| {
-            Ok(Session {
+        let mut sql = String::from(
+            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, mn.user_notes, mn.enhanced_notes \
+             FROM sessions s \
+             LEFT JOIN meeting_notes mn ON mn.session_id = s.id",
+        );
+
+        let tag_ids_vec: Vec<String> = filters
+            .tag_ids
+            .as_ref()
+            .map(|v| v.iter().filter(|t| !t.is_empty()).cloned().collect())
+            .unwrap_or_default();
+
+        if !tag_ids_vec.is_empty() {
+            sql.push_str(" INNER JOIN session_tags st ON st.session_id = s.id");
+        }
+
+        let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let mut where_clauses: Vec<String> = Vec::new();
+
+        if has_query {
+            let pattern = format!("%{}%", trimmed);
+            where_clauses.push(
+                "(s.title LIKE ? OR mn.user_notes LIKE ? OR mn.enhanced_notes LIKE ?)".to_string(),
+            );
+            params_vec.push(Box::new(pattern.clone()));
+            params_vec.push(Box::new(pattern.clone()));
+            params_vec.push(Box::new(pattern));
+        }
+
+        if let Some(folder_id) = &filters.folder_id {
+            if !folder_id.is_empty() {
+                where_clauses.push("s.folder_id = ?".to_string());
+                params_vec.push(Box::new(folder_id.clone()));
+            }
+        }
+
+        if !tag_ids_vec.is_empty() {
+            let placeholders = vec!["?"; tag_ids_vec.len()].join(",");
+            where_clauses.push(format!("st.tag_id IN ({})", placeholders));
+            for tag_id in &tag_ids_vec {
+                params_vec.push(Box::new(tag_id.clone()));
+            }
+        }
+
+        if let Some(after) = filters.started_after {
+            where_clauses.push("s.started_at >= ?".to_string());
+            params_vec.push(Box::new(after));
+        }
+
+        if let Some(before) = filters.started_before {
+            where_clauses.push("s.started_at <= ?".to_string());
+            params_vec.push(Box::new(before));
+        }
+
+        if !where_clauses.is_empty() {
+            sql.push_str(" WHERE ");
+            sql.push_str(&where_clauses.join(" AND "));
+        }
+
+        if !tag_ids_vec.is_empty() {
+            sql.push_str(
+                " GROUP BY s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, mn.user_notes, mn.enhanced_notes",
+            );
+            sql.push_str(" HAVING COUNT(DISTINCT st.tag_id) = ?");
+            params_vec.push(Box::new(tag_ids_vec.len() as i64));
+        }
+
+        sql.push_str(" ORDER BY s.started_at DESC");
+
+        let mut stmt = conn.prepare(&sql)?;
+        let params_ref: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|b| b.as_ref()).collect();
+
+        let rows = stmt.query_map(params_ref.as_slice(), |row| {
+            let session = Session {
                 id: row.get("id")?,
                 title: row.get("title")?,
                 started_at: row.get("started_at")?,
@@ -390,14 +472,32 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
-            })
+            };
+            let user_notes: Option<String> = row.get("user_notes")?;
+            let enhanced_notes: Option<String> = row.get("enhanced_notes")?;
+            Ok((session, user_notes, enhanced_notes))
         })?;
 
-        let mut sessions = Vec::new();
+        let mut hits = Vec::new();
         for row in rows {
-            sessions.push(row?);
+            let (session, user_notes, enhanced_notes) = row?;
+            let (matched_field, snippet) = if has_query {
+                match pick_match(trimmed, &session.title, &user_notes, &enhanced_notes) {
+                    Some(pair) => pair,
+                    // DB LIKE matched substring but nothing matched at a word boundary.
+                    // Drop noisy results like "th" inside "with" or "path".
+                    None => continue,
+                }
+            } else {
+                ("title".to_string(), String::new())
+            };
+            hits.push(SearchHit {
+                session,
+                matched_field,
+                snippet,
+            });
         }
-        Ok(sessions)
+        Ok(hits)
     }
 
     pub fn get_sessions(&self) -> Result<Vec<Session>> {
@@ -1232,4 +1332,162 @@ impl SessionManager {
         )?;
         Ok(())
     }
+}
+
+/// Pick which field matched the query and build a display snippet.
+/// Priority: title > user_notes > enhanced_notes. Requires a word-boundary
+/// match so short queries like "th" don't light up every occurrence inside
+/// words like "with", "path", "both".
+/// Returns None when no field has a word-start match — the hit should be dropped.
+fn pick_match(
+    query: &str,
+    title: &str,
+    user_notes: &Option<String>,
+    enhanced_notes: &Option<String>,
+) -> Option<(String, String)> {
+    let needle = query.to_lowercase();
+    if find_word_start(&title.to_lowercase(), &needle).is_some() {
+        return Some(("title".to_string(), String::new()));
+    }
+    if let Some(text) = user_notes.as_deref() {
+        if find_word_start(&text.to_lowercase(), &needle).is_some() {
+            return Some(("user_notes".to_string(), build_snippet(text, &needle)));
+        }
+    }
+    if let Some(text) = enhanced_notes.as_deref() {
+        if find_word_start(&text.to_lowercase(), &needle).is_some() {
+            let stripped = strip_note_tags(text);
+            return Some((
+                "enhanced_notes".to_string(),
+                build_snippet(&stripped, &needle),
+            ));
+        }
+    }
+    None
+}
+
+/// Return the byte offset of the first word-start occurrence of `needle_lower` in `haystack_lower`.
+/// "Word start" = preceded by start-of-text, whitespace, or any non-alphanumeric/non-underscore char.
+fn find_word_start(haystack_lower: &str, needle_lower: &str) -> Option<usize> {
+    if needle_lower.is_empty() {
+        return None;
+    }
+    let mut prev_was_word = false;
+    for (i, c) in haystack_lower.char_indices() {
+        if !prev_was_word && haystack_lower[i..].starts_with(needle_lower) {
+            return Some(i);
+        }
+        prev_was_word = c.is_alphanumeric() || c == '_';
+    }
+    None
+}
+
+/// Remove `[noted]`/`[ai]` inline markers that the enhance flow writes into enhanced_notes.
+fn strip_note_tags(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(idx) = rest.find('[') {
+        out.push_str(&rest[..idx]);
+        let after = &rest[idx..];
+        let handled = if let Some(tail) = after.strip_prefix("[noted]") {
+            rest = tail.strip_prefix(' ').unwrap_or(tail);
+            true
+        } else if let Some(tail) = after.strip_prefix("[ai]") {
+            rest = tail.strip_prefix(' ').unwrap_or(tail);
+            true
+        } else {
+            false
+        };
+        if !handled {
+            out.push('[');
+            rest = &after[1..];
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Build a ~180-char snippet centered on the first occurrence of `needle_lower` (already lowercased).
+/// Strips common markdown noise for display; matching still happens on raw text.
+fn build_snippet(text: &str, needle_lower: &str) -> String {
+    const LEFT: usize = 70;
+    const RIGHT: usize = 90;
+
+    let lower = text.to_lowercase();
+    let match_start = match find_word_start(&lower, needle_lower).or_else(|| lower.find(needle_lower)) {
+        Some(i) => i,
+        None => return clean_for_display(&text.chars().take(LEFT + RIGHT).collect::<String>()),
+    };
+
+    // Work in char (not byte) indexes so Unicode boundaries are safe.
+    let chars: Vec<char> = text.chars().collect();
+    let byte_to_char: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
+    let match_char_start = byte_to_char
+        .iter()
+        .position(|&b| b >= match_start)
+        .unwrap_or(0);
+
+    let start = match_char_start.saturating_sub(LEFT);
+    let end = (match_char_start + needle_lower.chars().count() + RIGHT).min(chars.len());
+
+    // Nudge to word boundaries.
+    let start = if start == 0 {
+        0
+    } else {
+        (start..chars.len())
+            .find(|i| chars.get(*i).is_some_and(|c| c.is_whitespace()))
+            .map(|i| i + 1)
+            .unwrap_or(start)
+    };
+    let end = if end == chars.len() {
+        end
+    } else {
+        (0..=end)
+            .rev()
+            .find(|i| chars.get(*i).is_some_and(|c| c.is_whitespace()))
+            .unwrap_or(end)
+    };
+
+    let mut snippet: String = chars[start..end].iter().collect();
+    snippet = clean_for_display(&snippet);
+
+    let mut out = String::new();
+    if start > 0 {
+        out.push('…');
+    }
+    out.push_str(snippet.trim());
+    if end < chars.len() {
+        out.push('…');
+    }
+    out
+}
+
+/// Collapse markdown leaders and emphasis runs for readable snippets.
+/// Lossy on purpose — only used for display.
+fn clean_for_display(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut prev_space = true; // so leading hashes/bullets collapse cleanly
+    for line in text.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        let stripped = trimmed
+            .trim_start_matches('#')
+            .trim_start_matches('>')
+            .trim_start_matches(['-', '*'])
+            .trim_start();
+        for ch in stripped.chars() {
+            if ch == '*' || ch == '_' || ch == '`' {
+                continue;
+            }
+            if ch.is_whitespace() {
+                if !prev_space {
+                    out.push(' ');
+                    prev_space = true;
+                }
+            } else {
+                out.push(ch);
+                prev_space = false;
+            }
+        }
+    }
+    out.trim().to_string()
 }

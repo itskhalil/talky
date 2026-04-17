@@ -703,6 +703,29 @@
       "moveToFolder": "Move to folder",
       "exportCurrent": "Export current note",
       "deleteCurrent": "Delete current note"
+    },
+    "filters": {
+      "folder": {
+        "any": "Any folder"
+      },
+      "tags": {
+        "any": "Any tag",
+        "count": "{{count}} tag",
+        "count_other": "{{count}} tags",
+        "empty": "No tags yet"
+      },
+      "date": {
+        "any": "Any date",
+        "today": "Today",
+        "week": "Last 7 days",
+        "month": "Last 30 days",
+        "year": "This year"
+      },
+      "searchingHint": "Searching title & body"
+    },
+    "matched": {
+      "body": "in body",
+      "enhanced": "in enhanced"
     }
   },
   "editor": {

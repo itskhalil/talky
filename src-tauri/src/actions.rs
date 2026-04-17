@@ -134,7 +134,6 @@ pub async fn run_session_transcription_loop(
     // Track previous mic transcription for prefix overlap removal
     let mut previous_mic_text = String::new();
 
-
     loop {
         tick.tick().await;
 
