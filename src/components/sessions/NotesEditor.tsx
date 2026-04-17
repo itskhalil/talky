@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -15,8 +16,7 @@ import {
   AiSourceExtension,
   setSuppressSourcePromotion,
 } from "./AiSourceExtension";
-import { Extension, JSONContent } from "@tiptap/core";
-import { NotesEditorToolbar } from "./NotesEditorToolbar";
+import { Extension, JSONContent, Editor } from "@tiptap/core";
 import { TableContextBar } from "./TableContextBar";
 import "./notes-editor.css";
 
@@ -31,12 +31,11 @@ declare module "@tiptap/core" {
   }
 }
 
-function promptForUrl(existing?: string): string | null {
-  const input = window.prompt("Enter URL", existing ?? "https://");
-  if (input === null) return null;
+function normalizeUrl(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return "";
   if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return `mailto:${trimmed}`;
   return `https://${trimmed}`;
 }
 
@@ -51,43 +50,6 @@ const PasteUnformatted = Extension.create({
         });
         return true;
       },
-    };
-  },
-});
-
-// Shortcuts for features StarterKit doesn't already cover.
-const MarkdownShortcuts = Extension.create({
-  name: "markdownShortcuts",
-  addKeyboardShortcuts() {
-    return {
-      "Mod-k": ({ editor }) => {
-        const existing = editor.getAttributes("link").href as
-          | string
-          | undefined;
-        const url = promptForUrl(existing);
-        if (url === null) return true;
-        if (url === "") {
-          editor.chain().focus().unsetLink().run();
-        } else {
-          editor
-            .chain()
-            .focus()
-            .extendMarkRange("link")
-            .setLink({ href: url })
-            .run();
-        }
-        return true;
-      },
-      "Mod-Shift-9": ({ editor }) =>
-        editor.chain().focus().toggleTaskList().run(),
-      "Mod-Alt-h": ({ editor }) =>
-        editor.chain().focus().setHorizontalRule().run(),
-      "Mod-Alt-t": ({ editor }) =>
-        editor
-          .chain()
-          .focus()
-          .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-          .run(),
     };
   },
 });
@@ -127,6 +89,42 @@ export function NotesEditor({
   const isEnhanced = mode === "enhanced";
   const initialJSONAppliedRef = useRef<JSONContent | null>(null);
   const suppressUpdateRef = useRef(false);
+
+  const [linkPromptOpen, setLinkPromptOpen] = useState(false);
+  const linkPromptInitialRef = useRef<string>("");
+
+  const openLinkPrompt = useCallback((editor: Editor) => {
+    const existing = (editor.getAttributes("link").href as string) ?? "";
+    linkPromptInitialRef.current = existing;
+    setLinkPromptOpen(true);
+  }, []);
+
+  // MarkdownShortcuts needs access to openLinkPrompt. We capture the latest
+  // reference via a ref to avoid re-initializing the extension on every render.
+  const openLinkPromptRef = useRef(openLinkPrompt);
+  openLinkPromptRef.current = openLinkPrompt;
+
+  const MarkdownShortcuts = Extension.create({
+    name: "markdownShortcuts",
+    addKeyboardShortcuts() {
+      return {
+        "Mod-Shift-k": ({ editor }) => {
+          openLinkPromptRef.current(editor);
+          return true;
+        },
+        "Mod-Shift-9": ({ editor }) =>
+          editor.chain().focus().toggleTaskList().run(),
+        "Mod-Alt-h": ({ editor }) =>
+          editor.chain().focus().setHorizontalRule().run(),
+        "Mod-Shift-t": ({ editor }) =>
+          editor
+            .chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run(),
+      };
+    },
+  });
 
   const editor = useEditor(
     {
@@ -292,11 +290,81 @@ export function NotesEditor({
     <div
       className={`notes-editor ${isEnhanced ? "notes-editor--enhanced" : ""}`}
     >
-      {!disabled && <NotesEditorToolbar editor={editor} />}
       <TableContextBar editor={editor} />
       <EditorContent editor={editor} />
+      {linkPromptOpen && (
+        <LinkPrompt
+          initial={linkPromptInitialRef.current}
+          onCancel={() => setLinkPromptOpen(false)}
+          onSubmit={(raw) => {
+            setLinkPromptOpen(false);
+            const url = normalizeUrl(raw);
+            if (url === "") {
+              editor.chain().focus().unsetLink().run();
+            } else {
+              editor
+                .chain()
+                .focus()
+                .extendMarkRange("link")
+                .setLink({ href: url })
+                .run();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
 
-export { promptForUrl };
+function LinkPrompt({
+  initial,
+  onSubmit,
+  onCancel,
+}: {
+  initial: string;
+  onSubmit: (url: string) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(initial);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  return (
+    <div className="link-prompt-overlay" onMouseDown={onCancel}>
+      <div className="link-prompt" onMouseDown={(e) => e.stopPropagation()}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          placeholder="https://…"
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onSubmit(value);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              onCancel();
+            }
+          }}
+        />
+        <div className="link-prompt__actions">
+          <button type="button" onClick={onCancel}>
+            {t("noteEditor.linkPrompt.cancel")}
+          </button>
+          <button type="button" onClick={() => onSubmit("")}>
+            {t("noteEditor.linkPrompt.remove")}
+          </button>
+          <button type="button" onClick={() => onSubmit(value)}>
+            {t("noteEditor.linkPrompt.save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

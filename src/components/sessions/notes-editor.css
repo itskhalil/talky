@@ -101,7 +101,7 @@
 .notes-editor .tiptap code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.85em;
-  background-color: var(--color-background-subtle, rgba(0, 0, 0, 0.06));
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
   padding: 0.1em 0.35em;
   border-radius: 4px;
 }
@@ -110,7 +110,7 @@
 .notes-editor .tiptap pre {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.85em;
-  background-color: var(--color-background-subtle, rgba(0, 0, 0, 0.06));
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
   padding: 0.75rem;
   border-radius: 6px;
   overflow-x: auto;
@@ -126,16 +126,16 @@
 
 /* Blockquote */
 .notes-editor .tiptap blockquote {
-  border-left: 3px solid var(--color-border, rgba(0, 0, 0, 0.15));
+  border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
   padding-left: 0.75rem;
   margin: 0.5rem 0;
-  color: var(--color-mid-gray, #9c9c94);
+  color: color-mix(in srgb, currentColor 70%, transparent);
 }
 
 /* Horizontal rule */
 .notes-editor .tiptap hr {
   border: 0;
-  border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.15));
+  border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent);
   margin: 1rem 0;
 }
 
@@ -147,33 +147,70 @@
 
 /* Links */
 .notes-editor .tiptap a {
-  color: var(--color-link, #2563eb);
+  color: var(--color-link, #3b82f6);
   text-decoration: underline;
   cursor: pointer;
 }
 
-/* Task lists */
+/* Task lists.
+ *
+ * TipTap's TaskItem renders as:
+ *   <li data-type="taskItem" data-checked="...">
+ *     <label><input type="checkbox"><span/></label>
+ *     <div><p>content</p></div>
+ *   </li>
+ * We need the label and div on the same row, and the checkbox vertically
+ * centered with the first line of text.
+ */
 .notes-editor .tiptap ul[data-type="taskList"] {
   list-style: none;
-  padding-left: 0.5rem;
-}
-
-.notes-editor .tiptap ul[data-type="taskList"] li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
+  padding-left: 0;
   margin: 0.15rem 0;
 }
 
-.notes-editor .tiptap ul[data-type="taskList"] li > label {
-  flex-shrink: 0;
-  margin-top: 0.25rem;
-  user-select: none;
+.notes-editor .tiptap ul[data-type="taskList"] li[data-type="taskItem"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.1rem 0;
 }
 
-.notes-editor .tiptap ul[data-type="taskList"] li > div {
-  flex: 1;
+.notes-editor
+  .tiptap
+  ul[data-type="taskList"]
+  li[data-type="taskItem"]
+  > label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  margin: 0;
+  /* Align checkbox with the first line of text (font-size 0.875rem * line-height 1.6 ~ 1.4rem) */
+  height: 1.4em;
+}
+
+.notes-editor
+  .tiptap
+  ul[data-type="taskList"]
+  li[data-type="taskItem"]
+  > label
+  > input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.notes-editor .tiptap ul[data-type="taskList"] li[data-type="taskItem"] > div {
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.notes-editor
+  .tiptap
+  ul[data-type="taskList"]
+  li[data-type="taskItem"]
+  > div
+  > p {
+  margin: 0;
 }
 
 .notes-editor
@@ -183,7 +220,7 @@
   > div
   > p {
   text-decoration: line-through;
-  color: var(--color-mid-gray, #9c9c94);
+  opacity: 0.6;
 }
 
 /* Tables */
@@ -197,7 +234,7 @@
 
 .notes-editor .tiptap table td,
 .notes-editor .tiptap table th {
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.2));
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
   padding: 0.4rem 0.5rem;
   vertical-align: top;
   min-width: 4rem;
@@ -205,7 +242,7 @@
 }
 
 .notes-editor .tiptap table th {
-  background-color: var(--color-background-subtle, rgba(0, 0, 0, 0.04));
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
   font-weight: 600;
   text-align: left;
 }
@@ -228,69 +265,119 @@
   overflow-x: auto;
 }
 
-/* Editor toolbar */
-.notes-editor-toolbar {
+/* Floating link prompt */
+.link-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, currentColor 20%, transparent);
   display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem 0.25rem 0.5rem;
-  border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
-  margin-bottom: 0.5rem;
-}
-
-.notes-editor-toolbar__button {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  z-index: 60;
+}
+
+.link-prompt {
+  background: var(--color-background);
+  border: 1px solid var(--color-border-strong, rgba(0, 0, 0, 0.15));
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-width: 22rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.link-prompt input {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: transparent;
+  color: inherit;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.link-prompt input:focus {
+  border-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.link-prompt__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.link-prompt__actions button {
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.link-prompt__actions button:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* Floating table context bar (portalled to body) */
+.notes-editor-tablebar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-strong, rgba(0, 0, 0, 0.15));
+  border-radius: 6px;
+  font-size: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.notes-editor-tablebar__trigger {
+  padding: 0.2rem 0.5rem;
   border-radius: 4px;
   border: none;
   background: transparent;
-  color: var(--color-text, inherit);
+  color: inherit;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.notes-editor-toolbar__button:hover {
-  background-color: var(--color-background-subtle, rgba(0, 0, 0, 0.06));
+.notes-editor-tablebar__trigger:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.notes-editor-toolbar__button--active {
-  background-color: var(--color-background-subtle, rgba(0, 0, 0, 0.12));
+.notes-editor-tablebar__dropdown {
+  position: relative;
 }
 
-.notes-editor-toolbar__button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Table context bar */
-.notes-editor-tablebar {
+.notes-editor-tablebar__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 11rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-strong, rgba(0, 0, 0, 0.15));
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0.2rem;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  padding: 0.25rem 0.25rem 0.5rem;
-  border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
-  margin-bottom: 0.25rem;
-  font-size: 0.75rem;
+  flex-direction: column;
 }
 
-.notes-editor-tablebar button {
-  padding: 0.2rem 0.5rem;
+.notes-editor-tablebar__menu button {
+  padding: 0.3rem 0.55rem;
+  border: none;
   border-radius: 4px;
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.15));
   background: transparent;
-  color: var(--color-text, inherit);
+  color: inherit;
+  text-align: left;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 
-.notes-editor-tablebar button:hover {
-  background-color: var(--color-background-subtle, rgba(0, 0, 0, 0.06));
-}
-
-.notes-editor-tablebar__sep {
-  display: inline-block;
-  width: 1px;
-  align-self: stretch;
-  background-color: var(--color-border, rgba(0, 0, 0, 0.15));
-  margin: 0 0.25rem;
+.notes-editor-tablebar__menu button:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }

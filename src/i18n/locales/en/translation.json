@@ -1,19 +1,20 @@
 {
   "noteEditor": {
-    "toolbar": {
-      "insertLink": "Insert link",
-      "taskList": "Task list",
-      "horizontalRule": "Horizontal rule",
-      "insertTable": "Insert table"
+    "linkPrompt": {
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "save": "Save"
     },
     "tableBar": {
+      "insert": "Insert ▾",
+      "delete": "Delete ▾",
       "addRowAbove": "Row above",
       "addRowBelow": "Row below",
       "addColumnLeft": "Column left",
       "addColumnRight": "Column right",
-      "deleteRow": "Delete row",
-      "deleteColumn": "Delete column",
-      "deleteTable": "Delete table",
+      "deleteRow": "Row",
+      "deleteColumn": "Column",
+      "deleteTable": "Whole table",
       "toggleHeader": "Toggle header"
     }
   },
