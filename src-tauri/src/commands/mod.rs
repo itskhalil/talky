@@ -122,7 +122,6 @@ pub fn open_app_data_dir(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-
 /// Check if Ollama is running and available at the given base URL.
 /// Returns the list of installed model names if available, empty vec if not running.
 #[specta::specta]

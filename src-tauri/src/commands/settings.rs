@@ -310,10 +310,7 @@ pub fn change_skip_mic_on_speaker_energy_setting(
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_save_debug_recordings_setting(
-    app: AppHandle,
-    enabled: bool,
-) -> Result<(), String> {
+pub fn change_save_debug_recordings_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.save_debug_recordings = enabled;
     write_settings(&app, settings);

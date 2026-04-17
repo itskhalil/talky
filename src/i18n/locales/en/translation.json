@@ -1,4 +1,23 @@
 {
+  "noteEditor": {
+    "linkPrompt": {
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "save": "Save"
+    },
+    "tableBar": {
+      "insert": "Insert ▾",
+      "delete": "Delete ▾",
+      "addRowAbove": "Row above",
+      "addRowBelow": "Row below",
+      "addColumnLeft": "Column left",
+      "addColumnRight": "Column right",
+      "deleteRow": "Row",
+      "deleteColumn": "Column",
+      "deleteTable": "Whole table",
+      "toggleHeader": "Toggle header"
+    }
+  },
   "menu": {
     "exportCurrentNote": "Export Current Note...",
     "exportAllNotes": "Export All Notes..."
@@ -450,7 +469,7 @@
       "noShortcutSet": "Not set",
       "actions": {
         "newNote": "Create new note",
-        "search": "Search",
+        "palette": "Open command palette",
         "focusChat": "Chat",
         "openSettings": "Open settings",
         "notesView": "Switch to notes view",
@@ -510,6 +529,7 @@
     }
   },
   "notes": {
+    "folderFilterPlaceholder": "Filter folders",
     "searchPlaceholder": "Search",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
@@ -665,5 +685,91 @@
   },
   "overlay": {
     "transcribing": "Transcribing..."
+  },
+  "palette": {
+    "openTitle": "Open command palette",
+    "placeholder": "Type a command or search notes...",
+    "empty": "No results",
+    "sections": {
+      "commands": "Commands",
+      "notes": "Notes"
+    },
+    "commands": {
+      "newNote": "New note",
+      "startRecording": "Start recording",
+      "stopRecording": "Stop recording",
+      "addAttachment": "Add attachment",
+      "addTag": "Add tag",
+      "moveToFolder": "Move to folder",
+      "exportCurrent": "Export current note",
+      "deleteCurrent": "Delete current note"
+    },
+    "filters": {
+      "folder": {
+        "any": "Any folder"
+      },
+      "tags": {
+        "any": "Any tag",
+        "count": "{{count}} tag",
+        "count_other": "{{count}} tags",
+        "empty": "No tags yet"
+      },
+      "date": {
+        "any": "Any date",
+        "today": "Today",
+        "week": "Last 7 days",
+        "month": "Last 30 days",
+        "year": "This year"
+      },
+      "searchingHint": "Searching title & body"
+    },
+    "matched": {
+      "body": "in body",
+      "enhanced": "in enhanced"
+    }
+  },
+  "editor": {
+    "slash": {
+      "heading1": {
+        "title": "Heading 1",
+        "description": "Large section title"
+      },
+      "heading2": {
+        "title": "Heading 2",
+        "description": "Medium section title"
+      },
+      "heading3": {
+        "title": "Heading 3",
+        "description": "Small section title"
+      },
+      "bulletList": {
+        "title": "Bullet list",
+        "description": "Simple bulleted list"
+      },
+      "orderedList": {
+        "title": "Numbered list",
+        "description": "Ordered list with numbers"
+      },
+      "taskList": {
+        "title": "Task list",
+        "description": "Checklist with checkboxes"
+      },
+      "codeBlock": {
+        "title": "Code block",
+        "description": "Monospaced code snippet"
+      },
+      "blockquote": {
+        "title": "Quote",
+        "description": "Indented quote block"
+      },
+      "horizontalRule": {
+        "title": "Divider",
+        "description": "Horizontal rule"
+      },
+      "table": {
+        "title": "Table",
+        "description": "3 × 3 table with header row"
+      }
+    }
   }
 }

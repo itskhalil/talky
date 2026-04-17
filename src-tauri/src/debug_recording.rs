@@ -100,7 +100,8 @@ impl DebugRecordingWriter {
             .context("Failed to finalize spk WAV")?;
 
         let metadata_path = self.dir.join("metadata.json");
-        let json = serde_json::to_string_pretty(&metadata).context("Failed to serialize metadata")?;
+        let json =
+            serde_json::to_string_pretty(&metadata).context("Failed to serialize metadata")?;
         fs::write(&metadata_path, json)
             .with_context(|| format!("Failed to write metadata: {metadata_path:?}"))?;
 

@@ -4,6 +4,7 @@ import "./App.css";
 import Onboarding, { PermissionsOnboarding } from "./components/onboarding";
 import { SessionsView } from "./components/sessions/SessionsView";
 import { SettingsPage } from "./components/SettingsPage";
+import { CommandPalette } from "./components/CommandPalette";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands } from "@/bindings";
@@ -152,6 +153,7 @@ function App() {
           <SettingsPage onBack={() => setView("notes")} />
         )}
       </div>
+      <CommandPalette />
     </div>
   );
 }

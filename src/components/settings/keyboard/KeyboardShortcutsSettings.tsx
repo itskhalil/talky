@@ -20,7 +20,7 @@ interface Shortcut {
 
 const shortcuts: Shortcut[] = [
   { keys: `${modKey}+N`, actionKey: "settings.keyboard.actions.newNote" },
-  { keys: `${modKey}+K`, actionKey: "settings.keyboard.actions.search" },
+  { keys: `${modKey}+P`, actionKey: "settings.keyboard.actions.palette" },
   { keys: `${modKey}+/`, actionKey: "settings.keyboard.actions.focusChat" },
   { keys: `${modKey}+,`, actionKey: "settings.keyboard.actions.openSettings" },
   { keys: `${modKey}+1`, actionKey: "settings.keyboard.actions.notesView" },

@@ -1,7 +1,8 @@
 use crate::llm_client::{ChatMessage, ContentPart, ImageUrl};
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::session::{
-    Attachment, Folder, MeetingNotes, Session, SessionManager, Tag, TranscriptSegment,
+    Attachment, Folder, MeetingNotes, SearchFilters, SearchHit, Session, SessionManager, Tag,
+    TranscriptSegment,
 };
 use crate::managers::transcription::TranscriptionManager;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -176,10 +177,7 @@ pub async fn generate_session_summary(
     // Inject meeting title so the model knows who/what the meeting is about
     let title = session.title.trim();
     if !title.is_empty() {
-        system_message.push_str(&format!(
-            "\n\nMEETING TITLE: \"{}\"",
-            title
-        ));
+        system_message.push_str(&format!("\n\nMEETING TITLE: \"{}\"", title));
     }
 
     // Inject custom words (+ user name) into the prompt for vocabulary correction
@@ -350,10 +348,7 @@ pub async fn generate_session_summary_stream(
     // Inject meeting title so the model knows who/what the meeting is about
     let title = session.title.trim();
     if !title.is_empty() {
-        system_message.push_str(&format!(
-            "\n\nMEETING TITLE: \"{}\"",
-            title
-        ));
+        system_message.push_str(&format!("\n\nMEETING TITLE: \"{}\"", title));
     }
 
     // Inject custom words (+ user name) into the prompt for vocabulary correction
@@ -764,9 +759,23 @@ pub fn end_session(app: AppHandle) -> Result<Option<Session>, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn search_sessions(app: AppHandle, query: String) -> Result<Vec<Session>, String> {
+pub fn search_sessions(
+    app: AppHandle,
+    query: String,
+    folder_id: Option<String>,
+    tag_ids: Option<Vec<String>>,
+    started_after: Option<i64>,
+    started_before: Option<i64>,
+) -> Result<Vec<SearchHit>, String> {
     let sm = app.state::<Arc<SessionManager>>();
-    sm.search_sessions(&query).map_err(|e| e.to_string())
+    let filters = SearchFilters {
+        folder_id,
+        tag_ids,
+        started_after,
+        started_before,
+    };
+    sm.search_sessions(&query, &filters)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

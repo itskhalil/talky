@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
 import {
   Plus,
   Trash2,
@@ -26,6 +25,7 @@ import {
 import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { commands } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useUpdateChecker } from "@/components/update-checker";
@@ -144,8 +144,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     downloadProgress,
     installUpdate,
   } = useUpdateChecker();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Session[] | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -159,7 +157,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [chatEnvId, setChatEnvId] = useState<string | null>(null);
   const [chatEnvDropdownOpen, setChatEnvDropdownOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -302,33 +299,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     fetchSessionTags();
   }, [sessions, selectedTagIds.length]);
 
-  const doSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setSearchResults(null);
-      return;
-    }
-    try {
-      const results = await invoke<Session[]>("search_sessions", {
-        query: query.trim(),
-      });
-      setSearchResults(results);
-    } catch (e) {
-      console.error("Search failed:", e);
-      setSearchResults(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(searchQuery), 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchQuery, doSearch]);
-
   // Filter sessions by folder and tags
   const filteredSessions = useMemo(() => {
-    let result = searchResults ?? sessions;
+    let result = sessions;
 
     // Filter by folder
     if (selectedFolderId !== null) {
@@ -344,13 +317,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     }
 
     return result;
-  }, [
-    searchResults,
-    sessions,
-    selectedFolderId,
-    selectedTagIds,
-    sessionTagsMap,
-  ]);
+  }, [sessions, selectedFolderId, selectedTagIds, sessionTagsMap]);
 
   // Count sessions per folder
   const folderCounts = useMemo(() => {
@@ -395,22 +362,15 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar sidebar-gradient">
       {/* macOS title bar drag region */}
       <div data-tauri-drag-region className="h-7 w-full shrink-0" />
-      {/* Search bar + New Note button */}
-      <div className="flex items-center gap-2 px-3 pt-1 pb-2">
-        <div className="relative flex-1">
-          <Search
-            size={12}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary"
-          />
-          <input
-            type="text"
-            data-search-input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("notes.searchPlaceholder")}
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-transparent border border-border text-text placeholder:text-text-secondary focus:outline-none focus:border-border transition-colors"
-          />
-        </div>
+      {/* Search + New Note buttons */}
+      <div className="flex items-center justify-end gap-2 px-3 pt-1 pb-2">
+        <button
+          onClick={() => useCommandPaletteStore.getState().open()}
+          className="w-8 h-8 flex items-center justify-center rounded-full text-text-secondary hover:bg-accent/10 hover:text-text transition-colors shrink-0"
+          title={t("palette.openTitle")}
+        >
+          <Search size={16} strokeWidth={2} />
+        </button>
         <button
           onClick={onNewNote}
           data-ui

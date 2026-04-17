@@ -215,9 +215,7 @@ ${recentSessions.map((s) => `- ${s.title} (${new Date(s.started_at * 1000).toLoc
 
       // Inject user identity if configured
       const userName = useSettingsStore.getState().settings?.user_name?.trim();
-      const userIdentity = userName
-        ? `The user's name is ${userName}.\n`
-        : "";
+      const userIdentity = userName ? `The user's name is ${userName}.\n` : "";
 
       const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
 ${userIdentity}
@@ -311,10 +309,16 @@ ${recentMeetingsList}${currentNoteContext}`;
               } else {
                 // Search for each term
                 for (const term of terms) {
-                  const result = await commands.searchSessions(term);
+                  const result = await commands.searchSessions(
+                    term,
+                    null,
+                    null,
+                    null,
+                    null,
+                  );
                   if (result.status === "ok") {
-                    result.data.forEach((note) =>
-                      allResults.set(note.id, note),
+                    result.data.forEach((hit) =>
+                      allResults.set(hit.session.id, hit.session),
                     );
                   }
                 }

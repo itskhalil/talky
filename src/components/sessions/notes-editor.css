@@ -96,3 +96,339 @@
 .notes-editor .tiptap .find-highlight--current {
   background-color: rgba(255, 213, 0, 0.7);
 }
+
+/* Inline code */
+.notes-editor .tiptap code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+/* Fenced code blocks */
+.notes-editor .tiptap pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.notes-editor .tiptap pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 1em;
+}
+
+/* Blockquote */
+.notes-editor .tiptap blockquote {
+  border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  color: color-mix(in srgb, currentColor 70%, transparent);
+}
+
+/* Horizontal rule */
+.notes-editor .tiptap hr {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  margin: 1rem 0;
+}
+
+/* Strikethrough */
+.notes-editor .tiptap s,
+.notes-editor .tiptap del {
+  text-decoration: line-through;
+}
+
+/* Links */
+.notes-editor .tiptap a {
+  color: var(--color-link, #3b82f6);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Task lists.
+ *
+ * TipTap's TaskItem renders as:
+ *   <li data-type="taskItem" data-checked="...">
+ *     <label><input type="checkbox"><span/></label>
+ *     <div><p>content</p></div>
+ *   </li>
+ * We use direct-child selectors so the flex layout survives regardless of
+ * whether data-type="taskItem" is present on the li (tiptap-markdown's
+ * parsing path may strip it in some edge cases).
+ */
+.notes-editor .tiptap ul[data-type="taskList"] {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0.15rem 0;
+}
+
+.notes-editor .tiptap ul[data-type="taskList"] > li {
+  display: flex !important;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.1rem 0;
+}
+
+.notes-editor .tiptap ul[data-type="taskList"] > li > label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  margin: 0;
+}
+
+.notes-editor
+  .tiptap
+  ul[data-type="taskList"]
+  > li
+  > label
+  > input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.notes-editor .tiptap ul[data-type="taskList"] > li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notes-editor .tiptap ul[data-type="taskList"] > li > div > p {
+  margin: 0;
+}
+
+.notes-editor
+  .tiptap
+  ul[data-type="taskList"]
+  > li[data-checked="true"]
+  > div
+  > p {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Tables */
+.notes-editor .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.notes-editor .tiptap table td,
+.notes-editor .tiptap table th {
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  padding: 0.4rem 0.5rem;
+  vertical-align: top;
+  min-width: 4rem;
+  position: relative;
+}
+
+.notes-editor .tiptap table th {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+  font-weight: 600;
+  text-align: left;
+}
+
+.notes-editor .tiptap table .selectedCell {
+  background-color: rgba(56, 132, 255, 0.12);
+}
+
+.notes-editor .tiptap table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: rgba(56, 132, 255, 0.4);
+  pointer-events: none;
+}
+
+.notes-editor .tiptap .tableWrapper {
+  overflow-x: auto;
+}
+
+/* Floating link prompt */
+.link-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.link-prompt {
+  background: var(--color-background);
+  border: 1px solid var(--color-border-strong, rgba(0, 0, 0, 0.15));
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-width: 22rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.link-prompt input {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: transparent;
+  color: inherit;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.link-prompt input:focus {
+  border-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.link-prompt__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.link-prompt__actions button {
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.link-prompt__actions button:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* Floating table context bar (portalled to body) */
+.notes-editor-tablebar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-strong, rgba(0, 0, 0, 0.15));
+  border-radius: 6px;
+  font-size: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.notes-editor-tablebar__trigger {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notes-editor-tablebar__trigger:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.notes-editor-tablebar__dropdown {
+  position: relative;
+}
+
+.notes-editor-tablebar__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 11rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-strong, rgba(0, 0, 0, 0.15));
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0.2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.notes-editor-tablebar__menu button {
+  padding: 0.3rem 0.55rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.notes-editor-tablebar__menu button:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.slash-menu {
+  width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--color-background, #fff);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  font-size: 0.85rem;
+}
+
+.slash-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slash-menu__item--active {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.slash-menu__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  color: var(--color-text-secondary, #555);
+  flex-shrink: 0;
+}
+
+.slash-menu__labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.slash-menu__title {
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.slash-menu__description {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary, #666);
+  line-height: 1.2;
+  margin-top: 1px;
+}

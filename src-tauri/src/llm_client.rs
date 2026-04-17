@@ -198,16 +198,15 @@ fn to_anthropic_format(messages: Vec<ChatMessage>) -> (Option<String>, Vec<Anthr
                         ContentPart::ImageUrl { image_url } => {
                             // Parse data URL: data:image/jpeg;base64,<data>
                             let url = &image_url.url;
-                            let (media_type, data) =
-                                if let Some(rest) = url.strip_prefix("data:") {
-                                    if let Some((mime, b64)) = rest.split_once(";base64,") {
-                                        (mime.to_string(), b64.to_string())
-                                    } else {
-                                        ("image/jpeg".to_string(), rest.to_string())
-                                    }
+                            let (media_type, data) = if let Some(rest) = url.strip_prefix("data:") {
+                                if let Some((mime, b64)) = rest.split_once(";base64,") {
+                                    (mime.to_string(), b64.to_string())
                                 } else {
-                                    ("image/jpeg".to_string(), url.clone())
-                                };
+                                    ("image/jpeg".to_string(), rest.to_string())
+                                }
+                            } else {
+                                ("image/jpeg".to_string(), url.clone())
+                            };
                             AnthropicContentBlock::Image {
                                 source: AnthropicImageSource {
                                     source_type: "base64".to_string(),

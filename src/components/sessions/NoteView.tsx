@@ -23,7 +23,11 @@ import {
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
-import { AttachmentsRow, MAX_ATTACHMENTS } from "./AttachmentsRow";
+import {
+  AttachmentsRow,
+  MAX_ATTACHMENTS,
+  type AttachmentsRowHandle,
+} from "./AttachmentsRow";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { WaveformBars } from "@/components/ui/WaveformBars";
 import { useAttachments } from "@/stores/sessionStore";
@@ -35,6 +39,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useNoteUiIntentStore } from "@/stores/noteUiIntentStore";
 import { JSONContent, Editor } from "@tiptap/core";
 import type { Tag as TagType } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -486,6 +491,41 @@ export function NoteView({
   const folderDropdownRef = useRef<HTMLDivElement>(null);
   const envDropdownRef = useRef<HTMLDivElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const attachmentsRowRef = useRef<AttachmentsRowHandle>(null);
+  const [folderFilter, setFolderFilter] = useState("");
+  const [activeFolderIndex, setActiveFolderIndex] = useState(0);
+  const folderFilterInputRef = useRef<HTMLInputElement>(null);
+
+  const folderPickerTick = useNoteUiIntentStore((s) => s.folderPickerTick);
+  const tagInputTick = useNoteUiIntentStore((s) => s.tagInputTick);
+  const attachmentPickerTick = useNoteUiIntentStore(
+    (s) => s.attachmentPickerTick,
+  );
+  const lastFolderTick = useRef(folderPickerTick);
+  const lastTagTick = useRef(tagInputTick);
+  const lastAttachmentTick = useRef(attachmentPickerTick);
+
+  useEffect(() => {
+    if (folderPickerTick !== lastFolderTick.current) {
+      lastFolderTick.current = folderPickerTick;
+      setFolderFilter("");
+      setFolderDropdownOpen(true);
+    }
+  }, [folderPickerTick]);
+
+  useEffect(() => {
+    if (tagInputTick !== lastTagTick.current) {
+      lastTagTick.current = tagInputTick;
+      setTagInputOpen(true);
+    }
+  }, [tagInputTick]);
+
+  useEffect(() => {
+    if (attachmentPickerTick !== lastAttachmentTick.current) {
+      lastAttachmentTick.current = attachmentPickerTick;
+      attachmentsRowRef.current?.openPicker();
+    }
+  }, [attachmentPickerTick]);
 
   // Get environments from settings store
   const { settings } = useSettingsStore();
@@ -571,6 +611,16 @@ export function NoteView({
     }
   }, [tagInputOpen]);
 
+  // Focus folder filter when dropdown opens
+  useEffect(() => {
+    if (folderDropdownOpen) {
+      setActiveFolderIndex(0);
+      folderFilterInputRef.current?.focus();
+    } else {
+      setFolderFilter("");
+    }
+  }, [folderDropdownOpen]);
+
   // Drag & drop file handling for attachments
   const [isDraggingFile, setIsDraggingFile] = useState(false);
 
@@ -655,14 +705,21 @@ export function NoteView({
     async (file: File) => {
       if (!session?.id) return;
 
-      const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
       if (!allowedTypes.includes(file.type)) {
         toast.error(t("sessions.attachments.unsupportedType"));
         return;
       }
 
       if (attachments.length >= MAX_ATTACHMENTS) {
-        toast.error(t("sessions.attachments.tooManyFiles", { count: MAX_ATTACHMENTS }));
+        toast.error(
+          t("sessions.attachments.tooManyFiles", { count: MAX_ATTACHMENTS }),
+        );
         return;
       }
 
@@ -672,7 +729,8 @@ export function NoteView({
         return;
       }
 
-      const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
+      const ext =
+        file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
       const filename = `paste-${(attachments.length + 1).toString().padStart(3, "0")}.${ext}`;
 
       try {
@@ -1255,31 +1313,104 @@ export function NoteView({
                     {currentFolder?.name ?? t("notes.noFolder", "Notes")}
                   </span>
                 </button>
-                {folderDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
-                    <button
-                      onClick={() => handleFolderSelect(null)}
-                      className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors"
-                    >
-                      {t("notes.noFolder", "Notes")}
-                    </button>
-                    {folders.map((folder) => (
-                      <button
-                        key={folder.id}
-                        onClick={() => handleFolderSelect(folder.id)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
-                      >
-                        <FolderIcon
-                          size={12}
-                          style={
-                            folder.color ? { color: folder.color } : undefined
-                          }
+                {folderDropdownOpen &&
+                  (() => {
+                    const q = folderFilter.trim().toLowerCase();
+                    const filteredFolders = q
+                      ? folders.filter((f) => f.name.toLowerCase().includes(q))
+                      : folders;
+                    const noFolderLabel = t("notes.noFolder", "Notes");
+                    const showNoFolder =
+                      !q || noFolderLabel.toLowerCase().includes(q);
+                    type Option = {
+                      id: string | null;
+                      label: string;
+                      color?: string | null;
+                    };
+                    const options: Option[] = [];
+                    if (showNoFolder) {
+                      options.push({ id: null, label: noFolderLabel });
+                    }
+                    for (const f of filteredFolders) {
+                      options.push({ id: f.id, label: f.name, color: f.color });
+                    }
+                    const boundedIndex = Math.min(
+                      activeFolderIndex,
+                      Math.max(0, options.length - 1),
+                    );
+                    return (
+                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
+                        <input
+                          ref={folderFilterInputRef}
+                          type="text"
+                          value={folderFilter}
+                          onChange={(e) => {
+                            setFolderFilter(e.target.value);
+                            setActiveFolderIndex(0);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              setActiveFolderIndex((i) =>
+                                options.length === 0
+                                  ? 0
+                                  : (i + 1) % options.length,
+                              );
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setActiveFolderIndex((i) =>
+                                options.length === 0
+                                  ? 0
+                                  : (i - 1 + options.length) % options.length,
+                              );
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              const pick = options[boundedIndex];
+                              if (pick) handleFolderSelect(pick.id);
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              setFolderDropdownOpen(false);
+                            }
+                          }}
+                          placeholder={t(
+                            "notes.folderFilterPlaceholder",
+                            "Filter folders",
+                          )}
+                          className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
                         />
-                        {folder.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        {options.map((opt, i) => {
+                          const isActive = i === boundedIndex;
+                          return (
+                            <button
+                              key={opt.id ?? "__none__"}
+                              onMouseEnter={() => setActiveFolderIndex(i)}
+                              onClick={() => handleFolderSelect(opt.id)}
+                              className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
+                                isActive ? "bg-accent/10" : ""
+                              }`}
+                            >
+                              {opt.id !== null && (
+                                <FolderIcon
+                                  size={12}
+                                  style={
+                                    opt.color
+                                      ? { color: opt.color }
+                                      : undefined
+                                  }
+                                />
+                              )}
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                        {options.length === 0 && (
+                          <div className="px-3 py-1.5 text-xs text-text-secondary">
+                            {t("palette.empty")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
               </div>
 
               {/* Tags (content — only rendered when they exist) */}
@@ -1309,11 +1440,15 @@ export function NoteView({
                     <button
                       onClick={async () => {
                         if (att.mime_type.startsWith("image/")) {
-                          const idx = imageAttachments.findIndex((a) => a.id === att.id);
+                          const idx = imageAttachments.findIndex(
+                            (a) => a.id === att.id,
+                          );
                           if (idx !== -1) setLightboxIndex(idx);
                         } else {
                           try {
-                            await invoke("open_attachment", { attachmentId: att.id });
+                            await invoke("open_attachment", {
+                              attachmentId: att.id,
+                            });
                           } catch (e) {
                             console.error("Failed to open attachment:", e);
                           }
@@ -1326,7 +1461,9 @@ export function NoteView({
                     <button
                       onClick={async () => {
                         try {
-                          await invoke("delete_attachment", { attachmentId: att.id });
+                          await invoke("delete_attachment", {
+                            attachmentId: att.id,
+                          });
                           refreshAttachments(session.id);
                         } catch (e) {
                           console.error("Failed to delete attachment:", e);
@@ -1378,9 +1515,7 @@ export function NoteView({
                             setTagInputOpen(false);
                           }}
                           className="px-1.5 py-0 rounded text-xs text-text-secondary hover:text-text transition-colors"
-                          style={
-                            tag.color ? { color: tag.color } : undefined
-                          }
+                          style={tag.color ? { color: tag.color } : undefined}
                         >
                           {tag.name}
                         </button>
@@ -1401,6 +1536,7 @@ export function NoteView({
 
               {/* Add attachment */}
               <AttachmentsRow
+                ref={attachmentsRowRef}
                 sessionId={session.id}
                 attachments={[]}
                 onAttachmentsChange={() => refreshAttachments(session.id)}

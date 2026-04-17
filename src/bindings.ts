@@ -663,9 +663,9 @@ async endSession() : Promise<Result<Session | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async searchSessions(query: string) : Promise<Result<Session[], string>> {
+async searchSessions(query: string, folderId: string | null, tagIds: string[] | null, startedAfter: number | null, startedBefore: number | null) : Promise<Result<SearchHit[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("search_sessions", { query }) };
+    return { status: "ok", data: await TAURI_INVOKE("search_sessions", { query, folderId, tagIds, startedAfter, startedBefore }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -1061,6 +1061,16 @@ systemSleepEvents: boolean;
 os: string }
 export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null }
 export type RecordingRetentionPeriod = "never" | "preserve_limit" | "days_3" | "weeks_2" | "months_3"
+export type SearchHit = { session: Session; 
+/**
+ * Which column produced the match: "title" | "user_notes" | "enhanced_notes".
+ * When only filters are active and query is empty, this is "title" with an empty snippet.
+ */
+matched_field: string; 
+/**
+ * Short excerpt centered on the first match, with markdown noise stripped. Empty when no text match.
+ */
+snippet: string }
 export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null }
 export type Tag = { id: string; name: string; color: string | null }
 export type TranscriptSegment = { id: number; session_id: string; text: string; source: string; start_ms: number; end_ms: number; created_at: number }
