@@ -86,8 +86,11 @@ export function TableContextBar({ editor }: Props) {
       className="notes-editor-tablebar"
       style={{
         position: "fixed",
-        top: Math.max(4, rect.top - 34),
+        // Anchor the bar's bottom edge 6px above the table's top, regardless
+        // of the bar's measured height.
+        top: rect.top - 6,
         left: rect.left,
+        transform: "translateY(-100%)",
         zIndex: 50,
       }}
       role="toolbar"

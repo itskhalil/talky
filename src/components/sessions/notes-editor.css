@@ -159,64 +159,56 @@
  *     <label><input type="checkbox"><span/></label>
  *     <div><p>content</p></div>
  *   </li>
- * We need the label and div on the same row, and the checkbox vertically
- * centered with the first line of text.
+ * We use direct-child selectors so the flex layout survives regardless of
+ * whether data-type="taskItem" is present on the li (tiptap-markdown's
+ * parsing path may strip it in some edge cases).
  */
 .notes-editor .tiptap ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
+  list-style: none !important;
+  padding-left: 0 !important;
   margin: 0.15rem 0;
 }
 
-.notes-editor .tiptap ul[data-type="taskList"] li[data-type="taskItem"] {
-  display: flex;
+.notes-editor .tiptap ul[data-type="taskList"] > li {
+  display: flex !important;
   align-items: flex-start;
   gap: 0.45rem;
   margin: 0.1rem 0;
 }
 
-.notes-editor
-  .tiptap
-  ul[data-type="taskList"]
-  li[data-type="taskItem"]
-  > label {
+.notes-editor .tiptap ul[data-type="taskList"] > li > label {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   user-select: none;
   margin: 0;
-  /* Align checkbox with the first line of text (font-size 0.875rem * line-height 1.6 ~ 1.4rem) */
+  /* Align checkbox with the first line of text. */
   height: 1.4em;
 }
 
 .notes-editor
   .tiptap
   ul[data-type="taskList"]
-  li[data-type="taskItem"]
+  > li
   > label
   > input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
 }
 
-.notes-editor .tiptap ul[data-type="taskList"] li[data-type="taskItem"] > div {
+.notes-editor .tiptap ul[data-type="taskList"] > li > div {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.notes-editor
-  .tiptap
-  ul[data-type="taskList"]
-  li[data-type="taskItem"]
-  > div
-  > p {
+.notes-editor .tiptap ul[data-type="taskList"] > li > div > p {
   margin: 0;
 }
 
 .notes-editor
   .tiptap
   ul[data-type="taskList"]
-  li[data-checked="true"]
+  > li[data-checked="true"]
   > div
   > p {
   text-decoration: line-through;
@@ -355,7 +347,8 @@
 
 .notes-editor-tablebar__menu {
   position: absolute;
-  top: calc(100% + 4px);
+  /* Open upward so the dropdown doesn't overlap the table below. */
+  bottom: calc(100% + 4px);
   left: 0;
   min-width: 11rem;
   background: var(--color-background);

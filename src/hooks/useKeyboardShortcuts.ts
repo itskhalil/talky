@@ -38,6 +38,8 @@ export function useKeyboardShortcuts({
       }
 
       if (mod && e.key === "k") {
+        // In editors/inputs, Cmd+K belongs to the editor (link insertion).
+        if (isTextInput(document.activeElement)) return;
         e.preventDefault();
         onExpandSidebar?.();
         requestAnimationFrame(() => {

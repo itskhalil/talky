@@ -4,6 +4,9 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
+import { Strike } from "@tiptap/extension-strike";
+import { Blockquote } from "@tiptap/extension-blockquote";
+import { CodeBlock } from "@tiptap/extension-code-block";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { Table } from "@tiptap/extension-table";
@@ -52,6 +55,17 @@ const PasteUnformatted = Extension.create({
       },
     };
   },
+});
+
+// Strip default keyboard shortcuts from marks/nodes we want reachable only via
+// markdown typing or menus. We disable them in StarterKit then re-register the
+// same extensions with empty keyboard shortcuts so the feature stays enabled.
+const StrikeNoShortcut = Strike.extend({ addKeyboardShortcuts: () => ({}) });
+const BlockquoteNoShortcut = Blockquote.extend({
+  addKeyboardShortcuts: () => ({}),
+});
+const CodeBlockNoShortcut = CodeBlock.extend({
+  addKeyboardShortcuts: () => ({}),
 });
 
 interface NotesEditorProps {
@@ -108,20 +122,12 @@ export function NotesEditor({
     name: "markdownShortcuts",
     addKeyboardShortcuts() {
       return {
-        "Mod-Shift-k": ({ editor }) => {
+        "Mod-k": ({ editor }) => {
           openLinkPromptRef.current(editor);
           return true;
         },
         "Mod-Shift-9": ({ editor }) =>
           editor.chain().focus().toggleTaskList().run(),
-        "Mod-Alt-h": ({ editor }) =>
-          editor.chain().focus().setHorizontalRule().run(),
-        "Mod-Shift-t": ({ editor }) =>
-          editor
-            .chain()
-            .focus()
-            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-            .run(),
       };
     },
   });
@@ -131,7 +137,14 @@ export function NotesEditor({
       extensions: [
         StarterKit.configure({
           heading: { levels: [1, 2, 3, 4] },
+          // Disable these so we can re-add them without default shortcuts.
+          strike: false,
+          blockquote: false,
+          codeBlock: false,
         }),
+        StrikeNoShortcut,
+        BlockquoteNoShortcut,
+        CodeBlockNoShortcut,
         Placeholder.configure({ placeholder }),
         PasteUnformatted,
         MarkdownShortcuts,
