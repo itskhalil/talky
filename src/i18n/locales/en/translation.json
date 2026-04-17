@@ -8,7 +8,6 @@
     "tableBar": {
       "insert": "Insert ▾",
       "delete": "Delete ▾",
-      "header": "Header ▾",
       "addRowAbove": "Row above",
       "addRowBelow": "Row below",
       "addColumnLeft": "Column left",
@@ -16,9 +15,7 @@
       "deleteRow": "Row",
       "deleteColumn": "Column",
       "deleteTable": "Whole table",
-      "toggleHeaderRow": "Toggle header row",
-      "toggleHeaderColumn": "Toggle header column",
-      "toggleHeaderColumnHint": "Saved as HTML; header-column is not standard markdown"
+      "toggleHeader": "Toggle header"
     }
   },
   "menu": {

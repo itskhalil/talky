@@ -16,9 +16,7 @@ interface Rect {
 export function TableContextBar({ editor }: Props) {
   const { t } = useTranslation();
   const [rect, setRect] = useState<Rect | null>(null);
-  const [menu, setMenu] = useState<null | "insert" | "delete" | "header">(
-    null,
-  );
+  const [menu, setMenu] = useState<null | "insert" | "delete">(null);
   const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -155,30 +153,13 @@ export function TableContextBar({ editor }: Props) {
         )}
       </div>
 
-      <div className="notes-editor-tablebar__dropdown">
-        <button
-          type="button"
-          className="notes-editor-tablebar__trigger"
-          onClick={() => setMenu(menu === "header" ? null : "header")}
-        >
-          {t("noteEditor.tableBar.header")}
-        </button>
-        {menu === "header" && (
-          <div className="notes-editor-tablebar__menu">
-            <button
-              onClick={run((e) => e.chain().focus().toggleHeaderRow().run())}
-            >
-              {t("noteEditor.tableBar.toggleHeaderRow")}
-            </button>
-            <button
-              onClick={run((e) => e.chain().focus().toggleHeaderColumn().run())}
-              title={t("noteEditor.tableBar.toggleHeaderColumnHint")}
-            >
-              {t("noteEditor.tableBar.toggleHeaderColumn")}
-            </button>
-          </div>
-        )}
-      </div>
+      <button
+        type="button"
+        className="notes-editor-tablebar__trigger"
+        onClick={run((e) => e.chain().focus().toggleHeaderRow().run())}
+      >
+        {t("noteEditor.tableBar.toggleHeader")}
+      </button>
     </div>,
     document.body,
   );
