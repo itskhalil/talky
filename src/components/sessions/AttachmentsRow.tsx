@@ -1,4 +1,10 @@
-import { useState, useCallback, useMemo } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Paperclip, X, FileText, Image, Plus, Loader } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -29,6 +35,10 @@ interface AttachmentsRowProps {
   attachments: Attachment[];
   onAttachmentsChange: () => void;
   disabled?: boolean;
+}
+
+export interface AttachmentsRowHandle {
+  openPicker: () => void;
 }
 
 function getMimeType(filename: string): string {
@@ -125,12 +135,13 @@ function AttachmentChip({
   );
 }
 
-export function AttachmentsRow({
-  sessionId,
-  attachments,
-  onAttachmentsChange,
-  disabled = false,
-}: AttachmentsRowProps) {
+export const AttachmentsRow = forwardRef<
+  AttachmentsRowHandle,
+  AttachmentsRowProps
+>(function AttachmentsRow(
+  { sessionId, attachments, onAttachmentsChange, disabled = false },
+  ref,
+) {
   const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -222,6 +233,10 @@ export function AttachmentsRow({
     }
   }, [disabled, uploading, attachments.length, t, uploadFiles]);
 
+  useImperativeHandle(ref, () => ({ openPicker: handleAddFiles }), [
+    handleAddFiles,
+  ]);
+
   const handleDelete = useCallback(
     async (attachmentId: string) => {
       try {
@@ -294,4 +309,4 @@ export function AttachmentsRow({
       )}
     </div>
   );
-}
+});

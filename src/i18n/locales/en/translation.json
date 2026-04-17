@@ -529,6 +529,7 @@
     }
   },
   "notes": {
+    "folderFilterPlaceholder": "Filter folders",
     "searchPlaceholder": "Search",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
@@ -697,6 +698,9 @@
       "newNote": "New note",
       "startRecording": "Start recording",
       "stopRecording": "Stop recording",
+      "addAttachment": "Add attachment",
+      "addTag": "Add tag",
+      "moveToFolder": "Move to folder",
       "exportCurrent": "Export current note",
       "deleteCurrent": "Delete current note"
     }

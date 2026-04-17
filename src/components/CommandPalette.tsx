@@ -9,14 +9,21 @@ import {
   Download,
   Trash2,
   Search,
+  Paperclip,
+  Tag,
+  FolderIcon,
 } from "lucide-react";
 import { useSessionStore, type Session } from "@/stores/sessionStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
+import { useNoteUiIntentStore } from "@/stores/noteUiIntentStore";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type CommandId =
   | "new-note"
   | "toggle-recording"
+  | "add-attachment"
+  | "add-tag"
+  | "move-to-folder"
   | "export-current"
   | "delete-current";
 
@@ -134,6 +141,37 @@ export const CommandPalette: React.FC = () => {
           } else {
             void store.startRecording(selectedSessionId);
           }
+        },
+      });
+
+      const intent = useNoteUiIntentStore.getState();
+      list.push({
+        id: "add-attachment",
+        label: t("palette.commands.addAttachment"),
+        icon: <Paperclip size={16} />,
+        run: () => {
+          close();
+          intent.openAttachmentPicker();
+        },
+      });
+
+      list.push({
+        id: "add-tag",
+        label: t("palette.commands.addTag"),
+        icon: <Tag size={16} />,
+        run: () => {
+          close();
+          intent.openTagInput();
+        },
+      });
+
+      list.push({
+        id: "move-to-folder",
+        label: t("palette.commands.moveToFolder"),
+        icon: <FolderIcon size={16} />,
+        run: () => {
+          close();
+          intent.openFolderPicker();
         },
       });
 
