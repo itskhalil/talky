@@ -21,6 +21,7 @@ import {
 } from "./AiSourceExtension";
 import { Extension, JSONContent, Editor } from "@tiptap/core";
 import { TableContextBar } from "./TableContextBar";
+import { SlashCommandExtension } from "../editor/SlashCommandExtension";
 import "./notes-editor.css";
 
 // Augment TipTap's Storage type so `editor.storage.markdown.getMarkdown()`
@@ -65,7 +66,19 @@ const BlockquoteNoShortcut = Blockquote.extend({
   addKeyboardShortcuts: () => ({}),
 });
 const CodeBlockNoShortcut = CodeBlock.extend({
-  addKeyboardShortcuts: () => ({}),
+  addKeyboardShortcuts() {
+    return {
+      Tab: ({ editor }) => {
+        if (!editor.isActive("codeBlock")) return false;
+        editor.commands.insertContent("  ");
+        return true;
+      },
+      "Shift-Tab": ({ editor }) => {
+        // Just consume inside code blocks so focus doesn't shift out.
+        return editor.isActive("codeBlock");
+      },
+    };
+  },
 });
 
 interface NotesEditorProps {
@@ -91,6 +104,7 @@ export function NotesEditor({
   onEditorReady,
   onPasteImage,
 }: NotesEditorProps) {
+  const { t } = useTranslation();
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onJSONChangeRef = useRef(onJSONChange);
@@ -165,6 +179,7 @@ export function NotesEditor({
         TableRow,
         TableHeader,
         TableCell,
+        SlashCommandExtension.configure({ t }),
         // Markdown extension — parses setContent(string) and serializes via getMarkdown().
         // transformCopiedText=true makes Cmd+C emit markdown instead of plain text.
         Markdown.configure({
