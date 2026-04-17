@@ -43,3 +43,4 @@ recording_*
 !.AI/tests/
 !.AI/tests/cases.mjs
 PROMPT CHANGES.md
+.env

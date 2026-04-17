@@ -1,9 +1,10 @@
 mod actions;
-mod aec;
+pub mod aec;
+pub mod debug_recording;
+pub mod replay;
+mod crash_reporter;
 pub mod audio_toolkit;
 mod commands;
-mod crash_reporter;
-mod debug_recording;
 mod llm_client;
 mod managers;
 #[cfg(target_os = "macos")]
