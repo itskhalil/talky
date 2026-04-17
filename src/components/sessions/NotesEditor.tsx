@@ -66,32 +66,18 @@ const BlockquoteNoShortcut = Blockquote.extend({
   addKeyboardShortcuts: () => ({}),
 });
 const CodeBlockNoShortcut = CodeBlock.extend({
-  // Priority higher than default 100 so our Tab handler runs before
-  // ListItem/TaskItem's Tab (which sinkListItem and may return true or
-  // swallow the key even outside a list).
+  // Priority 200 so our Tab handler runs before ListItem/TaskItem (which
+  // bind Tab at default priority 100 to sinkListItem and consume the key).
   priority: 200,
   addKeyboardShortcuts() {
     return {
       Tab: ({ editor }) => {
-        const active = editor.isActive("codeBlock");
-        console.log("[TAB DEBUG] codeBlock Tab fired; isActive=", active);
-        if (!active) return false;
+        if (!editor.isActive("codeBlock")) return false;
         const { from, to } = editor.state.selection;
-        const tr = editor.state.tr.insertText("  ", from, to);
-        editor.view.dispatch(tr);
-        console.log(
-          "[TAB DEBUG] dispatched tr.insertText at",
-          from,
-          "selection after=",
-          editor.state.selection.from,
-        );
+        editor.view.dispatch(editor.state.tr.insertText("  ", from, to));
         return true;
       },
-      "Shift-Tab": ({ editor }) => {
-        const active = editor.isActive("codeBlock");
-        console.log("[TAB DEBUG] codeBlock Shift-Tab fired; isActive=", active);
-        return active;
-      },
+      "Shift-Tab": ({ editor }) => editor.isActive("codeBlock"),
     };
   },
 });
