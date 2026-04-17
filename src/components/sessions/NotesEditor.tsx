@@ -2,17 +2,43 @@ import { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import Link from "@tiptap/extension-link";
+import { TaskList } from "@tiptap/extension-task-list";
+import { TaskItem } from "@tiptap/extension-task-item";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 import { Markdown } from "tiptap-markdown";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AiSourceExtension,
   setSuppressSourcePromotion,
 } from "./AiSourceExtension";
 import { Extension, JSONContent } from "@tiptap/core";
-import {
-  parseMarkdownToTiptap,
-  serializeTiptapToMarkdown,
-} from "@/utils/markdownParser";
+import { NotesEditorToolbar } from "./NotesEditorToolbar";
+import { TableContextBar } from "./TableContextBar";
 import "./notes-editor.css";
+
+// Augment TipTap's Storage type so `editor.storage.markdown.getMarkdown()`
+// typechecks. The Markdown extension from `tiptap-markdown` registers this
+// storage key at runtime but doesn't ship type augmentations.
+declare module "@tiptap/core" {
+  interface Storage {
+    markdown: {
+      getMarkdown: () => string;
+    };
+  }
+}
+
+function promptForUrl(existing?: string): string | null {
+  const input = window.prompt("Enter URL", existing ?? "https://");
+  if (input === null) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
 
 // Custom extension for paste without formatting (Cmd+Shift+Option+V on Mac)
 const PasteUnformatted = Extension.create({
@@ -25,6 +51,43 @@ const PasteUnformatted = Extension.create({
         });
         return true;
       },
+    };
+  },
+});
+
+// Shortcuts for features StarterKit doesn't already cover.
+const MarkdownShortcuts = Extension.create({
+  name: "markdownShortcuts",
+  addKeyboardShortcuts() {
+    return {
+      "Mod-k": ({ editor }) => {
+        const existing = editor.getAttributes("link").href as
+          | string
+          | undefined;
+        const url = promptForUrl(existing);
+        if (url === null) return true;
+        if (url === "") {
+          editor.chain().focus().unsetLink().run();
+        } else {
+          editor
+            .chain()
+            .focus()
+            .extendMarkRange("link")
+            .setLink({ href: url })
+            .run();
+        }
+        return true;
+      },
+      "Mod-Shift-9": ({ editor }) =>
+        editor.chain().focus().toggleTaskList().run(),
+      "Mod-Alt-h": ({ editor }) =>
+        editor.chain().focus().setHorizontalRule().run(),
+      "Mod-Alt-t": ({ editor }) =>
+        editor
+          .chain()
+          .focus()
+          .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+          .run(),
     };
   },
 });
@@ -70,15 +133,35 @@ export function NotesEditor({
       extensions: [
         StarterKit.configure({
           heading: { levels: [1, 2, 3, 4] },
-          codeBlock: false,
-          code: false,
-          blockquote: false,
-          horizontalRule: false,
         }),
         Placeholder.configure({ placeholder }),
         PasteUnformatted,
-        // Markdown extension for paste handling in both modes
-        Markdown.configure({ transformPastedText: true, breaks: true }),
+        MarkdownShortcuts,
+        Link.configure({
+          openOnClick: false,
+          autolink: true,
+          linkOnPaste: true,
+          protocols: ["http", "https", "mailto"],
+          HTMLAttributes: {
+            rel: "noopener noreferrer nofollow",
+            target: "_blank",
+          },
+          validate: (href) => /^(https?:|mailto:)/i.test(href),
+        }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Table.configure({ resizable: true }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        // Markdown extension — parses setContent(string) and serializes via getMarkdown().
+        // transformCopiedText=true makes Cmd+C emit markdown instead of plain text.
+        Markdown.configure({
+          transformPastedText: true,
+          transformCopiedText: true,
+          breaks: true,
+          linkify: true,
+        }),
         ...(isEnhanced ? [AiSourceExtension] : []),
       ],
       content: "",
@@ -114,73 +197,13 @@ export function NotesEditor({
           }
           return false; // Let default handler process
         },
-        // Clean text serialization for native Cmd+C copy
-        clipboardTextSerializer: (slice) => {
-          const lines: string[] = [];
-
-          // Recursive function to serialize nodes with proper indentation
-          const serializeNode = (
-            node: typeof slice.content.firstChild,
-            indent: number = 0,
-          ): void => {
-            if (!node) return;
-            const prefix = "  ".repeat(indent);
-
-            if (node.type.name === "heading") {
-              const level = node.attrs?.level ?? 2;
-              lines.push("#".repeat(level) + " " + node.textContent);
-            } else if (node.type.name === "paragraph") {
-              lines.push(prefix + node.textContent);
-            } else if (node.type.name === "bulletList") {
-              node.content.forEach((li) => {
-                // Get the paragraph text from list item
-                const para = li.content.firstChild;
-                if (para && para.type.name === "paragraph") {
-                  lines.push(prefix + "- " + para.textContent);
-                }
-                // Handle nested lists within the list item
-                li.content.forEach((child) => {
-                  if (
-                    child.type.name === "bulletList" ||
-                    child.type.name === "orderedList"
-                  ) {
-                    serializeNode(child, indent + 1);
-                  }
-                });
-              });
-            } else if (node.type.name === "orderedList") {
-              let idx = 1;
-              node.content.forEach((li) => {
-                const para = li.content.firstChild;
-                if (para && para.type.name === "paragraph") {
-                  lines.push(prefix + `${idx}. ` + para.textContent);
-                }
-                li.content.forEach((child) => {
-                  if (
-                    child.type.name === "bulletList" ||
-                    child.type.name === "orderedList"
-                  ) {
-                    serializeNode(child, indent + 1);
-                  }
-                });
-                idx++;
-              });
-            } else if (node.content) {
-              // Generic fallback for other block nodes
-              node.content.forEach((child) => serializeNode(child, indent));
-            }
-          };
-
-          slice.content.forEach((node) => serializeNode(node, 0));
-          return lines.join("\n");
-        },
       },
       onUpdate: ({ editor }) => {
         if (suppressUpdateRef.current) return;
         if (modeRef.current === "enhanced") {
           onJSONChangeRef.current?.(editor.getJSON());
         } else {
-          const text = serializeTiptapToMarkdown(editor.getJSON());
+          const text = editor.storage.markdown.getMarkdown();
           onChangeRef.current(text);
         }
       },
@@ -226,11 +249,11 @@ export function NotesEditor({
         suppressUpdateRef.current = false;
       }
     } else if (!isEnhanced) {
-      const current = serializeTiptapToMarkdown(editor.getJSON());
+      const current = editor.storage.markdown.getMarkdown();
       if (current !== content) {
         suppressUpdateRef.current = true;
-        const json = parseMarkdownToTiptap(content);
-        editor.commands.setContent(json);
+        // tiptap-markdown's Markdown extension parses markdown strings in setContent.
+        editor.commands.setContent(content);
         suppressUpdateRef.current = false;
       }
     }
@@ -243,13 +266,37 @@ export function NotesEditor({
     suppressUpdateRef.current = false;
   }, [disabled, editor]);
 
+  // Open clicked links in the system browser via Tauri's opener plugin
+  // so the WebView doesn't navigate away from the app.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    const dom = editor.view?.dom;
+    if (!dom) return;
+    const handler = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement | null)?.closest?.("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+      // In editable mode only intercept modified clicks; plain clicks place caret.
+      if (editor.isEditable && !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      void openUrl(href).catch(() => {});
+    };
+    dom.addEventListener("click", handler);
+    return () => dom.removeEventListener("click", handler);
+  }, [editor]);
+
   if (!editor) return null;
 
   return (
     <div
       className={`notes-editor ${isEnhanced ? "notes-editor--enhanced" : ""}`}
     >
+      {!disabled && <NotesEditorToolbar editor={editor} />}
+      <TableContextBar editor={editor} />
       <EditorContent editor={editor} />
     </div>
   );
 }
+
+export { promptForUrl };

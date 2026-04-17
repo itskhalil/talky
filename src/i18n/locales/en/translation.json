@@ -1,4 +1,22 @@
 {
+  "noteEditor": {
+    "toolbar": {
+      "insertLink": "Insert link",
+      "taskList": "Task list",
+      "horizontalRule": "Horizontal rule",
+      "insertTable": "Insert table"
+    },
+    "tableBar": {
+      "addRowAbove": "Row above",
+      "addRowBelow": "Row below",
+      "addColumnLeft": "Column left",
+      "addColumnRight": "Column right",
+      "deleteRow": "Delete row",
+      "deleteColumn": "Delete column",
+      "deleteTable": "Delete table",
+      "toggleHeader": "Toggle header"
+    }
+  },
   "menu": {
     "exportCurrentNote": "Export Current Note...",
     "exportAllNotes": "Export All Notes..."
