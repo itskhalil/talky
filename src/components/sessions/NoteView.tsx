@@ -493,6 +493,7 @@ export function NoteView({
   const tagInputRef = useRef<HTMLInputElement>(null);
   const attachmentsRowRef = useRef<AttachmentsRowHandle>(null);
   const [folderFilter, setFolderFilter] = useState("");
+  const [activeFolderIndex, setActiveFolderIndex] = useState(0);
   const folderFilterInputRef = useRef<HTMLInputElement>(null);
 
   const folderPickerTick = useNoteUiIntentStore((s) => s.folderPickerTick);
@@ -612,9 +613,10 @@ export function NoteView({
 
   // Focus folder filter when dropdown opens
   useEffect(() => {
-    if (folderDropdownOpen && folderFilterInputRef.current) {
-      folderFilterInputRef.current.focus();
-    } else if (!folderDropdownOpen) {
+    if (folderDropdownOpen) {
+      setActiveFolderIndex(0);
+      folderFilterInputRef.current?.focus();
+    } else {
       setFolderFilter("");
     }
   }, [folderDropdownOpen]);
@@ -1317,25 +1319,54 @@ export function NoteView({
                     const filteredFolders = q
                       ? folders.filter((f) => f.name.toLowerCase().includes(q))
                       : folders;
+                    const noFolderLabel = t("notes.noFolder", "Notes");
                     const showNoFolder =
-                      !q ||
-                      t("notes.noFolder", "Notes").toLowerCase().includes(q);
-                    const firstPick =
-                      filteredFolders[0]?.id ??
-                      (showNoFolder ? null : undefined);
+                      !q || noFolderLabel.toLowerCase().includes(q);
+                    type Option = {
+                      id: string | null;
+                      label: string;
+                      color?: string | null;
+                    };
+                    const options: Option[] = [];
+                    if (showNoFolder) {
+                      options.push({ id: null, label: noFolderLabel });
+                    }
+                    for (const f of filteredFolders) {
+                      options.push({ id: f.id, label: f.name, color: f.color });
+                    }
+                    const boundedIndex = Math.min(
+                      activeFolderIndex,
+                      Math.max(0, options.length - 1),
+                    );
                     return (
                       <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
                         <input
                           ref={folderFilterInputRef}
                           type="text"
                           value={folderFilter}
-                          onChange={(e) => setFolderFilter(e.target.value)}
+                          onChange={(e) => {
+                            setFolderFilter(e.target.value);
+                            setActiveFolderIndex(0);
+                          }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") {
+                            if (e.key === "ArrowDown") {
                               e.preventDefault();
-                              if (firstPick !== undefined) {
-                                handleFolderSelect(firstPick);
-                              }
+                              setActiveFolderIndex((i) =>
+                                options.length === 0
+                                  ? 0
+                                  : (i + 1) % options.length,
+                              );
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setActiveFolderIndex((i) =>
+                                options.length === 0
+                                  ? 0
+                                  : (i - 1 + options.length) % options.length,
+                              );
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              const pick = options[boundedIndex];
+                              if (pick) handleFolderSelect(pick.id);
                             } else if (e.key === "Escape") {
                               e.preventDefault();
                               setFolderDropdownOpen(false);
@@ -1347,32 +1378,32 @@ export function NoteView({
                           )}
                           className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
                         />
-                        {showNoFolder && (
-                          <button
-                            onClick={() => handleFolderSelect(null)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors"
-                          >
-                            {t("notes.noFolder", "Notes")}
-                          </button>
-                        )}
-                        {filteredFolders.map((folder) => (
-                          <button
-                            key={folder.id}
-                            onClick={() => handleFolderSelect(folder.id)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
-                          >
-                            <FolderIcon
-                              size={12}
-                              style={
-                                folder.color
-                                  ? { color: folder.color }
-                                  : undefined
-                              }
-                            />
-                            {folder.name}
-                          </button>
-                        ))}
-                        {!showNoFolder && filteredFolders.length === 0 && (
+                        {options.map((opt, i) => {
+                          const isActive = i === boundedIndex;
+                          return (
+                            <button
+                              key={opt.id ?? "__none__"}
+                              onMouseEnter={() => setActiveFolderIndex(i)}
+                              onClick={() => handleFolderSelect(opt.id)}
+                              className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
+                                isActive ? "bg-accent/10" : ""
+                              }`}
+                            >
+                              {opt.id !== null && (
+                                <FolderIcon
+                                  size={12}
+                                  style={
+                                    opt.color
+                                      ? { color: opt.color }
+                                      : undefined
+                                  }
+                                />
+                              )}
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                        {options.length === 0 && (
                           <div className="px-3 py-1.5 text-xs text-text-secondary">
                             {t("palette.empty")}
                           </div>
