@@ -70,7 +70,7 @@ const CodeBlockNoShortcut = CodeBlock.extend({
     return {
       Tab: ({ editor }) => {
         if (!editor.isActive("codeBlock")) return false;
-        editor.commands.insertContent("  ");
+        editor.view.dispatch(editor.state.tr.insertText("  "));
         return true;
       },
       "Shift-Tab": ({ editor }) => {
