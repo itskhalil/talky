@@ -40,6 +40,7 @@
     "@tiptap/pm": "^3.18.0",
     "@tiptap/react": "^3.18.0",
     "@tiptap/starter-kit": "^3.18.0",
+    "@tiptap/suggestion": "^3.22.3",
     "ai": "^6.0.67",
     "chrono-node": "^2.7.7",
     "i18next": "^25.7.2",

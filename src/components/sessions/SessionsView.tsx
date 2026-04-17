@@ -269,7 +269,6 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     onCloseFindBar: closeFindBar,
     onToggleReplaceBar: toggleReplaceBar,
     findBarOpen,
-    onExpandSidebar: handleExpandSidebar,
   });
 
   useEffect(() => {

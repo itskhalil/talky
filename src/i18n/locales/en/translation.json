@@ -469,7 +469,7 @@
       "noShortcutSet": "Not set",
       "actions": {
         "newNote": "Create new note",
-        "search": "Search",
+        "palette": "Open command palette",
         "focusChat": "Chat",
         "openSettings": "Open settings",
         "notesView": "Switch to notes view",
@@ -684,5 +684,65 @@
   },
   "overlay": {
     "transcribing": "Transcribing..."
+  },
+  "palette": {
+    "openTitle": "Open command palette",
+    "placeholder": "Type a command or search notes...",
+    "empty": "No results",
+    "sections": {
+      "commands": "Commands",
+      "notes": "Notes"
+    },
+    "commands": {
+      "newNote": "New note",
+      "startRecording": "Start recording",
+      "stopRecording": "Stop recording",
+      "exportCurrent": "Export current note",
+      "deleteCurrent": "Delete current note"
+    }
+  },
+  "editor": {
+    "slash": {
+      "heading1": {
+        "title": "Heading 1",
+        "description": "Large section title"
+      },
+      "heading2": {
+        "title": "Heading 2",
+        "description": "Medium section title"
+      },
+      "heading3": {
+        "title": "Heading 3",
+        "description": "Small section title"
+      },
+      "bulletList": {
+        "title": "Bullet list",
+        "description": "Simple bulleted list"
+      },
+      "orderedList": {
+        "title": "Numbered list",
+        "description": "Ordered list with numbers"
+      },
+      "taskList": {
+        "title": "Task list",
+        "description": "Checklist with checkboxes"
+      },
+      "codeBlock": {
+        "title": "Code block",
+        "description": "Monospaced code snippet"
+      },
+      "blockquote": {
+        "title": "Quote",
+        "description": "Indented quote block"
+      },
+      "horizontalRule": {
+        "title": "Divider",
+        "description": "Horizontal rule"
+      },
+      "table": {
+        "title": "Table",
+        "description": "3 × 3 table with header row"
+      }
+    }
   }
 }

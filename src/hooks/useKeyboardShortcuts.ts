@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 
 function isTextInput(el: Element | null): boolean {
   if (!el) return false;
@@ -16,7 +17,6 @@ interface KeyboardShortcutsOptions {
   onCloseFindBar?: () => void;
   onToggleReplaceBar?: () => void;
   findBarOpen?: boolean;
-  onExpandSidebar?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -25,7 +25,6 @@ export function useKeyboardShortcuts({
   onCloseFindBar,
   onToggleReplaceBar,
   findBarOpen,
-  onExpandSidebar,
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -41,13 +40,13 @@ export function useKeyboardShortcuts({
         // In editors/inputs, Cmd+K belongs to the editor (link insertion).
         if (isTextInput(document.activeElement)) return;
         e.preventDefault();
-        onExpandSidebar?.();
-        requestAnimationFrame(() => {
-          const input = document.querySelector<HTMLInputElement>(
-            "[data-search-input]",
-          );
-          input?.focus();
-        });
+        useCommandPaletteStore.getState().toggle();
+        return;
+      }
+
+      if (mod && e.key === "p") {
+        e.preventDefault();
+        useCommandPaletteStore.getState().toggle();
         return;
       }
 
@@ -127,6 +126,5 @@ export function useKeyboardShortcuts({
     onCloseFindBar,
     onToggleReplaceBar,
     findBarOpen,
-    onExpandSidebar,
   ]);
 }
