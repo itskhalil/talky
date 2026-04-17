@@ -1,6 +1,7 @@
 mod actions;
-mod aec;
-mod debug_recording;
+pub mod aec;
+pub mod debug_recording;
+pub mod replay;
 mod crash_reporter;
 pub mod audio_toolkit;
 mod commands;

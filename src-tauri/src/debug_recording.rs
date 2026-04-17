@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::Utc;
 use hound::{WavSpec, WavWriter};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ fn wav_spec() -> WavSpec {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PipelineConfig {
     pub vad_threshold: f32,
     pub vad_onset_frames: u32,
@@ -30,7 +30,7 @@ pub struct PipelineConfig {
     pub max_chunk_samples: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecordingSegment {
     pub text: String,
     pub source: String,
@@ -38,7 +38,7 @@ pub struct RecordingSegment {
     pub end_ms: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RecordingMetadata {
     pub version: u32,
     pub session_id: String,
