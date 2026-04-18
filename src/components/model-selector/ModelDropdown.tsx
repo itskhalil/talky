@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ModelInfo } from "@/bindings";
+import { commands } from "@/bindings";
 import { formatModelSize } from "../../lib/utils/format";
 import {
   getTranslatedModelName,
@@ -35,11 +36,17 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
   onError,
 }) => {
   const { t } = useTranslation();
-  // Filter out Moonshine models (no longer supported)
-  const supportedModels = models.filter((m) => m.engine_type !== "Moonshine");
-  const availableModels = supportedModels.filter((m) => m.is_downloaded);
-  const downloadableModels = supportedModels.filter((m) => !m.is_downloaded);
-  const isFirstRun = availableModels.length === 0 && supportedModels.length > 0;
+  const [recommendedId, setRecommendedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    commands.getRecommendedFirstModel().then((r) => {
+      if (r.status === "ok") setRecommendedId(r.data);
+    });
+  }, []);
+
+  const availableModels = models.filter((m) => m.is_downloaded);
+  const downloadableModels = models.filter((m) => !m.is_downloaded);
+  const isFirstRun = availableModels.length === 0 && models.length > 0;
 
   const handleDeleteClick = async (e: React.MouseEvent, modelId: string) => {
     e.preventDefault();
@@ -186,7 +193,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
                   <div>
                     <div className="text-sm">
                       {getTranslatedModelName(model, t)}
-                      {model.id === "parakeet-tdt-0.6b-v3" && isFirstRun && (
+                      {model.id === recommendedId && isFirstRun && (
                         <span className="ml-2 text-xs bg-logo-primary/20 text-logo-primary px-1.5 py-0.5 rounded">
                           {t("onboarding.recommended")}
                         </span>

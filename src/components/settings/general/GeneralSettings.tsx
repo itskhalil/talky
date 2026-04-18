@@ -1,11 +1,9 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { LanguageSelector } from "../LanguageSelector";
 import { CustomWords } from "../CustomWords";
 import { FontSizeSetting } from "../FontSizeSetting";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { Alert } from "../../ui/Alert";
-import { useModelStore } from "../../../stores/modelStore";
 import ModelSelector from "../../model-selector";
 import { UserNameSetting } from "./UserNameSetting";
 import { EnvironmentsSection } from "../environments/EnvironmentsSection";
@@ -15,9 +13,6 @@ import { MeetingStartActionSetting } from "./MeetingStartActionSetting";
 
 export const GeneralSettings: React.FC = () => {
   const { t } = useTranslation();
-  const { currentModel, getModelInfo } = useModelStore();
-  const currentModelInfo = getModelInfo(currentModel);
-  const showLanguageSelector = currentModelInfo?.engine_type === "Whisper";
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
       <UpdateBanner />
@@ -30,9 +25,6 @@ export const GeneralSettings: React.FC = () => {
           {t("modelSelector.transcriptionTip")}
         </Alert>
         <ModelSelector />
-        {showLanguageSelector && (
-          <LanguageSelector descriptionMode="tooltip" grouped={true} />
-        )}
         <CustomWords descriptionMode="tooltip" grouped />
       </SettingsGroup>
       <SettingsGroup title={t("settings.recording.title")}>

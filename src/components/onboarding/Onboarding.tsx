@@ -10,6 +10,7 @@ interface OnboardingProps {
 const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   const { t } = useTranslation();
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [recommendedId, setRecommendedId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,17 +20,17 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
 
   const loadModels = async () => {
     try {
-      const result = await commands.getAvailableModels();
-      if (result.status === "ok") {
-        // Show downloadable Whisper and Parakeet models for onboarding
-        // (Moonshine is no longer supported)
-        setAvailableModels(
-          result.data.filter(
-            (m) => !m.is_downloaded && m.engine_type !== "Moonshine",
-          ),
-        );
+      const [available, recommended] = await Promise.all([
+        commands.getAvailableModels(),
+        commands.getRecommendedFirstModel(),
+      ]);
+      if (available.status === "ok") {
+        setAvailableModels(available.data.filter((m) => !m.is_downloaded));
       } else {
         setError(t("onboarding.errors.loadModels"));
+      }
+      if (recommended.status === "ok") {
+        setRecommendedId(recommended.data);
       }
     } catch (err) {
       console.error("Failed to load models:", err);
@@ -41,7 +42,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     setDownloading(true);
     setError(null);
 
-    // Immediately transition to main app - download will continue in footer
+    // Immediately transition to main app - download continues in footer
     onModelSelected();
 
     try {
@@ -58,9 +59,8 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     }
   };
 
-  const getRecommendedBadge = (modelId: string): boolean => {
-    return modelId === "parakeet-tdt-0.6b-v3";
-  };
+  const isRecommended = (modelId: string): boolean =>
+    recommendedId != null && modelId === recommendedId;
 
   return (
     <div className="h-screen w-screen flex flex-col p-6 gap-4 inset-0">
@@ -82,7 +82,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
 
         <div className="flex flex-col gap-4 pb-6">
           {availableModels
-            .filter((model) => getRecommendedBadge(model.id))
+            .filter((model) => isRecommended(model.id))
             .map((model) => (
               <ModelCard
                 key={model.id}
@@ -94,7 +94,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
             ))}
 
           {availableModels
-            .filter((model) => !getRecommendedBadge(model.id))
+            .filter((model) => !isRecommended(model.id))
             .sort((a, b) => Number(a.size_mb) - Number(b.size_mb))
             .map((model) => (
               <ModelCard

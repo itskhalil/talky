@@ -77,7 +77,7 @@ pub fn run_replay(
 
     let samples_per_tick = (config.poll_interval_ms as usize * 16000) / 1000;
     let total_samples = mic_samples.len().max(spk_samples.len());
-    let total_ticks = (total_samples + samples_per_tick - 1) / samples_per_tick;
+    let total_ticks = total_samples.div_ceil(samples_per_tick);
 
     let mut segments: Vec<ReplaySegment> = Vec::new();
     let mut pending_spk_samples: Vec<f32> = Vec::new();
@@ -99,7 +99,7 @@ pub fn run_replay(
 
     for tick in 0..total_ticks {
         let offset = tick * samples_per_tick;
-        let current_time_ms = (tick as i64 * config.poll_interval_ms as i64);
+        let current_time_ms = tick as i64 * config.poll_interval_ms as i64;
 
         // Get mic chunk for this tick
         let mic_start = offset.min(mic_samples.len());

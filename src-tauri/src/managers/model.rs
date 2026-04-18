@@ -10,16 +10,43 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use tar::Archive;
 use tauri::{AppHandle, Emitter, Manager};
 
+pub const ONNX_MODEL_ID: &str = "parakeet-tdt-0.6b-v3";
+pub const CORE_ML_MODEL_ID: &str = "parakeet-tdt-0.6b-v3-coreml";
+
+/// Recursively sum the on-disk byte size of `path`. Used for polling
+/// FluidAudio's cache dir to derive Core ML download progress. Returns 0 if
+/// the dir doesn't exist (download hasn't started) or on any I/O error.
+fn dir_size_bytes(path: &Path) -> u64 {
+    fn walk(p: &Path) -> u64 {
+        let Ok(meta) = std::fs::symlink_metadata(p) else {
+            return 0;
+        };
+        if meta.is_file() {
+            return meta.len();
+        }
+        if meta.is_dir() {
+            let Ok(entries) = std::fs::read_dir(p) else {
+                return 0;
+            };
+            let mut sum = 0u64;
+            for entry in entries.flatten() {
+                sum = sum.saturating_add(walk(&entry.path()));
+            }
+            return sum;
+        }
+        0
+    }
+    walk(path)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum EngineType {
-    Whisper,
     Parakeet,
-    Moonshine,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -80,30 +107,10 @@ impl ModelManager {
 
         let mut available_models = HashMap::new();
 
-        // Add NVIDIA Parakeet models (directory-based)
         available_models.insert(
-            "parakeet-tdt-0.6b-v2".to_string(),
+            ONNX_MODEL_ID.to_string(),
             ModelInfo {
-                id: "parakeet-tdt-0.6b-v2".to_string(),
-                name: "Parakeet V2".to_string(),
-                description: "English only.".to_string(),
-                filename: "parakeet-tdt-0.6b-v2-int8".to_string(), // Directory name
-                url: Some("https://blob.handy.computer/parakeet-v2-int8.tar.gz".to_string()),
-                size_mb: 473, // Approximate size for int8 quantized model
-                is_downloaded: false,
-                is_downloading: false,
-                partial_size: 0,
-                is_directory: true,
-                engine_type: EngineType::Parakeet,
-                accuracy_score: 0.85,
-                speed_score: 0.85,
-            },
-        );
-
-        available_models.insert(
-            "parakeet-tdt-0.6b-v3".to_string(),
-            ModelInfo {
-                id: "parakeet-tdt-0.6b-v3".to_string(),
+                id: ONNX_MODEL_ID.to_string(),
                 name: "Parakeet V3".to_string(),
                 description: "Fast and accurate".to_string(),
                 filename: "parakeet-tdt-0.6b-v3-int8".to_string(), // Directory name
@@ -116,6 +123,30 @@ impl ModelManager {
                 engine_type: EngineType::Parakeet,
                 accuracy_score: 0.80,
                 speed_score: 0.85,
+            },
+        );
+
+        // Core ML sibling of Parakeet v3. Storage lives in FluidAudio's cache
+        // dir (~/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3/),
+        // not Talky's models dir. download/is_downloaded/delete/get_model_path
+        // all branch on the `-coreml` id suffix.
+        #[cfg(target_os = "macos")]
+        available_models.insert(
+            CORE_ML_MODEL_ID.to_string(),
+            ModelInfo {
+                id: CORE_ML_MODEL_ID.to_string(),
+                name: "Parakeet V3 — Accelerated".to_string(),
+                description: "Very fast and accurate".to_string(),
+                filename: ONNX_MODEL_ID.to_string(), // FluidAudio cache subdir
+                url: None,
+                size_mb: 469,
+                is_downloaded: false,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: true,
+                engine_type: EngineType::Parakeet,
+                accuracy_score: 0.80,
+                speed_score: 1.0,
             },
         );
 
@@ -153,7 +184,7 @@ impl ModelManager {
 
         for filename in &bundled_models {
             let bundled_path = self.app_handle.path().resolve(
-                &format!("resources/models/{}", filename),
+                format!("resources/models/{}", filename),
                 tauri::path::BaseDirectory::Resource,
             );
 
@@ -174,10 +205,46 @@ impl ModelManager {
         Ok(())
     }
 
+    /// FluidAudio cache dir for a Core ML model — must match the sidecar's
+    /// hardcoded cache location.
+    #[cfg(target_os = "macos")]
+    fn coreml_cache_path(model_filename: &str) -> Option<PathBuf> {
+        let base = std::env::var_os("HOME").map(PathBuf::from)?;
+        Some(
+            base.join("Library/Application Support/FluidAudio/Models")
+                .join(model_filename),
+        )
+    }
+
+    /// Fast probe: the cache is considered populated when the four expected
+    /// `.mlmodelc` bundles exist. Cheap enough to run on every
+    /// `update_download_status`.
+    #[cfg(target_os = "macos")]
+    fn coreml_is_downloaded(model_filename: &str) -> bool {
+        let Some(dir) = Self::coreml_cache_path(model_filename) else {
+            return false;
+        };
+        let required = [
+            "Encoder.mlmodelc",
+            "Preprocessor.mlmodelc",
+            "Decoder.mlmodelc",
+            "JointDecision.mlmodelc",
+        ];
+        required.iter().all(|name| dir.join(name).exists())
+    }
+
     fn update_download_status(&self) -> Result<()> {
         let mut models = self.available_models.lock_or_recover();
 
         for model in models.values_mut() {
+            // Core ML entry lives in the FluidAudio cache, not Talky's dir.
+            #[cfg(target_os = "macos")]
+            if model.id.ends_with("-coreml") {
+                model.is_downloaded = Self::coreml_is_downloaded(&model.filename);
+                model.is_downloading = false;
+                model.partial_size = 0;
+                continue;
+            }
             if model.is_directory {
                 // For directory-based models, check if the directory exists
                 let model_path = self.models_dir.join(&model.filename);
@@ -263,6 +330,14 @@ impl ModelManager {
 
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
+
+        // Core ML entries don't have a URL — they're pulled by the sidecar
+        // from Hugging Face via FluidAudio. Route through the sidecar while
+        // emitting the standard `model-download-progress` event.
+        #[cfg(target_os = "macos")]
+        if model_id.ends_with("-coreml") {
+            return self.download_coreml_model(&model_info).await;
+        }
 
         let url = model_info
             .url
@@ -389,15 +464,12 @@ impl ModelManager {
         let mut last_progress_time = std::time::Instant::now();
 
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| {
+            let chunk = chunk.inspect_err(|_e| {
                 // Mark as not downloading on error
-                {
-                    let mut models = self.available_models.lock_or_recover();
-                    if let Some(model) = models.get_mut(model_id) {
-                        model.is_downloading = false;
-                    }
+                let mut models = self.available_models.lock_or_recover();
+                if let Some(model) = models.get_mut(model_id) {
+                    model.is_downloading = false;
                 }
-                e
             })?;
 
             file.write_all(&chunk)?;
@@ -545,6 +617,160 @@ impl ModelManager {
         Ok(())
     }
 
+    /// Drive the sidecar's `load_streaming` as a one-shot download. Progress
+    /// is driven by a Rust-side polling task that measures the FluidAudio
+    /// cache directory size every 500ms and emits `model-download-progress`.
+    /// We don't rely on FluidAudio's own progressHandler: empirically, its
+    /// ticks don't make it through the Swift→Rust bridge (logged zero ticks
+    /// across 25s+ downloads). Cache-size polling is independent of that and
+    /// gives smooth progress regardless.
+    ///
+    /// The continuous emission (every 500ms) also sidesteps the listener-
+    /// timing problem — subscribers that mount partway through the download
+    /// pick up the next tick within a half-second.
+    #[cfg(target_os = "macos")]
+    async fn download_coreml_model(&self, model_info: &ModelInfo) -> Result<()> {
+        use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr, CoreMlDownloadProgress};
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::Duration;
+
+        // Already populated: nothing to do.
+        if Self::coreml_is_downloaded(&model_info.filename) {
+            self.update_download_status()?;
+            return Ok(());
+        }
+
+        {
+            let mut models = self.available_models.lock_or_recover();
+            if let Some(m) = models.get_mut(&model_info.id) {
+                m.is_downloading = true;
+            }
+        }
+
+        let app_handle = self.app_handle.clone();
+        let model_id_owned = model_info.id.clone();
+        let total_bytes = model_info.size_mb.saturating_mul(1024 * 1024);
+        let cache_path =
+            Self::coreml_cache_path(&model_info.filename).ok_or_else(|| anyhow::anyhow!("$HOME unavailable"))?;
+
+        // Primary signal: FluidAudio's progressHandler, invoked per HTTP
+        // chunk during download (0-50% of the fraction range) and once per
+        // model during compilation (50-100%). Byte-accurate when it's
+        // firing.
+        //
+        // Safety net: a low-frequency disk poller (every 2s). If the Swift→
+        // Rust bridge drops ticks, or FluidAudio goes quiet during the gap
+        // between downloading and compiling, at least the bar creeps up
+        // based on cache-dir size. We only emit from the poller if the
+        // disk-derived percentage exceeds the last FluidAudio-reported
+        // percentage — never regress.
+        use std::sync::atomic::AtomicU64;
+        let last_fluid_pct = Arc::new(AtomicU64::new(0));
+        let poller_done = Arc::new(AtomicBool::new(false));
+        let poller_done_clone = poller_done.clone();
+        let last_fluid_pct_for_poll = last_fluid_pct.clone();
+        let app_for_poll = app_handle.clone();
+        let model_id_for_poll = model_id_owned.clone();
+        let cache_path_for_poll = cache_path.clone();
+        let poller = tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(2000)).await;
+                if poller_done_clone.load(Ordering::Acquire) {
+                    break;
+                }
+                let downloaded = dir_size_bytes(&cache_path_for_poll);
+                let disk_pct = if total_bytes > 0 {
+                    ((downloaded as f64 / total_bytes as f64) * 100.0).clamp(0.0, 99.0)
+                } else {
+                    0.0
+                };
+                // `last_fluid_pct` stores percentage * 100 as u64 for atomic
+                // integer ordering. 99.5% is 9950.
+                let last = last_fluid_pct_for_poll.load(Ordering::Acquire) as f64 / 100.0;
+                if disk_pct <= last {
+                    continue;
+                }
+                let _ = app_for_poll.emit(
+                    "model-download-progress",
+                    DownloadProgress {
+                        model_id: model_id_for_poll.clone(),
+                        downloaded,
+                        total: total_bytes,
+                        percentage: disk_pct,
+                    },
+                );
+            }
+        });
+
+        let app_for_blocking = app_handle.clone();
+        let model_id_for_blocking = model_id_owned.clone();
+        let last_fluid_pct_for_blocking = last_fluid_pct.clone();
+        let result = tokio::task::spawn_blocking(move || -> Result<()> {
+            let bin = find_sidecar_binary()?;
+            let mut asr = CoreMlAsr::spawn(&bin, None)?;
+            asr.load_streaming("v3", |p: CoreMlDownloadProgress| {
+                log::debug!(
+                    "[coreml-download] fluid tick: fraction={:.3} phase={} files={:?}/{:?}",
+                    p.fraction,
+                    p.phase,
+                    p.completed_files,
+                    p.total_files
+                );
+                let percentage = (p.fraction * 100.0).clamp(0.0, 99.0);
+                last_fluid_pct_for_blocking
+                    .store((percentage * 100.0) as u64, Ordering::Release);
+                let downloaded = ((p.fraction.clamp(0.0, 1.0)) * total_bytes as f64) as u64;
+                let _ = app_for_blocking.emit(
+                    "model-download-progress",
+                    DownloadProgress {
+                        model_id: model_id_for_blocking.clone(),
+                        downloaded,
+                        total: total_bytes,
+                        percentage,
+                    },
+                );
+            })?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("coreml download task join: {}", e))?;
+
+        poller_done.store(true, Ordering::Release);
+        let _ = poller.await;
+
+        {
+            let mut models = self.available_models.lock_or_recover();
+            if let Some(m) = models.get_mut(&model_info.id) {
+                m.is_downloading = false;
+            }
+        }
+
+        result?;
+
+        // Mark coreml_model_ready so the migration-promotion check can fire on
+        // next launch without re-probing the FluidAudio cache.
+        let mut settings = get_settings(&self.app_handle);
+        settings.coreml_model_ready = true;
+        write_settings(&self.app_handle, settings);
+
+        self.update_download_status()?;
+
+        // Final 100% emit, then the complete event.
+        let _ = app_handle.emit(
+            "model-download-progress",
+            DownloadProgress {
+                model_id: model_id_owned.clone(),
+                downloaded: total_bytes,
+                total: total_bytes,
+                percentage: 100.0,
+            },
+        );
+        let _ = app_handle.emit("model-download-complete", &model_info.id);
+        log::info!("[coreml-download] complete: {}", model_info.id);
+
+        Ok(())
+    }
+
     pub fn delete_model(&self, model_id: &str) -> Result<()> {
         debug!("ModelManager: delete_model called for: {}", model_id);
 
@@ -557,6 +783,22 @@ impl ModelManager {
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
         debug!("ModelManager: Found model info: {:?}", model_info);
+
+        // Core ML: wipe the FluidAudio cache subdir.
+        #[cfg(target_os = "macos")]
+        if model_id.ends_with("-coreml") {
+            if let Some(cache) = Self::coreml_cache_path(&model_info.filename) {
+                if cache.exists() {
+                    info!("Deleting Core ML cache at: {:?}", cache);
+                    fs::remove_dir_all(&cache)?;
+                }
+            }
+            let mut settings = get_settings(&self.app_handle);
+            settings.coreml_model_ready = false;
+            write_settings(&self.app_handle, settings);
+            self.update_download_status()?;
+            return Ok(());
+        }
 
         let model_path = self.models_dir.join(&model_info.filename);
         let partial_path = self
@@ -608,6 +850,19 @@ impl ModelManager {
         let model_info = self
             .get_model_info(model_id)
             .ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
+
+        // Core ML lives in the FluidAudio cache, not Talky's models dir.
+        // The sidecar path uses its own internal probe; this method exists
+        // mostly for symmetry with the other entries.
+        #[cfg(target_os = "macos")]
+        if model_id.ends_with("-coreml") {
+            let cache = Self::coreml_cache_path(&model_info.filename)
+                .ok_or_else(|| anyhow::anyhow!("$HOME unavailable"))?;
+            if !cache.exists() {
+                return Err(anyhow::anyhow!("Core ML cache not populated"));
+            }
+            return Ok(cache);
+        }
 
         if !model_info.is_downloaded {
             return Err(anyhow::anyhow!("Model not available: {}", model_id));

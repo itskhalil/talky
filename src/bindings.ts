@@ -488,6 +488,49 @@ async getRecommendedFirstModel() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * List all stored error events, newest first. Drives the Recent Events
+ * settings section.
+ */
+async listErrorEvents() : Promise<UserVisibleError[]> {
+    return await TAURI_INVOKE("list_error_events");
+},
+/**
+ * Mark a specific error event as dismissed. Its banner won't show again; the
+ * Recent Events list still retains the entry.
+ */
+async dismissErrorEvent(id: string) : Promise<void> {
+    await TAURI_INVOKE("dismiss_error_event", { id });
+},
+/**
+ * Wipe every stored error event.
+ */
+async clearErrorEvents() : Promise<void> {
+    await TAURI_INVOKE("clear_error_events");
+},
+/**
+ * Reveal `talky.log` in Finder (selected, not just the folder) and open a
+ * pre-filled mailto. The user attaches the log file themselves from the
+ * Finder window — mailto body limits on macOS are flaky, so we don't try to
+ * embed log contents.
+ */
+async sendLogsToDeveloper(errorKind: ErrorKind | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("send_logs_to_developer", { errorKind }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Read and clear `pending_promotion`. Frontend calls this on mount: if the
+ * previous `setup()` promoted `selected_model` to the Core ML id, this
+ * returns true once and false thereafter. Decouples the banner from an
+ * unreliable startup event emit.
+ */
+async consumePendingPromotion() : Promise<boolean> {
+    return await TAURI_INVOKE("consume_pending_promotion");
+},
 async getAvailableMicrophones() : Promise<Result<AudioDevice[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_microphones") };
@@ -1025,10 +1068,30 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number }
+user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; coreml_model_ready?: boolean; last_run_version?: string | null; 
+/**
+ * Set to true when `setup()` promotes `selected_model` from the ONNX id
+ * to the `-coreml` id. Frontend reads + clears this on mount to decide
+ * whether to show the promotion banner. Persisted rather than fired as
+ * an event to sidestep the emit-before-listener race.
+ */
+pending_promotion?: boolean }
 export type Attachment = { id: string; session_id: string; filename: string; file_path: string; mime_type: string; file_size: number; extracted_text: string | null; created_at: number }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
-export type EngineType = "Whisper" | "Parakeet" | "Moonshine"
+export type EngineType = "Parakeet"
+export type ErrorKind = 
+/**
+ * Full-app crash recovered from ~/Library/Logs/DiagnosticReports/.
+ */
+"native_crash" | 
+/**
+ * Core ML sidecar died unexpectedly.
+ */
+"sidecar_crashed" | 
+/**
+ * A transcription model failed to load.
+ */
+"model_load_failed"
 export type Folder = { id: string; name: string; color: string | null; sort_order: number; created_at: number }
 export type FontSize = "small" | "medium" | "large"
 export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null }
@@ -1074,6 +1137,7 @@ snippet: string }
 export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null }
 export type Tag = { id: string; name: string; color: string | null }
 export type TranscriptSegment = { id: number; session_id: string; text: string; source: string; start_ms: number; end_ms: number; created_at: number }
+export type UserVisibleError = { id: string; kind: ErrorKind; title: string; detail: string; timestamp_ms: number; dismissed_at?: number | null }
 export type WordSuggestion = { word: string; source_session_title: string; source_session_id: string }
 
 /** tauri-specta globals **/

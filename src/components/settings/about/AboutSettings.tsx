@@ -7,6 +7,8 @@ import { SettingContainer } from "../../ui/SettingContainer";
 
 import { UserDataDirectory } from "../UserDataDirectory";
 import { LogDirectory } from "../debug";
+import { SendLogsSetting } from "../SendLogsSetting";
+import { RecentEventsSetting } from "../RecentEventsSetting";
 
 export const AboutSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -40,20 +42,10 @@ export const AboutSettings: React.FC = () => {
 
         <UserDataDirectory descriptionMode="tooltip" grouped={true} />
         <LogDirectory grouped={true} />
+        <SendLogsSetting />
       </SettingsGroup>
 
-      <SettingsGroup title={t("settings.about.acknowledgments.title")}>
-        <SettingContainer
-          title={t("settings.about.acknowledgments.whisper.title")}
-          description={t("settings.about.acknowledgments.whisper.description")}
-          grouped={true}
-          layout="stacked"
-        >
-          <div className="text-sm text-mid-gray">
-            {t("settings.about.acknowledgments.whisper.details")}
-          </div>
-        </SettingContainer>
-      </SettingsGroup>
+      <RecentEventsSetting />
     </div>
   );
 };

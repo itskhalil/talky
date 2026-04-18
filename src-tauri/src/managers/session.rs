@@ -154,12 +154,6 @@ pub struct Attachment {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
-pub struct SessionWithTags {
-    pub session: Session,
-    pub tags: Vec<Tag>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct TranscriptSegment {
     pub id: i64,
     pub session_id: String,
@@ -666,6 +660,7 @@ impl SessionManager {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn save_meeting_notes(
         &self,
         session_id: &str,

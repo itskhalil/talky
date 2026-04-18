@@ -17,8 +17,8 @@ fn validate_shortcut(shortcut: &str) -> Result<(), String> {
     // Reject bare low function keys (F1-F12) without modifiers as they conflict with system
     if parts.len() == 1 {
         let key = parts[0].to_uppercase();
-        if key.starts_with('F') {
-            if let Ok(n) = key[1..].parse::<u32>() {
+        if let Some(stripped) = key.strip_prefix('F') {
+            if let Ok(n) = stripped.parse::<u32>() {
                 if n <= 12 {
                     return Err(format!(
                         "F{} without modifiers may conflict with system shortcuts",

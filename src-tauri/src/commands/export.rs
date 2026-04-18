@@ -105,12 +105,7 @@ fn generate_markdown(
             if let Some(ref content) = meeting_notes.user_notes {
                 let stripped = strip_tags(content);
                 if !stripped.trim().is_empty() {
-                    let heading = if notes_section_count > 1 {
-                        "## Notes\n\n"
-                    } else {
-                        "## Notes\n\n"
-                    };
-                    md.push_str(heading);
+                    md.push_str("## Notes\n\n");
                     md.push_str(&stripped);
                     md.push_str("\n\n");
                 }

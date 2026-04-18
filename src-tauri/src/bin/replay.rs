@@ -204,7 +204,7 @@ fn main() -> Result<()> {
             output,
         } => {
             let rec = DebugRecording::load(&recording)?;
-            let mut eng = ReplayEngine::load(&engine, &model)?;
+            let mut eng = ReplayEngine::load(&engine, Some(&model))?;
 
             eprintln!(
                 "Transcribing raw audio: mic={:.1}s, spk={:.1}s, chunk_size={:.1}s, aec={}",
@@ -278,10 +278,14 @@ fn main() -> Result<()> {
             }
 
             let mut engine_instance = if !dry_run {
-                let model_path = model.ok_or_else(|| {
-                    anyhow::anyhow!("--model is required when not using --dry-run")
-                })?;
-                Some(ReplayEngine::load(&engine, &model_path)?)
+                let model_path = if engine.starts_with("coreml") {
+                    None
+                } else {
+                    Some(model.ok_or_else(|| {
+                        anyhow::anyhow!("--model is required when not using --dry-run")
+                    })?)
+                };
+                Some(ReplayEngine::load(&engine, model_path.as_deref())?)
             } else {
                 None
             };
@@ -329,7 +333,11 @@ fn main() -> Result<()> {
             chunk_size,
             output,
         } => {
-            let model = model.unwrap_or_else(|| default_model_path(&engine));
+            let model = if engine.starts_with("coreml") {
+                None
+            } else {
+                Some(model.unwrap_or_else(|| default_model_path(&engine)))
+            };
             let samples = decode_audio_file(&input)?;
 
             eprintln!(
@@ -338,7 +346,7 @@ fn main() -> Result<()> {
                 samples.len() as f64 / 16000.0,
             );
 
-            let mut eng = ReplayEngine::load(&engine, &model)?;
+            let mut eng = ReplayEngine::load(&engine, model.as_deref())?;
             let text = transcribe_file(&samples, &mut eng, chunk_size)?;
 
             let out_path = output.unwrap_or_else(|| input.with_extension("txt"));
@@ -387,7 +395,7 @@ fn main() -> Result<()> {
 
             let base_config = ReplayConfig::from_pipeline_config(&rec.metadata.pipeline_config);
             let sweep_config = SweepConfig::load(&config_path)?;
-            let mut eng = ReplayEngine::load(&engine, &model)?;
+            let mut eng = ReplayEngine::load(&engine, Some(&model))?;
 
             eprintln!(
                 "Running sweep on {:.1}s recording with {} parameter combinations",
