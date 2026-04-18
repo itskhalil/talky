@@ -58,11 +58,7 @@ irm https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.ps1 |
 
 ### Local Transcription
 
-All transcription happens on your device:
-
-- Mic and speaker audio are captured and transcribed separately so you can tell who said what
-- Silence is filtered using VAD (Voice Activity Detection) with Silero
-- Transcription uses **Parakeet models**
+All transcription happens on your device with Parakeet models. Mic and speaker audio are captured and transcribed separately so you can tell who said what.
 
 ### AI Features
 
