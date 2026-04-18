@@ -40,18 +40,37 @@ Chat with your meeting in natural language. Ask about decisions, action items, o
 #### macOS (quick install)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.sh | bash
 ```
 
 #### Windows (quick install)
 
 ```powershell
-irm https://raw.githubusercontent.com/itskhalil/talky/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.ps1 | iex
 ```
 
 ### Development Setup
 
-For detailed build instructions including platform-specific requirements, see [BUILD.md](BUILD.md).
+#### Prerequisites
+
+- [Rust](https://rustup.rs/) (latest stable)
+- [Bun](https://bun.sh/) package manager
+- [Tauri prerequisites](https://tauri.app/start/prerequisites/)
+
+Platform extras:
+
+- **macOS** — `xcode-select --install`
+- **Windows** — Visual Studio 2019/2022 with C++ Build Tools
+- **Linux** — build essentials, ALSA, GTK/WebKit dev libraries (see [Tauri prerequisites](https://tauri.app/start/prerequisites/))
+
+#### Build from source
+
+```bash
+git clone git@github.com:itskhalil/talky.git
+cd talky
+bun install
+bun tauri dev
+```
 
 ## How It Works
 
