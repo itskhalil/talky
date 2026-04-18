@@ -21,6 +21,7 @@ Run one full iteration of the prompt improvement loop.
 ## Step 1: Review
 
 Read the eval guide and latest results:
+
 - `.AI/EVAL_REVIEW_GUIDE.md` — focus on: research principles, known failure modes, history (especially recent rounds)
 - `.AI/results/summary.md` — current scores, gaps, problem areas
 - Production prompts: `src-tauri/resources/prompts/enhance_notes.txt` (system) and `enhance_notes_user.txt` (user)
@@ -30,6 +31,7 @@ Identify the biggest remaining gaps. What test cases score lowest? What qualitat
 ## Step 2: Hypothesize
 
 Generate 2-4 hypotheses for what could improve results. Each hypothesis should:
+
 - Target a specific problem (not "make it better")
 - Have a testable mechanism ("changing X should affect Y because Z")
 - Be grounded in the research principles
@@ -37,6 +39,7 @@ Generate 2-4 hypotheses for what could improve results. Each hypothesis should:
 ## Step 3: Check Against History
 
 For each hypothesis, check:
+
 - Has something similar been tried before? (History section of the guide)
 - Does it contradict any research principle?
 - Does it risk a known failure mode?
@@ -46,12 +49,14 @@ Discard hypotheses that repeat past failures. Refine ones that are similar-but-d
 ## Step 4: Design Variants
 
 Pick 1-3 hypotheses to test. For each:
+
 1. Create the variant: `.AI/new-variant.sh <name>`
 2. Edit `system.txt` and/or `user.txt` in `.AI/prompt-variants/<name>/`
 3. Create the prompt loader: copy an existing `.AI/prompts/*.mjs` file and change the variant directory path
 4. Add to `.AI/promptfooconfig.yaml`
 
 **Variant design principles:**
+
 - Change one thing per variant (isolate variables)
 - Prefer replacing text over adding text (prompt length signals output length)
 - Check for conflicts with existing instructions
@@ -63,6 +68,7 @@ Pick 1-3 hypotheses to test. For each:
 ## Step 5: Self-Review
 
 Before running, review each variant as the user would:
+
 - Does this hypothesis make sense given the research?
 - Is the change minimal and targeted?
 - Could this cause regressions? On which cases?
@@ -79,6 +85,7 @@ This runs all variants x all test cases x 4 repeats (default), then generates th
 ## Step 7: Review Results
 
 Review the results following the `/eval-review` skill checklist:
+
 - Read `results/summary.md`
 - Check score matrix, dimension averages, bullet stats, ratio tables
 - Deep dive into per-case files for sparse/no-notes cases and any scores <0.85
@@ -90,11 +97,13 @@ Classify each variant: WINNER, PROMISING, NULL, or FAILED.
 ## Step 8: Decide & Document
 
 Based on the review:
+
 - **WINNER:** Recommend promotion. To promote: copy variant's `system.txt` and `user.txt` to `src-tauri/resources/prompts/enhance_notes.txt` and `enhance_notes_user.txt`. The baseline symlinks automatically pick up the changes. Update config.
 - **PROMISING:** Recommend another round with refinements.
 - **NULL/FAILED:** Document what was learned.
 
 Update `.AI/EVAL_REVIEW_GUIDE.md`:
+
 - Add the round to the History section with full results table
 - Update research principles if anything was confirmed/refuted
 - Add new failure modes if discovered
@@ -103,6 +112,7 @@ Update `.AI/EVAL_REVIEW_GUIDE.md`:
 ## Output
 
 Present findings to the user:
+
 1. What you hypothesized and why
 2. What variants you created
 3. Results summary

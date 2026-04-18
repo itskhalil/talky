@@ -1,10 +1,9 @@
 mod actions;
 pub mod aec;
-pub mod debug_recording;
-pub mod replay;
-mod crash_reporter;
 pub mod audio_toolkit;
 mod commands;
+mod crash_reporter;
+pub mod debug_recording;
 pub mod error_events;
 mod llm_client;
 mod managers;
@@ -16,6 +15,7 @@ mod mic_detect;
 mod platform;
 #[cfg(target_os = "macos")]
 mod power_events;
+pub mod replay;
 mod settings;
 mod shortcut;
 mod tray;
@@ -111,9 +111,7 @@ fn spawn_coreml_migration_task(app: AppHandle) {
         };
         match manager.download_model(CORE_ML_MODEL_ID).await {
             Ok(()) => {
-                log::info!(
-                    "Core ML migration: complete — promotion fires on next launch"
-                );
+                log::info!("Core ML migration: complete — promotion fires on next launch");
             }
             Err(e) => {
                 log::warn!("Core ML migration failed: {}", e);
@@ -666,7 +664,10 @@ pub fn run() {
                     settings_dirty = true;
                 }
                 UpgradeState::PromoteReady => {
-                    log::info!("Core ML model ready; promoting selected_model to {}", CORE_ML_MODEL_ID);
+                    log::info!(
+                        "Core ML model ready; promoting selected_model to {}",
+                        CORE_ML_MODEL_ID
+                    );
                     settings.selected_model = CORE_ML_MODEL_ID.to_string();
                     settings.pending_promotion = true;
                     settings_dirty = true;

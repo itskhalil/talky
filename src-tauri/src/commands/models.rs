@@ -1,8 +1,8 @@
-use crate::managers::model::{ModelInfo, ModelManager};
 #[cfg(target_os = "macos")]
 use crate::managers::model::CORE_ML_MODEL_ID;
 #[cfg(not(target_os = "macos"))]
 use crate::managers::model::ONNX_MODEL_ID;
+use crate::managers::model::{ModelInfo, ModelManager};
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{get_settings, write_settings};
 use std::sync::Arc;

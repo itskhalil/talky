@@ -1393,9 +1393,7 @@ export function NoteView({
                                 <FolderIcon
                                   size={12}
                                   style={
-                                    opt.color
-                                      ? { color: opt.color }
-                                      : undefined
+                                    opt.color ? { color: opt.color } : undefined
                                   }
                                 />
                               )}

@@ -1,12 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  AlertTriangle,
-  Cpu,
-  FileWarning,
-  Send,
-  Trash2,
-} from "lucide-react";
+import { AlertTriangle, Cpu, FileWarning, Send, Trash2 } from "lucide-react";
 import { SettingsGroup } from "../ui/SettingsGroup";
 import { commands, type ErrorKind, type UserVisibleError } from "@/bindings";
 import { useTauriEvent } from "@/hooks/useTauriEvent";
@@ -79,8 +73,7 @@ export const RecentEventsSetting: React.FC = () => {
                   <Icon className="h-4 w-4 text-text/60 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-text">
-                      {event.title ||
-                        t(`recentEvents.kind.${event.kind}`)}
+                      {event.title || t(`recentEvents.kind.${event.kind}`)}
                     </p>
                     {event.detail && (
                       <p className="text-xs text-text/60 mt-0.5 line-clamp-2">

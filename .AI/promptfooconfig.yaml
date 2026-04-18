@@ -1,4 +1,4 @@
-description: 'enhance_notes — baseline + template variants'
+description: "enhance_notes — baseline + template variants"
 
 prompts:
   - id: file://prompts/baseline.mjs

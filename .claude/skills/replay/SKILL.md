@@ -62,6 +62,7 @@ Cartesian product parameter sweep. Requires `golden.json` in the recording direc
 ```
 
 Sweep config format:
+
 ```json
 {
   "parameters": {
@@ -73,27 +74,27 @@ Sweep config format:
 
 ## Tunable Parameters (19)
 
-| Parameter | Description |
-|-----------|-------------|
-| `vad_threshold` | Voice activity detection confidence threshold |
-| `vad_onset_frames` | Frames of speech needed before VAD triggers |
-| `vad_hangover_frames` | Frames of silence before VAD releases |
-| `aec_enabled` | Acoustic echo cancellation on/off |
-| `speaker_energy_threshold` | Energy level above which speaker is considered active |
-| `mic_energy_threshold` | Energy level for mic activity detection |
-| `skip_mic_on_speaker_energy` | Zero mic windows where speaker is active |
-| `dedup_similarity_threshold` | Levenshtein similarity for cross-channel dedup |
-| `dedup_time_overlap_ms` | Time overlap required for dedup to apply |
-| `min_chunk_samples` | Minimum audio chunk before transcription |
-| `max_chunk_samples` | Maximum chunk (force flush) |
-| `overlap_samples` | Overlap between consecutive chunks |
-| `prefix_overlap_min_words` | Min words for prefix overlap removal |
-| `spk_silence_flush_polls` | Silent polls before flushing speaker buffer |
-| `window_ms` | Window size for speaker energy filtering |
-| `hpf_cutoff` | High-pass filter cutoff frequency |
-| `target_rms` | RMS normalization target |
-| `silence_threshold` | RMS below which audio is considered silent |
-| `poll_interval_ms` | Simulated polling interval (250ms = real-time) |
+| Parameter                    | Description                                           |
+| ---------------------------- | ----------------------------------------------------- |
+| `vad_threshold`              | Voice activity detection confidence threshold         |
+| `vad_onset_frames`           | Frames of speech needed before VAD triggers           |
+| `vad_hangover_frames`        | Frames of silence before VAD releases                 |
+| `aec_enabled`                | Acoustic echo cancellation on/off                     |
+| `speaker_energy_threshold`   | Energy level above which speaker is considered active |
+| `mic_energy_threshold`       | Energy level for mic activity detection               |
+| `skip_mic_on_speaker_energy` | Zero mic windows where speaker is active              |
+| `dedup_similarity_threshold` | Levenshtein similarity for cross-channel dedup        |
+| `dedup_time_overlap_ms`      | Time overlap required for dedup to apply              |
+| `min_chunk_samples`          | Minimum audio chunk before transcription              |
+| `max_chunk_samples`          | Maximum chunk (force flush)                           |
+| `overlap_samples`            | Overlap between consecutive chunks                    |
+| `prefix_overlap_min_words`   | Min words for prefix overlap removal                  |
+| `spk_silence_flush_polls`    | Silent polls before flushing speaker buffer           |
+| `window_ms`                  | Window size for speaker energy filtering              |
+| `hpf_cutoff`                 | High-pass filter cutoff frequency                     |
+| `target_rms`                 | RMS normalization target                              |
+| `silence_threshold`          | RMS below which audio is considered silent            |
+| `poll_interval_ms`           | Simulated polling interval (250ms = real-time)        |
 
 ## Scoring
 

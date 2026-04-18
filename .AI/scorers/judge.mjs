@@ -1,4 +1,4 @@
-import { callLLM } from '../providers/talky.mjs';
+import { callLLM } from "../providers/talky.mjs";
 
 const JUDGE_SYSTEM = `You evaluate AI-enhanced meeting notes. The goal is notes that feel like the USER wrote them—enhanced, not replaced.
 
@@ -79,8 +79,8 @@ const WEIGHTS = {
   tagging: 0.0, // treated as a binary gate, not folded into the score
 };
 
-const SCORED_DIMS = ['voice', 'density', 'clarity', 'readability', 'additions'];
-const ALL_DIMS = [...SCORED_DIMS, 'tagging'];
+const SCORED_DIMS = ["voice", "density", "clarity", "readability", "additions"];
+const ALL_DIMS = [...SCORED_DIMS, "tagging"];
 
 const TAGGING_PASS_THRESHOLD = 3; // below this → fail with tagging reason, skip score
 // Length penalty — golden is the target; shorter is worse than longer (golden is already terse)
@@ -97,7 +97,7 @@ function buildJudgeMessage(userNotes, transcript, golden, output) {
 The user is Khalil, the person who recorded this meeting. Their microphone audio is labeled [Mic] in the transcript. [Other] is the other speaker. The notes should read as if written by Khalil.
 
 ## USER'S ORIGINAL NOTES
-${userNotes ?? '(no notes taken)'}
+${userNotes ?? "(no notes taken)"}
 
 ## TRANSCRIPT (first 3000 chars)
 ${transcript.slice(0, 3000)}
@@ -112,13 +112,16 @@ ${output}`;
 const wordCount = (s) => s.split(/\s+/).filter(Boolean).length;
 
 function bulletStats(text) {
-  const lines = text.split('\n');
-  const bullets = lines.filter(l => l.trim().match(/^- /));
-  const wordCounts = bullets.map(b => b.trim().replace(/^- /, '').split(/\s+/).filter(Boolean).length);
+  const lines = text.split("\n");
+  const bullets = lines.filter((l) => l.trim().match(/^- /));
+  const wordCounts = bullets.map(
+    (b) => b.trim().replace(/^- /, "").split(/\s+/).filter(Boolean).length,
+  );
   const total = wordCounts.length;
-  if (total === 0) return { avg_bullet_words: 0, long_bullet_pct: 0, bullet_count: 0 };
+  if (total === 0)
+    return { avg_bullet_words: 0, long_bullet_pct: 0, bullet_count: 0 };
   const avg = wordCounts.reduce((a, b) => a + b, 0) / total;
-  const longCount = wordCounts.filter(w => w > 20).length;
+  const longCount = wordCounts.filter((w) => w > 20).length;
   return {
     avg_bullet_words: Math.round(avg * 10) / 10,
     long_bullet_pct: Math.round((longCount / total) * 100) / 100,
@@ -127,27 +130,26 @@ function bulletStats(text) {
 }
 
 function chainBulletCount(text) {
-  const lines = text.split('\n');
-  const bullets = lines.filter(l => l.trim().match(/^- /));
-  return bullets.filter(b => b.includes(';') || b.includes(' — ')).length;
+  const lines = text.split("\n");
+  const bullets = lines.filter((l) => l.trim().match(/^- /));
+  return bullets.filter((b) => b.includes(";") || b.includes(" — ")).length;
 }
 
 export default async function (output, context) {
   const { vars } = context;
 
   // Strip inline reasoning (before ---NOTES--- delimiter) if present
-  const notesDelimiter = '---NOTES---';
+  const notesDelimiter = "---NOTES---";
   if (output.includes(notesDelimiter)) {
     output = output.split(notesDelimiter).pop().trim();
   }
 
   // Normalize [added] → [ai] so variants using alternate tag names are judged fairly
-  output = output.replace(/\[added\]/g, '[ai]');
+  output = output.replace(/\[added\]/g, "[ai]");
 
   // Normalize suffix tags → prefix for fair judging against prefix-tagged goldens
-  output = output.replace(/^(\s*- )(.+) \[(noted|ai)\]$/gm, '$1[$3] $2');
-  output = output.replace(/^([^#\-\s\n].+) \[(noted|ai)\]$/gm, '[$2] $1');
-
+  output = output.replace(/^(\s*- )(.+) \[(noted|ai)\]$/gm, "$1[$3] $2");
+  output = output.replace(/^([^#\-\s\n].+) \[(noted|ai)\]$/gm, "[$2] $1");
 
   const judgeMsg = buildJudgeMessage(
     vars.notes,
@@ -160,8 +162,8 @@ export default async function (output, context) {
   try {
     raw = await callLLM(
       [
-        { role: 'system', content: JUDGE_SYSTEM },
-        { role: 'user', content: judgeMsg },
+        { role: "system", content: JUDGE_SYSTEM },
+        { role: "user", content: judgeMsg },
       ],
       process.env.JUDGE_MODEL,
     );
@@ -188,7 +190,8 @@ export default async function (output, context) {
   // — conciseness & bullet metrics (computed early so all return paths include them) —
   const outputWords = wordCount(output);
   const goldenWords = wordCount(vars.golden);
-  const conciseness = goldenWords > 0 ? Math.min(1, goldenWords / outputWords) : 1;
+  const conciseness =
+    goldenWords > 0 ? Math.min(1, goldenWords / outputWords) : 1;
   const bullets = bulletStats(output);
   const chainBullets = chainBulletCount(output);
 
@@ -198,23 +201,29 @@ export default async function (output, context) {
   // Skip tagging gate if output intentionally has no tags (e.g. no-tags variant)
   const hasAnyTags = /\[ai\]/.test(output);
   const taggingScore = scores.tagging?.score;
-  if (hasAnyTags && typeof taggingScore === 'number' && taggingScore < TAGGING_PASS_THRESHOLD) {
+  if (
+    hasAnyTags &&
+    typeof taggingScore === "number" &&
+    taggingScore < TAGGING_PASS_THRESHOLD
+  ) {
     return {
       pass: false,
       score: taggingScore / 5,
-      reason: `Tagging gate failed (${taggingScore}/5): ${scores.tagging?.reasoning ?? ''}`,
+      reason: `Tagging gate failed (${taggingScore}/5): ${scores.tagging?.reasoning ?? ""}`,
       namedScores: {
         ...buildNamedScores(scores),
         conciseness,
         ...bullets,
         chain_bullets: chainBullets,
       },
-      componentResults: [{
-        pass: false,
-        score: taggingScore / 5,
-        reason: scores.tagging?.reasoning ?? '',
-        assertion: { type: 'javascript', value: 'tagging' },
-      }],
+      componentResults: [
+        {
+          pass: false,
+          score: taggingScore / 5,
+          reason: scores.tagging?.reasoning ?? "",
+          assertion: { type: "javascript", value: "tagging" },
+        },
+      ],
     };
   }
 
@@ -244,22 +253,25 @@ export default async function (output, context) {
   const tolerance = isOver ? LENGTH_TOLERANCE_OVER : LENGTH_TOLERANCE_UNDER;
   const rate = isOver ? LENGTH_PENALTY_RATE_OVER : LENGTH_PENALTY_RATE_UNDER;
   const deviation = Math.abs(wordRatio - 1.0);
-  const lengthPenalty = deviation > tolerance
-    ? Math.min((deviation - tolerance) * rate, LENGTH_PENALTY_CAP)
-    : 0;
+  const lengthPenalty =
+    deviation > tolerance
+      ? Math.min((deviation - tolerance) * rate, LENGTH_PENALTY_CAP)
+      : 0;
 
   const finalScore = Math.max(0, weightedAvg - lengthPenalty);
 
   const problems = scores.problems ?? [];
   if (lengthPenalty > 0) {
-    const direction = wordRatio > 1 ? 'verbose' : 'terse';
-    problems.push(`Length penalty −${lengthPenalty.toFixed(2)} (${direction}: ${outputWords}w vs ${goldenWords}w golden, ${wordRatio.toFixed(2)}x)`);
+    const direction = wordRatio > 1 ? "verbose" : "terse";
+    problems.push(
+      `Length penalty −${lengthPenalty.toFixed(2)} (${direction}: ${outputWords}w vs ${goldenWords}w golden, ${wordRatio.toFixed(2)}x)`,
+    );
   }
 
   return {
     pass: finalScore >= PASS_THRESHOLD,
     score: finalScore,
-    reason: problems.length > 0 ? problems.join('; ') : 'No problems found',
+    reason: problems.length > 0 ? problems.join("; ") : "No problems found",
     namedScores: {
       ...buildNamedScores(scores),
       conciseness,
@@ -277,7 +289,7 @@ function computeWeightedAvg(scores, dims) {
   let totalWeight = 0;
   for (const dim of dims) {
     const score = scores[dim]?.score;
-    if (typeof score === 'number') {
+    if (typeof score === "number") {
       const w = WEIGHTS[dim] ?? 1.0;
       weightedSum += (score / 5) * w;
       totalWeight += w;
@@ -290,18 +302,18 @@ function buildNamedScores(scores) {
   const named = {};
   for (const dim of ALL_DIMS) {
     const score = scores[dim]?.score;
-    if (typeof score === 'number') named[dim] = score / 5;
+    if (typeof score === "number") named[dim] = score / 5;
   }
   return named;
 }
 
 function buildComponentResults(scores) {
-  return ALL_DIMS
-    .filter((dim) => typeof scores[dim]?.score === 'number')
-    .map((dim) => ({
+  return ALL_DIMS.filter((dim) => typeof scores[dim]?.score === "number").map(
+    (dim) => ({
       pass: scores[dim].score >= 3,
       score: scores[dim].score / 5,
-      reason: scores[dim].reasoning ?? '',
-      assertion: { type: 'javascript', value: dim },
-    }));
+      reason: scores[dim].reasoning ?? "",
+      assertion: { type: "javascript", value: dim },
+    }),
+  );
 }

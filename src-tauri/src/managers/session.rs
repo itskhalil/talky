@@ -1409,10 +1409,11 @@ fn build_snippet(text: &str, needle_lower: &str) -> String {
     const RIGHT: usize = 90;
 
     let lower = text.to_lowercase();
-    let match_start = match find_word_start(&lower, needle_lower).or_else(|| lower.find(needle_lower)) {
-        Some(i) => i,
-        None => return clean_for_display(&text.chars().take(LEFT + RIGHT).collect::<String>()),
-    };
+    let match_start =
+        match find_word_start(&lower, needle_lower).or_else(|| lower.find(needle_lower)) {
+            Some(i) => i,
+            None => return clean_for_display(&text.chars().take(LEFT + RIGHT).collect::<String>()),
+        };
 
     // Work in char (not byte) indexes so Unicode boundaries are safe.
     let chars: Vec<char> = text.chars().collect();

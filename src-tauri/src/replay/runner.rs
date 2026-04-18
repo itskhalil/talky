@@ -48,12 +48,10 @@ pub fn run_replay(
     // Initialize VAD
     let vad: Option<Box<dyn crate::audio_toolkit::VoiceActivityDetector>> =
         match SileroVad::new(vad_model_path, config.vad_threshold) {
-            Ok(v) => Some(Box::new(
-                v.with_smoothing(
-                    config.vad_onset_frames as usize,
-                    config.vad_hangover_frames as usize,
-                ),
-            )),
+            Ok(v) => Some(Box::new(v.with_smoothing(
+                config.vad_onset_frames as usize,
+                config.vad_hangover_frames as usize,
+            ))),
             Err(e) => {
                 log::warn!("VAD init failed: {}", e);
                 None
@@ -148,7 +146,11 @@ pub fn run_replay(
         let mic_should_transcribe = mic_has_samples && (force_flush || vad_trigger);
 
         if mic_should_transcribe {
-            let trigger_reason = if force_flush { "15s limit" } else { "speech ended" };
+            let trigger_reason = if force_flush {
+                "15s limit"
+            } else {
+                "speech ended"
+            };
             info!(
                 "[{:.1}s] MIC TRANSCRIBE - {:.1}s of audio (reason: {})",
                 current_time_ms as f32 / 1000.0,
@@ -204,11 +206,13 @@ pub fn run_replay(
                     config.overlap_samples,
                 );
 
-                let total_windows = (filtered_mic.len().saturating_sub(1)
-                    / (config.window_ms * 16) + 1)
-                    .max(1);
+                let total_windows =
+                    (filtered_mic.len().saturating_sub(1) / (config.window_ms * 16) + 1).max(1);
                 if windows_zeroed == total_windows && total_windows > 1 {
-                    info!("Skipping mic - all {} windows had speaker activity", total_windows);
+                    info!(
+                        "Skipping mic - all {} windows had speaker activity",
+                        total_windows
+                    );
                     mic_has_samples = false;
                     mic_chunk_start_ms = current_time_ms;
                     diag.mic_all_windows_zeroed_skips += 1;
@@ -258,8 +262,7 @@ pub fn run_replay(
                             let is_dup = segments
                                 .iter()
                                 .filter(|s| {
-                                    s.source == "speaker"
-                                        && s.start_ms > mic_chunk_start_ms - 5000
+                                    s.source == "speaker" && s.start_ms > mic_chunk_start_ms - 5000
                                 })
                                 .any(|seg| {
                                     is_duplicate_segment(
@@ -275,10 +278,7 @@ pub fn run_replay(
                                 });
 
                             if !is_dup {
-                                info!(
-                                    "Mic segment: '{}'",
-                                    truncate(&deduped_text, 80)
-                                );
+                                info!("Mic segment: '{}'", truncate(&deduped_text, 80));
                                 segments.push(ReplaySegment {
                                     text: deduped_text.clone(),
                                     source: "mic".to_string(),
@@ -393,9 +393,7 @@ pub fn run_replay(
                     // Dedup against speaker
                     let is_dup = segments
                         .iter()
-                        .filter(|s| {
-                            s.source == "speaker" && s.start_ms > mic_chunk_start_ms - 5000
-                        })
+                        .filter(|s| s.source == "speaker" && s.start_ms > mic_chunk_start_ms - 5000)
                         .any(|seg| {
                             is_duplicate_segment(
                                 &text,
@@ -431,7 +429,10 @@ pub fn run_replay(
         segments.len()
     );
 
-    Ok(ReplayResult { segments, diagnostics: diag })
+    Ok(ReplayResult {
+        segments,
+        diagnostics: diag,
+    })
 }
 
 /// Apply AEC to the mic channel using the speaker channel as reference.
@@ -479,7 +480,10 @@ pub fn transcribe_raw(
     let mut segments = Vec::new();
 
     // Transcribe speaker channel (clean, no AEC needed)
-    info!("Transcribing speaker channel ({} samples)...", spk_samples.len());
+    info!(
+        "Transcribing speaker channel ({} samples)...",
+        spk_samples.len()
+    );
     let mut spk_preprocessor = AudioPreprocessor::new(16000);
     for (i, chunk_start) in (0..spk_samples.len()).step_by(chunk_size).enumerate() {
         let chunk_end = (chunk_start + chunk_size).min(spk_samples.len());
@@ -508,7 +512,11 @@ pub fn transcribe_raw(
     }
 
     // Transcribe mic channel (with AEC if enabled)
-    info!("Transcribing mic channel ({} samples, aec={})...", mic_samples.len(), aec_enabled);
+    info!(
+        "Transcribing mic channel ({} samples, aec={})...",
+        mic_samples.len(),
+        aec_enabled
+    );
 
     let mic_to_transcribe = if aec_enabled {
         apply_aec_to_mic(mic_samples, spk_samples)?
@@ -567,7 +575,12 @@ pub fn decode_audio_file(path: &std::path::Path) -> Result<Vec<f32>> {
     }
 
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .map_err(|e| anyhow::anyhow!("Unsupported audio format: {}", e))?;
 
     let mut format = probed.format;
@@ -580,11 +593,7 @@ pub fn decode_audio_file(path: &std::path::Path) -> Result<Vec<f32>> {
         .codec_params
         .sample_rate
         .ok_or_else(|| anyhow::anyhow!("Unknown sample rate"))?;
-    let channels = track
-        .codec_params
-        .channels
-        .map(|c| c.count())
-        .unwrap_or(1);
+    let channels = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
     let track_id = track.id;
 
     let mut decoder = symphonia::default::get_codecs()

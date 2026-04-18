@@ -107,13 +107,16 @@ pub fn run_sweep(
             apply_override(&mut config, key, value)?;
         }
 
-        let param_desc: Vec<String> = combo
-            .iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .collect();
+        let param_desc: Vec<String> = combo.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
         info!("[{}/{}] {}", i + 1, total, param_desc.join(", "));
 
-        let replay_result = run_replay(&config, mic_samples, spk_samples, Some(engine), vad_model_path)?;
+        let replay_result = run_replay(
+            &config,
+            mic_samples,
+            spk_samples,
+            Some(engine),
+            vad_model_path,
+        )?;
         let score_result = score(&replay_result.segments, golden);
 
         info!(

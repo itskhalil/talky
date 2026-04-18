@@ -29,8 +29,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const [enhanced, setEnhanced] = useState(true);
   const [transcript, setTranscript] = useState(true);
 
-  const nothingSelected =
-    !notes && !transcript && !(enhanced && hasEnhanced);
+  const nothingSelected = !notes && !transcript && !(enhanced && hasEnhanced);
 
   // Close on Escape key
   useEffect(() => {

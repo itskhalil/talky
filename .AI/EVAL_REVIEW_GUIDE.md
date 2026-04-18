@@ -11,6 +11,7 @@ The gold standard: a reviewer should believe the user wrote it themselves. If th
 The core concept is **ghostwriting** — the model is the user's second pair of hands, the attention they couldn't give the transcript because they were present in the room. The model writes AS the user, not FOR them. The output is what the user would have written if they'd caught everything.
 
 This framing handles the calibration problem without rules:
+
 - **Dense user notes** → "they've got this, I'm patching tiny gaps"
 - **Sparse user notes** → "they were heads-down in an intense conversation, I need to reconstruct what they'd have written in their voice"
 
@@ -66,6 +67,7 @@ The judge scores on 6 dimensions (voice, density, clarity, readability, addition
 ### 2. Judge reasoning
 
 In the per-test-case files (`results/<Test Case>.md`), each run includes:
+
 - **Problems** — problems list and any verbosity penalty
 - **Reasoning** — per-dimension scores and reasoning text
 
@@ -78,7 +80,7 @@ The most important thing. In the per-test-case files (`results/<Test Case>.md`),
 - **Would the user believe they wrote this?** If it reads like a briefing doc or AI summary, it's failing regardless of scores.
 - **Is anything addressed to "you/your"?** Notes are written BY the user, not TO them. "You should follow up with the client" is wrong; "I need to follow up with the client" or "follow up with [person] about the delay" is right.
 - **Is the chronological order correct?** Topics should appear in the order they were discussed. If the user wrote one note mid-meeting, it should appear mid-output, not promoted to the top.
-- **Are the right things omitted?** Omitting *something* is fine and expected. The failure is omitting things that actually matter while including things that don't. The referenceability test: would the user come back to find this next week? They come back for decisions, commitments, open items, action items. For emotional/consequential meetings (like a conversation about leaving a company), the drivers, arguments, and key framing ARE substance — not just the final decision.
+- **Are the right things omitted?** Omitting _something_ is fine and expected. The failure is omitting things that actually matter while including things that don't. The referenceability test: would the user come back to find this next week? They come back for decisions, commitments, open items, action items. For emotional/consequential meetings (like a conversation about leaving a company), the drivers, arguments, and key framing ARE substance — not just the final decision.
 - **Are action items framed correctly?** Watch for action items that are too narrow. "Send the revised proposal by Friday" is a discrete task; "keep the client informed on timeline changes, especially with the launch approaching" is an ongoing responsibility. The second is more useful.
 - **Is the register natural?** Watch for AI-speak: "exhibited reluctance regarding the proposed timeline", "acknowledged suboptimal resource allocation", "facilitated", "comprehensive." The user writes things like "he doesn't think we can hit the deadline" or "we're understaffed on this." A good test: read a bullet aloud. Would a real person say this to a colleague, or does it sound like a management consultant wrote it?
 - **Are user notes preserved verbatim?** The user's own words should never be paraphrased. If they wrote "why didn't we catch this sooner?" it should appear as `[noted] why didn't we catch this sooner?` — not `[noted] Raised concerns about the delayed identification of the issue`.
@@ -89,12 +91,14 @@ The most important thing. In the per-test-case files (`results/<Test Case>.md`),
 The summary auto-generates **Bullet Stats** tables (per-test-case with golden reference row, plus Grand Summary) and **Ratios vs Golden** tables (Word Count, Bullet Count, Words per Bullet, Chain Bullets — each with an **Average** row). Include the ratio tables in your review. **Every numeric table in a review must have an average row.**
 
 The four ratio tables:
+
 1. **Word count ratios vs golden** — output words / golden words. Flag >1.5x (verbose) or <0.7x (too terse).
 2. **Bullet count ratios vs golden** — output bullets / golden bullets. Flag >1.3x (proliferation) or <0.5x (under-generating).
 3. **Words per bullet vs golden** — avg w/b ratio. The model consistently writes 1.3-2x golden w/b — track whether variants improve this.
-4. **Chain bullets vs golden** — bullets containing `;` or ` — `. Tracks whether chaining instructions are effective.
+4. **Chain bullets vs golden** — bullets containing `;` or `—`. Tracks whether chaining instructions are effective.
 
 Use these to spot:
+
 - **Verbosity shifts** — word count climbing vs golden or vs baseline variant
 - **Bullet bloat** — avg words per bullet increasing means bullets are becoming sentences instead of fragments
 - **Structural changes** — bullet count dropping sharply (e.g., 14 → 3) may indicate the model switched to prose-style output instead of bulleted notes
@@ -107,6 +111,7 @@ Each case runs twice. If a variant scores 0.83 on run 1 and 0.58 on run 2 for th
 ### 6. Regression on dense cases
 
 Any change targeting sparse-notes behavior must not regress on dense cases. Key metrics to watch:
+
 - **Conciseness** — previous failed variants (sf-frame, sf-both, sf-plain) exploded to 2-3x the golden's word count. Anything above 1.5x is concerning.
 - **Density score** — should stay at 0.8+. A drop to 0.4-0.6 means the output is becoming a meeting summary rather than enhanced notes.
 - **Voice** — should stay at 0.8+ for dense cases. The model should preserve the user's vocabulary and shorthand.
@@ -116,48 +121,61 @@ Any change targeting sparse-notes behavior must not regress on dense cases. Key 
 These are patterns we've identified through multiple eval rounds:
 
 ### The verbosity trap
+
 Any instruction that loosens the selectivity constraint ("complete their notes", "add what's missing") causes the model to over-generate. The production prompt uses "the 2-3 things you'd kick yourself for forgetting" as a hard ceiling. Variants that soften this consistently blow up density.
 
 ### Notes-as-scaffold for sparse notes
+
 The guideline "When user notes are present, their ordering is the scaffold" causes the model to anchor on sparse notes as the structural backbone. For one-line notes, this means the entire output is organized around that one line. This is the correct behavior for dense notes but wrong for sparse notes.
 
 ### "You/your" perspective
+
 The model sometimes writes TO the user ("You need to reschedule the demo", "Your budget request") instead of AS them ("I need to reschedule the demo", "My budget request"). This was caused by the original analyst/principal frame. The current frame ("You just came out of a meeting... your rough notes...") mostly fixes this but slips can occur, especially on no-notes cases (no notes to calibrate voice from).
 
 ### AI-speak register
+
 The model defaults to consultant language: "exhibited reluctance regarding the timeline", "acknowledged suboptimal resource allocation", "catalyzed by." The user writes casually. The frame helps but doesn't fully prevent this. Watch for it especially in [ai] additions.
 
 ### Softening raw honesty
+
 When the model writes as the user (frame variant), it tends to be more diplomatic than the user actually was. E.g., the user said "we dropped the ball on this, full stop" but the model writes "the timeline wasn't met due to resource constraints." The verbatim version is more useful — it captures the user's actual assessment, the thing you'd want to remember when discussing accountability.
 
 ### Meeting-type blindness
+
 The model should calibrate what matters based on the type of meeting. In a simple business decision call, only the decisions and actions matter. In an emotional, consequential conversation (like deciding to leave a company, or receiving difficult feedback about your behavior), the drivers, arguments, and framing ARE the substance. A prompt that cuts all reasoning and only keeps decisions would fail on these meetings.
 
 ### The no-notes complex conversation gap (no-notes-complex)
+
 When the user provides no notes AND the conversation is emotionally/contextually dense (not a simple business meeting), the model struggles. Gate scores 0.438-0.453 in early rounds. Inline reasoning improved this (v6 to 0.664, actions-remove to 0.561) but it remained below 0.8 through Round 17 (0.531 with generate-then-tag).
 
 **Partially fixed (Round 19):** Root cause identified as suppressive constraints ("Default is nothing", "User's notes are canonical") that are irrelevant for no-notes cases. Deterministic prompt swap (removing these for no-notes cases) improved no-notes-complex to 0.730 — the highest score ever for this case. Trade-off: no-notes-personal regresses modestly (0.941 → 0.900) from over-extraction at 1.74x golden word count. Round 21 variants remain below 0.6 on this case (0.489–0.569) — it continues to be the hardest case in the suite.
 
 ### Interview editorializing from reasoning step
+
 On interview-format meetings where the user is the interviewer, the reasoning step encourages analytical framing that produces editorial judgments in the notes rather than observational notes. v6 on dense-interview (0.700) adds evaluative content like "standard but not distinctive", "Most original idea" and a low-value section about the interviewer's own explanation to the candidate. It also misses the entire "His questions" section from the golden. **Partially fixed (Round 7):** actions-remove recovered dense-interview to 0.810 (+0.118 over v6) by removing "Action Items" from the list of prohibited section types, which let the model capture the candidate's questions and concrete commitments naturally.
 
 ### Bullet proliferation under compression constraints
+
 Explicit per-bullet word limits ("aim for 10 words or fewer") cause the model to generate more bullets rather than fewer total words. The combined-compress variant averaged 49.7 bullets (vs gate's 25.3) with roughly the same total content. The constraint operates at the wrong level — it compresses individual lines but doesn't reduce selectivity. Total output length is driven by how many topics the model decides to include, not how many words per bullet.
 
 ### Prompt register contradiction (em-dashes)
+
 The production prompt contains 12+ em-dashes in its instructions while simultaneously instructing: "If a bullet needs a semicolon or em-dash to chain ideas, split it into separate bullets." The prompt models heavy em-dash usage while telling the model not to use them. Principle #13 (instruction register primes output register) predicts the concrete exposure overrides the splitting instruction. Round 9 confirmed: split-example (which demonstrated splitting in Example 2) did not reduce chain_bullets (chain rate 41% vs baseline's 38%). The in-prompt examples already demonstrate 4-6 w/b fragments, yet the model produces 15 w/b. The prompt's own verbose register (full sentences, em-dashes, 15+ w/line in instruction text) may be the dominant register signal, outweighing the short examples.
 
 **Partially addressed (Round 21):** clean-all (removing em-dashes from prompt text) reduced chains from +4.9 to +1.8 vs golden AND reduced w/b from 1.44x to 1.36x — confirming that prompt punctuation patterns drive output structural habits (principle #36). Instructing the model to split chains (style-guide) doesn't work — it consolidates instead. Removing the em-dashes from the prompt itself is more effective than telling the model not to use them.
 
 ### Emotional framing as verbosity license
+
 The "sting" framing ("What from this meeting would sting to have forgotten?") was intended to increase selectivity. Instead, it broadened inclusion — most of a meeting transcript contains things that "might sting." The model interprets the emotional frame as a mandate to be thorough rather than selective. Density collapsed to 2.9/5, the worst in the eval. This validates research principle #6 (models default to verbosity due to RLHF) — emotional appeals don't counteract this bias.
 
 ### Reasoning-as-topic-listing (the characterize vs. list distinction)
-When a pre-writing reasoning step *lists* meeting content ("the three things that matter are X, Y, Z"), it creates a checklist the model exhaustively covers. When it *characterizes* the meeting's nature ("this is a deeply personal conversation"), it calibrates register without creating inclusion pressure. The difference is stark: v4's topic-listing reasoning produced 1075w on dense-review-q1 (0.310 score); v4's characterizing reasoning produced 0.938 on no-notes-personal. Any future reasoning gate must explicitly prevent topic listing.
+
+When a pre-writing reasoning step _lists_ meeting content ("the three things that matter are X, Y, Z"), it creates a checklist the model exhaustively covers. When it _characterizes_ the meeting's nature ("this is a deeply personal conversation"), it calibrates register without creating inclusion pressure. The difference is stark: v4's topic-listing reasoning produced 1075w on dense-review-q1 (0.310 score); v4's characterizing reasoning produced 0.938 on no-notes-personal. Any future reasoning gate must explicitly prevent topic listing.
 
 **Partial fix (Round 6):** v6's explicit anti-listing constraint ("not a list of what was covered") largely prevents checklist reasoning. dense-review-q1 recovered from v2's 0.773 to 0.906. The reasoning still technically lists topics on some runs, but the framing shifts from "what the meeting was about" to "what to capture" — and the 1-2 sentence limit prevents elaboration. The constraint is effective but not watertight.
 
 ### Analytical tone bleed from reasoning preamble
+
 A pre-writing reasoning step sets an analytical register that bleeds into the notes. The model shifts from first-person notes to third-person analyst mode: "[User]'s reasons for leaving" instead of "My reasons", analyst headers like "[Person]'s counter-arguments", meta-descriptions like "Senior leader's framing." This is especially bad when the reasoning text itself uses the user's name in third person, which primes the model. The shorter the reasoning, the less bleed — v3's 1-sentence reasoning had voice 4.0 vs v4's 3.6.
 
 **Partial fix (Round 6):** Using "Write your thinking/thought" instead of "Write your analysis" produces first-person reasoning text, which prevents the third-person priming. v6 recovered voice to 4.0 (from v2's 3.6). However, the fix doesn't fully prevent slips on no-notes cases where there's no user voice to anchor first-person register.
@@ -188,13 +206,13 @@ These are from the prompting research (`.AI/research.txt`) that guided the curre
 
 11. **The core question is "would they have written this down?"** Not "is this in the transcript?" Not "is this true?" Not "is this important?" — would the specific user, with their priorities and their level of detail, have noted this? This is what the ghostwriter frame enables.
 
-12. **Characterize, don't list.** (Discovered in Round 5) When asking the model to reason about what matters, *characterizing* the meeting's nature ("this is a deeply personal conversation") calibrates without creating inclusion pressure. *Listing* content ("the three things that matter are X, Y, Z") creates a checklist the model exhaustively covers. This applies to any meta-reasoning, system prompt framing, or structural instruction that references meeting content — always describe the nature of the thing, never enumerate its parts. Explicit anti-listing constraints ("not a list of what was covered") are effective at preventing this (Round 6).
+12. **Characterize, don't list.** (Discovered in Round 5) When asking the model to reason about what matters, _characterizing_ the meeting's nature ("this is a deeply personal conversation") calibrates without creating inclusion pressure. _Listing_ content ("the three things that matter are X, Y, Z") creates a checklist the model exhaustively covers. This applies to any meta-reasoning, system prompt framing, or structural instruction that references meeting content — always describe the nature of the thing, never enumerate its parts. Explicit anti-listing constraints ("not a list of what was covered") are effective at preventing this (Round 6).
 
 13. **Instruction register primes output register.** (Discovered in Round 6) The word choices in meta-instructions prime the model's output register. "Write your analysis" produces third-person analytical text; "Write your thinking" produces first-person reflective text. This is why v2's voice dropped to 3.6 (its reasoning text used the user's name in third person, priming analyst mode) while v6 recovered to 4.0 (its "Write your thinking" instruction produced first-person reasoning that didn't contaminate the notes). The instruction's register is contagious — it sets the voice for everything that follows.
 
 14. **Anti-listing constraints work better than pro-characterization instructions.** (Discovered in Round 6) v6's negative constraint ("not a list of what was covered") was more effective at preventing topic-listing than v5's positive instruction to characterize ("what kind of meeting this was and what that means"). v6 held dense-review-q1 at 0.906 while v5 slipped to 0.817. Negative constraints operate as filters on the model's default behavior; positive instructions compete with the model's default behavior. When the default is to list, telling it what NOT to do is more reliable than telling it what to do instead.
 
-15. **Prompt register does not affect output register.** The model's w/b is invariant to prompt linguistic style — terse fragment instructions, em-dash removal, and full rewrites all produce the same ~1.5x w/b (Rounds 10-11). Principle #13 (instruction register primes output register) holds for *framing keywords* ("analysis" vs "thinking" affecting voice/perspective, "jot" vs "write" affecting density) but does NOT extend to *linguistic style* (full sentences vs fragments, em-dashes vs periods). Terser prompt instructions can actually increase verbosity by causing bullet proliferation.
+15. **Prompt register does not affect output register.** The model's w/b is invariant to prompt linguistic style — terse fragment instructions, em-dash removal, and full rewrites all produce the same ~1.5x w/b (Rounds 10-11). Principle #13 (instruction register primes output register) holds for _framing keywords_ ("analysis" vs "thinking" affecting voice/perspective, "jot" vs "write" affecting density) but does NOT extend to _linguistic style_ (full sentences vs fragments, em-dashes vs periods). Terser prompt instructions can actually increase verbosity by causing bullet proliferation.
 
 16. **Words-per-bullet is driven by tag-induced elaboration, not RLHF alone.** Prompt-level text changes (word limits, compression examples, register changes, em-dash removal) don't move w/b (confirmed across Rounds 4-15). But generation architecture does: separating content generation from tag classification (generate-then-tag, Round 17) reduces w/b from ~1.5x to 1.26x golden. Frame verb changes ("jot" vs "write") also help (~1.52x → 1.40x). The mechanism is autoregressive priming — when `[ai]` precedes content tokens, the model elaborates. When content is generated first and classified separately, it writes naturally terse fragments. The residual gap (1.26x vs 1.00x) may be RLHF-related.
 
@@ -203,6 +221,7 @@ These are from the prompting research (`.AI/research.txt`) that guided the curre
 Each test case has an `enhanced` file in `.AI/Examples/` that serves as the golden reference. The judge scores relative to these goldens.
 
 For the sparse-notes cases (sparse-feedback, sparse-short), the goldens were hand-crafted through detailed discussion about what ideal enhanced notes look like. The process involved asking the user specific questions about what they'd come back for, what register they wanted, and where their notes should appear chronologically. The goldens represent:
+
 - Chronological ordering (user's note placed where it fell in the meeting, not promoted to top)
 - First-person voice (no "you/your")
 - Compressed note fragments (same terse style regardless of note density)
@@ -217,6 +236,7 @@ The regression evals folder also contains `before` and `after` files showing wha
 ## Judge configuration
 
 The judge (`scorers/judge.mjs`) has:
+
 - **Weights**: voice (1.5x), density (1.5x), clarity (1.0x), readability (1.0x), additions (1.5x), tagging (binary gate)
 - **Length penalty (asymmetric)**: penalizes deviations from golden word count in both directions. Terse is penalized much harder than verbose because the golden is already maximally compressed.
   - Verbose: 30% tolerance, rate 0.15 per 10% deviation, cap -0.25
@@ -226,6 +246,7 @@ The judge (`scorers/judge.mjs`) has:
 - **Pass threshold**: 0.6
 
 Fatal flaws include:
+
 - Sounds like a Zoom/Copilot summary
 - Ignores user's notes and rewrites from transcript
 - Drowns user's notes in AI content
@@ -235,7 +256,7 @@ Fatal flaws include:
 
 Understanding what failed and why prevents repeating mistakes.
 
-### Round 1: sf-* variants (task description changes)
+### Round 1: sf-\* variants (task description changes)
 
 Variants: sf-frame, sf-both, sf-plain, sf-gate. Changed task from "scan for 2-3 gaps" to "complete their notes." All variants exploded in verbosity (2-3x golden). **Lesson:** The "2-3 things" phrasing is load-bearing — loosening it removes the verbosity ceiling.
 
@@ -253,7 +274,7 @@ Tested gate-ex3 (enhanced examples), combined-compress (per-bullet word limits),
 
 ### Round 5: reasoning gates (inline reasoning before notes)
 
-Variants: v1-v4. All write 1-3 sentences before `---NOTES---`. v2 won (+0.025) but not promoted — voice dropped to 3.7. Key finding: reasoning that *characterizes* meeting nature calibrates register; reasoning that *lists* content creates a checklist the model exhaustively covers. Third-person reasoning primes analyst mode.
+Variants: v1-v4. All write 1-3 sentences before `---NOTES---`. v2 won (+0.025) but not promoted — voice dropped to 3.7. Key finding: reasoning that _characterizes_ meeting nature calibrates register; reasoning that _lists_ content creates a checklist the model exhaustively covers. Third-person reasoning primes analyst mode.
 
 ### Round 6: first-person reasoning fix (v5, v6)
 
@@ -303,12 +324,12 @@ Three variants testing whether tag position and frame-level keywords affect w/b.
 - **jot-frame** — System prompt only. "Write what you'd have written" → "Jot down what you'd have jotted." Frame verb change (not register change).
 - **first-token** — User prompt. Added "Start every bullet with a proper noun, number, or action verb. Never start with: The, A, An, They, It, There, We, This."
 
-| Variant | Avg | w/b ratio |
-|---|---|---|
-| baseline | 0.799 | 1.52x |
-| suffix-tags | 0.778 | 1.41x |
+| Variant       | Avg       | w/b ratio |
+| ------------- | --------- | --------- |
+| baseline      | 0.799     | 1.52x     |
+| suffix-tags   | 0.778     | 1.41x     |
 | **jot-frame** | **0.800** | **1.40x** |
-| first-token | 0.758 | 1.49x |
+| first-token   | 0.758     | 1.49x     |
 
 **suffix-tags (0.778, −0.021) — FAILED.** w/b improved (1.41x) but voice regressed (3.8). Root cause: suffix position causes content merging — model combines user+AI content into single lines then tags `[noted]`, sometimes fabricating detail and tagging it `[noted]`. Structural flaw intrinsic to suffix positioning.
 
@@ -324,9 +345,9 @@ Three variants testing whether tag position and frame-level keywords affect w/b.
 
 Two-pass approach: Pass 1 generates terse untagged notes (reuses proven no-tags prompt, 1.21x w/b). Pass 2 adds [noted]/[ai] prefix tags via classification-only prompt — explicitly forbidden from changing content. 2 variants (baseline, generate-then-tag), 9 test cases, 4 repeats each.
 
-| Variant | Avg | w/b ratio |
-|---|---|---|
-| baseline | 0.798 | 1.44x |
+| Variant               | Avg       | w/b ratio |
+| --------------------- | --------- | --------- |
+| baseline              | 0.798     | 1.44x     |
 | **generate-then-tag** | **0.790** | **1.26x** |
 
 **generate-then-tag (0.790, −0.008) — WINNER.** w/b dropped from 1.44x to 1.26x — **the first variant in 17 rounds to break the ~1.5x floor while maintaining quality.** All gates pass. Two regressions: no-notes-complex (0.531, −0.116 from length penalty — too terse at 0.64x golden words) and sparse-interview (−0.098, marginal voice loss). The mechanism works: separating generation from classification removes the tag-driven elaboration pressure identified in R14a.
@@ -341,11 +362,11 @@ Generate-then-tag's no-notes-complex regression (0.531) was caused by suppressiv
 - **gtt-capture** — No-notes cases use variant with "Default is nothing" and "User's notes are canonical" removed; system prompt drops "2-3" quantifier.
 - **gtt-example** — Same removals + Example 2 swapped to a no-notes example.
 
-| Variant | Avg | no-notes-complex | no-notes-personal |
-|---|---|---|---|
-| gtt-baseline | 0.788 | 0.531 | 0.940 |
-| **gtt-capture** | **0.807** | **0.710** (+0.179) | 0.862 (−0.078) |
-| gtt-example | 0.798 | 0.710 (+0.179) | 0.896 (−0.044) |
+| Variant         | Avg       | no-notes-complex   | no-notes-personal |
+| --------------- | --------- | ------------------ | ----------------- |
+| gtt-baseline    | 0.788     | 0.531              | 0.940             |
+| **gtt-capture** | **0.807** | **0.710** (+0.179) | 0.862 (−0.078)    |
+| gtt-example     | 0.798     | 0.710 (+0.179)     | 0.896 (−0.044)    |
 
 Has-notes cases use identical prompts across all three variants — score differences on those cases are pure run variance (~0.04 per case).
 
@@ -358,10 +379,10 @@ Round 18 confounded suppression removal with the example swap. Full factorial de
 - **gtt-example-only** — Example swap only (no suppression removal).
 - **gtt-both** — Both changes.
 
-| | No example | Example |
-|---|---|---|
-| **No suppression removal** | 0.597 / 0.941 | 0.510 / 0.914 |
-| **Suppression removal** | **0.730** / 0.900 | 0.719 / 0.888 |
+|                            | No example        | Example       |
+| -------------------------- | ----------------- | ------------- |
+| **No suppression removal** | 0.597 / 0.941     | 0.510 / 0.914 |
+| **Suppression removal**    | **0.730** / 0.900 | 0.719 / 0.888 |
 
 (format: complex / personal)
 
@@ -380,6 +401,7 @@ Six variants testing whether the prompt's mode of instruction matters more than 
 Core hypothesis: the 530-word structured Guidelines section in the user prompt pulls the model out of the ghostwriter frame established by the system prompt. The model switches from "being a person at their desk" to "parsing a requirements document." Replacing or removing the guidelines should improve output by keeping the model in-frame.
 
 **Variants:**
+
 - **vibes** — Guidelines replaced with ~200-word natural-language narrative about how the user relates to their notes. Tests: does giving the model a mental model of the user (vibes) beat giving it rules?
 - **stripped** — Guidelines removed entirely. Tests: were the guidelines net-positive at all? (Subtraction control)
 - **delta-frame** — System prompt reframed as "what changed?" instead of "what would you have jotted?" Tests: does task framing drive selectivity?
@@ -391,14 +413,14 @@ Core hypothesis: the 530-word structured Guidelines section in the user prompt p
 
 **Result: failed round.** No variant cleared the +0.015 promotion threshold on clean data. anti-helpful was closest at +0.018 but driven by sparse-short gains; excluding that case it's +0.003.
 
-| Variant | Avg | Delta | Verdict |
-|---|---|---|---|
-| anti-helpful | 0.804 | +0.018 | PROMISING — best conciseness (0.88, 1.25x words), no dense regressions |
-| prompt-artifact | 0.790 | +0.004 | NULL — confirms principle #15 for third time |
-| verb-flag | 0.785 | -0.001 | NULL — "flag" doesn't beat "jot" |
-| vibes | 0.778 | -0.008 | FAILED — narrative hurts no-notes cases (−0.054 complex, −0.119 personal) |
-| delta-frame | 0.766 | -0.020 | FAILED — verbosity bomb (1.70x words, conciseness 0.68) |
-| stripped | 0.751 | -0.035 | FAILED — guidelines are net positive |
+| Variant         | Avg   | Delta  | Verdict                                                                   |
+| --------------- | ----- | ------ | ------------------------------------------------------------------------- |
+| anti-helpful    | 0.804 | +0.018 | PROMISING — best conciseness (0.88, 1.25x words), no dense regressions    |
+| prompt-artifact | 0.790 | +0.004 | NULL — confirms principle #15 for third time                              |
+| verb-flag       | 0.785 | -0.001 | NULL — "flag" doesn't beat "jot"                                          |
+| vibes           | 0.778 | -0.008 | FAILED — narrative hurts no-notes cases (−0.054 complex, −0.119 personal) |
+| delta-frame     | 0.766 | -0.020 | FAILED — verbosity bomb (1.70x words, conciseness 0.68)                   |
+| stripped        | 0.751 | -0.035 | FAILED — guidelines are net positive                                      |
 
 33. **Guidelines carry load that examples can't replace.** stripped (−0.035) proves the guidelines are net positive. Voice preservation ("canonical notes"), selectivity ("default is nothing"), and no-notes handling are load-bearing — the examples don't implicitly teach them.
 34. **Framing exclusion as value works; framing inclusion emotionally doesn't.** anti-helpful's "thorough = useless" is directionally opposite to Round 4's "sting" ("what would sting to forget?"). Sting broadened inclusion. Anti-helpful narrows it (best word count, best conciseness). Emotional framing about what to INCLUDE licenses comprehensiveness; about what to EXCLUDE licenses selectivity.
@@ -410,15 +432,15 @@ Targeted the em-dash chaining problem identified in principle #15/#16. Three app
 
 - **style-guide** — Added explicit style guide section to user prompt: "If a bullet chains two ideas with a semicolon or em-dash, split into separate bullets. Each bullet = one idea."
 - **clean-all** — Removed em-dashes and semicolons from the prompt text itself (system + user prompt), replacing with periods or restructuring. Tests whether the model's chaining habit is mimicked from prompt punctuation.
-- **regex-clean** — Post-processing pass replacing ` — ` and `;` in output with `. ` via regex.
+- **regex-clean** — Post-processing pass replacing `—` and `;` in output with `. ` via regex.
 
 Round 21 results (n=4):
 
-| Variant | Avg | Delta | w/b | Verdict |
-|---|---|---|---|---|
+| Variant     | Avg   | Delta  | w/b   | Verdict                                                                                                            |
+| ----------- | ----- | ------ | ----- | ------------------------------------------------------------------------------------------------------------------ |
 | style-guide | 0.815 | +0.021 | 1.50x | FAILED — chains reduced by consolidation (fewer, longer bullets), not splitting. w/b increased from 1.44x to 1.50x |
-| clean-all | 0.807 | +0.013 | 1.36x | PROMISING |
-| regex-clean | 0.797 | +0.003 | 1.39x | FAILED — artifacts in ~half of replacements (broken headers, mid-sentence periods, damaged quotes) |
+| clean-all   | 0.807 | +0.013 | 1.36x | PROMISING                                                                                                          |
+| regex-clean | 0.797 | +0.003 | 1.39x | FAILED — artifacts in ~half of replacements (broken headers, mid-sentence periods, damaged quotes)                 |
 
 **style-guide** clears the +0.015 threshold numerically (+0.021) but the mechanism is wrong. Bullet count drops to 0.82x golden while w/b rises to 1.50x — the model absorbs chained ideas into single longer bullets instead of splitting them. This is consolidation, not compression.
 
@@ -426,18 +448,18 @@ Round 21 results (n=4):
 
 Round 22 confirmation (n=8, merged with Round 21):
 
-| Test Case | baseline | clean-all | delta |
-|---|---|---|---|
-| dense-business | 0.794 | 0.887 | +0.093 |
-| dense-interview | 0.734 | 0.756 | +0.022 |
-| dense-review-q1 | 0.877 | 0.869 | -0.008 |
-| dense-review-q4 | 0.910 | 0.892 | -0.017 |
-| no-notes-complex | 0.552 | 0.580 | +0.028 |
-| no-notes-personal | 0.930 | 0.946 | +0.016 |
-| sparse-feedback | 0.732 | 0.833 | +0.101 |
-| sparse-interview | 0.748 | 0.674 | -0.074 |
-| sparse-short | 0.861 | 0.875 | +0.014 |
-| **Average** | **0.793** | **0.812** | **+0.019** |
+| Test Case         | baseline  | clean-all | delta      |
+| ----------------- | --------- | --------- | ---------- |
+| dense-business    | 0.794     | 0.887     | +0.093     |
+| dense-interview   | 0.734     | 0.756     | +0.022     |
+| dense-review-q1   | 0.877     | 0.869     | -0.008     |
+| dense-review-q4   | 0.910     | 0.892     | -0.017     |
+| no-notes-complex  | 0.552     | 0.580     | +0.028     |
+| no-notes-personal | 0.930     | 0.946     | +0.016     |
+| sparse-feedback   | 0.732     | 0.833     | +0.101     |
+| sparse-interview  | 0.748     | 0.674     | -0.074     |
+| sparse-short      | 0.861     | 0.875     | +0.014     |
+| **Average**       | **0.793** | **0.812** | **+0.019** |
 
 **clean-all confirmed and promoted.** +0.019 at n=8, above the +0.015 threshold. Wins 6 of 9 cases. Bullet stats confirm the mechanism: w/b drops 14.4 → 13.8, chains drop 11.7 → 8.8, bullet count roughly flat (+0.4). Genuine split-and-compress behavior. dense-business is notably more stable under clean-all (spread 0.110 vs baseline's 0.494).
 
@@ -470,6 +492,7 @@ The loop is designed to prevent two failure modes: repeating past experiments (c
 **The baseline variant is symlinked to the production prompts.** `prompt-variants/baseline/system.txt` and `user.txt` are symlinks to `src-tauri/resources/prompts/enhance_notes.txt` and `enhance_notes_user.txt`. Never edit baseline directly — all changes go into new variant directories, get tested, and only become production when promoted.
 
 To promote a winning variant:
+
 1. Copy the variant's `system.txt` → `src-tauri/resources/prompts/enhance_notes.txt`
 2. Copy the variant's `user.txt` → `src-tauri/resources/prompts/enhance_notes_user.txt`
 3. The baseline symlinks automatically pick up the changes — no separate copy needed
@@ -499,6 +522,7 @@ The script copies from baseline and includes production injections (USER IDENTIT
 ## Adding new test cases
 
 Create a directory in `.AI/Examples/<name>/` with:
+
 - `<name> - transcript` — the raw transcript
 - `<name> - notes` — the user's notes (omit if no notes)
 - `<name> - enhanced` — the golden reference output

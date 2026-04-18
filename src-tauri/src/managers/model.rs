@@ -650,8 +650,8 @@ impl ModelManager {
         let app_handle = self.app_handle.clone();
         let model_id_owned = model_info.id.clone();
         let total_bytes = model_info.size_mb.saturating_mul(1024 * 1024);
-        let cache_path =
-            Self::coreml_cache_path(&model_info.filename).ok_or_else(|| anyhow::anyhow!("$HOME unavailable"))?;
+        let cache_path = Self::coreml_cache_path(&model_info.filename)
+            .ok_or_else(|| anyhow::anyhow!("$HOME unavailable"))?;
 
         // Primary signal: FluidAudio's progressHandler, invoked per HTTP
         // chunk during download (0-50% of the fraction range) and once per
@@ -717,8 +717,7 @@ impl ModelManager {
                     p.total_files
                 );
                 let percentage = (p.fraction * 100.0).clamp(0.0, 99.0);
-                last_fluid_pct_for_blocking
-                    .store((percentage * 100.0) as u64, Ordering::Release);
+                last_fluid_pct_for_blocking.store((percentage * 100.0) as u64, Ordering::Release);
                 let downloaded = ((p.fraction.clamp(0.0, 1.0)) * total_bytes as f64) as u64;
                 let _ = app_for_blocking.emit(
                     "model-download-progress",

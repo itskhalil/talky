@@ -1,14 +1,14 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
+import { readFileSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 
 const SETTINGS_PATH = join(
   homedir(),
-  'Library/Application Support/com.khalil.talky/settings_store.json',
+  "Library/Application Support/com.khalil.talky/settings_store.json",
 );
 
 function loadSettings(envName) {
-  const raw = JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
+  const raw = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
   const s = raw.settings;
   let env;
   if (envName) {
@@ -35,9 +35,12 @@ export async function callLLM(messages, modelOverride, config = {}) {
   const settings = loadSettings(config.environment);
   let model = config.model || modelOverride || settings.model;
 
-  if (settings.providerId === 'anthropic' || settings.baseUrl?.includes('anthropic.com')) {
-    const systemMessages = messages.filter((m) => m.role === 'system');
-    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+  if (
+    settings.providerId === "anthropic" ||
+    settings.baseUrl?.includes("anthropic.com")
+  ) {
+    const systemMessages = messages.filter((m) => m.role === "system");
+    const nonSystemMessages = messages.filter((m) => m.role !== "system");
 
     const body = {
       model,
@@ -46,15 +49,15 @@ export async function callLLM(messages, modelOverride, config = {}) {
     };
     if (config.temperature !== undefined) body.temperature = config.temperature;
     if (systemMessages.length > 0) {
-      body.system = systemMessages.map((m) => m.content).join('\n\n');
+      body.system = systemMessages.map((m) => m.content).join("\n\n");
     }
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': settings.apiKey,
-        'anthropic-version': '2023-06-01',
+        "Content-Type": "application/json",
+        "x-api-key": settings.apiKey,
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify(body),
     });
@@ -72,9 +75,9 @@ export async function callLLM(messages, modelOverride, config = {}) {
   if (config.temperature !== undefined) body.temperature = config.temperature;
 
   const res = await fetch(`${settings.baseUrl}/chat/completions`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${settings.apiKey}`,
     },
     body: JSON.stringify(body),
@@ -94,7 +97,7 @@ export async function callLLM(messages, modelOverride, config = {}) {
  */
 export default class TalkyProvider {
   constructor(options) {
-    this.providerId = options?.id || 'talky-settings';
+    this.providerId = options?.id || "talky-settings";
   }
 
   id() {
@@ -107,30 +110,33 @@ export default class TalkyProvider {
     try {
       const parsed = JSON.parse(prompt);
       if (Array.isArray(parsed)) {
-        const configMsg = parsed.find((m) => m.role === '__config');
+        const configMsg = parsed.find((m) => m.role === "__config");
         if (configMsg) {
           config = JSON.parse(configMsg.content);
         }
-        messages = parsed.filter((m) => m.role !== '__config');
+        messages = parsed.filter((m) => m.role !== "__config");
       } else {
-        messages = [{ role: 'user', content: prompt }];
+        messages = [{ role: "user", content: prompt }];
       }
     } catch {
-      messages = [{ role: 'user', content: prompt }];
+      messages = [{ role: "user", content: prompt }];
     }
 
     try {
       let output = await callLLM(messages, process.env.EVAL_MODEL, config);
       if (config.stripTags) {
-        output = output.replace(/\[(noted|ai)\]\s?/g, '');
+        output = output.replace(/\[(noted|ai)\]\s?/g, "");
       }
       if (config.cleanPunctuation) {
         // Replace " — " (em-dash with spaces) with ". " and capitalize next char
-        output = output.replace(/ — ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
-        output = output.replace(/ — /g, '. ');
+        output = output.replace(
+          / — ([a-z])/g,
+          (_, c) => `. ${c.toUpperCase()}`,
+        );
+        output = output.replace(/ — /g, ". ");
         // Replace "— " at start of continuation (no leading space) with ". "
         output = output.replace(/— ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
-        output = output.replace(/— /g, '. ');
+        output = output.replace(/— /g, ". ");
         // Replace "; " with ". " and capitalize next char
         output = output.replace(/; ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
       }

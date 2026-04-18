@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
-use crate::debug_recording::RecordingMetadata;
 use super::types::ReplaySegment;
+use crate::debug_recording::RecordingMetadata;
 
 pub struct DebugRecording {
     pub metadata: RecordingMetadata,
@@ -19,10 +19,10 @@ impl DebugRecording {
         let metadata: RecordingMetadata =
             serde_json::from_str(&metadata_str).context("Failed to parse metadata.json")?;
 
-        let mic_samples = load_wav(&dir.join("raw_mic.wav"))
-            .context("Failed to load raw_mic.wav")?;
-        let spk_samples = load_wav(&dir.join("raw_spk.wav"))
-            .context("Failed to load raw_spk.wav")?;
+        let mic_samples =
+            load_wav(&dir.join("raw_mic.wav")).context("Failed to load raw_mic.wav")?;
+        let spk_samples =
+            load_wav(&dir.join("raw_spk.wav")).context("Failed to load raw_spk.wav")?;
 
         let golden = load_golden(dir)?;
 
@@ -63,8 +63,7 @@ fn load_golden(dir: &Path) -> Result<Option<Vec<ReplaySegment>>> {
     if !golden_path.exists() {
         return Ok(None);
     }
-    let golden_str =
-        std::fs::read_to_string(&golden_path).context("Failed to read golden.json")?;
+    let golden_str = std::fs::read_to_string(&golden_path).context("Failed to read golden.json")?;
     let segments: Vec<ReplaySegment> =
         serde_json::from_str(&golden_str).context("Failed to parse golden.json")?;
     Ok(Some(segments))

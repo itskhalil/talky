@@ -672,7 +672,6 @@ impl AppSettings {
             env.summarisation_model.clone(),
         ))
     }
-
 }
 
 pub fn get_settings(app: &AppHandle) -> AppSettings {

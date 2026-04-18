@@ -87,7 +87,7 @@ fn word_error_rate(reference: &str, hypothesis: &str) -> f64 {
                 1
             };
             dp[i][j] = (dp[i - 1][j] + 1) // deletion
-                .min(dp[i][j - 1] + 1)      // insertion
+                .min(dp[i][j - 1] + 1) // insertion
                 .min(dp[i - 1][j - 1] + cost); // substitution
         }
     }
@@ -97,7 +97,10 @@ fn word_error_rate(reference: &str, hypothesis: &str) -> f64 {
 
 fn tokenize(text: &str) -> Vec<String> {
     text.split_whitespace()
-        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .map(|w| {
+            w.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
         .filter(|w| !w.is_empty())
         .collect()
 }
@@ -128,11 +131,7 @@ fn count_misattributions(replay: &[ReplaySegment], golden: &[ReplaySegment]) -> 
         // that overlap in time
         let wrong_segments: Vec<_> = replay
             .iter()
-            .filter(|r| {
-                r.source == wrong_channel
-                    && r.start_ms < g.end_ms
-                    && r.end_ms > g.start_ms
-            })
+            .filter(|r| r.source == wrong_channel && r.start_ms < g.end_ms && r.end_ms > g.start_ms)
             .collect();
 
         if wrong_segments.is_empty() {
@@ -163,11 +162,31 @@ fn count_misattributions(replay: &[ReplaySegment], golden: &[ReplaySegment]) -> 
 pub fn format_score_table(score: &ScoreResult) -> String {
     let mut out = String::new();
     out.push_str("=== Replay Score ===\n");
-    out.push_str(&format!("Combined WER:       {:.1}%\n", score.combined_wer * 100.0));
-    out.push_str(&format!("  Mic WER:          {:.1}% ({} ref words)\n", score.mic_wer * 100.0, score.mic_word_count));
-    out.push_str(&format!("  Speaker WER:      {:.1}% ({} ref words)\n", score.spk_wer * 100.0, score.spk_word_count));
-    out.push_str(&format!("Segments (replay):  {} mic, {} spk\n", score.mic_segment_count, score.spk_segment_count));
-    out.push_str(&format!("Segments (golden):  {} mic, {} spk\n", score.golden_mic_segment_count, score.golden_spk_segment_count));
-    out.push_str(&format!("Misattributions:    {}\n", score.channel_misattributions));
+    out.push_str(&format!(
+        "Combined WER:       {:.1}%\n",
+        score.combined_wer * 100.0
+    ));
+    out.push_str(&format!(
+        "  Mic WER:          {:.1}% ({} ref words)\n",
+        score.mic_wer * 100.0,
+        score.mic_word_count
+    ));
+    out.push_str(&format!(
+        "  Speaker WER:      {:.1}% ({} ref words)\n",
+        score.spk_wer * 100.0,
+        score.spk_word_count
+    ));
+    out.push_str(&format!(
+        "Segments (replay):  {} mic, {} spk\n",
+        score.mic_segment_count, score.spk_segment_count
+    ));
+    out.push_str(&format!(
+        "Segments (golden):  {} mic, {} spk\n",
+        score.golden_mic_segment_count, score.golden_spk_segment_count
+    ));
+    out.push_str(&format!(
+        "Misattributions:    {}\n",
+        score.channel_misattributions
+    ));
     out
 }

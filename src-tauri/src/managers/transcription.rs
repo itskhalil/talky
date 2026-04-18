@@ -256,10 +256,7 @@ impl TranscriptionManager {
                     {
                         use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
                         let version = if model_id.contains("v2") { "v2" } else { "v3" };
-                        info!(
-                            "loading {} via Core ML sidecar",
-                            model_id
-                        );
+                        info!("loading {} via Core ML sidecar", model_id);
                         let app_handle = self.app_handle.clone();
                         let model_id_owned = model_id.to_string();
                         let model_name = model_info.name.clone();

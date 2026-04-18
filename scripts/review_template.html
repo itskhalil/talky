@@ -1,232 +1,388 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>Golden Review</title>
-<style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; background: #111; color: #eee; }
-  .app { display: flex; flex-direction: column; height: 100vh; }
-  .controls { padding: 12px; background: #222; border-bottom: 1px solid #333; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  button { background: #333; color: #eee; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
-  button:hover { background: #444; }
-  button.primary { background: #0a84ff; border-color: #0a84ff; }
-  button.danger { background: #8c2a1e; border-color: #8c2a1e; }
-  input[type=range] { flex: 1; min-width: 200px; }
-  .time { font-family: monospace; font-size: 13px; min-width: 110px; text-align: center; }
-  .speed { width: 60px; }
-  .transcript { flex: 1; overflow-y: auto; padding: 16px; }
-  .row { display: flex; gap: 12px; margin-bottom: 6px; }
-  .col { flex: 1; min-width: 0; }
-  .col.left { border-right: 1px solid #333; padding-right: 8px; }
-  .seg { padding: 8px 10px; border-radius: 4px; margin-bottom: 4px; cursor: pointer; border: 1px solid transparent; font-size: 14px; line-height: 1.45; }
-  .seg.mic { background: #1b2c3f; border-color: #2a476a; }
-  .seg.speaker { background: #3b1f29; border-color: #6a2a47; }
-  .seg.current { outline: 2px solid #ffd43b; }
-  .seg .meta { font-family: monospace; font-size: 11px; opacity: 0.6; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-  .seg .meta-actions { display: flex; gap: 4px; }
-  .seg .meta-actions button { padding: 1px 6px; font-size: 11px; }
-  .seg .text { outline: none; white-space: pre-wrap; word-wrap: break-word; }
-  .seg .text:focus { background: #222; border-radius: 2px; }
-  .empty { padding: 6px; opacity: 0.4; font-style: italic; }
-  header { padding: 10px 16px; background: #0a84ff; font-weight: 600; }
-  .stats { opacity: 0.7; font-size: 12px; }
-</style>
-</head>
-<body>
-<div class="app">
-  <header>Golden Review <span class="stats" id="stats"></span></header>
-  <div class="controls">
-    <button id="playpause">▶ Play</button>
-    <span class="time" id="timedisplay">0:00 / 0:00</span>
-    <input type="range" id="seek" min="0" max="100" step="0.01" value="0" />
-    <label>Speed: <input type="number" id="speed" class="speed" min="0.5" max="3" step="0.25" value="1" /></label>
-    <button id="jumpBack">← 3s</button>
-    <button id="jumpFwd">3s →</button>
-    <button id="download" class="primary">Download golden.json</button>
-  </div>
-  <div class="transcript" id="transcript"></div>
-</div>
+  <head>
+    <meta charset="utf-8" />
+    <title>Golden Review</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #111;
+        color: #eee;
+      }
+      .app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      .controls {
+        padding: 12px;
+        background: #222;
+        border-bottom: 1px solid #333;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      button {
+        background: #333;
+        color: #eee;
+        border: 1px solid #555;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      button:hover {
+        background: #444;
+      }
+      button.primary {
+        background: #0a84ff;
+        border-color: #0a84ff;
+      }
+      button.danger {
+        background: #8c2a1e;
+        border-color: #8c2a1e;
+      }
+      input[type="range"] {
+        flex: 1;
+        min-width: 200px;
+      }
+      .time {
+        font-family: monospace;
+        font-size: 13px;
+        min-width: 110px;
+        text-align: center;
+      }
+      .speed {
+        width: 60px;
+      }
+      .transcript {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+      .col {
+        flex: 1;
+        min-width: 0;
+      }
+      .col.left {
+        border-right: 1px solid #333;
+        padding-right: 8px;
+      }
+      .seg {
+        padding: 8px 10px;
+        border-radius: 4px;
+        margin-bottom: 4px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .seg.mic {
+        background: #1b2c3f;
+        border-color: #2a476a;
+      }
+      .seg.speaker {
+        background: #3b1f29;
+        border-color: #6a2a47;
+      }
+      .seg.current {
+        outline: 2px solid #ffd43b;
+      }
+      .seg .meta {
+        font-family: monospace;
+        font-size: 11px;
+        opacity: 0.6;
+        margin-bottom: 4px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .seg .meta-actions {
+        display: flex;
+        gap: 4px;
+      }
+      .seg .meta-actions button {
+        padding: 1px 6px;
+        font-size: 11px;
+      }
+      .seg .text {
+        outline: none;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .seg .text:focus {
+        background: #222;
+        border-radius: 2px;
+      }
+      .empty {
+        padding: 6px;
+        opacity: 0.4;
+        font-style: italic;
+      }
+      header {
+        padding: 10px 16px;
+        background: #0a84ff;
+        font-weight: 600;
+      }
+      .stats {
+        opacity: 0.7;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>Golden Review <span class="stats" id="stats"></span></header>
+      <div class="controls">
+        <button id="playpause">▶ Play</button>
+        <span class="time" id="timedisplay">0:00 / 0:00</span>
+        <input type="range" id="seek" min="0" max="100" step="0.01" value="0" />
+        <label
+          >Speed:
+          <input
+            type="number"
+            id="speed"
+            class="speed"
+            min="0.5"
+            max="3"
+            step="0.25"
+            value="1"
+        /></label>
+        <button id="jumpBack">← 3s</button>
+        <button id="jumpFwd">3s →</button>
+        <button id="download" class="primary">Download golden.json</button>
+      </div>
+      <div class="transcript" id="transcript"></div>
+    </div>
 
-<audio id="mic" src="mic_aec.wav" preload="auto"></audio>
-<audio id="spk" src="raw_spk.wav" preload="auto"></audio>
+    <audio id="mic" src="mic_aec.wav" preload="auto"></audio>
+    <audio id="spk" src="raw_spk.wav" preload="auto"></audio>
 
-<script>
-const mic = document.getElementById('mic');
-const spk = document.getElementById('spk');
-const playpause = document.getElementById('playpause');
-const seek = document.getElementById('seek');
-const timedisplay = document.getElementById('timedisplay');
-const speed = document.getElementById('speed');
-const transcript = document.getElementById('transcript');
-const stats = document.getElementById('stats');
-const jumpBack = document.getElementById('jumpBack');
-const jumpFwd = document.getElementById('jumpFwd');
+    <script>
+      const mic = document.getElementById("mic");
+      const spk = document.getElementById("spk");
+      const playpause = document.getElementById("playpause");
+      const seek = document.getElementById("seek");
+      const timedisplay = document.getElementById("timedisplay");
+      const speed = document.getElementById("speed");
+      const transcript = document.getElementById("transcript");
+      const stats = document.getElementById("stats");
+      const jumpBack = document.getElementById("jumpBack");
+      const jumpFwd = document.getElementById("jumpFwd");
 
-let segments = [];
+      let segments = [];
 
-function fmtTime(s) {
-  if (!isFinite(s)) return '0:00';
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, '0')}`;
-}
+      function fmtTime(s) {
+        if (!isFinite(s)) return "0:00";
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return `${m}:${sec.toString().padStart(2, "0")}`;
+      }
 
-async function load() {
-  const r = await fetch('golden_draft_aec.json');
-  segments = await r.json();
-  render();
-}
+      async function load() {
+        const r = await fetch("golden_draft_aec.json");
+        segments = await r.json();
+        render();
+      }
 
-function updateStats() {
-  const mc = segments.filter(s => s.source === 'mic').length;
-  const sc = segments.filter(s => s.source === 'speaker').length;
-  stats.textContent = `— ${segments.length} segments (${mc} mic, ${sc} speaker)`;
-}
+      function updateStats() {
+        const mc = segments.filter((s) => s.source === "mic").length;
+        const sc = segments.filter((s) => s.source === "speaker").length;
+        stats.textContent = `— ${segments.length} segments (${mc} mic, ${sc} speaker)`;
+      }
 
-function render() {
-  transcript.innerHTML = '';
-  segments.forEach((seg, i) => {
-    const row = document.createElement('div');
-    row.className = 'row';
-    row.dataset.idx = i;
+      function render() {
+        transcript.innerHTML = "";
+        segments.forEach((seg, i) => {
+          const row = document.createElement("div");
+          row.className = "row";
+          row.dataset.idx = i;
 
-    const left = document.createElement('div');
-    left.className = 'col left';
-    const right = document.createElement('div');
-    right.className = 'col right';
+          const left = document.createElement("div");
+          left.className = "col left";
+          const right = document.createElement("div");
+          right.className = "col right";
 
-    const el = document.createElement('div');
-    el.className = 'seg ' + seg.source;
-    el.dataset.idx = i;
+          const el = document.createElement("div");
+          el.className = "seg " + seg.source;
+          el.dataset.idx = i;
 
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    const ts = document.createElement('span');
-    ts.textContent = `${fmtTime(seg.start_ms/1000)} — ${fmtTime(seg.end_ms/1000)}`;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          const ts = document.createElement("span");
+          ts.textContent = `${fmtTime(seg.start_ms / 1000)} — ${fmtTime(seg.end_ms / 1000)}`;
 
-    const actions = document.createElement('div');
-    actions.className = 'meta-actions';
-    const flipBtn = document.createElement('button');
-    flipBtn.textContent = 'flip';
-    flipBtn.title = 'Move to the other channel';
-    flipBtn.onclick = (e) => { e.stopPropagation(); seg.source = seg.source === 'mic' ? 'speaker' : 'mic'; render(); };
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '×';
-    delBtn.className = 'danger';
-    delBtn.title = 'Delete this segment';
-    delBtn.onclick = (e) => { e.stopPropagation(); segments.splice(i, 1); render(); };
-    actions.appendChild(flipBtn);
-    actions.appendChild(delBtn);
+          const actions = document.createElement("div");
+          actions.className = "meta-actions";
+          const flipBtn = document.createElement("button");
+          flipBtn.textContent = "flip";
+          flipBtn.title = "Move to the other channel";
+          flipBtn.onclick = (e) => {
+            e.stopPropagation();
+            seg.source = seg.source === "mic" ? "speaker" : "mic";
+            render();
+          };
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "×";
+          delBtn.className = "danger";
+          delBtn.title = "Delete this segment";
+          delBtn.onclick = (e) => {
+            e.stopPropagation();
+            segments.splice(i, 1);
+            render();
+          };
+          actions.appendChild(flipBtn);
+          actions.appendChild(delBtn);
 
-    meta.appendChild(ts);
-    meta.appendChild(actions);
+          meta.appendChild(ts);
+          meta.appendChild(actions);
 
-    const text = document.createElement('div');
-    text.className = 'text';
-    text.contentEditable = 'true';
-    text.textContent = seg.text;
-    text.oninput = () => { seg.text = text.textContent; };
-    text.onclick = (e) => e.stopPropagation();
+          const text = document.createElement("div");
+          text.className = "text";
+          text.contentEditable = "true";
+          text.textContent = seg.text;
+          text.oninput = () => {
+            seg.text = text.textContent;
+          };
+          text.onclick = (e) => e.stopPropagation();
 
-    el.appendChild(meta);
-    el.appendChild(text);
-    el.onclick = () => seekTo(seg.start_ms / 1000);
+          el.appendChild(meta);
+          el.appendChild(text);
+          el.onclick = () => seekTo(seg.start_ms / 1000);
 
-    if (seg.source === 'mic') {
-      left.appendChild(el);
-    } else {
-      right.appendChild(el);
-    }
+          if (seg.source === "mic") {
+            left.appendChild(el);
+          } else {
+            right.appendChild(el);
+          }
 
-    row.appendChild(left);
-    row.appendChild(right);
-    transcript.appendChild(row);
-  });
-  updateStats();
-}
+          row.appendChild(left);
+          row.appendChild(right);
+          transcript.appendChild(row);
+        });
+        updateStats();
+      }
 
-function seekTo(seconds) {
-  mic.currentTime = seconds;
-  spk.currentTime = seconds;
-}
+      function seekTo(seconds) {
+        mic.currentTime = seconds;
+        spk.currentTime = seconds;
+      }
 
-function updateUI() {
-  const t = mic.currentTime;
-  const d = Math.max(mic.duration || 0, spk.duration || 0);
-  timedisplay.textContent = `${fmtTime(t)} / ${fmtTime(d)}`;
-  if (!seek.dragging) {
-    seek.max = d;
-    seek.value = t;
-  }
+      function updateUI() {
+        const t = mic.currentTime;
+        const d = Math.max(mic.duration || 0, spk.duration || 0);
+        timedisplay.textContent = `${fmtTime(t)} / ${fmtTime(d)}`;
+        if (!seek.dragging) {
+          seek.max = d;
+          seek.value = t;
+        }
 
-  // Highlight current segments
-  const tMs = t * 1000;
-  const rows = transcript.querySelectorAll('.seg');
-  let currentEl = null;
-  rows.forEach((el) => {
-    const idx = parseInt(el.dataset.idx);
-    const seg = segments[idx];
-    if (!seg) return;
-    if (tMs >= seg.start_ms && tMs <= seg.end_ms) {
-      el.classList.add('current');
-      if (!currentEl) currentEl = el;
-    } else {
-      el.classList.remove('current');
-    }
-  });
+        // Highlight current segments
+        const tMs = t * 1000;
+        const rows = transcript.querySelectorAll(".seg");
+        let currentEl = null;
+        rows.forEach((el) => {
+          const idx = parseInt(el.dataset.idx);
+          const seg = segments[idx];
+          if (!seg) return;
+          if (tMs >= seg.start_ms && tMs <= seg.end_ms) {
+            el.classList.add("current");
+            if (!currentEl) currentEl = el;
+          } else {
+            el.classList.remove("current");
+          }
+        });
 
-  // Auto-scroll to current (if playing and current out of view)
-  if (currentEl && !mic.paused) {
-    const rect = currentEl.getBoundingClientRect();
-    const containerRect = transcript.getBoundingClientRect();
-    if (rect.top < containerRect.top || rect.bottom > containerRect.bottom) {
-      currentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
-}
+        // Auto-scroll to current (if playing and current out of view)
+        if (currentEl && !mic.paused) {
+          const rect = currentEl.getBoundingClientRect();
+          const containerRect = transcript.getBoundingClientRect();
+          if (
+            rect.top < containerRect.top ||
+            rect.bottom > containerRect.bottom
+          ) {
+            currentEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+      }
 
-playpause.onclick = () => {
-  if (mic.paused) {
-    mic.play(); spk.play();
-    playpause.textContent = '⏸ Pause';
-  } else {
-    mic.pause(); spk.pause();
-    playpause.textContent = '▶ Play';
-  }
-};
+      playpause.onclick = () => {
+        if (mic.paused) {
+          mic.play();
+          spk.play();
+          playpause.textContent = "⏸ Pause";
+        } else {
+          mic.pause();
+          spk.pause();
+          playpause.textContent = "▶ Play";
+        }
+      };
 
-seek.addEventListener('mousedown', () => { seek.dragging = true; });
-seek.addEventListener('mouseup', () => { seek.dragging = false; seekTo(parseFloat(seek.value)); });
-seek.addEventListener('input', () => { timedisplay.textContent = `${fmtTime(parseFloat(seek.value))} / ${fmtTime(mic.duration || 0)}`; });
+      seek.addEventListener("mousedown", () => {
+        seek.dragging = true;
+      });
+      seek.addEventListener("mouseup", () => {
+        seek.dragging = false;
+        seekTo(parseFloat(seek.value));
+      });
+      seek.addEventListener("input", () => {
+        timedisplay.textContent = `${fmtTime(parseFloat(seek.value))} / ${fmtTime(mic.duration || 0)}`;
+      });
 
-speed.onchange = () => {
-  const r = parseFloat(speed.value);
-  mic.playbackRate = r; spk.playbackRate = r;
-};
+      speed.onchange = () => {
+        const r = parseFloat(speed.value);
+        mic.playbackRate = r;
+        spk.playbackRate = r;
+      };
 
-jumpBack.onclick = () => seekTo(Math.max(0, mic.currentTime - 3));
-jumpFwd.onclick = () => seekTo(mic.currentTime + 3);
+      jumpBack.onclick = () => seekTo(Math.max(0, mic.currentTime - 3));
+      jumpFwd.onclick = () => seekTo(mic.currentTime + 3);
 
-document.getElementById('download').onclick = () => {
-  const blob = new Blob([JSON.stringify(segments, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'golden.json';
-  a.click();
-  URL.revokeObjectURL(url);
-};
+      document.getElementById("download").onclick = () => {
+        const blob = new Blob([JSON.stringify(segments, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "golden.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
 
-document.addEventListener('keydown', (e) => {
-  if (e.target.isContentEditable || e.target.tagName === 'INPUT') return;
-  if (e.key === ' ') { e.preventDefault(); playpause.click(); }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); seekTo(Math.max(0, mic.currentTime - 3)); }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); seekTo(mic.currentTime + 3); }
-});
+      document.addEventListener("keydown", (e) => {
+        if (e.target.isContentEditable || e.target.tagName === "INPUT") return;
+        if (e.key === " ") {
+          e.preventDefault();
+          playpause.click();
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          seekTo(Math.max(0, mic.currentTime - 3));
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          seekTo(mic.currentTime + 3);
+        }
+      });
 
-setInterval(updateUI, 100);
-load();
-</script>
-</body>
+      setInterval(updateUI, 100);
+      load();
+    </script>
+  </body>
 </html>

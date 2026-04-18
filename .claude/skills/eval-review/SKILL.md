@@ -20,6 +20,7 @@ Work through each of these, then produce a written review.
 ### 1. Score Overview
 
 From `summary.md`:
+
 - Include the full score matrix table
 - Include dimension averages table
 - Include all four ratio-vs-golden tables (word count, bullet count, words per bullet, chain bullets)
@@ -29,11 +30,13 @@ From `summary.md`:
 ### 2. Per-Case Deep Dives
 
 Read `results/<Test Case>.md` for:
+
 - **Every sparse/no-notes case** (sparse-feedback, sparse-short, sparse-interview, no-notes-complex, no-notes-personal) — read judge reasoning AND model outputs
 - **Any case where a variant scores <0.85** — read judge reasoning
 - **Any case with >0.15 spread between runs** — flag inconsistency
 
 For each output you read, ask:
+
 - Would the user believe they wrote this?
 - Any "you/your" perspective slips?
 - Is chronological order correct?
@@ -45,6 +48,7 @@ For each output you read, ask:
 ### 3. Bullet Stats Analysis
 
 From the ratio tables:
+
 - Word count: flag >1.5x (verbose) or <0.7x (too terse)
 - Bullet count: flag >1.3x (proliferation) or <0.5x (under-generating)
 - Words per bullet: track vs 1.5x baseline (RLHF floor — improvement here would be notable)
@@ -59,6 +63,7 @@ Flag any case where the same variant's scores differ by >0.15 across runs. Read 
 ### 5. Regression Check
 
 Any new variant must not regress on dense cases:
+
 - Conciseness must hold (not >1.5x golden word count)
 - Density score must hold at 3.7+
 - Voice must hold at 3.8+
@@ -66,6 +71,7 @@ Any new variant must not regress on dense cases:
 ### 6. Verdict
 
 For each non-baseline variant, classify as:
+
 - **WINNER** — consistent improvement, no regressions, promote
 - **PROMISING** — shows improvement but needs more data or has a concerning regression
 - **NULL** — no meaningful difference from baseline

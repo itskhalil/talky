@@ -183,7 +183,8 @@ jobs:
     name: Upload version-agnostic installers
     permissions:
       contents: write
-    needs: [create-release, build-macos, build-windows, copy-windows-from-previous]
+    needs:
+      [create-release, build-macos, build-windows, copy-windows-from-previous]
     if: |
       always() &&
       needs.create-release.result == 'success' &&

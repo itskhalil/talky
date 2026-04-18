@@ -12,7 +12,10 @@ use talky_app_lib::replay::{
 };
 
 #[derive(Parser)]
-#[command(name = "replay", about = "Replay debug recordings through the audio pipeline")]
+#[command(
+    name = "replay",
+    about = "Replay debug recordings through the audio pipeline"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -180,8 +183,8 @@ enum Command {
 
 fn default_model_path(engine: &str) -> PathBuf {
     let home = std::env::var("HOME").expect("HOME environment variable not set");
-    let app_support = PathBuf::from(home)
-        .join("Library/Application Support/com.khalil.talky/models");
+    let app_support =
+        PathBuf::from(home).join("Library/Application Support/com.khalil.talky/models");
 
     match engine {
         "whisper" => app_support.join("ggml-base.en.bin"),
@@ -214,13 +217,22 @@ fn main() -> Result<()> {
                 !no_aec,
             );
 
-            let segments =
-                transcribe_raw(&rec.mic_samples, &rec.spk_samples, &mut eng, !no_aec, chunk_size)?;
+            let segments = transcribe_raw(
+                &rec.mic_samples,
+                &rec.spk_samples,
+                &mut eng,
+                !no_aec,
+                chunk_size,
+            )?;
 
             let json = serde_json::to_string_pretty(&segments)?;
             let out_path = output.unwrap_or_else(|| recording.join("golden_draft.json"));
             std::fs::write(&out_path, &json)?;
-            eprintln!("Written {} segments to {}", segments.len(), out_path.display());
+            eprintln!(
+                "Written {} segments to {}",
+                segments.len(),
+                out_path.display()
+            );
         }
 
         Command::Run {
@@ -254,24 +266,60 @@ fn main() -> Result<()> {
             let mut config = ReplayConfig::from_pipeline_config(&rec.metadata.pipeline_config);
 
             // Apply overrides
-            if let Some(v) = vad_threshold { config.vad_threshold = v; }
-            if let Some(v) = vad_onset_frames { config.vad_onset_frames = v; }
-            if let Some(v) = vad_hangover_frames { config.vad_hangover_frames = v; }
-            if let Some(v) = speaker_energy_threshold { config.speaker_energy_threshold = v; }
-            if let Some(v) = skip_mic_on_speaker_energy { config.skip_mic_on_speaker_energy = v; }
-            if let Some(v) = dedup_similarity { config.dedup_similarity_threshold = v; }
-            if let Some(v) = dedup_time_overlap_ms { config.dedup_time_overlap_ms = v; }
-            if let Some(v) = min_chunk_samples { config.min_chunk_samples = v; }
-            if let Some(v) = max_chunk_samples { config.max_chunk_samples = v; }
-            if let Some(v) = overlap_samples { config.overlap_samples = v; }
-            if let Some(v) = aec_enabled { config.aec_enabled = v; }
-            if let Some(v) = window_ms { config.window_ms = v; }
-            if let Some(v) = hpf_cutoff { config.hpf_cutoff = v; }
-            if let Some(v) = target_rms { config.target_rms = v; }
-            if let Some(v) = silence_threshold { config.silence_threshold = v; }
-            if let Some(v) = poll_interval_ms { config.poll_interval_ms = v; }
-            if let Some(v) = spk_silence_flush_polls { config.spk_silence_flush_polls = v; }
-            if let Some(v) = prefix_overlap_min_words { config.prefix_overlap_min_words = v; }
+            if let Some(v) = vad_threshold {
+                config.vad_threshold = v;
+            }
+            if let Some(v) = vad_onset_frames {
+                config.vad_onset_frames = v;
+            }
+            if let Some(v) = vad_hangover_frames {
+                config.vad_hangover_frames = v;
+            }
+            if let Some(v) = speaker_energy_threshold {
+                config.speaker_energy_threshold = v;
+            }
+            if let Some(v) = skip_mic_on_speaker_energy {
+                config.skip_mic_on_speaker_energy = v;
+            }
+            if let Some(v) = dedup_similarity {
+                config.dedup_similarity_threshold = v;
+            }
+            if let Some(v) = dedup_time_overlap_ms {
+                config.dedup_time_overlap_ms = v;
+            }
+            if let Some(v) = min_chunk_samples {
+                config.min_chunk_samples = v;
+            }
+            if let Some(v) = max_chunk_samples {
+                config.max_chunk_samples = v;
+            }
+            if let Some(v) = overlap_samples {
+                config.overlap_samples = v;
+            }
+            if let Some(v) = aec_enabled {
+                config.aec_enabled = v;
+            }
+            if let Some(v) = window_ms {
+                config.window_ms = v;
+            }
+            if let Some(v) = hpf_cutoff {
+                config.hpf_cutoff = v;
+            }
+            if let Some(v) = target_rms {
+                config.target_rms = v;
+            }
+            if let Some(v) = silence_threshold {
+                config.silence_threshold = v;
+            }
+            if let Some(v) = poll_interval_ms {
+                config.poll_interval_ms = v;
+            }
+            if let Some(v) = spk_silence_flush_polls {
+                config.spk_silence_flush_polls = v;
+            }
+            if let Some(v) = prefix_overlap_min_words {
+                config.prefix_overlap_min_words = v;
+            }
 
             if dry_run && model.is_some() {
                 eprintln!("Warning: --model is ignored in dry-run mode");
@@ -292,9 +340,7 @@ fn main() -> Result<()> {
 
             eprintln!(
                 "Replaying: {:.1}s of audio, dry_run={}, compare={}",
-                rec.metadata.duration_seconds,
-                dry_run,
-                compare
+                rec.metadata.duration_seconds, dry_run, compare
             );
             eprintln!("Config: {:?}", config);
 
@@ -310,7 +356,11 @@ fn main() -> Result<()> {
             let json = serde_json::to_string_pretty(&result.segments)?;
             let out_path = output.unwrap_or_else(|| recording.join("replay_output.json"));
             std::fs::write(&out_path, &json)?;
-            eprintln!("Written {} segments to {}", result.segments.len(), out_path.display());
+            eprintln!(
+                "Written {} segments to {}",
+                result.segments.len(),
+                out_path.display()
+            );
 
             // Output diagnostics to stderr
             eprintln!("\nDiagnostics: {:?}", result.diagnostics);
@@ -377,7 +427,11 @@ fn main() -> Result<()> {
                 writer.write_sample(clamped)?;
             }
             writer.finalize()?;
-            eprintln!("Written {} samples to {}", cleaned.len(), out_path.display());
+            eprintln!(
+                "Written {} samples to {}",
+                cleaned.len(),
+                out_path.display()
+            );
         }
 
         Command::Sweep {
@@ -420,7 +474,11 @@ fn main() -> Result<()> {
             let json = serde_json::to_string_pretty(&results)?;
             let out_path = output.unwrap_or_else(|| recording.join("sweep_results.json"));
             std::fs::write(&out_path, &json)?;
-            eprintln!("Written {} results to {}", results.len(), out_path.display());
+            eprintln!(
+                "Written {} results to {}",
+                results.len(),
+                out_path.display()
+            );
 
             // Summary table to stderr
             eprintln!("\n=== Sweep Results (sorted by combined WER) ===");

@@ -115,7 +115,12 @@ static STORE_LOCK: Mutex<()> = Mutex::new(());
 
 /// Append a new error event. Emits `error-event-recorded` so the frontend
 /// banner surfaces it. Safe to call from any thread.
-pub fn record(app: &AppHandle, kind: ErrorKind, title: impl Into<String>, detail: impl Into<String>) {
+pub fn record(
+    app: &AppHandle,
+    kind: ErrorKind,
+    title: impl Into<String>,
+    detail: impl Into<String>,
+) {
     let entry = UserVisibleError {
         id: uuid::Uuid::new_v4().to_string(),
         kind,
@@ -124,10 +129,7 @@ pub fn record(app: &AppHandle, kind: ErrorKind, title: impl Into<String>, detail
         timestamp_ms: now_ms(),
         dismissed_at: None,
     };
-    debug!(
-        "error_events: recording {:?} — {}",
-        entry.kind, entry.title
-    );
+    debug!("error_events: recording {:?} — {}", entry.kind, entry.title);
     let _guard = STORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut entries = read_store(app);
     entries.push(entry.clone());

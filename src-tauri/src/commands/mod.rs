@@ -337,10 +337,7 @@ pub fn clear_error_events(app: AppHandle) {
 /// embed log contents.
 #[specta::specta]
 #[tauri::command]
-pub fn send_logs_to_developer(
-    app: AppHandle,
-    error_kind: Option<ErrorKind>,
-) -> Result<(), String> {
+pub fn send_logs_to_developer(app: AppHandle, error_kind: Option<ErrorKind>) -> Result<(), String> {
     let log_dir = app
         .path()
         .app_log_dir()

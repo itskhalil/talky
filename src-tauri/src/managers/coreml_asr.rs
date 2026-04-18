@@ -69,7 +69,10 @@ impl CoreMlAsr {
             .with_context(|| format!("spawning {}", binary_path.display()))?;
 
         let stdin = child.stdin.take().ok_or_else(|| anyhow!("missing stdin"))?;
-        let stdout = child.stdout.take().ok_or_else(|| anyhow!("missing stdout"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("missing stdout"))?;
 
         // Forward sidecar stderr at warn so it lands in the default info-level
         // file log. Crashes are the whole reason we keep this around — debug
@@ -112,7 +115,9 @@ impl CoreMlAsr {
         if resp.get("ok").and_then(Value::as_bool) != Some(true) {
             bail!(
                 "load failed: {}",
-                resp.get("error").and_then(Value::as_str).unwrap_or("unknown")
+                resp.get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
             );
         }
         Ok(())
@@ -136,7 +141,9 @@ impl CoreMlAsr {
             if !ok {
                 bail!(
                     "load failed: {}",
-                    resp.get("error").and_then(Value::as_str).unwrap_or("unknown")
+                    resp.get("error")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
                 );
             }
             let event = resp.get("event").and_then(Value::as_str).unwrap_or("");
@@ -176,7 +183,9 @@ impl CoreMlAsr {
         if resp.get("ok").and_then(Value::as_bool) != Some(true) {
             bail!(
                 "transcribe failed: {}",
-                resp.get("error").and_then(Value::as_str).unwrap_or("unknown")
+                resp.get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
             );
         }
         let text = resp
@@ -190,8 +199,8 @@ impl CoreMlAsr {
 
     fn send_header(&mut self, header: &Value, body: Option<&[u8]>) -> Result<()> {
         let header_bytes = serde_json::to_vec(header)?;
-        let header_len = u32::try_from(header_bytes.len())
-            .map_err(|_| anyhow!("header too large"))?;
+        let header_len =
+            u32::try_from(header_bytes.len()).map_err(|_| anyhow!("header too large"))?;
         self.stdin.write_all(&header_len.to_be_bytes())?;
         self.stdin.write_all(&header_bytes)?;
         if let Some(b) = body {

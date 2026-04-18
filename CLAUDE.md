@@ -34,6 +34,7 @@ Talky is a cross-platform desktop speech-to-text app built with Tauri 2.x (Rust 
 **Frontend** (`src/`): React + TypeScript + Tailwind. Zustand stores in `stores/`. Tauri command bindings auto-generated in `bindings.ts` (via tauri-specta).
 
 **Key concepts:**
+
 - A "Note" (UI) = "session" (backend) — the primary entity. Users create Notes, type freeform text, and start/stop recording within them.
 - Audio pipeline: Audio → VAD → Whisper/Parakeet → Text
 - Frontend → Backend via Tauri commands; Backend → Frontend via events
