@@ -2,6 +2,9 @@ name: "Build Test"
 
 on: workflow_dispatch
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-test:
     permissions:
@@ -13,9 +16,6 @@ jobs:
           - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
             target: "aarch64-apple-darwin"
-          - platform: "macos-latest"
-            args: "--target x86_64-apple-darwin"
-            target: "x86_64-apple-darwin"
 
     uses: ./.github/workflows/build.yml
     with:

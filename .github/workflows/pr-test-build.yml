@@ -8,6 +8,9 @@ on:
         required: true
         type: string
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-macos:
     permissions:
@@ -19,9 +22,6 @@ jobs:
           - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
             target: "aarch64-apple-darwin"
-          - platform: "macos-latest"
-            args: "--target x86_64-apple-darwin"
-            target: "x86_64-apple-darwin"
 
     uses: ./.github/workflows/build.yml
     with:
@@ -69,5 +69,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ inputs.pr_number }},
-              body: `## Test Build Ready\n\nBuild artifacts for PR #${{ inputs.pr_number }} are available for testing.\n\n**[Download artifacts from workflow run](${runUrl})**\n\nArtifacts include:\n- macOS (ARM64 and x64)\n- Windows (x64)\n\nArtifacts expire after 30 days.`
+              body: `## Test Build Ready\n\nBuild artifacts for PR #${{ inputs.pr_number }} are available for testing.\n\n**[Download artifacts from workflow run](${runUrl})**\n\nArtifacts include:\n- macOS (ARM64)\n- Windows (x64)\n\nArtifacts expire after 30 days.`
             });
