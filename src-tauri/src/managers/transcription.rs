@@ -1,4 +1,5 @@
 use crate::audio_toolkit::{apply_custom_words, filter_transcription_output};
+use crate::error_events::{self, ErrorKind};
 use crate::managers::model::{EngineType, ModelManager};
 use crate::settings::{get_settings, ModelUnloadTimeout};
 use crate::utils::MutexExt;
@@ -11,11 +12,8 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter};
 use transcribe_rs::{
-    engines::{
-        parakeet::{
-            ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
-        },
-        whisper::{WhisperEngine, WhisperInferenceParams},
+    engines::parakeet::{
+        ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
     },
     TranscriptionEngine,
 };
@@ -38,8 +36,9 @@ pub struct ModelStateEvent {
 }
 
 enum LoadedEngine {
-    Whisper(WhisperEngine),
     Parakeet(ParakeetEngine),
+    #[cfg(target_os = "macos")]
+    ParakeetCoreML(crate::managers::coreml_asr::CoreMlAsr),
 }
 
 #[derive(Clone)]
@@ -158,8 +157,11 @@ impl TranscriptionManager {
             let mut engine = self.engine.lock_or_recover();
             if let Some(ref mut loaded_engine) = *engine {
                 match loaded_engine {
-                    LoadedEngine::Whisper(ref mut e) => e.unload_model(),
                     LoadedEngine::Parakeet(ref mut e) => e.unload_model(),
+                    #[cfg(target_os = "macos")]
+                    LoadedEngine::ParakeetCoreML(_) => {
+                        // Drop impl on CoreMlAsr handles sidecar shutdown.
+                    }
                 }
             }
             *engine = None; // Drop the engine to free memory
@@ -232,62 +234,99 @@ impl TranscriptionManager {
                     error: Some(error_msg.to_string()),
                 },
             );
+            error_events::record(
+                &self.app_handle,
+                ErrorKind::ModelLoadFailed,
+                format!("Can't load {}", model_info.name),
+                error_msg,
+            );
             return Err(anyhow::anyhow!(error_msg));
         }
 
-        let model_path = self.model_manager.get_model_path(model_id)?;
-
         // Create appropriate engine based on model type
         let loaded_engine = match model_info.engine_type {
-            EngineType::Whisper => {
-                let mut engine = WhisperEngine::new();
-                engine.load_model(&model_path).map_err(|e| {
-                    let error_msg = format!("Failed to load whisper model {}: {}", model_id, e);
-                    let _ = self.app_handle.emit(
-                        "model-state-changed",
-                        ModelStateEvent {
-                            event_type: "loading_failed".to_string(),
-                            model_id: Some(model_id.to_string()),
-                            model_name: Some(model_info.name.clone()),
-                            error: Some(error_msg.clone()),
-                        },
-                    );
-                    anyhow::anyhow!(error_msg)
-                })?;
-                LoadedEngine::Whisper(engine)
-            }
             EngineType::Parakeet => {
-                let mut engine = ParakeetEngine::new();
-                engine
-                    .load_model_with_params(&model_path, ParakeetModelParams::int8())
-                    .map_err(|e| {
-                        let error_msg =
-                            format!("Failed to load parakeet model {}: {}", model_id, e);
-                        let _ = self.app_handle.emit(
-                            "model-state-changed",
-                            ModelStateEvent {
-                                event_type: "loading_failed".to_string(),
-                                model_id: Some(model_id.to_string()),
-                                model_name: Some(model_info.name.clone()),
-                                error: Some(error_msg.clone()),
-                            },
+                #[cfg(target_os = "macos")]
+                let use_coreml = model_id.ends_with("-coreml");
+                #[cfg(not(target_os = "macos"))]
+                let use_coreml = false;
+
+                if use_coreml {
+                    #[cfg(target_os = "macos")]
+                    {
+                        use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
+                        let version = if model_id.contains("v2") { "v2" } else { "v3" };
+                        info!(
+                            "loading {} via Core ML sidecar",
+                            model_id
                         );
-                        anyhow::anyhow!(error_msg)
-                    })?;
-                LoadedEngine::Parakeet(engine)
-            }
-            EngineType::Moonshine => {
-                let error_msg = "Moonshine models no longer supported - use Whisper or Parakeet";
-                let _ = self.app_handle.emit(
-                    "model-state-changed",
-                    ModelStateEvent {
-                        event_type: "loading_failed".to_string(),
-                        model_id: Some(model_id.to_string()),
-                        model_name: Some(model_info.name.clone()),
-                        error: Some(error_msg.to_string()),
-                    },
-                );
-                return Err(anyhow::anyhow!(error_msg));
+                        let app_handle = self.app_handle.clone();
+                        let model_id_owned = model_id.to_string();
+                        let model_name = model_info.name.clone();
+                        let emit_failure = move |msg: String| {
+                            let _ = app_handle.emit(
+                                "model-state-changed",
+                                ModelStateEvent {
+                                    event_type: "loading_failed".to_string(),
+                                    model_id: Some(model_id_owned.clone()),
+                                    model_name: Some(model_name.clone()),
+                                    error: Some(msg.clone()),
+                                },
+                            );
+                            error_events::record(
+                                &app_handle,
+                                ErrorKind::ModelLoadFailed,
+                                "Core ML engine failed to load",
+                                msg,
+                            );
+                        };
+                        let bin = find_sidecar_binary().map_err(|e| {
+                            let msg = format!("Core ML sidecar lookup failed: {}", e);
+                            emit_failure(msg.clone());
+                            anyhow::anyhow!(msg)
+                        })?;
+                        let mut asr = CoreMlAsr::spawn(&bin, Some(self.app_handle.clone()))
+                            .map_err(|e| {
+                                let msg = format!("Core ML sidecar spawn failed: {}", e);
+                                emit_failure(msg.clone());
+                                anyhow::anyhow!(msg)
+                            })?;
+                        asr.load(version).map_err(|e| {
+                            let msg = format!("Core ML sidecar load failed: {}", e);
+                            emit_failure(msg.clone());
+                            anyhow::anyhow!(msg)
+                        })?;
+                        LoadedEngine::ParakeetCoreML(asr)
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    unreachable!()
+                } else {
+                    let model_path = self.model_manager.get_model_path(model_id)?;
+                    let mut engine = ParakeetEngine::new();
+                    engine
+                        .load_model_with_params(&model_path, ParakeetModelParams::int8())
+                        .map_err(|e| {
+                            let error_msg =
+                                format!("Failed to load parakeet model {}: {}", model_id, e);
+                            let _ = self.app_handle.emit(
+                                "model-state-changed",
+                                ModelStateEvent {
+                                    event_type: "loading_failed".to_string(),
+                                    model_id: Some(model_id.to_string()),
+                                    model_name: Some(model_info.name.clone()),
+                                    error: Some(error_msg.clone()),
+                                },
+                            );
+                            error_events::record(
+                                &self.app_handle,
+                                ErrorKind::ModelLoadFailed,
+                                format!("Failed to load {}", model_info.name),
+                                error_msg.clone(),
+                            );
+                            anyhow::anyhow!(error_msg)
+                        })?;
+                    LoadedEngine::Parakeet(engine)
+                }
             }
         };
 
@@ -386,90 +425,29 @@ impl TranscriptionManager {
 
         let settings = get_settings(&self.app_handle);
 
-        // Acquire engine lock for the entire transcription to prevent the idle
-        // watcher from unloading the model mid-transcription (fixes TOCTOU race)
-        let result = {
-            let mut engine_guard = self.engine.lock_or_recover();
-
-            // Update activity timestamp again while holding lock to prevent
-            // idle watcher from seeing stale timestamp
-            self.last_activity
-                .store(current_timestamp_ms(), Ordering::Release);
-
-            let engine = engine_guard.as_mut().ok_or_else(|| {
-                error!("transcribe_chunk: Model is not loaded!");
-                anyhow::anyhow!("Model is not loaded for chunk transcription.")
-            })?;
-
-            debug!("transcribe_chunk: model is loaded, proceeding");
-
-            match engine {
-                LoadedEngine::Whisper(whisper_engine) => {
-                    let whisper_language = if settings.selected_language == "auto" {
-                        None
-                    } else {
-                        let normalized = if settings.selected_language == "zh-Hans"
-                            || settings.selected_language == "zh-Hant"
-                        {
-                            "zh".to_string()
-                        } else {
-                            settings.selected_language.clone()
-                        };
-                        Some(normalized)
-                    };
-
-                    debug!(
-                        "Calling whisper.transcribe: {} samples, lang={:?}, translate={}",
-                        audio.len(),
-                        whisper_language,
-                        settings.translate_to_english
+        // On Core ML, a sidecar crash mid-chunk earns one recovery attempt:
+        // respawn the sidecar, else fall back to ONNX Parakeet. Then retry the
+        // chunk. Non-Core-ML engines don't retry — their errors are fatal.
+        let mut attempts = 0usize;
+        let mut current_audio = audio;
+        let result = loop {
+            let outcome = self.run_engine_once(current_audio)?;
+            match outcome {
+                EngineStep::Done(text) => break text,
+                #[cfg(target_os = "macos")]
+                EngineStep::CoreMlFailed { err, audio } => {
+                    if attempts >= 1 {
+                        return Err(err);
+                    }
+                    attempts += 1;
+                    warn!(
+                        "Core ML sidecar transcribe failed ({}); attempting respawn + ONNX fallback",
+                        err
                     );
-
-                    let params = WhisperInferenceParams {
-                        language: whisper_language,
-                        translate: settings.translate_to_english,
-                        ..Default::default()
-                    };
-
-                    let start = std::time::Instant::now();
-                    let result = whisper_engine
-                        .transcribe_samples(audio, Some(params))
-                        .map_err(|e| anyhow::anyhow!("Whisper transcription failed: {}", e))?;
-                    info!(
-                        "Whisper transcription completed in {:?}: '{}' ({} chars)",
-                        start.elapsed(),
-                        if result.text.len() > 80 {
-                            &result.text[..result.text.floor_char_boundary(80)]
-                        } else {
-                            &result.text
-                        },
-                        result.text.len()
-                    );
-                    result.text
-                }
-                LoadedEngine::Parakeet(parakeet_engine) => {
-                    debug!("Calling parakeet.transcribe: {} samples", audio.len());
-
-                    let params = ParakeetInferenceParams {
-                        timestamp_granularity: TimestampGranularity::Segment,
-                        ..Default::default()
-                    };
-
-                    let start = std::time::Instant::now();
-                    let result = parakeet_engine
-                        .transcribe_samples(audio, Some(params))
-                        .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))?;
-                    info!(
-                        "Parakeet transcription completed in {:?}: '{}' ({} chars)",
-                        start.elapsed(),
-                        if result.text.len() > 80 {
-                            &result.text[..result.text.floor_char_boundary(80)]
-                        } else {
-                            &result.text
-                        },
-                        result.text.len()
-                    );
-                    result.text
+                    if !self.recover_coreml_or_fallback_onnx(&settings.selected_model) {
+                        return Err(err);
+                    }
+                    current_audio = audio;
                 }
             }
         };
@@ -494,6 +472,148 @@ impl TranscriptionManager {
 
         Ok(text)
     }
+
+    /// One pass of the engine match. Holds the engine mutex for the duration
+    /// of inference; Core ML failures bubble up as `CoreMlFailed` so the outer
+    /// loop can drop the lock and attempt recovery.
+    fn run_engine_once(&self, audio: Vec<f32>) -> Result<EngineStep> {
+        let mut engine_guard = self.engine.lock_or_recover();
+
+        // Update activity timestamp again while holding lock to prevent
+        // idle watcher from seeing stale timestamp.
+        self.last_activity
+            .store(current_timestamp_ms(), Ordering::Release);
+
+        let engine = engine_guard.as_mut().ok_or_else(|| {
+            error!("transcribe_chunk: Model is not loaded!");
+            anyhow::anyhow!("Model is not loaded for chunk transcription.")
+        })?;
+
+        debug!("transcribe_chunk: model is loaded, proceeding");
+
+        let step = match engine {
+            LoadedEngine::Parakeet(parakeet_engine) => {
+                debug!("Calling parakeet.transcribe: {} samples", audio.len());
+
+                let params = ParakeetInferenceParams {
+                    timestamp_granularity: TimestampGranularity::Segment,
+                };
+
+                let start = std::time::Instant::now();
+                let result = parakeet_engine
+                    .transcribe_samples(audio, Some(params))
+                    .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))?;
+                info!(
+                    "Parakeet transcription completed in {:?}: '{}' ({} chars)",
+                    start.elapsed(),
+                    if result.text.len() > 80 {
+                        &result.text[..result.text.floor_char_boundary(80)]
+                    } else {
+                        &result.text
+                    },
+                    result.text.len()
+                );
+                EngineStep::Done(result.text)
+            }
+            #[cfg(target_os = "macos")]
+            LoadedEngine::ParakeetCoreML(asr) => {
+                debug!("Calling coreml-asr.transcribe: {} samples", audio.len());
+                let start = std::time::Instant::now();
+                match asr.transcribe(&audio) {
+                    Ok((text, infer_ms)) => {
+                        info!(
+                            "Core ML Parakeet completed in {:?} (sidecar infer {:.1}ms): '{}' ({} chars)",
+                            start.elapsed(),
+                            infer_ms,
+                            if text.len() > 80 {
+                                &text[..text.floor_char_boundary(80)]
+                            } else {
+                                &text
+                            },
+                            text.len()
+                        );
+                        EngineStep::Done(text)
+                    }
+                    Err(e) => EngineStep::CoreMlFailed {
+                        err: anyhow::anyhow!("Core ML Parakeet transcription failed: {}", e),
+                        audio,
+                    },
+                }
+            }
+        };
+
+        Ok(step)
+    }
+
+    /// Attempt to respawn the Core ML sidecar; if that fails, swap in the
+    /// ONNX Parakeet engine if INT8 is on disk. Silent swap — no
+    /// `model-state-changed` emitted, because the error-events banner already
+    /// conveys what happened and a mid-meeting "loading model…" toast on top
+    /// of that is user-hostile.
+    #[cfg(target_os = "macos")]
+    fn recover_coreml_or_fallback_onnx(&self, model_id: &str) -> bool {
+        use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
+        let version = if model_id.contains("v2") { "v2" } else { "v3" };
+
+        let respawn = || -> Result<CoreMlAsr> {
+            let bin = find_sidecar_binary()?;
+            let mut asr = CoreMlAsr::spawn(&bin, Some(self.app_handle.clone()))?;
+            asr.load(version)?;
+            Ok(asr)
+        };
+
+        match respawn() {
+            Ok(asr) => {
+                info!("Core ML sidecar respawned successfully");
+                let mut engine_guard = self.engine.lock_or_recover();
+                *engine_guard = Some(LoadedEngine::ParakeetCoreML(asr));
+                return true;
+            }
+            Err(e) => {
+                warn!("Core ML respawn failed ({}); falling back to ONNX", e);
+            }
+        }
+
+        // Fallback routes to the ONNX sibling of the same Parakeet generation.
+        let onnx_id = model_id.trim_end_matches("-coreml");
+        let model_info = match self.model_manager.get_model_info(onnx_id) {
+            Some(m) if m.is_downloaded => m,
+            _ => {
+                warn!(
+                    "ONNX fallback unavailable: {} not downloaded (user likely picked Accelerated-only)",
+                    onnx_id
+                );
+                return false;
+            }
+        };
+        let model_path = match self.model_manager.get_model_path(onnx_id) {
+            Ok(p) => p,
+            Err(e) => {
+                warn!("ONNX fallback unavailable: {}", e);
+                return false;
+            }
+        };
+        let mut engine = ParakeetEngine::new();
+        if let Err(e) = engine.load_model_with_params(&model_path, ParakeetModelParams::int8()) {
+            warn!("ONNX fallback load failed: {}", e);
+            return false;
+        }
+        info!("Fell back to ONNX Parakeet ({})", model_info.name);
+        let mut engine_guard = self.engine.lock_or_recover();
+        *engine_guard = Some(LoadedEngine::Parakeet(engine));
+        true
+    }
+}
+
+enum EngineStep {
+    Done(String),
+    /// Core ML failed. Audio is returned so the retry path can reuse it
+    /// without allocating a second copy.
+    #[cfg(target_os = "macos")]
+    CoreMlFailed {
+        err: anyhow::Error,
+        audio: Vec<f32>,
+    },
 }
 
 impl Drop for TranscriptionManager {

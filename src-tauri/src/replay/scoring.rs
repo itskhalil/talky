@@ -72,11 +72,11 @@ fn word_error_rate(reference: &str, hypothesis: &str) -> f64 {
     // DP table: dp[i][j] = min edit distance for ref[0..i] vs hyp[0..j]
     let mut dp = vec![vec![0usize; m + 1]; n + 1];
 
-    for i in 0..=n {
-        dp[i][0] = i; // deletions
+    for (i, row) in dp.iter_mut().enumerate() {
+        row[0] = i; // deletions
     }
-    for j in 0..=m {
-        dp[0][j] = j; // insertions
+    for (j, val) in dp[0].iter_mut().enumerate() {
+        *val = j; // insertions
     }
 
     for i in 1..=n {

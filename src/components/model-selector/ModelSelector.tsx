@@ -65,7 +65,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
     loadModels();
     loadCurrentModel();
 
-    // Listen for model state changes
     const modelStateUnlisten = listen<ModelStateEvent>(
       "model-state-changed",
       (event) => {
@@ -93,7 +92,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       },
     );
 
-    // Listen for model download progress
     const downloadProgressUnlisten = listen<DownloadProgress>(
       "model-download-progress",
       (event) => {
@@ -112,7 +110,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
             const current = stats[progress.model_id];
 
             if (!current) {
-              // First progress update - initialize
               stats[progress.model_id] = {
                 startTime: now,
                 lastUpdate: now,
@@ -120,14 +117,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
                 speed: 0,
               };
             } else {
-              // Calculate speed over last few seconds
-              const timeDiff = (now - current.lastUpdate) / 1000; // seconds
+              const timeDiff = (now - current.lastUpdate) / 1000;
               const bytesDiff = progress.downloaded - current.totalDownloaded;
 
               if (timeDiff > 0.5) {
-                // Update speed every 500ms
-                const currentSpeed = bytesDiff / (1024 * 1024) / timeDiff; // MB/s
-                // Smooth the speed with exponential moving average, but ensure positive values
+                const currentSpeed = bytesDiff / (1024 * 1024) / timeDiff;
                 const validCurrentSpeed = Math.max(0, currentSpeed);
                 const smoothedSpeed =
                   current.speed > 0
@@ -147,7 +141,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       },
     );
 
-    // Listen for model download completion
     const downloadCompleteUnlisten = listen<string>(
       "model-download-complete",
       (event) => {
@@ -162,21 +155,17 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
             delete stats[modelId];
           }),
         );
-        loadModels(); // Refresh models list
+        loadModels();
 
-        // Auto-select the newly downloaded model (skip if recording in progress)
         setTimeout(async () => {
           const isRecording = await commands.isRecording();
-          if (isRecording) {
-            return; // Skip auto-switch if recording in progress
-          }
+          if (isRecording) return;
           loadCurrentModel();
           handleModelSelect(modelId);
         }, 500);
       },
     );
 
-    // Listen for extraction events
     const extractionStartedUnlisten = listen<string>(
       "model-extraction-started",
       (event) => {
@@ -199,14 +188,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
             delete extracting[modelId];
           }),
         );
-        loadModels(); // Refresh models list
+        loadModels();
 
-        // Auto-select the newly extracted model (skip if recording in progress)
         setTimeout(async () => {
           const isRecording = await commands.isRecording();
-          if (isRecording) {
-            return; // Skip auto-switch if recording in progress
-          }
+          if (isRecording) return;
           loadCurrentModel();
           handleModelSelect(modelId);
         }, 500);
@@ -227,7 +213,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       setModelStatus("error");
     });
 
-    // Click outside to close dropdown
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -260,6 +245,18 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       console.error("Failed to load models:", err);
     }
   };
+
+  // `model-download-progress` events are the fast path, but the Core ML
+  // sidecar fires its progress handler sparsely; poll while any download is
+  // in flight so the UI never stalls on long silences.
+  const anyDownloading = models.some((m) => m.is_downloading);
+  useEffect(() => {
+    if (!anyDownloading) return;
+    const id = window.setInterval(() => {
+      void loadModels();
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, [anyDownloading]);
 
   const loadCurrentModel = async () => {
     try {
@@ -365,6 +362,18 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       }
     }
 
+    // Covers downloads that started before mount or emit progress too sparsely
+    // to beat the backend's is_downloading flag — avoids an empty "no model" UI.
+    const downloadingFromServer = models.filter((m) => m.is_downloading);
+    if (downloadingFromServer.length > 0) {
+      if (downloadingFromServer.length === 1) {
+        return t("modelSelector.downloading", { percentage: 0 });
+      }
+      return t("modelSelector.downloadingMultiple", {
+        count: downloadingFromServer.length,
+      });
+    }
+
     const currentModel = getCurrentModel();
 
     switch (modelStatus) {
@@ -409,7 +418,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
 
   return (
     <>
-      {/* Model Status and Switcher */}
       <div className="relative" ref={dropdownRef}>
         <ModelStatusButton
           displayText={getModelDisplayText()}
@@ -417,7 +425,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
           onClick={() => setShowModelDropdown(!showModelDropdown)}
         />
 
-        {/* Model Dropdown */}
         {showModelDropdown && (
           <ModelDropdown
             models={models}

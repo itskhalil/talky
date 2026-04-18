@@ -1,27 +1,22 @@
 use anyhow::Result;
 use std::path::Path;
 use transcribe_rs::{
-    engines::{
-        parakeet::{ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity},
-        whisper::{WhisperEngine, WhisperInferenceParams},
+    engines::parakeet::{
+        ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
     },
     TranscriptionEngine,
 };
 
+#[cfg(target_os = "macos")]
+use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
+
 pub enum ReplayEngine {
-    Whisper(WhisperEngine),
     Parakeet(ParakeetEngine),
+    #[cfg(target_os = "macos")]
+    ParakeetCoreML(CoreMlAsr),
 }
 
 impl ReplayEngine {
-    pub fn load_whisper(model_path: &Path) -> Result<Self> {
-        let mut engine = WhisperEngine::new();
-        engine
-            .load_model(model_path)
-            .map_err(|e| anyhow::anyhow!("Failed to load Whisper model: {}", e))?;
-        Ok(Self::Whisper(engine))
-    }
-
     pub fn load_parakeet(model_path: &Path) -> Result<Self> {
         let mut engine = ParakeetEngine::new();
         engine
@@ -30,11 +25,29 @@ impl ReplayEngine {
         Ok(Self::Parakeet(engine))
     }
 
-    pub fn load(engine_type: &str, model_path: &Path) -> Result<Self> {
+    #[cfg(target_os = "macos")]
+    pub fn load_parakeet_coreml(version: &str) -> Result<Self> {
+        let bin = find_sidecar_binary()?;
+        let mut asr = CoreMlAsr::spawn(&bin, None)?;
+        asr.load(version)?;
+        Ok(Self::ParakeetCoreML(asr))
+    }
+
+    pub fn load(engine_type: &str, model_path: Option<&Path>) -> Result<Self> {
         match engine_type {
-            "whisper" => Self::load_whisper(model_path),
-            "parakeet" => Self::load_parakeet(model_path),
-            other => anyhow::bail!("Unknown engine type: '{}'. Use 'whisper' or 'parakeet'.", other),
+            "parakeet" => {
+                let path = model_path
+                    .ok_or_else(|| anyhow::anyhow!("parakeet engine requires a model path"))?;
+                Self::load_parakeet(path)
+            }
+            #[cfg(target_os = "macos")]
+            "coreml" | "coreml-v3" => Self::load_parakeet_coreml("v3"),
+            #[cfg(target_os = "macos")]
+            "coreml-v2" => Self::load_parakeet_coreml("v2"),
+            other => anyhow::bail!(
+                "Unknown engine type: '{}'. Use 'parakeet' or 'coreml' (macOS only).",
+                other
+            ),
         }
     }
 
@@ -44,26 +57,26 @@ impl ReplayEngine {
         }
 
         let text = match self {
-            Self::Whisper(engine) => {
-                let params = WhisperInferenceParams {
-                    language: None,
-                    translate: false,
-                    ..Default::default()
-                };
-                let result = engine
-                    .transcribe_samples(audio, Some(params))
-                    .map_err(|e| anyhow::anyhow!("Whisper transcription failed: {}", e))?;
-                result.text
-            }
             Self::Parakeet(engine) => {
                 let params = ParakeetInferenceParams {
                     timestamp_granularity: TimestampGranularity::Segment,
-                    ..Default::default()
                 };
                 let result = engine
                     .transcribe_samples(audio, Some(params))
                     .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))?;
                 result.text
+            }
+            #[cfg(target_os = "macos")]
+            Self::ParakeetCoreML(asr) => {
+                let (text, infer_ms) = asr.transcribe(&audio)?;
+                log::info!(
+                    "coreml transcribed {} samples ({:.2}s) in {:.1}ms ({:.1}x RT)",
+                    audio.len(),
+                    audio.len() as f64 / 16000.0,
+                    infer_ms,
+                    (audio.len() as f64 / 16000.0) / (infer_ms / 1000.0),
+                );
+                text
             }
         };
 

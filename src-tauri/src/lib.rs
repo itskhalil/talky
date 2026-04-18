@@ -5,6 +5,7 @@ pub mod replay;
 mod crash_reporter;
 pub mod audio_toolkit;
 mod commands;
+pub mod error_events;
 mod llm_client;
 mod managers;
 #[cfg(target_os = "macos")]
@@ -40,8 +41,95 @@ use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKind};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
-use crate::settings::get_settings;
+use crate::settings::{get_settings, write_settings, SETTINGS_STORE_PATH};
 use std::path::PathBuf;
+use tauri_plugin_store::StoreExt;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UpgradeState {
+    /// Fresh install, or post-v0.13 user with nothing to do.
+    NoAction,
+    /// Settings predate v0.13 (no `last_run_version` yet). Kick off a
+    /// background Core ML download; leave `selected_model` on ONNX.
+    V012Upgrade,
+    /// Post-v0.13 user whose Core ML model finished downloading. Flip
+    /// `selected_model` from the ONNX id to the `-coreml` id and show the
+    /// promotion banner.
+    PromoteReady,
+}
+
+use managers::model::{CORE_ML_MODEL_ID, ONNX_MODEL_ID};
+
+fn detect_upgrade_state(app: &AppHandle) -> UpgradeState {
+    let store = match app.store(SETTINGS_STORE_PATH) {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("detect_upgrade_state: store open failed: {}", e);
+            return UpgradeState::NoAction;
+        }
+    };
+    let Some(raw) = store.get("settings") else {
+        return UpgradeState::NoAction;
+    };
+    let has_last_run = raw.get("last_run_version").is_some();
+    let is_populated = raw.is_object() && raw.as_object().map(|o| !o.is_empty()).unwrap_or(false);
+
+    if is_populated && !has_last_run {
+        return UpgradeState::V012Upgrade;
+    }
+
+    // Post-v0.13: check whether a completed background migration is waiting
+    // to be promoted. Gate on `selected_model` being the ONNX id AND the
+    // Core ML cache being marked ready.
+    let ready = raw
+        .get("coreml_model_ready")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let selected = raw
+        .get("selected_model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if ready && selected == ONNX_MODEL_ID {
+        UpgradeState::PromoteReady
+    } else {
+        UpgradeState::NoAction
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_coreml_migration_task(app: AppHandle) {
+    use std::sync::Arc;
+    tauri::async_runtime::spawn(async move {
+        use managers::model::ModelManager;
+        log::info!("Core ML migration: starting background download via ModelManager");
+        let manager = match app.try_state::<Arc<ModelManager>>() {
+            Some(m) => m.inner().clone(),
+            None => {
+                log::warn!("Core ML migration: ModelManager not yet managed");
+                return;
+            }
+        };
+        match manager.download_model(CORE_ML_MODEL_ID).await {
+            Ok(()) => {
+                log::info!(
+                    "Core ML migration: complete — promotion fires on next launch"
+                );
+            }
+            Err(e) => {
+                log::warn!("Core ML migration failed: {}", e);
+                error_events::record(
+                    &app,
+                    error_events::ErrorKind::ModelLoadFailed,
+                    "Couldn't download the new transcription engine",
+                    e.to_string(),
+                );
+            }
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn spawn_coreml_migration_task(_app: AppHandle) {}
 
 /// Returns the directory where user data (sessions.db, history.db) should be stored.
 /// Uses the custom data directory from settings if set, otherwise the default app data directory.
@@ -95,14 +183,10 @@ fn build_console_filter() -> env_filter::Filter {
                     err
                 );
                 builder.filter_level(log::LevelFilter::Info);
-                // Suppress noisy whisper/ggml logs by default
-                builder.filter_module("whisper_rs", log::LevelFilter::Warn);
             }
         }
         _ => {
             builder.filter_level(log::LevelFilter::Info);
-            // Suppress noisy whisper/ggml logs by default
-            builder.filter_module("whisper_rs", log::LevelFilter::Warn);
         }
     }
 
@@ -279,7 +363,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
 
     // Get the autostart manager and configure based on user setting
     let autostart_manager = app_handle.autolaunch();
-    let settings = settings::get_settings(&app_handle);
+    let settings = settings::get_settings(app_handle);
 
     if settings.autostart_enabled {
         // Enable autostart if user has opted in
@@ -344,7 +428,7 @@ pub fn run() {
             if let Ok(mut file) = std::fs::OpenOptions::new()
                 .append(true)
                 .create(true)
-                .open(&log_path)
+                .open(log_path)
             {
                 // Avoid calling chrono or any external code in the panic hook — use a simple
                 // seconds-since-epoch timestamp instead.
@@ -424,6 +508,11 @@ pub fn run() {
         commands::models::has_any_models_available,
         commands::models::has_any_models_or_downloads,
         commands::models::get_recommended_first_model,
+        commands::list_error_events,
+        commands::dismiss_error_event,
+        commands::clear_error_events,
+        commands::send_logs_to_developer,
+        commands::consume_pending_promotion,
         commands::audio::get_available_microphones,
         commands::audio::set_selected_microphone,
         commands::audio::get_selected_microphone,
@@ -561,12 +650,47 @@ pub fn run() {
 
     builder
         .setup(move |app| {
-            let settings = get_settings(&app.handle());
-            let tauri_log_level: tauri_plugin_log::LogLevel = settings.log_level.into();
+            let app_handle = app.handle().clone();
+
+            // Detect v0.12.x → v0.13 upgrade BEFORE get_settings fills defaults.
+            // We probe the raw settings JSON for the `last_run_version` key:
+            // its absence (with other fields present) means a v0.12.x upgrade.
+            let upgrade_state = detect_upgrade_state(&app_handle);
+            let mut settings = get_settings(&app_handle);
+            let mut settings_dirty = false;
+
+            match upgrade_state {
+                UpgradeState::V012Upgrade => {
+                    log::info!("v0.12.x upgrade detected; scheduling Core ML background migration");
+                    settings.coreml_model_ready = false;
+                    settings_dirty = true;
+                }
+                UpgradeState::PromoteReady => {
+                    log::info!("Core ML model ready; promoting selected_model to {}", CORE_ML_MODEL_ID);
+                    settings.selected_model = CORE_ML_MODEL_ID.to_string();
+                    settings.pending_promotion = true;
+                    settings_dirty = true;
+                }
+                UpgradeState::NoAction => {}
+            }
+
+            // Stamp last_run_version every startup so the next boot knows this
+            // user is on v0.13+ and the upgrade-detection path stays quiet.
+            let current_version = app.package_info().version.to_string();
+            if settings.last_run_version.as_deref() != Some(&current_version) {
+                settings.last_run_version = Some(current_version);
+                settings_dirty = true;
+            }
+
+            let log_level = settings.log_level;
+            if settings_dirty {
+                write_settings(&app_handle, settings);
+            }
+
+            let tauri_log_level: tauri_plugin_log::LogLevel = log_level.into();
             let file_log_level: log::Level = tauri_log_level.into();
             // Store the file log level in the atomic for the filter to use
             FILE_LOG_LEVEL.store(file_log_level.to_level_filter() as u8, Ordering::Relaxed);
-            let app_handle = app.handle().clone();
 
             if let Ok(log_dir) = app.path().app_log_dir() {
                 let _ = PANIC_LOG_PATH.set(log_dir.join("talky.log"));
@@ -574,7 +698,19 @@ pub fn run() {
 
             log::info!("Talky v{}", app.package_info().version);
             crash_reporter::check_for_crash_reports(&app_handle);
+            error_events::startup_housekeeping(&app_handle);
             initialize_core_logic(&app_handle);
+
+            // Fire deferred migration work now that managers are up.
+            match upgrade_state {
+                UpgradeState::V012Upgrade => {
+                    spawn_coreml_migration_task(app_handle.clone());
+                }
+                // PromoteReady already persisted the pending_promotion flag
+                // above; the frontend consumes it on mount. No event emit —
+                // events fired here would race with React mount timing.
+                UpgradeState::PromoteReady | UpgradeState::NoAction => {}
+            }
 
             // Set up application menu (macOS uses app-level menu bar)
             let app_menu = menu::create_app_menu(&app_handle);
@@ -624,12 +760,12 @@ pub fn run() {
                         api.prevent_close();
                         let _ = window.hide();
                         // Show pill if currently recording (unless disabled by debug flag)
-                        let settings = crate::settings::get_settings(&window.app_handle());
+                        let settings = crate::settings::get_settings(window.app_handle());
                         if !settings.debug_disable_pill_window {
                             let audio_manager =
                                 window.app_handle().state::<Arc<AudioRecordingManager>>();
                             if audio_manager.is_recording() {
-                                show_pill_window(&window.app_handle());
+                                show_pill_window(window.app_handle());
                             }
                         }
                     }
@@ -639,15 +775,15 @@ pub fn run() {
                 if window.label() == "main" {
                     if *focused {
                         // Main window gained focus - hide the pill
-                        hide_pill_window(&window.app_handle());
+                        hide_pill_window(window.app_handle());
                     } else {
                         // Main window lost focus - show pill if recording (unless disabled by debug flag)
-                        let settings = crate::settings::get_settings(&window.app_handle());
+                        let settings = crate::settings::get_settings(window.app_handle());
                         if !settings.debug_disable_pill_window {
                             let audio_manager =
                                 window.app_handle().state::<Arc<AudioRecordingManager>>();
                             if audio_manager.is_recording() {
-                                show_pill_window(&window.app_handle());
+                                show_pill_window(window.app_handle());
                             }
                         }
                     }

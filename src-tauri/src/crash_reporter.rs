@@ -67,6 +67,7 @@ pub fn check_for_crash_reports(app: &tauri::AppHandle) {
         newly_seen.push(name.clone());
 
         log::warn!("=== PREVIOUS CRASH REPORT: {} ===", name);
+        let mut summary_line: Option<String> = None;
         match fs::read_to_string(&path) {
             Ok(content) => {
                 let lines: Vec<&str> = content.lines().collect();
@@ -81,12 +82,26 @@ pub fn check_for_crash_reports(app: &tauri::AppHandle) {
                         path.display()
                     );
                 }
+                // Grab the first non-empty line as a short detail for the banner.
+                summary_line = lines
+                    .iter()
+                    .find(|l| !l.trim().is_empty())
+                    .map(|s| s.to_string());
             }
             Err(e) => {
                 log::warn!("  (could not read report: {})", e);
             }
         }
         log::warn!("=== END CRASH REPORT ===");
+
+        // Surface the crash in the user-visible error-events banner. Keeps
+        // the log-append path (above) intact; adds a UI signal on top of it.
+        crate::error_events::record(
+            app,
+            crate::error_events::ErrorKind::NativeCrash,
+            "Talky crashed previously",
+            summary_line.unwrap_or_else(|| format!("Crash report saved at {}", path.display())),
+        );
     }
 
     if !newly_seen.is_empty() {

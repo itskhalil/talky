@@ -70,7 +70,7 @@ chrono = "0.4"
 rusqlite = { version = "0.37", features = ["bundled"] }
 tar = "0.4.44"
 flate2 = "1.0"
-transcribe-rs = { version = "0.2.2", features = ["whisper", "parakeet"] }
+transcribe-rs = { version = "0.2.2", features = ["parakeet"] }
 ort = { version = "=2.0.0-rc.10", features = ["ndarray"] }
 ndarray = "0.16"
 realfft = "3.5.0"

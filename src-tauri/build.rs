@@ -1,7 +1,52 @@
 fn main() {
     generate_tray_translations();
+    #[cfg(target_os = "macos")]
+    build_coreml_sidecar();
 
     tauri_build::build()
+}
+
+/// Build the Swift `talky-coreml-asr` sidecar (Core ML Parakeet path via FluidAudio).
+///
+/// Runs `swift build -c release` in `coreml-asr/`, then copies the resulting binary
+/// to `coreml-asr/bin/talky-coreml-asr-<triple>` where Tauri's `externalBin` can
+/// pick it up. Always runs — `rerun-if-changed` + Swift's own build cache make
+/// this near-free when Swift sources haven't changed.
+#[cfg(target_os = "macos")]
+fn build_coreml_sidecar() {
+    use std::path::PathBuf;
+    use std::process::Command;
+
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let pkg = manifest_dir.join("coreml-asr");
+    if !pkg.join("Package.swift").exists() {
+        println!("cargo:warning=coreml-asr package missing, skipping sidecar build");
+        return;
+    }
+
+    println!("cargo:rerun-if-changed=coreml-asr/Package.swift");
+    println!("cargo:rerun-if-changed=coreml-asr/Sources");
+
+    let status = Command::new("swift")
+        .args(["build", "-c", "release"])
+        .current_dir(&pkg)
+        .status()
+        .expect("failed to invoke `swift build`; is the Swift toolchain installed?");
+    if !status.success() {
+        panic!("swift build failed for coreml-asr sidecar");
+    }
+
+    let built = pkg.join(".build/release/talky-coreml-asr");
+    if !built.exists() {
+        panic!("expected sidecar at {} after build", built.display());
+    }
+
+    // Tauri's externalBin convention: <name>-<target-triple>
+    let triple = std::env::var("TARGET").unwrap_or_else(|_| "aarch64-apple-darwin".to_string());
+    let bin_dir = pkg.join("bin");
+    std::fs::create_dir_all(&bin_dir).expect("create coreml-asr/bin");
+    let dest = bin_dir.join(format!("talky-coreml-asr-{}", triple));
+    std::fs::copy(&built, &dest).expect("copy sidecar to externalBin destination");
 }
 
 /// Generate tray menu translations from frontend locale files.

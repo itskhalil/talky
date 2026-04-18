@@ -408,6 +408,7 @@ pub fn create_environment(
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub fn update_environment(
     app: AppHandle,
     id: String,

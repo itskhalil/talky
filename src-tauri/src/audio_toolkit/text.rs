@@ -108,7 +108,7 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
 fn preserve_case_pattern(original: &str, replacement: &str) -> String {
     if original.chars().all(|c| c.is_uppercase()) {
         replacement.to_uppercase()
-    } else if original.chars().next().map_or(false, |c| c.is_uppercase()) {
+    } else if original.chars().next().is_some_and(|c| c.is_uppercase()) {
         let mut chars: Vec<char> = replacement.chars().collect();
         if let Some(first_char) = chars.get_mut(0) {
             *first_char = first_char.to_uppercase().next().unwrap_or(*first_char);
@@ -433,6 +433,7 @@ pub fn filter_transcription_output(text: &str) -> String {
 ///
 /// # Returns
 /// `true` if the segments are likely duplicates (similar text with overlapping time)
+#[allow(clippy::too_many_arguments)]
 pub fn is_duplicate_segment(
     new_text: &str,
     new_start_ms: i64,

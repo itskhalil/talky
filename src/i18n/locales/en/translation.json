@@ -38,7 +38,6 @@
   "tray": {
     "newNote": "New Note",
     "stopRecording": "Stop Recording",
-    "checkUpdates": "Check for Updates...",
     "quit": "Quit"
   },
   "sidebar": {
@@ -85,10 +84,6 @@
       "parakeet-tdt-0.6b-v3": {
         "name": "Parakeet V3",
         "description": "Fast and accurate"
-      },
-      "moonshine-base": {
-        "name": "Moonshine Base",
-        "description": "Very fast, English only. Handles accents well."
       }
     },
     "errors": {
@@ -142,6 +137,35 @@
     "modelUnloaded": "Model Unloaded",
     "noModelDownloadRequired": "No Transcription Model Available - Select or Download One",
     "deleteModel": "Delete {{modelName}}"
+  },
+  "coremlMigration": {
+    "toast": "Downloading new transcription engine... {{percentage}}%",
+    "toastGeneric": "Downloading new transcription engine...",
+    "promotionTitle": "Switched to a faster transcription engine",
+    "promotionBody": "Talky now transcribes via the Apple Neural Engine. You can switch back in Settings at any time.",
+    "promotionRevert": "Revert",
+    "promotionDismiss": "Got it"
+  },
+  "errorBanner": {
+    "sendLogs": "Send logs",
+    "dismiss": "Dismiss",
+    "moreCount": "+{{count}} more",
+    "defaultTitle": "Something went wrong"
+  },
+  "recentEvents": {
+    "title": "Recent Events",
+    "empty": "No recent issues.",
+    "clearAll": "Clear all",
+    "sendLogs": "Send logs",
+    "kind": {
+      "native_crash": "App crash",
+      "sidecar_crashed": "Core ML engine crashed",
+      "model_load_failed": "Model failed to load"
+    }
+  },
+  "sendLogs": {
+    "title": "Send logs to developer",
+    "description": "Reveals the log file in Finder and opens a pre-filled email. Attach the log yourself from the Finder window."
   },
   "settings": {
     "back": "Back",
@@ -517,14 +541,6 @@
         "title": "Support Development",
         "description": "Help us continue building Talky",
         "button": "Donate"
-      },
-      "acknowledgments": {
-        "title": "Acknowledgments",
-        "whisper": {
-          "title": "Whisper.cpp",
-          "description": "High-performance inference of OpenAI's Whisper automatic speech recognition model",
-          "details": "Talky uses Whisper.cpp for fast, local speech-to-text processing. Thanks to the amazing work by Georgi Gerganov and contributors."
-        }
       }
     }
   },

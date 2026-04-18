@@ -113,12 +113,13 @@ pub struct ModelEnvironment {
     pub(crate) model: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelUnloadTimeout {
     Never,
     Immediately,
     Min2,
+    #[default]
     Min5,
     Min10,
     Min15,
@@ -134,12 +135,6 @@ pub enum RecordingRetentionPeriod {
     Days3,
     Weeks2,
     Months3,
-}
-
-impl Default for ModelUnloadTimeout {
-    fn default() -> Self {
-        ModelUnloadTimeout::Min5
-    }
 }
 
 impl ModelUnloadTimeout {
@@ -166,28 +161,13 @@ impl ModelUnloadTimeout {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum FontSize {
     Small,
     Medium,
+    #[default]
     Large,
-}
-
-impl Default for FontSize {
-    fn default() -> Self {
-        FontSize::Large
-    }
-}
-
-impl FontSize {
-    pub fn to_pixels(self) -> u32 {
-        match self {
-            FontSize::Small => 14,
-            FontSize::Medium => 16,
-            FontSize::Large => 18,
-        }
-    }
 }
 
 /* still handy for composing the initial JSON in the store ------------- */
@@ -283,6 +263,20 @@ pub struct AppSettings {
     pub save_debug_recordings: bool,
     #[serde(default = "default_debug_recordings_max_count")]
     pub debug_recordings_max_count: u8,
+
+    // Core ML Parakeet rollout — migration bookkeeping. On macOS, selected_model
+    // is the source of truth for engine choice; these are only for detecting
+    // v0.12.x upgrades and timing the one-time promotion banner.
+    #[serde(default)]
+    pub coreml_model_ready: bool,
+    #[serde(default)]
+    pub last_run_version: Option<String>,
+    /// Set to true when `setup()` promotes `selected_model` from the ONNX id
+    /// to the `-coreml` id. Frontend reads + clears this on mount to decide
+    /// whether to show the promotion banner. Persisted rather than fired as
+    /// an event to sidestep the emit-before-listener race.
+    #[serde(default)]
+    pub pending_promotion: bool,
 }
 
 fn default_meeting_end_action() -> String {
@@ -623,6 +617,9 @@ pub fn get_default_settings() -> AppSettings {
         debug_disable_pill_window: default_debug_disable_pill_window(),
         save_debug_recordings: false,
         debug_recordings_max_count: default_debug_recordings_max_count(),
+        coreml_model_ready: false,
+        last_run_version: None,
+        pending_promotion: false,
     }
 }
 
@@ -676,22 +673,6 @@ impl AppSettings {
         ))
     }
 
-    /// Get chat config from environment.
-    /// Returns (base_url, api_key, model) or None if not configured.
-    pub fn get_chat_config(
-        &self,
-        environment_id: Option<&str>,
-    ) -> Option<(String, String, String)> {
-        let env = self.get_effective_environment(environment_id)?;
-        if env.chat_model.is_empty() {
-            return None;
-        }
-        Some((
-            env.base_url.clone(),
-            env.api_key.clone(),
-            env.chat_model.clone(),
-        ))
-    }
 }
 
 pub fn get_settings(app: &AppHandle) -> AppSettings {
@@ -751,12 +732,6 @@ pub fn write_settings(app: &AppHandle, settings: AppSettings) {
 pub fn get_history_limit(app: &AppHandle) -> usize {
     let settings = get_settings(app);
     settings.history_limit
-}
-
-/// Returns the custom data directory if set, or None to use the default app data directory.
-pub fn get_data_directory(app: &AppHandle) -> Option<std::path::PathBuf> {
-    let settings = get_settings(app);
-    settings.data_directory.map(std::path::PathBuf::from)
 }
 
 pub fn get_recording_retention_period(app: &AppHandle) -> RecordingRetentionPeriod {

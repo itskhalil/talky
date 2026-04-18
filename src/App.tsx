@@ -5,6 +5,9 @@ import Onboarding, { PermissionsOnboarding } from "./components/onboarding";
 import { SessionsView } from "./components/sessions/SessionsView";
 import { SettingsPage } from "./components/SettingsPage";
 import { CommandPalette } from "./components/CommandPalette";
+import { ErrorEventBanner } from "./components/error-events/ErrorEventBanner";
+import { CoreMlMigrationToast } from "./components/coreml-migration/CoreMlMigrationToast";
+import { CoreMlPromotionBanner } from "./components/coreml-migration/CoreMlPromotionBanner";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands } from "@/bindings";
@@ -146,6 +149,8 @@ function App() {
           },
         }}
       />
+      <CoreMlPromotionBanner />
+      <ErrorEventBanner />
       <div className="flex-1 overflow-hidden">
         {view === "notes" ? (
           <SessionsView onOpenSettings={() => setView("settings")} />
@@ -153,6 +158,7 @@ function App() {
           <SettingsPage onBack={() => setView("notes")} />
         )}
       </div>
+      <CoreMlMigrationToast />
       <CommandPalette />
     </div>
   );

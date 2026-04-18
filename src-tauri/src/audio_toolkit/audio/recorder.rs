@@ -271,12 +271,7 @@ fn run_consumer(
         4000.0, // vocal_max_hz
     );
 
-    loop {
-        let raw = match sample_rx.recv() {
-            Ok(s) => s,
-            Err(_) => break, // stream closed
-        };
-
+    while let Ok(raw) = sample_rx.recv() {
         // ---------- spectrum processing ---------------------------------- //
         if let Some(buckets) = visualizer.feed(&raw) {
             if let Some(cb) = &level_cb {

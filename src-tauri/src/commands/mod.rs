@@ -6,6 +6,7 @@ pub mod session;
 pub mod settings;
 pub mod transcription;
 
+use crate::error_events::{self, ErrorKind, UserVisibleError};
 use crate::settings::{get_settings, write_settings, AppSettings, LogLevel};
 use crate::utils::cancel_current_operation;
 use std::path::PathBuf;
@@ -288,6 +289,117 @@ pub fn set_data_directory(
 
     log::info!("Data directory updated. App restart required.");
     Ok(())
+}
+
+/// Read and clear `pending_promotion`. Frontend calls this on mount: if the
+/// previous `setup()` promoted `selected_model` to the Core ML id, this
+/// returns true once and false thereafter. Decouples the banner from an
+/// unreliable startup event emit.
+#[specta::specta]
+#[tauri::command]
+pub fn consume_pending_promotion(app: AppHandle) -> bool {
+    let mut settings = get_settings(&app);
+    if settings.pending_promotion {
+        settings.pending_promotion = false;
+        write_settings(&app, settings);
+        true
+    } else {
+        false
+    }
+}
+
+/// List all stored error events, newest first. Drives the Recent Events
+/// settings section.
+#[specta::specta]
+#[tauri::command]
+pub fn list_error_events(app: AppHandle) -> Vec<UserVisibleError> {
+    error_events::list(&app)
+}
+
+/// Mark a specific error event as dismissed. Its banner won't show again; the
+/// Recent Events list still retains the entry.
+#[specta::specta]
+#[tauri::command]
+pub fn dismiss_error_event(app: AppHandle, id: String) {
+    error_events::dismiss(&app, &id);
+}
+
+/// Wipe every stored error event.
+#[specta::specta]
+#[tauri::command]
+pub fn clear_error_events(app: AppHandle) {
+    error_events::clear(&app);
+}
+
+/// Reveal `talky.log` in Finder (selected, not just the folder) and open a
+/// pre-filled mailto. The user attaches the log file themselves from the
+/// Finder window — mailto body limits on macOS are flaky, so we don't try to
+/// embed log contents.
+#[specta::specta]
+#[tauri::command]
+pub fn send_logs_to_developer(
+    app: AppHandle,
+    error_kind: Option<ErrorKind>,
+) -> Result<(), String> {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| format!("Failed to resolve log directory: {}", e))?;
+    let log_file = log_dir.join("talky.log");
+
+    // Reveal with `open -R` so the log is selected. tauri-plugin-opener's
+    // open_path only opens the parent dir.
+    if log_file.exists() {
+        if let Err(e) = std::process::Command::new("open")
+            .args(["-R", &log_file.to_string_lossy()])
+            .spawn()
+        {
+            log::warn!("Failed to reveal log in Finder: {}", e);
+        }
+    } else {
+        log::warn!("talky.log does not exist at {:?}", log_file);
+    }
+
+    let version = app.package_info().version.to_string();
+    let subject_tag = match error_kind {
+        Some(ErrorKind::NativeCrash) => "Talky crash — native",
+        Some(ErrorKind::SidecarCrashed) => "Talky crash — Core ML sidecar",
+        Some(ErrorKind::ModelLoadFailed) => "Talky — model load failure",
+        None => "Talky logs",
+    };
+    let subject = format!("{} — v{}", subject_tag, version);
+    let body =
+        "Please attach the talky.log file from the Finder window that just opened.\n\nShort description of what happened:\n";
+
+    let mailto = format!(
+        "mailto:{}?subject={}&body={}",
+        env!("TALKY_SUPPORT_EMAIL"),
+        percent_encode_mailto_component(&subject),
+        percent_encode_mailto_component(body)
+    );
+
+    app.opener()
+        .open_url(mailto, None::<String>)
+        .map_err(|e| format!("Failed to open mail client: {}", e))?;
+
+    Ok(())
+}
+
+/// Percent-encode an RFC 6068 mailto component (subject / body). Unreserved
+/// characters pass through; everything else becomes `%XX`.
+fn percent_encode_mailto_component(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char);
+            }
+            _ => {
+                out.push_str(&format!("%{:02X}", b));
+            }
+        }
+    }
+    out
 }
 
 /// Open the current user data directory in Finder/Explorer.

@@ -1,4 +1,8 @@
 use crate::managers::model::{ModelInfo, ModelManager};
+#[cfg(target_os = "macos")]
+use crate::managers::model::CORE_ML_MODEL_ID;
+#[cfg(not(target_os = "macos"))]
+use crate::managers::model::ONNX_MODEL_ID;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{get_settings, write_settings};
 use std::sync::Arc;
@@ -114,7 +118,6 @@ pub async fn has_any_models_or_downloads(
     model_manager: State<'_, Arc<ModelManager>>,
 ) -> Result<bool, String> {
     let models = model_manager.get_available_models();
-    // Return true if any models are downloaded OR if any downloads are in progress
     Ok(models.iter().any(|m| m.is_downloaded))
 }
 
@@ -132,6 +135,12 @@ pub async fn cancel_download(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_recommended_first_model() -> Result<String, String> {
-    // Recommend Parakeet V3 model for first-time users - fastest and most accurate
-    Ok("parakeet-tdt-0.6b-v3".to_string())
+    #[cfg(target_os = "macos")]
+    {
+        Ok(CORE_ML_MODEL_ID.to_string())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(ONNX_MODEL_ID.to_string())
+    }
 }
