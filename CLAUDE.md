@@ -67,6 +67,8 @@ All user-facing strings use i18next (ESLint enforces no hardcoded strings in JSX
 
 Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`
 
+Always commit at the end of work.
+
 ## Debug Mode
 
 Access debug features: `Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows/Linux)
