@@ -35,8 +35,6 @@ Chat with your meeting in natural language. Ask about decisions, action items, o
 
 ## Quick Start
 
-### Installation
-
 #### macOS (quick install)
 
 ```bash
@@ -47,29 +45,6 @@ curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/scripts/instal
 
 ```powershell
 irm https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.ps1 | iex
-```
-
-### Development Setup
-
-#### Prerequisites
-
-- [Rust](https://rustup.rs/) (latest stable)
-- [Bun](https://bun.sh/) package manager
-- [Tauri prerequisites](https://tauri.app/start/prerequisites/)
-
-Platform extras:
-
-- **macOS** — `xcode-select --install`
-- **Windows** — Visual Studio 2019/2022 with C++ Build Tools
-- **Linux** — build essentials, ALSA, GTK/WebKit dev libraries (see [Tauri prerequisites](https://tauri.app/start/prerequisites/))
-
-#### Build from source
-
-```bash
-git clone git@github.com:itskhalil/talky.git
-cd talky
-bun install
-bun tauri dev
 ```
 
 ## How It Works
@@ -123,8 +98,31 @@ Talky includes a debug pane for development, troubleshooting, and advanced setti
 
 ### Platform Support
 
-- **macOS** (Intel and Apple Silicon)
+- **macOS** (Apple Silicon)
 - **Windows** (x64 and ARM64)
+
+## Development Setup
+
+#### Prerequisites
+
+- [Rust](https://rustup.rs/) (latest stable)
+- [Bun](https://bun.sh/) package manager
+- [Tauri prerequisites](https://tauri.app/start/prerequisites/)
+
+Platform extras:
+
+- **macOS** — `xcode-select --install`
+- **Windows** — Visual Studio 2019/2022 with C++ Build Tools
+- **Linux** — build essentials, ALSA, GTK/WebKit dev libraries (see [Tauri prerequisites](https://tauri.app/start/prerequisites/))
+
+#### Build from source
+
+```bash
+git clone git@github.com:itskhalil/talky.git
+cd talky
+bun install
+bun tauri dev
+```
 
 ## License
 
@@ -133,7 +131,5 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Acknowledgments
 
 - **Handy** by CJ Pais, for inspiration and the core transcription stack
-- **Whisper** by OpenAI for the speech recognition model
-- **whisper.cpp and ggml** for amazing cross-platform whisper inference/acceleration
 - **Silero** for great lightweight VAD
 - **Tauri** team for the excellent Rust-based app framework
