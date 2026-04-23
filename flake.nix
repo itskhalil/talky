@@ -114,10 +114,18 @@
           ORT_LIB_LOCATION = "${pkgs.onnxruntime}/lib";
           ORT_PREFER_DYNAMIC_LINK = "1";
 
-          postInstall = ''
-            mkdir -p $out/lib/Talky
-            cp -r ${./src-tauri/resources} $out/lib/Talky/resources
-          '';
+          postInstall =
+            ''
+              mkdir -p $out/lib/Talky
+              cp -r ${./src-tauri/resources} $out/lib/Talky/resources
+            ''
+            + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+              install -Dm644 ${./src-tauri/talky.desktop} $out/share/applications/talky.desktop
+              install -Dm644 ${./src-tauri/icons/128x128.png} $out/share/icons/hicolor/128x128/apps/talky.png
+              install -Dm644 ${./src-tauri/icons/64x64.png} $out/share/icons/hicolor/64x64/apps/talky.png
+              install -Dm644 ${./src-tauri/icons/32x32.png} $out/share/icons/hicolor/32x32/apps/talky.png
+              install -Dm644 ${./src-tauri/icons/icon.png} $out/share/icons/hicolor/512x512/apps/talky.png
+            '';
 
           postFixup =
             if pkgs.stdenv.isDarwin then
