@@ -2,12 +2,18 @@
   description = "Talky - Cross-platform desktop speech-to-text app";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = import nixpkgs { inherit system; };
 
@@ -16,26 +22,31 @@
           pkgs.libiconv
         ];
 
-        linuxBuildInputs = with pkgs; pkgs.lib.optionals pkgs.stdenv.isLinux [
-          alsa-lib
-          at-spi2-atk
-          cairo
-          gdk-pixbuf
-          glib
-          gtk3
-          libsoup_3
-          openssl
-          pango
-          webkitgtk_4_1
-          vulkan-headers
-          vulkan-loader
-          libayatana-appindicator
-          libpulseaudio
-        ];
+        linuxBuildInputs =
+          with pkgs;
+          pkgs.lib.optionals pkgs.stdenv.isLinux [
+            alsa-lib
+            at-spi2-atk
+            cairo
+            gdk-pixbuf
+            glib
+            gtk3
+            libsoup_3
+            openssl
+            pango
+            webkitgtk_4_1
+            vulkan-headers
+            vulkan-loader
+            libayatana-appindicator
+            libpulseaudio
+          ];
 
-        buildInputs = darwinBuildInputs ++ linuxBuildInputs ++ [
-          pkgs.onnxruntime
-        ];
+        buildInputs =
+          darwinBuildInputs
+          ++ linuxBuildInputs
+          ++ [
+            pkgs.onnxruntime
+          ];
 
         # Build the frontend with npm
         frontend = pkgs.buildNpmPackage {
@@ -43,13 +54,14 @@
           version = "0.12.2";
           src = pkgs.lib.cleanSourceWith {
             src = ./.;
-            filter = path: type:
-              !(pkgs.lib.hasPrefix (toString ./src-tauri) path) &&
-              !(pkgs.lib.hasPrefix (toString ./.AI) path) &&
-              !(pkgs.lib.hasPrefix (toString ./tauri) path) &&
-              !(pkgs.lib.hasPrefix (toString ./nix) path) &&
-              (baseNameOf path != "flake.nix") &&
-              (baseNameOf path != "flake.lock");
+            filter =
+              path: type:
+              !(pkgs.lib.hasPrefix (toString ./src-tauri) path)
+              && !(pkgs.lib.hasPrefix (toString ./.AI) path)
+              && !(pkgs.lib.hasPrefix (toString ./tauri) path)
+              && !(pkgs.lib.hasPrefix (toString ./nix) path)
+              && (baseNameOf path != "flake.nix")
+              && (baseNameOf path != "flake.lock");
           };
           npmDepsHash = "sha256-6o+a/D0UvrtOU19M92+HoCOd16G2nZ6frZcr46bnJqU=";
           # Skip npm post-install scripts that try to download native binaries
@@ -67,7 +79,7 @@
 
         # Build the Rust binary
         talky = pkgs.rustPlatform.buildRustPackage {
-	  stdenv = pkgs.clangStdenv;
+          stdenv = pkgs.clangStdenv;
           pname = "talky";
           version = "0.12.2";
 
@@ -80,7 +92,13 @@
             };
           };
 
-          nativeBuildInputs = with pkgs; [ pkg-config cmake libclang shaderc makeWrapper ];
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            cmake
+            libclang
+            shaderc
+            makeWrapper
+          ];
           inherit buildInputs;
 
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
@@ -101,13 +119,17 @@
             cp -r ${./src-tauri/resources} $out/lib/Talky/resources
           '';
 
-          postFixup = if pkgs.stdenv.isDarwin then ''
-            install_name_tool -add_rpath "${pkgs.onnxruntime}/lib" $out/bin/talky
-          '' else ''
-            patchelf --add-rpath "${pkgs.onnxruntime}/lib:${pkgs.libayatana-appindicator}/lib" $out/bin/talky
-            wrapProgram $out/bin/talky \
-              --set ALSA_PLUGIN_DIR "${pkgs.pipewire}/lib/alsa-lib"
-          '';
+          postFixup =
+            if pkgs.stdenv.isDarwin then
+              ''
+                install_name_tool -add_rpath "${pkgs.onnxruntime}/lib" $out/bin/talky
+              ''
+            else
+              ''
+                patchelf --add-rpath "${pkgs.onnxruntime}/lib:${pkgs.libayatana-appindicator}/lib" $out/bin/talky
+                wrapProgram $out/bin/talky \
+                  --set ALSA_PLUGIN_DIR "${pkgs.pipewire}/lib/alsa-lib"
+              '';
         };
 
         # macOS .app bundle
@@ -157,13 +179,17 @@
           '';
         };
 
-      in {
+      in
+      {
         packages = {
           default = if pkgs.stdenv.isDarwin then talkyApp else talky;
           binary = talky;
-        } // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        }
+        // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
           app = talkyApp;
         };
+
+        formatter = pkgs.nixfmt-tree;
 
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
