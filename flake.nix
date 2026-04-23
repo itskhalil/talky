@@ -1,0 +1,163 @@
+{
+  description = "Talky - Cross-platform desktop speech-to-text app";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+
+        darwinBuildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          pkgs.apple-sdk_14
+          pkgs.libiconv
+        ];
+
+        linuxBuildInputs = with pkgs; pkgs.lib.optionals pkgs.stdenv.isLinux [
+          alsa-lib
+          at-spi2-atk
+          cairo
+          gdk-pixbuf
+          glib
+          gtk3
+          libsoup_3
+          openssl
+          pango
+          webkitgtk_4_1
+        ];
+
+        buildInputs = darwinBuildInputs ++ linuxBuildInputs ++ [
+          pkgs.onnxruntime
+        ];
+
+        # Build the frontend with npm
+        frontend = pkgs.buildNpmPackage {
+          pname = "talky-frontend";
+          version = "0.12.2";
+          src = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter = path: type:
+              !(pkgs.lib.hasPrefix (toString ./src-tauri) path) &&
+              !(pkgs.lib.hasPrefix (toString ./.AI) path) &&
+              !(pkgs.lib.hasPrefix (toString ./tauri) path) &&
+              !(pkgs.lib.hasPrefix (toString ./nix) path) &&
+              (baseNameOf path != "flake.nix") &&
+              (baseNameOf path != "flake.lock");
+          };
+          npmDepsHash = "sha256-6o+a/D0UvrtOU19M92+HoCOd16G2nZ6frZcr46bnJqU=";
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+          buildPhase = ''
+            npm run build
+          '';
+          installPhase = ''
+            cp -r dist $out
+          '';
+        };
+
+        # Build the Rust binary
+        talky = pkgs.rustPlatform.buildRustPackage {
+          pname = "talky";
+          version = "0.12.2";
+
+          src = ./src-tauri;
+
+          cargoLock = {
+            lockFile = ./src-tauri/Cargo.lock;
+            outputHashes = {
+              "vad-rs-0.1.5" = "sha256-Q9Dxq31npyUPY9wwi6OxqSJrEvFvG8/n0dbyT7XNcyI=";
+            };
+          };
+
+          nativeBuildInputs = with pkgs; [ pkg-config cmake ];
+          inherit buildInputs;
+
+          doCheck = false;
+
+          preBuild = ''
+            ln -s ${frontend} ../dist
+          '';
+
+          buildFeatures = [ "tauri/custom-protocol" ];
+          TALKY_LOCALES_DIR = "${./src/i18n/locales}";
+          ORT_LIB_LOCATION = "${pkgs.onnxruntime}/lib";
+          ORT_PREFER_DYNAMIC_LINK = "1";
+
+          postFixup = if pkgs.stdenv.isDarwin then ''
+            install_name_tool -add_rpath "${pkgs.onnxruntime}/lib" $out/bin/talky
+          '' else ''
+            patchelf --add-rpath "${pkgs.onnxruntime}/lib" $out/bin/talky
+          '';
+        };
+
+        # macOS .app bundle
+        talkyApp = pkgs.stdenv.mkDerivation {
+          pname = "talky-app";
+          version = "0.12.2";
+          dontUnpack = true;
+
+          installPhase = ''
+            APP=$out/Applications/Talky.app/Contents
+            mkdir -p $APP/MacOS $APP/Resources/resources
+
+            cp ${talky}/bin/talky $APP/MacOS/talky
+            cp -r ${./src-tauri/resources}/* $APP/Resources/resources/
+            cp ${./src-tauri/icons/icon.icns} $APP/Resources/icon.icns
+
+            cat > $APP/Info.plist << EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+              <key>CFBundleName</key>
+              <string>Talky</string>
+              <key>CFBundleDisplayName</key>
+              <string>Talky</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.khalil.talky</string>
+              <key>CFBundleVersion</key>
+              <string>0.12.2</string>
+              <key>CFBundleShortVersionString</key>
+              <string>0.12.2</string>
+              <key>CFBundleExecutable</key>
+              <string>talky</string>
+              <key>CFBundleIconFile</key>
+              <string>icon</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>14.0</string>
+              <key>NSMicrophoneUsageDescription</key>
+              <string>Talky needs microphone access for speech-to-text transcription</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+            </dict>
+            </plist>
+            EOF
+          '';
+        };
+
+      in {
+        packages = {
+          default = if pkgs.stdenv.isDarwin then talkyApp else talky;
+          binary = talky;
+        } // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+          app = talkyApp;
+        };
+
+        devShells.default = pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            cmake
+            cargo
+            rustc
+            rust-analyzer
+            nodejs_20
+          ];
+          inherit buildInputs;
+        };
+      }
+    );
+}
