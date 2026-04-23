@@ -132,50 +132,46 @@
               '';
         };
 
+        # Read values from tauri.conf.json so we don't duplicate them
+        tauriConf = builtins.fromJSON (builtins.readFile ./src-tauri/tauri.conf.json);
+
         # macOS .app bundle
         talkyApp = pkgs.stdenv.mkDerivation {
           pname = "talky-app";
-          version = "0.12.2";
+          version = tauriConf.version;
           dontUnpack = true;
 
           installPhase = ''
-            APP=$out/Applications/Talky.app/Contents
+            APP=$out/Applications/${tauriConf.productName}.app/Contents
             mkdir -p $APP/MacOS $APP/Resources/resources
 
             cp ${talky}/bin/talky $APP/MacOS/talky
             cp -r ${./src-tauri/resources}/* $APP/Resources/resources/
             cp ${./src-tauri/icons/icon.icns} $APP/Resources/icon.icns
 
-            cat > $APP/Info.plist << EOF
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-              <key>CFBundleName</key>
-              <string>Talky</string>
-              <key>CFBundleDisplayName</key>
-              <string>Talky</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.khalil.talky</string>
-              <key>CFBundleVersion</key>
-              <string>0.12.2</string>
-              <key>CFBundleShortVersionString</key>
-              <string>0.12.2</string>
-              <key>CFBundleExecutable</key>
-              <string>talky</string>
-              <key>CFBundleIconFile</key>
-              <string>icon</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>LSMinimumSystemVersion</key>
-              <string>14.0</string>
-              <key>NSMicrophoneUsageDescription</key>
-              <string>Talky needs microphone access for speech-to-text transcription</string>
-              <key>NSHighResolutionCapable</key>
-              <true/>
-            </dict>
-            </plist>
-            EOF
+            # Start with the repo's Info.plist (privacy descriptions) and add bundle metadata
+            cp ${./src-tauri/Info.plist} $APP/Info.plist
+            chmod u+w $APP/Info.plist
+
+            ${pkgs.python3}/bin/python3 -c "
+            import plistlib, sys
+            with open(sys.argv[1], 'rb') as f:
+                plist = plistlib.load(f)
+            plist.update({
+                'CFBundleName': '${tauriConf.productName}',
+                'CFBundleDisplayName': '${tauriConf.productName}',
+                'CFBundleIdentifier': '${tauriConf.identifier}',
+                'CFBundleVersion': '${tauriConf.version}',
+                'CFBundleShortVersionString': '${tauriConf.version}',
+                'CFBundleExecutable': 'talky',
+                'CFBundleIconFile': 'icon',
+                'CFBundlePackageType': 'APPL',
+                'LSMinimumSystemVersion': '14.0',
+                'NSHighResolutionCapable': True,
+            })
+            with open(sys.argv[1], 'wb') as f:
+                plistlib.dump(plist, f)
+            " $APP/Info.plist
           '';
         };
 
