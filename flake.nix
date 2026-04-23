@@ -27,6 +27,10 @@
           openssl
           pango
           webkitgtk_4_1
+          vulkan-headers
+          vulkan-loader
+          libayatana-appindicator
+          libpulseaudio
         ];
 
         buildInputs = darwinBuildInputs ++ linuxBuildInputs ++ [
@@ -48,6 +52,10 @@
               (baseNameOf path != "flake.lock");
           };
           npmDepsHash = "sha256-6o+a/D0UvrtOU19M92+HoCOd16G2nZ6frZcr46bnJqU=";
+          # Skip npm post-install scripts that try to download native binaries
+          # (onnxruntime-node via promptfoo -> @huggingface/transformers).
+          # The frontend is pure React/TS and doesn't need any native modules.
+          npm_config_ignore_scripts = "true";
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
           buildPhase = ''
             npm run build
@@ -59,6 +67,7 @@
 
         # Build the Rust binary
         talky = pkgs.rustPlatform.buildRustPackage {
+	  stdenv = pkgs.clangStdenv;
           pname = "talky";
           version = "0.12.2";
 
@@ -71,8 +80,10 @@
             };
           };
 
-          nativeBuildInputs = with pkgs; [ pkg-config cmake ];
+          nativeBuildInputs = with pkgs; [ pkg-config cmake libclang shaderc makeWrapper ];
           inherit buildInputs;
+
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
 
           doCheck = false;
 
@@ -85,10 +96,17 @@
           ORT_LIB_LOCATION = "${pkgs.onnxruntime}/lib";
           ORT_PREFER_DYNAMIC_LINK = "1";
 
+          postInstall = ''
+            mkdir -p $out/lib/Talky
+            cp -r ${./src-tauri/resources} $out/lib/Talky/resources
+          '';
+
           postFixup = if pkgs.stdenv.isDarwin then ''
             install_name_tool -add_rpath "${pkgs.onnxruntime}/lib" $out/bin/talky
           '' else ''
-            patchelf --add-rpath "${pkgs.onnxruntime}/lib" $out/bin/talky
+            patchelf --add-rpath "${pkgs.onnxruntime}/lib:${pkgs.libayatana-appindicator}/lib" $out/bin/talky
+            wrapProgram $out/bin/talky \
+              --set ALSA_PLUGIN_DIR "${pkgs.pipewire}/lib/alsa-lib"
           '';
         };
 
@@ -155,8 +173,11 @@
             rustc
             rust-analyzer
             nodejs_20
+            libclang
+            shaderc
           ];
           inherit buildInputs;
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
         };
       }
     );

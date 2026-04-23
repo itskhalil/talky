@@ -324,14 +324,13 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // Choose the appropriate icon based on theme
     let initial_icon_path = tray::get_icon_path(initial_theme);
 
+    let resolved_icon = app_handle
+        .path()
+        .resolve(initial_icon_path, tauri::path::BaseDirectory::Resource)
+        .unwrap();
     let tray = TrayIconBuilder::new()
         .icon(
-            Image::from_path(
-                app_handle
-                    .path()
-                    .resolve(initial_icon_path, tauri::path::BaseDirectory::Resource)
-                    .unwrap(),
-            )
+            Image::from_path(&resolved_icon)
             .unwrap(),
         )
         .show_menu_on_left_click(true)

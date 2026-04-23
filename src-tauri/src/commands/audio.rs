@@ -1,5 +1,5 @@
 use crate::audio_toolkit::audio::{list_input_devices, list_output_devices};
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "macos")]
 use crate::audio_toolkit::speaker::SpeakerInput;
 use crate::managers::audio::AudioRecordingManager;
 use crate::settings::{get_settings, write_settings};
