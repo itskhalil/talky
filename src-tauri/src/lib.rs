@@ -712,15 +712,15 @@ pub fn run() {
                 UpgradeState::PromoteReady | UpgradeState::NoAction => {}
             }
 
-            // Set up application menu (macOS uses app-level menu bar)
+            // Set up application menu on main window only (not the pill)
             let app_menu = menu::create_app_menu(&app_handle);
-            if let Err(e) = app_handle.set_menu(app_menu) {
-                log::warn!("Failed to set menu: {}", e);
-            }
             menu::setup_menu_events(&app_handle);
 
             // Show main window on startup
             if let Some(main_window) = app_handle.get_webview_window("main") {
+                if let Err(e) = main_window.set_menu(app_menu) {
+                    log::warn!("Failed to set menu: {}", e);
+                }
                 main_window.show().unwrap();
                 main_window.set_focus().unwrap();
             }
