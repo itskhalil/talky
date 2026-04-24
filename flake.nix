@@ -66,7 +66,7 @@
               && (baseNameOf path != "flake.nix")
               && (baseNameOf path != "flake.lock");
           };
-          npmDepsHash = "sha256-6o+a/D0UvrtOU19M92+HoCOd16G2nZ6frZcr46bnJqU=";
+          npmDepsHash = "sha256-8nqZF5VQHrs/O8anL3iLiWujj4xrFlIT6iOQ/v8x2a0=";
           # Skip npm post-install scripts that try to download native binaries
           # (onnxruntime-node via promptfoo -> @huggingface/transformers).
           # The frontend is pure React/TS and doesn't need any native modules.
