@@ -51,8 +51,32 @@ jobs:
       ref: ${{ format('refs/pull/{0}/merge', inputs.pr_number) }}
     secrets: inherit
 
+  build-linux:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ format('refs/pull/{0}/merge', inputs.pr_number) }}
+          fetch-depth: 0
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Nix build
+        run: nix build .#binary --print-build-logs
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: talky-pr-${{ inputs.pr_number }}-linux-x86_64
+          path: result/bin/talky
+          retention-days: 30
+
   comment-on-pr:
-    needs: [build-macos, build-windows]
+    needs: [build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -66,5 +90,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ inputs.pr_number }},
-              body: `## Test Build Ready\n\nBuild artifacts for PR #${{ inputs.pr_number }} are available for testing.\n\n**[Download artifacts from workflow run](${runUrl})**\n\nArtifacts include:\n- macOS (ARM64)\n- Windows (x64)\n\nArtifacts expire after 30 days.`
+              body: `## Test Build Ready\n\nBuild artifacts for PR #${{ inputs.pr_number }} are available for testing.\n\n**[Download artifacts from workflow run](${runUrl})**\n\nArtifacts include:\n- macOS (ARM64)\n- Windows (x64)\n- Linux (x86_64, Nix)\n\nArtifacts expire after 30 days.`
             });

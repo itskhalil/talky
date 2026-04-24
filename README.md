@@ -96,6 +96,7 @@ Talky includes a debug pane for development, troubleshooting, and advanced setti
 
 - **macOS** (Apple Silicon)
 - **Windows** (x64 and ARM64)
+- **Linux** (x86_64, via Nix flake) — microphone and speaker (PulseAudio/PipeWire) capture; no tray icon, meeting detection, or sleep events yet
 
 ## Development Setup
 
@@ -118,6 +119,15 @@ git clone git@github.com:itskhalil/talky.git
 cd talky
 bun install
 bun tauri dev
+```
+
+#### Build with Nix (Linux, macOS)
+
+A Nix flake is provided for reproducible builds:
+
+```bash
+nix build              # produces ./result (binary on Linux, .app on macOS)
+nix develop            # drop into a dev shell with cargo, rustc, node, etc.
 ```
 
 ## License

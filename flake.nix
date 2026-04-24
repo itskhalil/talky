@@ -48,10 +48,13 @@
             pkgs.onnxruntime
           ];
 
+        # Read values from tauri.conf.json so we don't duplicate them
+        tauriConf = builtins.fromJSON (builtins.readFile ./src-tauri/tauri.conf.json);
+
         # Build the frontend with npm
         frontend = pkgs.buildNpmPackage {
           pname = "talky-frontend";
-          version = "0.12.2";
+          version = tauriConf.version;
           src = pkgs.lib.cleanSourceWith {
             src = ./.;
             filter =
@@ -81,7 +84,7 @@
         talky = pkgs.rustPlatform.buildRustPackage {
           stdenv = pkgs.clangStdenv;
           pname = "talky";
-          version = "0.12.2";
+          version = tauriConf.version;
 
           src = ./src-tauri;
 
@@ -139,9 +142,6 @@
                   --set ALSA_PLUGIN_DIR "${pkgs.pipewire}/lib/alsa-lib"
               '';
         };
-
-        # Read values from tauri.conf.json so we don't duplicate them
-        tauriConf = builtins.fromJSON (builtins.readFile ./src-tauri/tauri.conf.json);
 
         # macOS .app bundle
         talkyApp = pkgs.stdenv.mkDerivation {
