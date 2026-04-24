@@ -114,6 +114,7 @@
 
           buildFeatures = [ "tauri/custom-protocol" ];
           TALKY_LOCALES_DIR = "${./src/i18n/locales}";
+          TALKY_SUPPORT_EMAIL = "support@talky.ing";
           ORT_LIB_LOCATION = "${pkgs.onnxruntime}/lib";
           ORT_PREFER_DYNAMIC_LINK = "1";
 
@@ -208,6 +209,7 @@
           ];
           inherit buildInputs;
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+          TALKY_SUPPORT_EMAIL = "support@talky.ing";
         };
       }
     );
