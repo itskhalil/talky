@@ -606,12 +606,18 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
             if (!existing) return s;
             // Avoid duplicates — the segment may already exist from a fetch
             if (existing.transcript.some((t) => t.id === segment.id)) return s;
+            // Speaker pre-flush can emit before its earlier mic turn; sort to match DB order.
+            const next = [...existing.transcript, segment].sort(
+              (a, b) =>
+                a.start_ms - b.start_ms ||
+                (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+            );
             return {
               cache: {
                 ...s.cache,
                 [session_id]: {
                   ...existing,
-                  transcript: [...existing.transcript, segment],
+                  transcript: next,
                 },
               },
             };
