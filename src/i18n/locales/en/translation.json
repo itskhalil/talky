@@ -353,7 +353,7 @@
       "summarisationModel": "Summarisation Model",
       "summarisationModelTip": "Use the best model you can for quality summaries (e.g. the latest Claude Opus or Gemini Pro).",
       "chatModel": "Chat Model",
-      "chatModelTip": "Use a fast model for snappy responses (e.g. the latest Gemini Flash).",
+      "chatModelTip": "Use a fast model for snappy responses (e.g. the latest Gemini Flash or Claude Haiku).",
       "defaultForNewNotes": "Default for new notes",
       "maxReached": "Maximum of 3 environments allowed",
       "emptyState": "No environments configured. Add an environment to get started."
