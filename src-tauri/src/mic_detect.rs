@@ -20,6 +20,10 @@ const MEETING_APPS: &[&str] = &[
     "com.microsoft.edgemac",      // Edge (Meet)
     "org.mozilla.firefox",        // Firefox
     "com.operasoftware.Opera",    // Opera
+    "com.apple.FaceTime",         // FaceTime (incl. cellular calls forwarded from iPhone)
+    "net.whatsapp.WhatsApp",      // WhatsApp
+    "org.whispersystems.signal-desktop", // Signal
+    "com.apple.ScreenContinuity", // iPhone Mirroring (Phone app)
 ];
 
 /// Get bundle IDs of apps currently using the microphone input
@@ -58,6 +62,10 @@ pub fn app_name(bundle_id: &str) -> &'static str {
         s if s.contains("firefox") => "Firefox",
         s if s.contains("Opera") => "Opera",
         s if s.contains("brave") || s.contains("Brave") => "Brave",
+        s if s.contains("FaceTime") => "FaceTime",
+        s if s.contains("whatsapp") || s.contains("WhatsApp") => "WhatsApp",
+        s if s.contains("signal") => "Signal",
+        s if s.contains("ScreenContinuity") => "iPhone",
         _ => "Meeting app",
     }
 }
