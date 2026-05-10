@@ -134,7 +134,7 @@ function App() {
     <div className="h-screen flex flex-col select-none cursor-default">
       <Toaster
         theme="system"
-        position="bottom-right"
+        position="bottom-left"
         toastOptions={{
           unstyled: true,
           classNames: {
