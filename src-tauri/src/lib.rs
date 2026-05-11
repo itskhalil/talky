@@ -324,14 +324,13 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // Choose the appropriate icon based on theme
     let initial_icon_path = tray::get_icon_path(initial_theme);
 
+    let resolved_icon = app_handle
+        .path()
+        .resolve(initial_icon_path, tauri::path::BaseDirectory::Resource)
+        .unwrap();
     let tray = TrayIconBuilder::new()
         .icon(
-            Image::from_path(
-                app_handle
-                    .path()
-                    .resolve(initial_icon_path, tauri::path::BaseDirectory::Resource)
-                    .unwrap(),
-            )
+            Image::from_path(&resolved_icon)
             .unwrap(),
         )
         .show_menu_on_left_click(true)
@@ -713,15 +712,15 @@ pub fn run() {
                 UpgradeState::PromoteReady | UpgradeState::NoAction => {}
             }
 
-            // Set up application menu (macOS uses app-level menu bar)
+            // Set up application menu on main window only (not the pill)
             let app_menu = menu::create_app_menu(&app_handle);
-            if let Err(e) = app_handle.set_menu(app_menu) {
-                log::warn!("Failed to set menu: {}", e);
-            }
             menu::setup_menu_events(&app_handle);
 
             // Show main window on startup
             if let Some(main_window) = app_handle.get_webview_window("main") {
+                if let Err(e) = main_window.set_menu(app_menu) {
+                    log::warn!("Failed to set menu: {}", e);
+                }
                 main_window.show().unwrap();
                 main_window.set_focus().unwrap();
             }

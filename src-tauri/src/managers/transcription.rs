@@ -425,6 +425,7 @@ impl TranscriptionManager {
         // On Core ML, a sidecar crash mid-chunk earns one recovery attempt:
         // respawn the sidecar, else fall back to ONNX Parakeet. Then retry the
         // chunk. Non-Core-ML engines don't retry — their errors are fatal.
+        #[allow(unused_mut, unused_variables)]
         let mut attempts = 0usize;
         let mut current_audio = audio;
         let result = loop {

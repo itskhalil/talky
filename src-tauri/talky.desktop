@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Talky
+Comment=Speech-to-text note taking
+Exec=talky
+Icon=talky
+Terminal=false
+Type=Application
+Categories=Audio;Utility;
+Keywords=speech;transcription;notes;voice;
+StartupWMClass=Talky

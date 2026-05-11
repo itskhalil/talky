@@ -46,7 +46,7 @@ impl PlatformCapabilities {
         #[cfg(target_os = "linux")]
         {
             Self {
-                speaker_capture: false, // Not yet implemented on Linux
+                speaker_capture: true,
                 meeting_detection: false,
                 system_sleep_events: false,
                 os: "linux".to_string(),

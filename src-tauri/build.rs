@@ -59,9 +59,12 @@ fn generate_tray_translations() {
     use std::path::Path;
 
     let out_dir = std::env::var("OUT_DIR").unwrap();
-    let locales_dir = Path::new("../src/i18n/locales");
+    let locales_dir = std::env::var("TALKY_LOCALES_DIR")
+        .unwrap_or_else(|_| "../src/i18n/locales".to_string());
+    let locales_dir = Path::new(&locales_dir);
 
-    println!("cargo:rerun-if-changed=../src/i18n/locales");
+    println!("cargo:rerun-if-env-changed=TALKY_LOCALES_DIR");
+    println!("cargo:rerun-if-changed={}", locales_dir.display());
 
     // Collect all locale translations
     let mut translations: BTreeMap<String, serde_json::Value> = BTreeMap::new();

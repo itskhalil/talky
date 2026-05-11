@@ -111,6 +111,10 @@ windows = { version = "0.58", features = [
     "Win32_Foundation",
 ] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+libpulse-binding = "2"
+libpulse-simple-binding = "2"
+
 [profile.release]
 lto = true
 codegen-units = 1
