@@ -29,7 +29,7 @@ export default class TalkyProvider {
     }
 
     try {
-      let output = await cached(messages, process.env.EVAL_MODEL, config);
+      let [output] = await cached(messages, process.env.EVAL_MODEL, config);
       if (config.stripTags) {
         output = output.replace(/\[(noted|ai)\]\s?/g, "");
       }

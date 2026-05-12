@@ -1,20 +1,20 @@
 // Cached LLM caller backed by .AI/traces/db.mjs.
 //
-//   cached(msg, model, cfg)         -> string    (cache-first single call)
+//   cached(msg, model, cfg, n=1)    -> string[]  (n stored outputs; runs API to top up if cache has fewer)
 //   fresh(msg, model, cfg, n=1)     -> string[]  (n fresh API calls, always)
 //   listSamples({...})              -> row[]     (read cache; no API)
 //
 // Hash covers system + messages + model + params. Edit any of them and
-// the cache auto-invalidates. The two-function split is deliberate — no
-// env var, no config flag, no hidden mode. If you want variance, you
-// call `fresh`; you can't accidentally get cached samples.
+// the cache auto-invalidates. The classic variance pattern is
+// `cached(baselineMsg, …, 3)` against `fresh(variantMsg, …, 3)` — both
+// return arrays of three, both store everything they produce.
 //
 // Inspect runs:  node .AI/traces/query.mjs samples <case>
 
 import { readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { db, hashPrompt, getLatest, insertRun } from "./traces/db.mjs";
+import { db, hashPrompt, getAll, insertRun } from "./traces/db.mjs";
 
 const SETTINGS_PATH = join(
   homedir(),
@@ -143,11 +143,12 @@ async function runAndStore(ctx) {
   return output;
 }
 
-export async function cached(messages, modelOverride, config = {}) {
+export async function cached(messages, modelOverride, config = {}, n = 1) {
   const ctx = resolveContext(messages, modelOverride, config);
-  const hit = getLatest(ctx.promptHash, ctx.model);
-  if (hit) return hit.output_text;
-  return await runAndStore(ctx);
+  const stored = getAll(ctx.promptHash, ctx.model); // most-recent first
+  const outs = stored.slice(0, n).map((r) => r.output_text);
+  while (outs.length < n) outs.push(await runAndStore(ctx));
+  return outs;
 }
 
 export async function fresh(messages, modelOverride, config = {}, n = 1) {
