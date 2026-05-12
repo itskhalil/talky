@@ -54,7 +54,9 @@ export async function callLLM(messages, modelOverride, config = {}) {
     model,
     params,
   });
-  const reuse = process.env.EVAL_REUSE !== "0";
+  // config.fresh=true overrides EVAL_REUSE so sampling helpers can't be
+  // silently defeated by an inherited env var.
+  const reuse = config.fresh ? false : process.env.EVAL_REUSE !== "0";
   if (reuse) {
     const hit = getLatest(promptHash, model);
     if (hit) {
