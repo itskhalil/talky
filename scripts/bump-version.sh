@@ -34,8 +34,18 @@ sed -i '' "s/\"version\": \"$current\"/\"version\": \"$new\"/" src-tauri/tauri.c
 sed -i '' "s/^version = \"$current\"/version = \"$new\"/" src-tauri/Cargo.toml
 
 # package-lock.json + Cargo.lock
-npm install --package-lock-only --silent 2>/dev/null
-(cd src-tauri && cargo generate-lockfile --quiet 2>/dev/null) || true
+npm install --package-lock-only --silent
+(cd src-tauri && cargo generate-lockfile --quiet)
+
+# Verify the lockfiles actually picked up the new version.
+if ! grep -q "\"version\": \"$new\"" package-lock.json; then
+  echo "ERROR: package-lock.json was not updated to $new" >&2
+  exit 1
+fi
+if ! awk '/^name = "talky"$/{found=1; next} found && /^version =/{print; exit}' src-tauri/Cargo.lock | grep -q "\"$new\""; then
+  echo "ERROR: src-tauri/Cargo.lock talky entry was not updated to $new" >&2
+  exit 1
+fi
 
 echo "Bumped to $new"
 
