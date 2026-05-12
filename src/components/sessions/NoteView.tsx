@@ -1991,37 +1991,81 @@ export function NoteView({
           </div>
         </div>
 
-        {/* Clear transcript bubble — sits left of Re-enhance because clearing
-            is the natural post-enhancement step when the user is satisfied. */}
-        {canClearTranscript && (
-          <button
-            onClick={() => setShowClearTranscriptDialog(true)}
-            title={t("sessions.clearTranscriptTooltip")}
-            className="flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 bg-background text-text-secondary hover:text-text hover:bg-text/5 border border-border-strong"
-          >
-            <Lock size={14} />
-            {t("sessions.clearTranscript")}
-          </button>
-        )}
-
-        {/* Enhance/Re-enhance button */}
+        {/* Post-enhancement action cluster. `group-hover/cluster:delay-0` keeps
+            the collapse delay at 0 as long as the cursor is anywhere inside the
+            cluster's bounding box — including the 8px gap between buttons,
+            because in CSS the parent is :hover whenever the cursor is over any
+            part of its box. So mousing between siblings never triggers the
+            delay-150 base; both transitions fire with the same delay-0. The
+            base delay-150 only re-engages when the cursor fully leaves the
+            cluster, preserving the linger-on-exit feel. */}
         {!isRecording && hasTranscript && !enhanceLoading && !isSealed && (
-          <button
-            onClick={() => {
-              if (enhancedNotes && enhancedNotesEdited) {
-                setShowReenhanceWarning(true);
-              } else {
-                onDismissEnhancePrompt();
-                onEnhanceNotes();
+          <div className="group/cluster flex gap-2 items-end">
+            {canClearTranscript && (
+              <button
+                onClick={() => setShowClearTranscriptDialog(true)}
+                title={t("sessions.clearTranscript")}
+                aria-label={t("sessions.clearTranscript")}
+                className="group/clear relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-2xl shadow-sm text-xs font-medium shrink-0 bg-background text-text-secondary hover:text-text hover:bg-accent-soft focus:text-text focus:bg-accent-soft border border-border-strong transition-all duration-200"
+              >
+                <Lock size={14} className="shrink-0" />
+                <span className="whitespace-nowrap overflow-hidden max-w-0 mr-0 group-hover/clear:max-w-[200px] group-hover/clear:mr-1.5 group-focus/clear:max-w-[200px] group-focus/clear:mr-1.5 transition-all duration-200 ease-linear delay-150 group-hover/cluster:delay-0 group-focus-within/cluster:delay-0">
+                  {t("sessions.clearTranscript")}
+                </span>
+                {/* Transparent hit-area extender covering the left half of the
+                    gap. Keeps Clear `:hover` until the cursor reaches the
+                    midpoint, where Re-enhance's mirror extender takes over.
+                    Both transitions fire in the same frame at the crossover. */}
+                <span
+                  aria-hidden
+                  className="absolute top-0 bottom-0 left-full w-1"
+                />
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                if (enhancedNotes && enhancedNotesEdited) {
+                  setShowReenhanceWarning(true);
+                } else {
+                  onDismissEnhancePrompt();
+                  onEnhanceNotes();
+                }
+              }}
+              title={
+                enhancedNotes
+                  ? t("sessions.reenhance")
+                  : t("sessions.enhanceNotes")
               }
-            }}
-            className={`flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 ${!enhancedNotes ? "bg-background-ui text-white hover:bg-background-ui/90" : "bg-background text-accent hover:bg-accent-soft border border-border-strong"}`}
-          >
-            <Sparkles size={14} />
-            {enhancedNotes
-              ? t("sessions.reenhance")
-              : t("sessions.enhanceNotes")}
-          </button>
+              aria-label={
+                enhancedNotes
+                  ? t("sessions.reenhance")
+                  : t("sessions.enhanceNotes")
+              }
+              className={
+                enhancedNotes
+                  ? "group/reenhance relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-2xl shadow-sm text-xs font-medium shrink-0 bg-background text-accent hover:bg-accent-soft focus:bg-accent-soft border border-border-strong transition-all duration-200"
+                  : "flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 bg-background-ui text-white hover:bg-background-ui/90"
+              }
+            >
+              <Sparkles size={14} className="shrink-0" />
+              {enhancedNotes ? (
+                <span className="whitespace-nowrap overflow-hidden max-w-0 mr-0 group-hover/reenhance:max-w-[200px] group-hover/reenhance:mr-1.5 group-focus/reenhance:max-w-[200px] group-focus/reenhance:mr-1.5 transition-all duration-200 ease-linear delay-150 group-hover/cluster:delay-0 group-focus-within/cluster:delay-0">
+                  {t("sessions.reenhance")}
+                </span>
+              ) : (
+                t("sessions.enhanceNotes")
+              )}
+              {/* Mirror extender on the left, covering the right half of the
+                  gap. See the matching extender on the Clear button above. */}
+              {enhancedNotes && (
+                <span
+                  aria-hidden
+                  className="absolute top-0 bottom-0 right-full w-1"
+                />
+              )}
+            </button>
+          </div>
         )}
       </div>
 
