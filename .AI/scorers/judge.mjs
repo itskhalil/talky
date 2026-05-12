@@ -15,6 +15,10 @@ Before scoring, identify any FATAL flaws — output that fundamentally fails the
 
 NOT a fatal flaw: a short "Next steps" or similar section that collects concrete action items (who does what, by when). This is useful note-taking, not a summary — as long as the items are specific commitments, not vague recaps.
 
+NOT a fatal flaw: first-person notes that include phrases like "feedback to me" or refer to another meeting participant by name or pronoun ("he/him", "Max said..."). This is normal first-person note-taking — the user writing about what they heard or received. The "second-person/written TO the user" failure is specifically when bullets address the user as "you" or imperatively instruct them ("You should follow up with X"). "Feedback I received" is first-person; "Feedback to you" would be second-person.
+
+NOT a fatal flaw: when no user notes were provided, all lines tagged [ai] in first-person voice. The prompt explicitly instructs the model to generate notes from the transcript using [ai] throughout, written as if the user had taken them. First-person + [ai] is the documented ghostwriter behavior, not a tag/voice mismatch.
+
 Then score 1-5 on each dimension:
 
 1. **Voice** — Does it sound like the user?
@@ -23,6 +27,8 @@ Then score 1-5 on each dimension:
    - 1: Sounds like a different person wrote it entirely
    - PENALIZE: paraphrasing the user's own words into neutral summary language, replacing shorthand with full sentences, addressing the user as "you/your" (notes are written BY the user not TO them), using the user's name in narrative third-person ("The user's perspective was...", "The user felt that..."), reordering topics away from the meeting's chronological flow when the user's notes don't impose a different structure
    - DO NOT PENALIZE: using the user's name in action items and attributions ("The user to follow up with X", "The user offered to help with Y") — this is natural in meeting notes where multiple people have action items
+   - DO NOT PENALIZE: first-person object-pronoun "me/my" (e.g. "feedback to me", "talk to me", "Sravya disagreed with me") — this is first-person, the user writing about what happened to them. "You/your" is the second-person violation, not "me/my".
+   - DO NOT PENALIZE: referring to other meeting participants by name or pronoun ("Max said...", "she pushed back", "he/his view"). Real first-person notes refer to others this way; this is not third-person narration about the user.
 
 2. **Density** — Terse bullets, not prose?
    - 5: Compressed facts, scannable — you could skim this in 30 seconds
@@ -54,6 +60,7 @@ Then score 1-5 on each dimension:
    - 5: All lines correctly attributed
    - 3: Mostly correct, some misattributions
    - 1: Frequent wrong labels or missing tags
+   - DO NOT PENALIZE: when no user notes were provided, all lines tagged [ai] is correct. The prompt instructs the model to generate everything as [ai] in this mode, written in first-person as if the user had taken the notes. First-person voice + all-[ai] tagging is the documented behavior, not a tag/voice mismatch.
 
 Respond with JSON:
 {

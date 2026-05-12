@@ -468,6 +468,32 @@ Round 22 confirmation (n=8, merged with Round 21):
 36. **Prompt punctuation patterns affect output structural habits.** Em-dash removal from prompt text reduces output chaining (clean-all: chains 11.7 → 8.8) even though linguistic register doesn't affect w/b (principle #15). The mechanism is behavioral mimicry: the model reproduces structural patterns it sees in instructions. This is distinct from register priming (#13) — it's about punctuation structure, not word choice or tone.
 37. **HOW chains are replaced matters more than WHETHER they're reduced.** Instructional chain-splitting (style-guide) causes consolidation — fewer, longer bullets, w/b increases. Prompt punctuation cleanup (clean-all) causes genuine splitting — more, shorter bullets, w/b decreases. The instruction "split chained bullets" is interpreted as "merge the ideas into one comprehensive bullet" rather than "make two short bullets." Modeling the desired structure in the prompt itself is more effective than describing it.
 
+### Round 23: hierarchy preservation (structural choices in canonical rule + Example 1 rewrite)
+
+Targeted a specific bug observed in production: when the user wrote multi-level nested or numbered structure (a top-level outline with sub-bullets), the model flattened the structure and chained sub-bullets with semicolons, despite "user's notes are canonical" already being in the prompt. The format spec only demonstrates flat-or-2-level dash bullets, and both in-prompt examples show user notes that are shorter and flatter than the output — so structurally-rich user input was implicitly modeled as "expand and flatten."
+
+Three variants tested across 4 cases at n=2-3 (target case + 3 regression cases):
+
+| Variant | Mechanism | Target Δ | Side effects |
+|---|---|---:|---|
+| hierarchy-rule | Adds a separate "Mirror the user's own structure" guideline | **+0.125** | Verbosity uptick on dense cases; +5-9 chains everywhere |
+| hierarchy-example | Adds a 3rd in-prompt example showing structured input → preserved output | −0.052 (worse than baseline) | Backfired — truncated the target section; register bias per principle #32 |
+| hierarchy-both | Both | −0.07 | Example's negative effect dominates |
+| **hierarchy-canonical** | One-phrase extension to existing "canonical notes" rule: adds "structural choices (numbering, nesting)" | +0.063 | None significant — but didn't actually fix the bug, score gain came from elsewhere |
+| **canonical-example** | canonical change + Example 1 rewritten to demonstrate structured-input preservation | **+0.102** | dense-business verbosity (+16% words, +10 bullets) from new example's bullet count; everywhere else neutral-to-positive |
+
+**canonical-example promoted.** Wider eval on 6 unseen cases at n=1 confirmed no catastrophic regressions: dense-review-q1 0.90, dense-review-q4 0.95, no-notes-complex 0.86, sparse-feedback 0.85, sparse-interview 0.74 (no-notes-personal 0.40 was a judge artifact — see principle #40).
+
+38. **Standalone rules can fix a bug but reach for new side effects.** hierarchy-rule had the cleanest target-case fix (+0.125) but introduced verbosity and chain regressions on cases where the rule was supposed to be dormant. Adding any new constraint to the Guidelines section disturbs the carefully-balanced register of the rest of the prompt. Extending an existing rule (canonical-example's one-phrase edit to "user's notes are canonical") is less disruptive than adding a new bullet under Guidelines, even when the substantive content is similar.
+
+39. **Examples teach pattern-shape, not pattern-completeness.** canonical-example's revised Example 1 shows dash-nested user input → preserved nested output. Result: dash-nested input is now preserved at 3-level depth (visible in the Safeguarding section of the target case). But numbered-list-with-sub-bullets input (the case's "Questions for the trustees" section) is still flattened — the model treats numbered top-level items as section-like and restructures them. One example teaches one pattern. To fix both patterns would require either a second example (risking the register bias that killed hierarchy-example) or a frame-level change.
+
+40. **Two judge false-positive patterns identified and fixed.** During the round, two `score=0.40` failures turned out to be judge errors, not real defects:
+    - **First-person "me" misread as second-person.** Notes like "feedback to me" or referring to another participant as "he/him/[name]" were flagged as "written TO the user." This is normal first-person note style — only "you/your" addressed at the user is the actual second-person violation.
+    - **First-person [ai] tagging misread as tag/voice mismatch.** When no user notes are provided, the prompt explicitly instructs the model to generate everything as [ai] in first-person (ghostwriter frame). The judge sometimes flagged this as inconsistent ("all [ai] but first-person voice"). It's the documented behavior, not a defect.
+
+    Both patterns were patched in `.AI/scorers/judge.mjs` with explicit DO-NOT-PENALIZE notes in the voice and tagging dimensions, plus NOT-fatal notes in the fatal-flaw section. Before the patch, these artifacts produced fatal-flaw caps on legitimate variants and required manual case-by-case discounting.
+
 ### Ideas for future rounds
 
 - **sparse-interview recovery.** clean-all's regression on this case (−0.074) is the main known weakness. Could test whether adding an em-dash back into the examples (specifically Example 2 or a new interview-style example) recovers the editorial register without reintroducing chaining elsewhere.

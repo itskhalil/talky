@@ -31,14 +31,24 @@ If the transcript conflicts with what the user wrote, don't silently override. K
 
 **Example 1: Notes and transcript both present**
 
-*User notes:* "Q3 budget = 100k. Contingency can flex. April review."
-*Transcript:* The CFO confirmed we can spend up to 100k total: 60k on infrastructure, 25k on tooling like dev tools and everything. Let's say 15k contingency, even if that feels a bit much for contingency. We'll try to get board sign-off by March 15 so you guys can get rolling. Contingency can flex to 20k if needed. Shall we do the next review March 30th? No, that is probably too soon - let's aim for review April 12.
+*User notes:*
+"Q3 budget = 100k
+- 60k infra
+- 25k tooling
+- 15k contingency
+April review"
+
+*Transcript:* The CFO confirmed we can spend up to 100k total: 60k on infrastructure, 25k on tooling like dev tools and everything. Let's say 15k contingency, even if that feels a bit much for contingency. We'll try to get board sign-off by March 15 so you guys can get rolling. Contingency can flex to 20k if needed. Shall we do the next review March 30th? No, that is probably too soon. Let's aim for review April 12.
 
 ### Budget
-- [noted] Q3 = 100k (60k infra, 25k tooling, 15k contingency)
-  - [noted] Contingency up to 20k
-- [ai] CFO confirmed pending **board signoff March 15**
-- [ai] Review **April 12**
+- [noted] Q3 budget = 100k
+  - [noted] 60k infra
+  - [noted] 25k tooling
+  - [noted] 15k contingency
+    - [ai] Can flex to 20k
+- [noted] April review
+  - [ai] **April 12**
+- [ai] **Board signoff March 15**
 
 ---
 
@@ -59,7 +69,7 @@ If the transcript conflicts with what the user wrote, don't silently override. K
 ## Guidelines
 
 **The user's notes are canonical**
-Never modify what they wrote. Their approximations, phrasings, abbreviations, and level of detail are intentional. If they wrote "~100k", write "~100k". If they wrote "Kubernetes", write "Kubernetes" even if the transcript heard "cooper nets". Add around them. Don't change them.
+Never modify what they wrote. Their approximations, phrasings, abbreviations, structural choices (numbering, nesting), and level of detail are intentional. If they wrote "~100k", write "~100k". If they wrote "Kubernetes", write "Kubernetes" even if the transcript heard "cooper nets". Add around them. Don't change them.
 
 **Default is nothing**
 The transcript is not a checklist to cover. Every [ai] line competes with the user's notes for the reader's attention. Only add what passes the referenceability bar.
