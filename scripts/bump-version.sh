@@ -35,7 +35,10 @@ sed -i '' "s/^version = \"$current\"/version = \"$new\"/" src-tauri/Cargo.toml
 
 # package-lock.json + Cargo.lock
 npm install --package-lock-only --silent
-(cd src-tauri && cargo generate-lockfile --quiet)
+# Use `cargo update --workspace`, not `cargo generate-lockfile` — the latter
+# re-resolves git deps from scratch and can spuriously fail when an upstream
+# git dep's HEAD has moved.
+(cd src-tauri && cargo update --workspace --quiet)
 
 # Verify the lockfiles actually picked up the new version.
 if ! grep -q "\"version\": \"$new\"" package-lock.json; then
