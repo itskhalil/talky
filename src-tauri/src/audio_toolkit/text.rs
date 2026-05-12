@@ -87,8 +87,8 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
 
         if let Some(replacement) = best_match {
             debug!(
-                "Custom word match: '{}' -> '{}' (score: {:.3}, threshold: {})",
-                word, replacement, best_score, threshold
+                "Custom word match: score={:.3}, threshold={}",
+                best_score, threshold
             );
             // Preserve the original case pattern as much as possible
             let corrected = preserve_case_pattern(word, replacement);
@@ -251,14 +251,14 @@ pub fn is_hallucination(text: &str) -> bool {
     // Check against known patterns
     for pattern in HALLUCINATION_PATTERNS.iter() {
         if pattern.is_match(trimmed) {
-            debug!("Hallucination pattern detected: '{}'", trimmed);
+            debug!("Hallucination pattern detected: len={}", trimmed.len());
             return true;
         }
     }
 
     // Check for repetitive hallucinations
     if is_repetitive_hallucination(trimmed) {
-        debug!("Repetitive hallucination detected: '{}'", trimmed);
+        debug!("Repetitive hallucination detected: len={}", trimmed.len());
         return true;
     }
 
@@ -304,11 +304,7 @@ pub fn remove_prefix_overlap(
 
         // Check if they match (allowing for minor differences)
         if prev_suffix == new_prefix {
-            debug!(
-                "Removed prefix overlap ({} words): '{}'",
-                overlap_len,
-                new_words[..overlap_len].join(" ")
-            );
+            debug!("Removed prefix overlap: {} words", overlap_len);
             return new_words[overlap_len..].join(" ");
         }
     }
@@ -464,8 +460,11 @@ pub fn is_duplicate_segment(
 
     if similarity >= similarity_threshold {
         debug!(
-            "Duplicate segment detected: similarity={:.2}, overlap={}ms, new='{}', existing='{}'",
-            similarity, overlap, new_text, existing_text
+            "Duplicate segment detected: similarity={:.2}, overlap={}ms, new_len={}, existing_len={}",
+            similarity,
+            overlap,
+            new_text.len(),
+            existing_text.len()
         );
         true
     } else {

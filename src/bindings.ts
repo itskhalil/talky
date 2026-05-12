@@ -171,6 +171,14 @@ async changeSaveDebugRecordingsSetting(enabled: boolean) : Promise<Result<null, 
     else return { status: "error", error: e  as any };
 }
 },
+async changeTranscriptClearingSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_transcript_clearing_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeAppLanguageSetting(language: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_app_language_setting", { language }) };
@@ -830,6 +838,21 @@ async generateSessionSummaryStream(sessionId: string) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Clear the raw transcript for a session and seal the note.
+ * 
+ * Gated by the `transcript_clearing_enabled` debug flag. Refuses unless the
+ * session has enhanced_notes (the enhanced output is the new record). After a
+ * successful clear, the note is sealed — recording on it is locked.
+ */
+async clearSessionTranscript(sessionId: string) : Promise<Result<Session, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("clear_session_transcript", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getSessionSummary(sessionId: string) : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_session_summary", { sessionId }) };
@@ -1068,7 +1091,7 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; coreml_model_ready?: boolean; last_run_version?: string | null; 
+user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; transcript_clearing_enabled?: boolean; coreml_model_ready?: boolean; last_run_version?: string | null; 
 /**
  * Set to true when `setup()` promotes `selected_model` from the ONNX id
  * to the `-coreml` id. Frontend reads + clears this on mount to decide
@@ -1134,7 +1157,12 @@ matched_field: string;
  * Short excerpt centered on the first match, with markdown noise stripped. Empty when no text match.
  */
 snippet: string }
-export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null }
+export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null; 
+/**
+ * Epoch seconds when the raw transcript was cleared. When set, the note is
+ * sealed: recording is locked and the transcript panel shows a placeholder.
+ */
+transcript_wiped_at: number | null }
 export type Tag = { id: string; name: string; color: string | null }
 export type TranscriptSegment = { id: number; session_id: string; text: string; source: string; start_ms: number; end_ms: number; created_at: number }
 export type UserVisibleError = { id: string; kind: ErrorKind; title: string; detail: string; timestamp_ms: number; dismissed_at?: number | null }

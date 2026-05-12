@@ -15,6 +15,7 @@ export interface Session {
   status: string;
   folder_id: string | null;
   environment_id: string | null;
+  transcript_wiped_at: number | null;
 }
 
 export interface TranscriptSegment {
@@ -363,10 +364,15 @@ interface SessionStore {
     open: boolean;
     mode: "single" | "all";
     hasEnhanced: boolean;
+    hasTranscript: boolean;
   };
 
   // Actions
-  openExportDialog: (mode: "single" | "all", hasEnhanced: boolean) => void;
+  openExportDialog: (
+    mode: "single" | "all",
+    hasEnhanced: boolean,
+    hasTranscript: boolean,
+  ) => void;
   closeExportDialog: () => void;
   selectSession: (id: string) => void;
   loadSessions: () => Promise<void>;
@@ -380,6 +386,7 @@ interface SessionStore {
   setEnhancedNotes: (tagged: string) => void;
   generateSummary: () => Promise<void>;
   enhanceNotes: () => Promise<void>;
+  clearTranscript: (sessionId: string) => Promise<void>;
   dismissEnhancePrompt: (sessionId: string) => void;
   setViewMode: (mode: "notes" | "enhanced") => void;
   selectNextSession: () => void;
@@ -424,10 +431,15 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   enhanceStreaming: {},
 
   // Export dialog state
-  exportDialog: { open: false, mode: "single", hasEnhanced: false },
+  exportDialog: {
+    open: false,
+    mode: "single",
+    hasEnhanced: false,
+    hasTranscript: true,
+  },
 
-  openExportDialog: (mode, hasEnhanced) =>
-    set({ exportDialog: { open: true, mode, hasEnhanced } }),
+  openExportDialog: (mode, hasEnhanced, hasTranscript) =>
+    set({ exportDialog: { open: true, mode, hasEnhanced, hasTranscript } }),
   closeExportDialog: () =>
     set((s) => ({ exportDialog: { ...s.exportDialog, open: false } })),
 
@@ -653,6 +665,19 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }),
     );
 
+    // Generic session-row update (currently emitted on transcript clear).
+    // Refreshes the session in our list so the UI sees transcript_wiped_at.
+    unlisteners.push(
+      await listen<Session>("session-updated", (event) => {
+        const updated = event.payload;
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === updated.id ? updated : sess,
+          ),
+        }));
+      }),
+    );
+
     unlisteners.push(
       await listen<AmplitudeEvent>("session-amplitude", (event) => {
         const { recordingSessionId } = get();
@@ -788,7 +813,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     // Listen for menu export current note request
     unlisteners.push(
       await listen("menu-export-current", () => {
-        const { selectedSessionId, cache } = get();
+        const { selectedSessionId, cache, sessions } = get();
         const t = i18n.t.bind(i18n);
 
         if (!selectedSessionId) {
@@ -800,14 +825,18 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         const hasEnhanced = !!(
           cached?.enhancedNotes && cached.enhancedNotes.trim()
         );
-        get().openExportDialog("single", hasEnhanced);
+        const sessionRow = sessions.find((s) => s.id === selectedSessionId);
+        const hasTranscript = !sessionRow?.transcript_wiped_at;
+        get().openExportDialog("single", hasEnhanced, hasTranscript);
       }),
     );
 
     // Listen for menu export all notes request
     unlisteners.push(
       await listen("menu-export-all", () => {
-        get().openExportDialog("all", true);
+        // For "export all", individual sealed sessions are filtered by the
+        // backend; allow the option here.
+        get().openExportDialog("all", true, true);
       }),
     );
 
@@ -1217,6 +1246,31 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         };
       });
     }
+  },
+
+  clearTranscript: async (sessionId: string) => {
+    const result = await commands.clearSessionTranscript(sessionId);
+    if (result.status === "error") {
+      const base = i18n.t("sessions.clearTranscriptError");
+      toast.error(result.error ? `${base}: ${result.error}` : base);
+      throw new Error(result.error);
+    }
+    const updated = result.data;
+    set((s) => {
+      const existingCache = s.cache[sessionId];
+      const nextCache = existingCache
+        ? {
+            ...s.cache,
+            [sessionId]: { ...existingCache, transcript: [] },
+          }
+        : s.cache;
+      return {
+        cache: nextCache,
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? updated : sess,
+        ),
+      };
+    });
   },
 
   dismissEnhancePrompt: (sessionId: string) => {

@@ -450,6 +450,10 @@
       "disablePillWindow": {
         "label": "Disable Pill Window",
         "description": "Debug: Disable the floating pill window during recording"
+      },
+      "transcriptClearing": {
+        "label": "Allow clearing transcripts",
+        "description": "Adds a 'Clear transcript' button to enhanced notes. Clearing permanently removes the raw transcript from Talky and seals the note — you can't record more audio or re-run the AI on it."
       }
     },
     "userName": {
@@ -599,6 +603,15 @@
     "enhanceNotes": "Enhance Notes",
     "reenhance": "Re-enhance",
     "transcriptReady": "Transcript updated",
+    "clearTranscript": "Clear transcript",
+    "clearTranscriptTooltip": "Permanently remove the raw transcript. Your enhanced notes stay.",
+    "sealedBadge": "Sealed · {{date}}",
+    "clearTranscriptTitle": "Clear raw transcript?",
+    "clearTranscriptMessage": "This deletes the raw transcript Talky stored from this meeting. Your typed notes and enhanced notes stay.\n\nOnce cleared:\n• You can't re-run the AI on this note\n• You can't record more audio on this note\n• System-level backups outside Talky (Time Machine, iCloud) may still contain a copy\n\nThis can't be undone.",
+    "clearTranscriptConfirm": "Clear transcript",
+    "clearTranscriptError": "Failed to clear transcript",
+    "transcriptClearedPlaceholder": "Transcript cleared on {{date}}.\nYour enhanced notes are now the record for this meeting.",
+    "recordingLockedOnSealedNote": "This note is sealed. Create a new note to record more audio.",
     "deleteConfirmTitle": "Delete Note?",
     "deleteConfirmMessage": "Are you sure you want to delete this note? This can't be undone.",
     "reenhanceWarningTitle": "Regenerate Notes?",

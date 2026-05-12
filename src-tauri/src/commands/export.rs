@@ -132,8 +132,10 @@ fn generate_markdown(
         }
     }
 
-    // Transcript section
-    if include_transcript {
+    // Transcript section. Sealed sessions never include the transcript, even if
+    // the caller asked for it — defense in depth against export bypassing the
+    // transcript clear.
+    if include_transcript && session.transcript_wiped_at.is_none() {
         let segments = session_manager
             .get_session_transcript(session_id)
             .map_err(|e| e.to_string())?;

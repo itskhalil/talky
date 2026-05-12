@@ -464,7 +464,7 @@ impl TranscriptionManager {
         let text = filter_transcription_output(&corrected);
 
         if !text.is_empty() {
-            debug!("Chunk transcribed: {}", text);
+            debug!("Chunk transcribed: len={}", text.len());
         }
 
         Ok(text)

@@ -12,6 +12,7 @@ interface ExportDialogProps {
   open: boolean;
   title: string;
   hasEnhanced: boolean;
+  hasTranscript: boolean;
   onConfirm: (options: ExportOptions) => void;
   onCancel: () => void;
 }
@@ -20,6 +21,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   open,
   title,
   hasEnhanced,
+  hasTranscript,
   onConfirm,
   onCancel,
 }) => {
@@ -29,7 +31,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const [enhanced, setEnhanced] = useState(true);
   const [transcript, setTranscript] = useState(true);
 
-  const nothingSelected = !notes && !transcript && !(enhanced && hasEnhanced);
+  const nothingSelected =
+    !notes && !(transcript && hasTranscript) && !(enhanced && hasEnhanced);
 
   // Close on Escape key
   useEffect(() => {
@@ -109,15 +112,17 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             </label>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
-            <input
-              type="checkbox"
-              checked={transcript}
-              onChange={(e) => setTranscript(e.target.checked)}
-              className="accent-background-ui"
-            />
-            {t("export.includeTranscript")}
-          </label>
+          {hasTranscript && (
+            <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+              <input
+                type="checkbox"
+                checked={transcript}
+                onChange={(e) => setTranscript(e.target.checked)}
+                className="accent-background-ui"
+              />
+              {t("export.includeTranscript")}
+            </label>
+          )}
         </div>
 
         {nothingSelected && (
@@ -138,7 +143,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               onConfirm({
                 notes,
                 enhanced: hasEnhanced && enhanced,
-                transcript,
+                transcript: hasTranscript && transcript,
               })
             }
           >

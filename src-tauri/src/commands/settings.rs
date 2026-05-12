@@ -317,6 +317,15 @@ pub fn change_save_debug_recordings_setting(app: AppHandle, enabled: bool) -> Re
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn change_transcript_clearing_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.transcript_clearing_enabled = enabled;
+    write_settings(&app, settings);
+    Ok(())
+}
+
 // Global Shortcut Commands
 #[tauri::command]
 #[specta::specta]

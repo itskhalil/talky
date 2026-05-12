@@ -112,6 +112,8 @@ static SESSION_MIGRATIONS: &[M] = &[
     ),
     // Migration 13: Index for faster attachment queries by session
     M::up("CREATE INDEX IF NOT EXISTS idx_attachments_session ON session_attachments(session_id);"),
+    // Migration 14: transcript_wiped_at marks a session as sealed (transcript cleared, recording locked)
+    M::up("ALTER TABLE sessions ADD COLUMN transcript_wiped_at INTEGER;"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -123,6 +125,9 @@ pub struct Session {
     pub status: String,
     pub folder_id: Option<String>,
     pub environment_id: Option<String>,
+    /// Epoch seconds when the raw transcript was cleared. When set, the note is
+    /// sealed: recording is locked and the transcript panel shows a placeholder.
+    pub transcript_wiped_at: Option<i64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -301,6 +306,7 @@ impl SessionManager {
             status: "active".to_string(),
             folder_id: None,
             environment_id: default_environment_id,
+            transcript_wiped_at: None,
         };
 
         let _ = self.app_handle.emit("session-started", &session);
@@ -386,7 +392,7 @@ impl SessionManager {
         let has_query = !trimmed.is_empty();
 
         let mut sql = String::from(
-            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, mn.user_notes, mn.enhanced_notes \
+            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, s.transcript_wiped_at, mn.user_notes, mn.enhanced_notes \
              FROM sessions s \
              LEFT JOIN meeting_notes mn ON mn.session_id = s.id",
         );
@@ -446,7 +452,7 @@ impl SessionManager {
 
         if !tag_ids_vec.is_empty() {
             sql.push_str(
-                " GROUP BY s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, mn.user_notes, mn.enhanced_notes",
+                " GROUP BY s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, s.transcript_wiped_at, mn.user_notes, mn.enhanced_notes",
             );
             sql.push_str(" HAVING COUNT(DISTINCT st.tag_id) = ?");
             params_vec.push(Box::new(tag_ids_vec.len() as i64));
@@ -466,6 +472,7 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
+                transcript_wiped_at: row.get("transcript_wiped_at")?,
             };
             let user_notes: Option<String> = row.get("user_notes")?;
             let enhanced_notes: Option<String> = row.get("enhanced_notes")?;
@@ -497,7 +504,7 @@ impl SessionManager {
     pub fn get_sessions(&self) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
-            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id FROM sessions ORDER BY started_at DESC",
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at FROM sessions ORDER BY started_at DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -509,6 +516,7 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
+                transcript_wiped_at: row.get("transcript_wiped_at")?,
             })
         })?;
 
@@ -523,7 +531,7 @@ impl SessionManager {
         let conn = self.get_connection()?;
         let session = conn
             .query_row(
-                "SELECT id, title, started_at, ended_at, status, folder_id, environment_id FROM sessions WHERE id = ?1",
+                "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at FROM sessions WHERE id = ?1",
                 params![session_id],
                 |row| {
                     Ok(Session {
@@ -534,6 +542,7 @@ impl SessionManager {
                         status: row.get("status")?,
                         folder_id: row.get("folder_id")?,
                         environment_id: row.get("environment_id")?,
+                        transcript_wiped_at: row.get("transcript_wiped_at")?,
                     })
                 },
             )
@@ -645,6 +654,57 @@ impl SessionManager {
             params![title, session_id],
         )?;
         Ok(())
+    }
+
+    /// Clear the raw transcript for a session and seal the note. After this:
+    /// - transcript_segments rows for this session are deleted
+    /// - sessions.transcript_wiped_at is set to the current epoch second
+    /// - recording on this session is locked (enforced at the command layer)
+    ///
+    /// Refuses if the session does not exist, is already sealed, or has no
+    /// enhanced_notes yet (the whole point of the feature is that the enhanced
+    /// notes replace the transcript as the record).
+    pub fn clear_session_transcript(&self, session_id: &str) -> Result<Session> {
+        let session = self
+            .get_session(session_id)?
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
+
+        if session.transcript_wiped_at.is_some() {
+            return Err(anyhow::anyhow!("Transcript is already cleared"));
+        }
+
+        let notes = self.get_meeting_notes(session_id)?;
+        let has_enhanced = notes
+            .as_ref()
+            .and_then(|n| n.enhanced_notes.as_ref())
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        if !has_enhanced {
+            return Err(anyhow::anyhow!(
+                "Cannot clear transcript before enhanced notes exist"
+            ));
+        }
+
+        let now = Utc::now().timestamp();
+        let conn = self.get_connection()?;
+        conn.execute(
+            "DELETE FROM transcript_segments WHERE session_id = ?1",
+            params![session_id],
+        )?;
+        conn.execute(
+            "UPDATE sessions SET transcript_wiped_at = ?1 WHERE id = ?2",
+            params![now, session_id],
+        )?;
+
+        let updated = Session {
+            transcript_wiped_at: Some(now),
+            ..session
+        };
+
+        let _ = self.app_handle.emit("session-updated", &updated);
+        info!("Transcript cleared for session: {}", session_id);
+
+        Ok(updated)
     }
 
     pub fn update_session_environment(
@@ -901,10 +961,10 @@ impl SessionManager {
         let conn = self.get_connection()?;
 
         let query = if folder_id.is_some() {
-            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at
              FROM sessions WHERE folder_id = ?1 ORDER BY started_at DESC"
         } else {
-            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at
              FROM sessions WHERE folder_id IS NULL ORDER BY started_at DESC"
         };
 
@@ -920,6 +980,7 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
+                transcript_wiped_at: row.get("transcript_wiped_at")?,
             })
         };
 
@@ -1054,7 +1115,7 @@ impl SessionManager {
     pub fn get_sessions_by_tag(&self, tag_id: &str) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
-            "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id
+            "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, s.transcript_wiped_at
              FROM sessions s
              INNER JOIN session_tags st ON st.session_id = s.id
              WHERE st.tag_id = ?1
@@ -1070,6 +1131,7 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
+                transcript_wiped_at: row.get("transcript_wiped_at")?,
             })
         })?;
 

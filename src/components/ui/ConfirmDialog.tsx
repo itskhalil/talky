@@ -77,7 +77,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         >
           {title}
         </h2>
-        <p className="text-sm text-text-secondary mb-5">{message}</p>
+        <p className="text-sm text-text-secondary mb-5 whitespace-pre-line">
+          {message}
+        </p>
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel}>

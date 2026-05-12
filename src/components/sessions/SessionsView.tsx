@@ -440,6 +440,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             : "export.dialogTitleAll",
         )}
         hasEnhanced={exportDialog.hasEnhanced}
+        hasTranscript={exportDialog.hasTranscript}
         onConfirm={handleExportConfirm}
         onCancel={closeExportDialog}
       />

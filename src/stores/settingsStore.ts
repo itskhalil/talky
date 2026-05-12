@@ -126,6 +126,8 @@ const settingUpdaters: {
     commands.changeMeetingStartActionSetting(value as string),
   save_debug_recordings: (value) =>
     commands.changeSaveDebugRecordingsSetting(value as boolean),
+  transcript_clearing_enabled: (value) =>
+    commands.changeTranscriptClearingSetting(value as boolean),
 };
 
 export const useSettingsStore = create<SettingsStore>()(

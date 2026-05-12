@@ -20,6 +20,7 @@ import {
   Globe,
   Search,
   Paperclip,
+  Lock,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
@@ -67,6 +68,7 @@ interface Session {
   status: string;
   folder_id: string | null;
   environment_id: string | null;
+  transcript_wiped_at: number | null;
 }
 
 interface TranscriptSegment {
@@ -452,8 +454,11 @@ export function NoteView({
   const { t } = useTranslation();
   const { getSetting } = useSettings();
   const copyAsBulletsEnabled = getSetting("copy_as_bullets_enabled") ?? false;
+  const transcriptClearingEnabled =
+    getSetting("transcript_clearing_enabled") ?? false;
   const attachments = useAttachments();
   const refreshAttachments = useSessionStore((s) => s.refreshAttachments);
+  const clearTranscript = useSessionStore((s) => s.clearTranscript);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const imageAttachments = useMemo(
     () => attachments.filter((a) => a.mime_type.startsWith("image/")),
@@ -461,6 +466,29 @@ export function NoteView({
   );
   const [panelOpen, setPanelOpen] = useState(false);
   const [showReenhanceWarning, setShowReenhanceWarning] = useState(false);
+  const [showClearTranscriptDialog, setShowClearTranscriptDialog] =
+    useState(false);
+  const isSealed = !!session?.transcript_wiped_at;
+  const canClearTranscript =
+    transcriptClearingEnabled &&
+    !!session &&
+    !isSealed &&
+    !!enhancedNotes &&
+    !enhanceLoading &&
+    !enhanceStreaming &&
+    !isRecording;
+  const transcriptClearedDate = session?.transcript_wiped_at
+    ? new Date(session.transcript_wiped_at * 1000).toLocaleDateString(
+        undefined,
+        { year: "numeric", month: "short", day: "numeric" },
+      )
+    : "";
+  const transcriptClearedDateShort = session?.transcript_wiped_at
+    ? new Date(session.transcript_wiped_at * 1000).toLocaleDateString(
+        undefined,
+        { month: "short", day: "numeric" },
+      )
+    : "";
   const [panelMode, setPanelMode] = useState<"transcript" | "chat">(
     "transcript",
   );
@@ -1540,6 +1568,25 @@ export function NoteView({
                 onAttachmentsChange={() => refreshAttachments(session.id)}
                 disabled={false}
               />
+
+              {/* Sealed status pill — past-tense state, not an action.
+                  The Clear action itself lives in the bottom bar next to
+                  Re-enhance, since it's a post-enhancement move. */}
+              {isSealed && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-text/5 border border-border-strong text-text-secondary cursor-default"
+                  title={t("sessions.transcriptClearedPlaceholder", {
+                    date: transcriptClearedDate,
+                  })}
+                >
+                  <Lock size={11} />
+                  <span>
+                    {t("sessions.sealedBadge", {
+                      date: transcriptClearedDateShort,
+                    })}
+                  </span>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -1754,7 +1801,16 @@ export function NoteView({
               >
                 {panelMode === "transcript" ? (
                   <>
-                    {transcript.length === 0 ? (
+                    {isSealed ? (
+                      <p
+                        data-ui
+                        className="text-xs text-text-secondary py-2 whitespace-pre-line"
+                      >
+                        {t("sessions.transcriptClearedPlaceholder", {
+                          date: transcriptClearedDate,
+                        })}
+                      </p>
+                    ) : transcript.length === 0 ? (
                       <p data-ui className="text-xs text-text-secondary py-2">
                         {t("sessions.noTranscript")}
                       </p>
@@ -1852,7 +1908,12 @@ export function NoteView({
                 onClick={() => setPanelOpen(!panelOpen)}
                 className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-green-500" : "text-text-secondary/60"}`}
               >
-                <WaveformBars amplitude={amplitude} isRecording={isRecording} />
+                {!isSealed && (
+                  <WaveformBars
+                    amplitude={amplitude}
+                    isRecording={isRecording}
+                  />
+                )}
                 {panelOpen ? (
                   <ChevronDown size={16} />
                 ) : (
@@ -1868,14 +1929,16 @@ export function NoteView({
                   <Square size={11} fill="currentColor" />
                 </button>
               ) : (
-                <button
-                  onClick={onStartRecording}
-                  className="text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
-                >
-                  {hasTranscript
-                    ? t("sessions.resumeRecording")
-                    : t("sessions.startRecording")}
-                </button>
+                !isSealed && (
+                  <button
+                    onClick={onStartRecording}
+                    className="text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
+                  >
+                    {hasTranscript
+                      ? t("sessions.resumeRecording")
+                      : t("sessions.startRecording")}
+                  </button>
+                )
               )}
             </div>
 
@@ -1928,8 +1991,21 @@ export function NoteView({
           </div>
         </div>
 
+        {/* Clear transcript bubble — sits left of Re-enhance because clearing
+            is the natural post-enhancement step when the user is satisfied. */}
+        {canClearTranscript && (
+          <button
+            onClick={() => setShowClearTranscriptDialog(true)}
+            title={t("sessions.clearTranscriptTooltip")}
+            className="flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 bg-background text-text-secondary hover:text-text hover:bg-text/5 border border-border-strong"
+          >
+            <Lock size={14} />
+            {t("sessions.clearTranscript")}
+          </button>
+        )}
+
         {/* Enhance/Re-enhance button */}
-        {!isRecording && hasTranscript && !enhanceLoading && (
+        {!isRecording && hasTranscript && !enhanceLoading && !isSealed && (
           <button
             onClick={() => {
               if (enhancedNotes && enhancedNotesEdited) {
@@ -1962,6 +2038,26 @@ export function NoteView({
           onEnhanceNotes();
         }}
         onCancel={() => setShowReenhanceWarning(false)}
+      />
+
+      {/* Clear transcript confirmation dialog */}
+      <ConfirmDialog
+        open={showClearTranscriptDialog}
+        title={t("sessions.clearTranscriptTitle")}
+        message={t("sessions.clearTranscriptMessage")}
+        confirmLabel={t("sessions.clearTranscriptConfirm")}
+        variant="danger"
+        onConfirm={async () => {
+          setShowClearTranscriptDialog(false);
+          if (session) {
+            try {
+              await clearTranscript(session.id);
+            } catch (e) {
+              console.error("Failed to clear transcript:", e);
+            }
+          }
+        }}
+        onCancel={() => setShowClearTranscriptDialog(false)}
       />
 
       {/* Image lightbox */}

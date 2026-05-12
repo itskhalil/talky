@@ -466,6 +466,7 @@ pub fn run() {
         commands::settings::change_speaker_energy_threshold_setting,
         commands::settings::change_skip_mic_on_speaker_energy_setting,
         commands::settings::change_save_debug_recordings_setting,
+        commands::settings::change_transcript_clearing_setting,
         commands::settings::change_app_language_setting,
         commands::settings::change_update_checks_setting,
         commands::settings::change_copy_as_bullets_setting,
@@ -547,6 +548,7 @@ pub fn run() {
         commands::session::get_user_notes,
         commands::session::generate_session_summary,
         commands::session::generate_session_summary_stream,
+        commands::session::clear_session_transcript,
         commands::session::get_session_summary,
         commands::session::flush_pending_audio,
         // Folder commands

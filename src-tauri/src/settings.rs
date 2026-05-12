@@ -264,6 +264,12 @@ pub struct AppSettings {
     #[serde(default = "default_debug_recordings_max_count")]
     pub debug_recordings_max_count: u8,
 
+    // Enables the "Clear transcript" affordance on enhanced notes, letting the
+    // user permanently remove the raw transcript once they trust the AI output.
+    // Off by default.
+    #[serde(default)]
+    pub transcript_clearing_enabled: bool,
+
     // Core ML Parakeet rollout — migration bookkeeping. On macOS, selected_model
     // is the source of truth for engine choice; these are only for detecting
     // v0.12.x upgrades and timing the one-time promotion banner.
@@ -617,6 +623,7 @@ pub fn get_default_settings() -> AppSettings {
         debug_disable_pill_window: default_debug_disable_pill_window(),
         save_debug_recordings: false,
         debug_recordings_max_count: default_debug_recordings_max_count(),
+        transcript_clearing_enabled: false,
         coreml_model_ready: false,
         last_run_version: None,
         pending_promotion: false,

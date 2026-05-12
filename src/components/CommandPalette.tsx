@@ -324,13 +324,17 @@ export const CommandPalette: React.FC = () => {
       });
 
       const hasEnhanced = !!selectedCache?.enhancedNotes;
+      const selectedSessionRow = useSessionStore
+        .getState()
+        .sessions.find((s) => s.id === selectedSessionId);
+      const hasTranscript = !selectedSessionRow?.transcript_wiped_at;
       list.push({
         id: "export-current",
         label: t("palette.commands.exportCurrent"),
         icon: <Download size={16} />,
         run: () => {
           close();
-          store.openExportDialog("single", hasEnhanced);
+          store.openExportDialog("single", hasEnhanced, hasTranscript);
         },
       });
 

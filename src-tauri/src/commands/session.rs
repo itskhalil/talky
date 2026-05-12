@@ -561,6 +561,24 @@ pub async fn generate_session_summary_stream(
     Ok(())
 }
 
+/// Clear the raw transcript for a session and seal the note.
+///
+/// Gated by the `transcript_clearing_enabled` debug flag. Refuses unless the
+/// session has enhanced_notes (the enhanced output is the new record). After a
+/// successful clear, the note is sealed — recording on it is locked.
+#[tauri::command]
+#[specta::specta]
+pub fn clear_session_transcript(app: AppHandle, session_id: String) -> Result<Session, String> {
+    let settings = crate::settings::get_settings(&app);
+    if !settings.transcript_clearing_enabled {
+        return Err("Transcript clearing is disabled".to_string());
+    }
+
+    let sm = app.state::<Arc<SessionManager>>();
+    sm.clear_session_transcript(&session_id)
+        .map_err(|e| e.to_string())
+}
+
 /// Create a new session (Note) without starting recording.
 #[tauri::command]
 #[specta::specta]
@@ -587,6 +605,16 @@ pub fn start_session_recording(app: AppHandle, session_id: String) -> Result<(),
     // Verify this session is the active one
     if sm.get_active_session_id().as_deref() != Some(&session_id) {
         return Err("Session is not active".to_string());
+    }
+
+    // Refuse if this note is sealed (transcript clear has happened).
+    if let Some(session) = sm.get_session(&session_id).map_err(|e| e.to_string())? {
+        if session.transcript_wiped_at.is_some() {
+            return Err(
+                "Note is sealed: transcript was cleared. Create a new note to record more audio."
+                    .to_string(),
+            );
+        }
     }
 
     // Reset speaker state for each recording pass

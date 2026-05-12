@@ -6,6 +6,7 @@ import { SkipMicOnSpeakerEnergyToggle } from "./SkipMicOnSpeakerEnergyToggle";
 import { LogLevelSelector } from "./LogLevelSelector";
 import { CopyAsBulletsToggle } from "./CopyAsBulletsToggle";
 import { SaveDebugRecordingsToggle } from "./SaveDebugRecordingsToggle";
+import { TranscriptClearingToggle } from "./TranscriptClearingToggle";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { UpdateChecksToggle } from "../UpdateChecksToggle";
 import { AppDataDirectory } from "../AppDataDirectory";
@@ -26,6 +27,7 @@ export const DebugSettings: React.FC = () => {
           grouped={true}
         />
         <SaveDebugRecordingsToggle descriptionMode="tooltip" grouped={true} />
+        <TranscriptClearingToggle descriptionMode="tooltip" grouped={true} />
         <AppDataDirectory descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
     </div>
