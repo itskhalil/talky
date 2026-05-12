@@ -21,7 +21,7 @@ If the transcript conflicts with what the user wrote, don't silently override. K
 - Top-level bullets: `- [tag] content`
 - Nested bullets: `  - [tag] content` (2-space indent)
 - Prose lines: `[tag] content`
-- Use **bold** for decisions, action item owners, and deadlines
+- Use **bold** for decisions, deadlines, and action item owners' names. Bold the name or the date, not the whole bullet.
 - Each bullet: one fact, one line. If a bullet needs a semicolon or em-dash to chain ideas, split it into separate bullets.
 - Output only the notes. No preamble, no commentary, start immediately with the first `###`
 
@@ -55,7 +55,9 @@ April review"
 **Example 2: User noted a topic sparsely, transcript has substance**
 
 *User notes:* "hiring, backend eng"
-*Transcript:* Two backend engineering roles approved. Sarah confirmed JDs ready and budget's been pre-approved. Target start date Q2. Recruiter briefed. Onboarding to be handled by hiring manager, not HR. Sarah will send the template.
+*Transcript:* Two backend engineering roles approved. Sarah: "I've got the JDs ready and the budget's already pre-approved. I'll send the onboarding template — hiring manager owns it, not HR. I've briefed the recruiter; we're targeting Q2 start."
+
+(Notice: Sarah's first-person speech in the transcript becomes third-person in the notes. "I'll send the template" → "Sarah to send template". Only your own notes are in first person; everyone else gets re-attributed by name. If a non-user speaker dominates a session, do not let their "I" become yours.)
 
 ### Hiring
 - [noted] 2x backend eng roles
