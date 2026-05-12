@@ -642,9 +642,38 @@ impl SessionManager {
         )?;
         conn.execute("DELETE FROM sessions WHERE id = ?1", params![session_id])?;
 
+        self.delete_debug_recordings(session_id);
+
         let _ = self.app_handle.emit("session-deleted", session_id);
         info!("Session deleted: {}", session_id);
         Ok(())
+    }
+
+    /// Best-effort cleanup of the debug-recording directory for a session.
+    /// Writes raw mic/spk WAVs and a metadata.json with transcript text when
+    /// the `save_debug_recordings` debug flag is on; those files must be
+    /// removed whenever the session's transcript is being cleared or the
+    /// session is being deleted. Failures are logged, not propagated.
+    fn delete_debug_recordings(&self, session_id: &str) {
+        let data_dir = match crate::get_user_data_dir(&self.app_handle) {
+            Ok(dir) => dir,
+            Err(e) => {
+                warn!(
+                    "Skipping debug-recording cleanup for {}: data dir unresolved: {}",
+                    session_id, e
+                );
+                return;
+            }
+        };
+        let recordings_dir = data_dir.join("debug_recordings");
+        if let Err(e) =
+            crate::debug_recording::delete_session_recording(&recordings_dir, session_id)
+        {
+            warn!(
+                "Failed to delete debug recordings for {}: {}",
+                session_id, e
+            );
+        }
     }
 
     pub fn update_session_title(&self, session_id: &str, title: &str) -> Result<()> {
@@ -695,6 +724,11 @@ impl SessionManager {
             "UPDATE sessions SET transcript_wiped_at = ?1 WHERE id = ?2",
             params![now, session_id],
         )?;
+
+        // Also remove debug-recording artifacts (raw audio + metadata.json
+        // with transcript text), which otherwise survive the DB clear and
+        // defeat the whole point of the feature when both flags are on.
+        self.delete_debug_recordings(session_id);
 
         let updated = Session {
             transcript_wiped_at: Some(now),

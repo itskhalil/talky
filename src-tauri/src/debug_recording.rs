@@ -149,3 +149,16 @@ pub fn cleanup_old_recordings(recordings_dir: &Path, max_count: usize) -> Result
 pub fn now_rfc3339() -> String {
     Utc::now().to_rfc3339()
 }
+
+/// Remove the debug recording directory (raw mic/spk WAVs + metadata.json with
+/// transcript text) for a specific session. No-op if the directory doesn't
+/// exist. Used on session delete and confidential transcript clear so cleared
+/// transcripts don't linger in debug artifacts on disk.
+pub fn delete_session_recording(recordings_dir: &Path, session_id: &str) -> Result<()> {
+    let session_dir = recordings_dir.join(session_id);
+    if session_dir.exists() {
+        fs::remove_dir_all(&session_dir)
+            .with_context(|| format!("Failed to delete debug recording dir: {session_dir:?}"))?;
+    }
+    Ok(())
+}
