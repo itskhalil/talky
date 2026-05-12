@@ -42,10 +42,9 @@ recording_*
 !.AI/scorers/judge.mjs
 !.AI/tests/
 !.AI/tests/cases.mjs
+!.AI/llm.mjs
 !.AI/traces/
 !.AI/traces/db.mjs
 !.AI/traces/query.mjs
-!.AI/traces/sample.mjs
-!.AI/traces/USAGE.md
 PROMPT CHANGES.md
 .env
