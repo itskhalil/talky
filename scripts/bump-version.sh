@@ -61,3 +61,21 @@ git push
 echo "Triggering release workflow..."
 gh workflow run release.yml
 echo "Release triggered — check https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions"
+
+cat <<NOTE
+
+================================================================
+  NEXT STEP: WRITE USER-FACING RELEASE NOTES FOR v$new
+================================================================
+  The release workflow creates a DRAFT with auto-generated commit-
+  message notes. Replace them with proper user-facing notes before
+  publishing:
+
+    gh release view  v$new
+    gh release edit  v$new --notes "..."
+
+  Match the style of the previous release (gh release view v$current).
+  If running under Claude Code, write the notes now — don't stop
+  at "release triggered".
+================================================================
+NOTE
