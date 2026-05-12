@@ -42,5 +42,8 @@ recording_*
 !.AI/scorers/judge.mjs
 !.AI/tests/
 !.AI/tests/cases.mjs
+!.AI/traces/
+!.AI/traces/db.mjs
+!.AI/traces/query.mjs
 PROMPT CHANGES.md
 .env
