@@ -17,7 +17,7 @@
         "title": "Talky",
         "width": 680,
         "height": 570,
-        "minWidth": 680,
+        "minWidth": 500,
         "minHeight": 570,
         "resizable": true,
         "maximizable": true,
