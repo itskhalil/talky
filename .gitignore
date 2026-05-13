@@ -38,6 +38,8 @@ recording_*
 !.AI/summarize-results.mjs
 !.AI/providers/
 !.AI/providers/talky.mjs
+!.AI/providers/talky-fresh.mjs
+!.AI/providers/_shared.mjs
 !.AI/scorers/
 !.AI/scorers/judge.mjs
 !.AI/tests/

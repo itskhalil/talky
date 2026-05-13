@@ -34,6 +34,7 @@ export default function () {
     cases.push({
       description: dir,
       vars: {
+        caseLabel: dir,
         transcript: readFileSync(join(exDir, transcriptFile), "utf-8"),
         notes: notesFile ? readFileSync(join(exDir, notesFile), "utf-8") : "",
         golden: readFileSync(join(exDir, enhancedFile), "utf-8"),
