@@ -1,4 +1,4 @@
-import { callLLM } from "../providers/talky.mjs";
+import { cached } from "../llm.mjs";
 
 const JUDGE_SYSTEM = `You evaluate AI-enhanced meeting notes. The goal is notes that feel like the USER wrote them—enhanced, not replaced.
 
@@ -167,7 +167,7 @@ export default async function (output, context) {
 
   let raw;
   try {
-    raw = await callLLM(
+    [raw] = await cached(
       [
         { role: "system", content: JUDGE_SYSTEM },
         { role: "user", content: judgeMsg },
