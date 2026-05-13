@@ -10,6 +10,7 @@
 // return arrays of three, both store everything they produce.
 //
 // Inspect runs:  node .AI/traces/query.mjs samples <case>
+// Promptfoo wrappers: providers/talky.mjs (cached) and providers/talky-fresh.mjs (fresh).
 
 import { readFileSync } from "fs";
 import { join } from "path";

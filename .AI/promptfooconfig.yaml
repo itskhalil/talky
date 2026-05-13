@@ -5,6 +5,8 @@ prompts:
     label: baseline
 
 providers:
+  # Cache-first. For variance runs (promptfoo --repeat N), swap to
+  # file://providers/talky-fresh.mjs so each repeat is a real API call.
   - file://providers/talky.mjs
 
 tests: file://tests/cases.mjs
