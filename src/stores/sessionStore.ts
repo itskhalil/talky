@@ -1109,6 +1109,10 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     } = get();
     if (!selectedSessionId) return;
 
+    // Treat empty content as clearing enhanced notes — keeps hasEnhanced and
+    // enhancedJSON in sync (both falsy) so the view doesn't get stuck blank.
+    const normalizedTagged = tagged.trim() === "" ? null : tagged;
+
     // Initialize baseline from cache if not set (first edit of this session)
     if (!_lastSavedEnhancedNotes.has(selectedSessionId)) {
       const currentNotes = cache[selectedSessionId]?.enhancedNotes;
@@ -1122,11 +1126,12 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       const existing = s.cache[selectedSessionId];
       if (!existing) return s;
       return {
+        ...(normalizedTagged === null ? { viewMode: "notes" as const } : {}),
         cache: {
           ...s.cache,
           [selectedSessionId]: {
             ...existing,
-            enhancedNotes: tagged,
+            enhancedNotes: normalizedTagged,
             enhancedNotesEdited: true,
           },
         },
@@ -1144,7 +1149,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       try {
         await invoke("save_enhanced_notes", {
           sessionId: selectedSessionId,
-          notes: tagged,
+          notes: normalizedTagged ?? "",
         });
 
         // Detect word corrections against the LAST SAVED version (not previous keystroke)
@@ -1152,7 +1157,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         const settings = useSettingsStore.getState().settings;
         if (settings?.word_suggestions_enabled !== false) {
           const baseline = _lastSavedEnhancedNotes.get(selectedSessionId);
-          const corrections = detectWordCorrections(baseline ?? null, tagged);
+          const corrections = detectWordCorrections(baseline ?? null, normalizedTagged ?? "");
           if (corrections.length > 0) {
             const session = sessions.find((s) => s.id === selectedSessionId);
             const sessionTitle = session?.title || "Untitled";
@@ -1169,7 +1174,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         }
 
         // Update baseline to current saved state
-        _lastSavedEnhancedNotes.set(selectedSessionId, tagged);
+        _lastSavedEnhancedNotes.set(selectedSessionId, normalizedTagged ?? "");
       } catch (e) {
         console.error("Failed to save enhanced notes:", e);
       }
