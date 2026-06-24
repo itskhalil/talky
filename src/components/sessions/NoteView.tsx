@@ -376,7 +376,10 @@ export function serializeTiptapToTagged(json: JSONContent): string {
       const hashes = "#".repeat(level);
       const text = inlineToMarkdown(node.content);
       lines.push(`${hashes} ${text}`);
-    } else if (node.type === "bulletList" && node.content) {
+    } else if (
+      (node.type === "bulletList" || node.type === "orderedList") &&
+      node.content
+    ) {
       serializeBulletList(node, lines, 0);
     } else if (node.type === "paragraph") {
       const text = inlineToMarkdown(node.content);
@@ -408,7 +411,9 @@ function serializeBulletList(
 
     // Find paragraph and nested lists in the list item
     const para = li.content?.find((c) => c.type === "paragraph");
-    const nestedList = li.content?.find((c) => c.type === "bulletList");
+    const nestedList = li.content?.find(
+      (c) => c.type === "bulletList" || c.type === "orderedList",
+    );
 
     const text = para ? inlineToMarkdown(para.content) : "";
     lines.push(`${liTag} ${indent}- ${text}`);
