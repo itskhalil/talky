@@ -265,6 +265,14 @@ export function parseEnhancedToTiptapJSON(content: string): JSONContent {
       continue;
     }
 
+    // Ordered list: collect consecutive numbered lines with nesting support
+    if (trimmed.match(/^\d+\.\s/)) {
+      const orderedList = parseOrderedList(parsed, i);
+      nodes.push(orderedList.node);
+      i = orderedList.endIndex;
+      continue;
+    }
+
     // Regular paragraph
     nodes.push({
       type: "paragraph",
@@ -361,6 +369,96 @@ function parseBulletList(
 }
 
 /**
+ * Parse ordered list with nesting support.
+ * Nested bullet/ordered sublists are detected by indentation (2 spaces = 1 level).
+ */
+function parseOrderedList(
+  parsed: ParsedLine[],
+  startIndex: number,
+  baseIndent: number = 0,
+): { node: JSONContent; endIndex: number } {
+  const listItems: JSONContent[] = [];
+  let i = startIndex;
+
+  while (i < parsed.length) {
+    const line = parsed[i].cleaned;
+    const leadingSpaces = line.length - line.trimStart().length;
+    const indentLevel = Math.floor(leadingSpaces / 2);
+    const trimmed = line.trimStart();
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.*)/);
+
+    if (!orderedMatch) break;
+    if (indentLevel < baseIndent) break;
+
+    if (indentLevel > baseIndent) {
+      if (listItems.length > 0) {
+        const nested = parseOrderedList(parsed, i, indentLevel);
+        listItems[listItems.length - 1].content!.push(nested.node);
+        i = nested.endIndex;
+      } else {
+        baseIndent = indentLevel;
+        const source = parsed[i].isAi ? "ai" : "noted";
+        listItems.push({
+          type: "listItem",
+          attrs: { source },
+          content: [
+            {
+              type: "paragraph",
+              attrs: { source },
+              content: parseInlineContent(orderedMatch[1]),
+            },
+          ],
+        });
+        i++;
+      }
+      continue;
+    }
+
+    const source = parsed[i].isAi ? "ai" : "noted";
+    const item: JSONContent = {
+      type: "listItem",
+      attrs: { source },
+      content: [
+        {
+          type: "paragraph",
+          attrs: { source },
+          content: parseInlineContent(orderedMatch[1]),
+        },
+      ],
+    };
+    listItems.push(item);
+    i++;
+
+    // Collect indented sublists (bullet or ordered) that belong to this item
+    while (i < parsed.length) {
+      const nextLine = parsed[i].cleaned;
+      const nextSpaces = nextLine.length - nextLine.trimStart().length;
+      const nextIndent = Math.floor(nextSpaces / 2);
+      const nextTrimmed = nextLine.trimStart();
+
+      if (nextIndent <= baseIndent) break;
+
+      if (nextTrimmed.match(/^-\s/)) {
+        const nested = parseBulletList(parsed, i, nextIndent);
+        item.content!.push(nested.node);
+        i = nested.endIndex;
+      } else if (nextTrimmed.match(/^\d+\.\s/)) {
+        const nested = parseOrderedList(parsed, i, nextIndent);
+        item.content!.push(nested.node);
+        i = nested.endIndex;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return {
+    node: { type: "orderedList", content: listItems },
+    endIndex: i,
+  };
+}
+
+/**
  * Serialize tiptap JSON back to tagged markdown for storage.
  */
 export function serializeTiptapToTagged(json: JSONContent): string {
@@ -376,11 +474,10 @@ export function serializeTiptapToTagged(json: JSONContent): string {
       const hashes = "#".repeat(level);
       const text = inlineToMarkdown(node.content);
       lines.push(`${hashes} ${text}`);
-    } else if (
-      (node.type === "bulletList" || node.type === "orderedList") &&
-      node.content
-    ) {
+    } else if (node.type === "bulletList" && node.content) {
       serializeBulletList(node, lines, 0);
+    } else if (node.type === "orderedList" && node.content) {
+      serializeOrderedList(node, lines, 0);
     } else if (node.type === "paragraph") {
       const text = inlineToMarkdown(node.content);
       if (text.trim() === "") {
@@ -418,9 +515,47 @@ function serializeBulletList(
     const text = para ? inlineToMarkdown(para.content) : "";
     lines.push(`${liTag} ${indent}- ${text}`);
 
-    // Recursively serialize nested list
     if (nestedList) {
-      serializeBulletList(nestedList, lines, depth + 1);
+      if (nestedList.type === "orderedList") {
+        serializeOrderedList(nestedList, lines, depth + 1);
+      } else {
+        serializeBulletList(nestedList, lines, depth + 1);
+      }
+    }
+  }
+}
+
+/**
+ * Recursively serialize an ordered list with proper indentation.
+ */
+function serializeOrderedList(
+  node: JSONContent,
+  lines: string[],
+  depth: number,
+): void {
+  if (!node.content) return;
+  const indent = "  ".repeat(depth);
+
+  let counter = 1;
+  for (const li of node.content) {
+    const liSource = li.attrs?.source ?? "noted";
+    const liTag = `[${liSource}]`;
+
+    const para = li.content?.find((c) => c.type === "paragraph");
+    const nestedList = li.content?.find(
+      (c) => c.type === "bulletList" || c.type === "orderedList",
+    );
+
+    const text = para ? inlineToMarkdown(para.content) : "";
+    lines.push(`${liTag} ${indent}${counter}. ${text}`);
+    counter++;
+
+    if (nestedList) {
+      if (nestedList.type === "orderedList") {
+        serializeOrderedList(nestedList, lines, depth + 1);
+      } else {
+        serializeBulletList(nestedList, lines, depth + 1);
+      }
     }
   }
 }
