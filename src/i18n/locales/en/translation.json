@@ -546,6 +546,16 @@
         "description": "Help us continue building Talky",
         "button": "Donate"
       }
+    },
+    "calendar": {
+      "title": "Calendar",
+      "toggleTitle": "Use my calendar",
+      "toggleDescription": "Names notes after the meeting they belong to and records who was invited. Read-only, and never leaves your Mac.",
+      "denied": "Talky doesn't have calendar access. Turn it on in System Settings → Privacy & Security → Calendars.",
+      "restricted": "Calendar access is blocked on this Mac by a device policy.",
+      "writeOnly": "Talky only has permission to add events, not read them. Grant full access in System Settings → Privacy & Security → Calendars.",
+      "openSettings": "Open System Settings",
+      "connected": "Connected"
     }
   },
   "notes": {
@@ -665,6 +675,22 @@
       "lightboxClose": "Close image viewer",
       "lightboxPrev": "Previous image",
       "lightboxNext": "Next image"
+    },
+    "meeting": {
+      "link": "Link meeting",
+      "linking": "Linking…",
+      "people_one": "{{count}} person",
+      "people_other": "{{count}} people",
+      "noMeetingsNearby": "No meetings around this time",
+      "choose": "Choose a meeting",
+      "change": "Change meeting",
+      "remove": "Remove link",
+      "organizer": "Organiser",
+      "declined": "Declined",
+      "tentative": "Maybe",
+      "pending": "No reply",
+      "justYou": "Just you",
+      "loadError": "Couldn't read the calendar"
     }
   },
   "footer": {

@@ -603,6 +603,105 @@ async requestSystemAudioPermission() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getCalendarAuthStatus() : Promise<CalendarAuthStatus> {
+    return await TAURI_INVOKE("get_calendar_auth_status");
+},
+/**
+ * Show the system permission prompt. Returns the resulting status, which is
+ * the same value `get_calendar_auth_status` would return afterwards.
+ */
+async requestCalendarAccess() : Promise<Result<CalendarAuthStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("request_calendar_access") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Turn the feature on or off. Enabling requests access if it hasn't been
+ * granted, so the toggle and the permission are one action rather than two
+ * steps the user has to connect for themselves.
+ */
+async setCalendarEnabled(enabled: boolean) : Promise<Result<CalendarAuthStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_calendar_enabled", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Events overlapping the given epoch-millisecond range.
+ */
+async getCalendarEvents(startMs: number, endMs: number) : Promise<Result<CalendarEvent[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_calendar_events", { startMs, endMs }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Meetings — not personal blocks — within a window around `center_ms`,
+ * nearest first. Drives both the auto-link on note creation and the picker
+ * the user gets when it guesses wrong.
+ */
+async getMeetingsNear(centerMs: number, beforeMinutes: number, afterMinutes: number) : Promise<Result<CalendarEvent[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_meetings_near", { centerMs, beforeMinutes, afterMinutes }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * The meeting a note is linked to, from the snapshot taken at link time.
+ */
+async getSessionMeeting(sessionId: string) : Promise<Result<CalendarEvent | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_session_meeting", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Link a note to a meeting. `event` is one the frontend got from
+ * `get_meetings_near` or `get_calendar_events`; it is stored verbatim as the
+ * note's durable record of who was invited.
+ */
+async linkSessionToMeeting(sessionId: string, event: CalendarEvent) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("link_session_to_meeting", { sessionId, event }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async unlinkSessionMeeting(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("unlink_session_meeting", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Best guess at the meeting a note created right now is about, or `None`.
+ * 
+ * Returns nothing when the nearest meeting already has a note: two notes for
+ * one meeting splits the record, and the user who wanted that can still link
+ * by hand.
+ */
+async suggestMeetingForNow() : Promise<Result<CalendarEvent | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("suggest_meeting_for_now") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async setModelUnloadTimeout(timeout: ModelUnloadTimeout) : Promise<void> {
     await TAURI_INVOKE("set_model_unload_timeout", { timeout });
 },
@@ -1091,7 +1190,13 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; transcript_clearing_enabled?: boolean; coreml_model_ready?: boolean; last_run_version?: string | null; 
+user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; 
+/**
+ * Read the system calendar to name meetings and know who is in them.
+ * Off until the user turns it on, which is also what triggers the macOS
+ * permission prompt — the toggle and the grant are one action.
+ */
+calendar_enabled?: boolean; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; transcript_clearing_enabled?: boolean; coreml_model_ready?: boolean; last_run_version?: string | null; 
 /**
  * Set to true when `setup()` promotes `selected_model` from the ONNX id
  * to the `-coreml` id. Frontend reads + clears this on mount to decide
@@ -1100,7 +1205,66 @@ user_name?: string; data_directory?: string | null; font_size?: FontSize; autost
  */
 pending_promotion?: boolean }
 export type Attachment = { id: string; session_id: string; filename: string; file_path: string; mime_type: string; file_size: number; extracted_text: string | null; created_at: number }
+export type AttendeeRole = "unknown" | "required" | "optional" | "chair" | "non_participant"
+export type AttendeeStatus = "unknown" | "pending" | "accepted" | "declined" | "tentative" | "delegated" | "completed" | "in_process"
 export type AudioDevice = { index: string; name: string; is_default: boolean }
+export type CalendarAttendee = { 
+/**
+ * Display name exactly as the calendar server reports it.
+ */
+name: string | null; 
+/**
+ * Lowercased address from the participant's `mailto:` URL. This is the
+ * stable identity a person is keyed on — names are not unique and change.
+ */
+email: string | null; role: AttendeeRole; status: AttendeeStatus; is_current_user: boolean; is_organizer: boolean; 
+/**
+ * Best available human name, derived once at capture time by
+ * [`derive_display_name`]. Stored rather than computed on read so the UI
+ * and the speaker naming pass agree, and so a snapshot keeps the name it
+ * was captured with.
+ */
+display_name?: string | null }
+export type CalendarAuthStatus = 
+/**
+ * This build has no calendar integration (everything but macOS today).
+ */
+"unavailable" | 
+/**
+ * Never asked. The only state from which requesting access shows a prompt.
+ */
+"not_determined" | "denied" | 
+/**
+ * Blocked by MDM or parental controls. Asking again will not help.
+ */
+"restricted" | 
+/**
+ * macOS 14+ write-only grant: we can add events but not read them, which
+ * is useless to us. Kept distinct from `Denied` so the UI can explain it.
+ */
+"write_only" | "authorized"
+export type CalendarEvent = { 
+/**
+ * Device-local identifier. Stable on this Mac only — persist
+ * `external_id` instead.
+ */
+id: string; 
+/**
+ * Identifier from the calendar server, shared across devices. Every
+ * occurrence of a recurring series shares it, so a stored link pairs it
+ * with `start_ms` to name one occurrence.
+ */
+external_id: string | null; title: string; start_ms: number; end_ms: number; is_all_day: boolean; calendar_title: string | null; location: string | null; 
+/**
+ * The invite body — where the agenda and, usually, the join link live.
+ */
+notes: string | null; url: string | null; 
+/**
+ * Video-call link, taken from `url` or found in `location` / `notes`.
+ * The spike found `EKEvent.url` empty on every real event, so in practice
+ * this comes from the notes.
+ */
+conference_url: string | null; organizer: CalendarAttendee | null; attendees: CalendarAttendee[]; is_recurring: boolean }
 export type EngineType = "Parakeet"
 export type ErrorKind = 
 /**
@@ -1142,6 +1306,10 @@ meetingDetection: boolean;
  */
 systemSleepEvents: boolean; 
 /**
+ * Whether the system calendar can be read (EventKit; macOS only)
+ */
+calendar: boolean; 
+/**
  * The current operating system
  */
 os: string }
@@ -1158,6 +1326,12 @@ matched_field: string;
  */
 snippet: string }
 export type Session = { id: string; title: string; started_at: number; ended_at: number | null; status: string; folder_id: string | null; environment_id: string | null; 
+/**
+ * External identifier of the calendar meeting this note covers, when it
+ * is linked to one. The event itself is fetched separately — see
+ * `get_session_calendar_event` — so note lists stay cheap.
+ */
+calendar_event_id: string | null; 
 /**
  * Epoch seconds when the raw transcript was cleared. When set, the note is
  * sealed: recording is locked and the transcript panel shows a placeholder.

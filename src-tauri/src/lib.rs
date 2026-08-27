@@ -443,152 +443,10 @@ pub fn run() {
     // when the variable is unset
     let console_filter = build_console_filter();
 
-    let specta_builder = Builder::<tauri::Wry>::new().commands(collect_commands![
-        show_main_from_pill,
-        commands::settings::change_user_name_setting,
-        commands::settings::change_font_size_setting,
-        commands::settings::change_autostart_setting,
-        commands::settings::change_translate_to_english_setting,
-        commands::settings::change_selected_language_setting,
-        commands::settings::change_debug_mode_setting,
-        commands::settings::change_post_process_enabled_setting,
-        commands::settings::change_experimental_enabled_setting,
-        commands::settings::add_post_process_prompt,
-        commands::settings::update_post_process_prompt,
-        commands::settings::delete_post_process_prompt,
-        commands::settings::set_post_process_selected_prompt,
-        commands::settings::update_custom_words,
-        commands::settings::get_word_suggestions,
-        commands::settings::approve_word_suggestion,
-        commands::settings::dismiss_word_suggestion,
-        commands::settings::add_word_suggestion,
-        commands::settings::change_word_suggestions_enabled,
-        commands::settings::change_speaker_energy_threshold_setting,
-        commands::settings::change_skip_mic_on_speaker_energy_setting,
-        commands::settings::change_save_debug_recordings_setting,
-        commands::settings::change_transcript_clearing_setting,
-        commands::settings::change_app_language_setting,
-        commands::settings::change_update_checks_setting,
-        commands::settings::change_copy_as_bullets_setting,
-        commands::settings::change_new_recording_shortcut_setting,
-        commands::settings::change_meeting_end_action_setting,
-        commands::settings::change_meeting_start_action_setting,
-        commands::settings::get_environments,
-        commands::settings::create_environment,
-        commands::settings::update_environment,
-        commands::settings::delete_environment,
-        commands::settings::set_default_environment,
-        commands::settings::fetch_environment_models,
-        trigger_update_check,
-        commands::cancel_operation,
-        commands::write_chat_debug_log,
-        commands::get_app_dir_path,
-        commands::get_app_settings,
-        commands::get_default_settings,
-        commands::get_log_dir_path,
-        commands::set_log_level,
-        commands::open_log_dir,
-        commands::open_app_data_dir,
-        commands::get_user_data_directory,
-        commands::has_custom_data_directory,
-        commands::set_data_directory,
-        commands::open_user_data_directory,
-        commands::check_ollama_available,
-        platform::get_platform_capabilities,
-        commands::models::get_available_models,
-        commands::models::get_model_info,
-        commands::models::download_model,
-        commands::models::delete_model,
-        commands::models::cancel_download,
-        commands::models::set_active_model,
-        commands::models::get_current_model,
-        commands::models::get_transcription_model_status,
-        commands::models::is_model_loading,
-        commands::models::has_any_models_available,
-        commands::models::has_any_models_or_downloads,
-        commands::models::get_recommended_first_model,
-        commands::list_error_events,
-        commands::dismiss_error_event,
-        commands::clear_error_events,
-        commands::send_logs_to_developer,
-        commands::consume_pending_promotion,
-        commands::audio::get_available_microphones,
-        commands::audio::set_selected_microphone,
-        commands::audio::get_selected_microphone,
-        commands::audio::get_available_output_devices,
-        commands::audio::set_selected_output_device,
-        commands::audio::get_selected_output_device,
-        commands::audio::is_recording,
-        commands::audio::request_system_audio_permission,
-        commands::transcription::set_model_unload_timeout,
-        commands::transcription::get_model_load_status,
-        commands::transcription::unload_model_manually,
-        commands::history::get_history_entries,
-        commands::history::toggle_history_entry_saved,
-        commands::history::delete_history_entry,
-        commands::history::update_history_limit,
-        commands::history::update_recording_retention_period,
-        commands::session::start_session,
-        commands::session::start_session_recording,
-        commands::session::stop_session_recording,
-        commands::session::reactivate_session,
-        commands::session::end_session,
-        commands::session::search_sessions,
-        commands::session::get_sessions,
-        commands::session::get_session,
-        commands::session::get_session_transcript,
-        commands::session::get_active_session,
-        commands::session::delete_session,
-        commands::session::update_session_title,
-        commands::session::update_session_environment,
-        commands::session::get_meeting_notes,
-        commands::session::save_meeting_notes,
-        commands::session::save_user_notes,
-        commands::session::save_enhanced_notes,
-        commands::session::get_user_notes,
-        commands::session::generate_session_summary,
-        commands::session::generate_session_summary_stream,
-        commands::session::clear_session_transcript,
-        commands::session::get_session_summary,
-        commands::session::flush_pending_audio,
-        // Folder commands
-        commands::session::create_folder,
-        commands::session::update_folder,
-        commands::session::delete_folder,
-        commands::session::get_folders,
-        commands::session::move_session_to_folder,
-        commands::session::get_sessions_by_folder,
-        // Tag commands
-        commands::session::create_tag,
-        commands::session::update_tag,
-        commands::session::delete_tag,
-        commands::session::get_tags,
-        commands::session::add_tag_to_session,
-        commands::session::remove_tag_from_session,
-        commands::session::get_session_tags,
-        commands::session::set_session_tags,
-        commands::session::get_sessions_by_tag,
-        // Attachment commands
-        commands::session::add_attachment,
-        commands::session::add_attachment_from_bytes,
-        commands::session::get_attachments,
-        commands::session::get_attachment,
-        commands::session::delete_attachment,
-        commands::session::open_attachment,
-        commands::session::save_attachment,
-        commands::session::extract_pdf_text,
-        // Export commands
-        commands::export::export_note_as_markdown,
-        commands::export::export_all_notes_as_markdown,
-    ]);
+    let specta_builder = specta_builder();
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
-    specta_builder
-        .export(
-            Typescript::default().bigint(BigIntExportBehavior::Number),
-            "../src/bindings.ts",
-        )
-        .expect("Failed to export typescript bindings");
+    export_bindings(&specta_builder).expect("Failed to export typescript bindings");
 
     let builder = tauri::Builder::default().plugin(
         LogBuilder::new()
@@ -813,4 +671,192 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             let _ = (app_handle, event);
         });
+}
+
+/// The tauri-specta command registry.
+///
+/// Split out of `run()` so `bindings.ts` can be regenerated without launching
+/// the app — see the `bindings_are_up_to_date` test at the bottom of this file.
+fn specta_builder() -> Builder<tauri::Wry> {
+    Builder::<tauri::Wry>::new().commands(collect_commands![
+        show_main_from_pill,
+        commands::settings::change_user_name_setting,
+        commands::settings::change_font_size_setting,
+        commands::settings::change_autostart_setting,
+        commands::settings::change_translate_to_english_setting,
+        commands::settings::change_selected_language_setting,
+        commands::settings::change_debug_mode_setting,
+        commands::settings::change_post_process_enabled_setting,
+        commands::settings::change_experimental_enabled_setting,
+        commands::settings::add_post_process_prompt,
+        commands::settings::update_post_process_prompt,
+        commands::settings::delete_post_process_prompt,
+        commands::settings::set_post_process_selected_prompt,
+        commands::settings::update_custom_words,
+        commands::settings::get_word_suggestions,
+        commands::settings::approve_word_suggestion,
+        commands::settings::dismiss_word_suggestion,
+        commands::settings::add_word_suggestion,
+        commands::settings::change_word_suggestions_enabled,
+        commands::settings::change_speaker_energy_threshold_setting,
+        commands::settings::change_skip_mic_on_speaker_energy_setting,
+        commands::settings::change_save_debug_recordings_setting,
+        commands::settings::change_transcript_clearing_setting,
+        commands::settings::change_app_language_setting,
+        commands::settings::change_update_checks_setting,
+        commands::settings::change_copy_as_bullets_setting,
+        commands::settings::change_new_recording_shortcut_setting,
+        commands::settings::change_meeting_end_action_setting,
+        commands::settings::change_meeting_start_action_setting,
+        commands::settings::get_environments,
+        commands::settings::create_environment,
+        commands::settings::update_environment,
+        commands::settings::delete_environment,
+        commands::settings::set_default_environment,
+        commands::settings::fetch_environment_models,
+        trigger_update_check,
+        commands::cancel_operation,
+        commands::write_chat_debug_log,
+        commands::get_app_dir_path,
+        commands::get_app_settings,
+        commands::get_default_settings,
+        commands::get_log_dir_path,
+        commands::set_log_level,
+        commands::open_log_dir,
+        commands::open_app_data_dir,
+        commands::get_user_data_directory,
+        commands::has_custom_data_directory,
+        commands::set_data_directory,
+        commands::open_user_data_directory,
+        commands::check_ollama_available,
+        platform::get_platform_capabilities,
+        commands::models::get_available_models,
+        commands::models::get_model_info,
+        commands::models::download_model,
+        commands::models::delete_model,
+        commands::models::cancel_download,
+        commands::models::set_active_model,
+        commands::models::get_current_model,
+        commands::models::get_transcription_model_status,
+        commands::models::is_model_loading,
+        commands::models::has_any_models_available,
+        commands::models::has_any_models_or_downloads,
+        commands::models::get_recommended_first_model,
+        commands::list_error_events,
+        commands::dismiss_error_event,
+        commands::clear_error_events,
+        commands::send_logs_to_developer,
+        commands::consume_pending_promotion,
+        commands::audio::get_available_microphones,
+        commands::audio::set_selected_microphone,
+        commands::audio::get_selected_microphone,
+        commands::audio::get_available_output_devices,
+        commands::audio::set_selected_output_device,
+        commands::audio::get_selected_output_device,
+        commands::audio::is_recording,
+        commands::audio::request_system_audio_permission,
+        // Calendar commands
+        commands::calendar::get_calendar_auth_status,
+        commands::calendar::request_calendar_access,
+        commands::calendar::set_calendar_enabled,
+        commands::calendar::get_calendar_events,
+        commands::calendar::get_meetings_near,
+        commands::calendar::get_session_meeting,
+        commands::calendar::link_session_to_meeting,
+        commands::calendar::unlink_session_meeting,
+        commands::calendar::suggest_meeting_for_now,
+        commands::transcription::set_model_unload_timeout,
+        commands::transcription::get_model_load_status,
+        commands::transcription::unload_model_manually,
+        commands::history::get_history_entries,
+        commands::history::toggle_history_entry_saved,
+        commands::history::delete_history_entry,
+        commands::history::update_history_limit,
+        commands::history::update_recording_retention_period,
+        commands::session::start_session,
+        commands::session::start_session_recording,
+        commands::session::stop_session_recording,
+        commands::session::reactivate_session,
+        commands::session::end_session,
+        commands::session::search_sessions,
+        commands::session::get_sessions,
+        commands::session::get_session,
+        commands::session::get_session_transcript,
+        commands::session::get_active_session,
+        commands::session::delete_session,
+        commands::session::update_session_title,
+        commands::session::update_session_environment,
+        commands::session::get_meeting_notes,
+        commands::session::save_meeting_notes,
+        commands::session::save_user_notes,
+        commands::session::save_enhanced_notes,
+        commands::session::get_user_notes,
+        commands::session::generate_session_summary,
+        commands::session::generate_session_summary_stream,
+        commands::session::clear_session_transcript,
+        commands::session::get_session_summary,
+        commands::session::flush_pending_audio,
+        // Folder commands
+        commands::session::create_folder,
+        commands::session::update_folder,
+        commands::session::delete_folder,
+        commands::session::get_folders,
+        commands::session::move_session_to_folder,
+        commands::session::get_sessions_by_folder,
+        // Tag commands
+        commands::session::create_tag,
+        commands::session::update_tag,
+        commands::session::delete_tag,
+        commands::session::get_tags,
+        commands::session::add_tag_to_session,
+        commands::session::remove_tag_from_session,
+        commands::session::get_session_tags,
+        commands::session::set_session_tags,
+        commands::session::get_sessions_by_tag,
+        // Attachment commands
+        commands::session::add_attachment,
+        commands::session::add_attachment_from_bytes,
+        commands::session::get_attachments,
+        commands::session::get_attachment,
+        commands::session::delete_attachment,
+        commands::session::open_attachment,
+        commands::session::save_attachment,
+        commands::session::extract_pdf_text,
+        // Export commands
+        commands::export::export_note_as_markdown,
+        commands::export::export_all_notes_as_markdown,
+    ])
+}
+
+/// Write `src/bindings.ts` from the command registry.
+fn export_bindings(builder: &Builder<tauri::Wry>) -> Result<(), specta_typescript::ExportError> {
+    builder.export(
+        Typescript::default().bigint(BigIntExportBehavior::Number),
+        "../src/bindings.ts",
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regenerates `src/bindings.ts` and fails if it changed.
+    ///
+    /// The app also exports bindings at startup in debug builds, but that only
+    /// helps someone who has just launched it. As a test, a command added
+    /// without regenerating surfaces in `cargo test` and in CI, rather than as
+    /// a frontend type error much later.
+    #[test]
+    fn bindings_are_up_to_date() {
+        let path = std::path::Path::new("../src/bindings.ts");
+        let before = std::fs::read_to_string(path).unwrap_or_default();
+        export_bindings(&specta_builder()).expect("export bindings");
+        let after = std::fs::read_to_string(path).expect("read bindings");
+        // `assert!` rather than `assert_eq!`: the files are ~40k characters and
+        // dumping both on failure buries the message.
+        assert!(
+            before == after,
+            "src/bindings.ts was stale and has been regenerated - review and commit the change"
+        );
+    }
 }
