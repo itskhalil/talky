@@ -780,7 +780,8 @@
     },
     "matched": {
       "body": "in body",
-      "enhanced": "in enhanced"
+      "enhanced": "in enhanced",
+      "transcript": "in transcript"
     }
   },
   "editor": {

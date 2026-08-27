@@ -128,6 +128,92 @@ static SESSION_MIGRATIONS: &[M] = &[
          CREATE INDEX IF NOT EXISTS idx_sessions_calendar_event
              ON sessions(calendar_event_id, calendar_event_start);",
     ),
+    // Migration 16: full-text search over titles, notes and transcripts.
+    //
+    // Replaces a LIKE query that could only reach titles and notes, leaving
+    // transcripts — the bulk of what Talky records — unsearchable.
+    //
+    // One row per (session, field), and one per transcript segment so a hit
+    // points at the moment it came from. Triggers own the index: `save_meeting_notes`
+    // upserts with COALESCE, so only the database knows the resulting text, and
+    // a trigger cannot be forgotten the way a call site can.
+    //
+    // Deletes scan the FTS table because `session_id` is UNINDEXED. At the
+    // scale this is built for — thousands of notes — that is well under a
+    // millisecond. If the corpus ever reaches a size where it shows up, the
+    // fix is the external-content pattern with a real content table, not an
+    // index on an FTS column.
+    M::up(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+            body,
+            session_id UNINDEXED,
+            field UNINDEXED,
+            ref_id UNINDEXED,
+            tokenize = 'unicode61 remove_diacritics 2'
+         );
+
+         CREATE TRIGGER IF NOT EXISTS search_sessions_ai AFTER INSERT ON sessions BEGIN
+             INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT new.title, new.id, 'title', NULL WHERE COALESCE(new.title, '') <> '';
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS search_sessions_au AFTER UPDATE OF title ON sessions BEGIN
+             DELETE FROM search_index WHERE session_id = new.id AND field = 'title';
+             INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT new.title, new.id, 'title', NULL WHERE COALESCE(new.title, '') <> '';
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS search_sessions_ad AFTER DELETE ON sessions BEGIN
+             DELETE FROM search_index WHERE session_id = old.id;
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS search_notes_ai AFTER INSERT ON meeting_notes BEGIN
+             INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT new.user_notes, new.session_id, 'user_notes', NULL
+             WHERE COALESCE(new.user_notes, '') <> '';
+             INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT replace(replace(replace(replace(new.enhanced_notes, '[noted] ', ''), '[ai] ', ''), '[noted]', ''), '[ai]', ''), new.session_id, 'enhanced_notes', NULL
+             WHERE COALESCE(new.enhanced_notes, '') <> '';
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS search_notes_au AFTER UPDATE ON meeting_notes BEGIN
+             DELETE FROM search_index
+             WHERE session_id = new.session_id AND field IN ('user_notes', 'enhanced_notes');
+             INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT new.user_notes, new.session_id, 'user_notes', NULL
+             WHERE COALESCE(new.user_notes, '') <> '';
+             INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT replace(replace(replace(replace(new.enhanced_notes, '[noted] ', ''), '[ai] ', ''), '[noted]', ''), '[ai]', ''), new.session_id, 'enhanced_notes', NULL
+             WHERE COALESCE(new.enhanced_notes, '') <> '';
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS search_notes_ad AFTER DELETE ON meeting_notes BEGIN
+             DELETE FROM search_index
+             WHERE session_id = old.session_id AND field IN ('user_notes', 'enhanced_notes');
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS search_segments_ai AFTER INSERT ON transcript_segments BEGIN
+             INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT new.text, new.session_id, 'transcript', new.id
+             WHERE COALESCE(new.text, '') <> '';
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS search_segments_ad AFTER DELETE ON transcript_segments BEGIN
+             DELETE FROM search_index WHERE field = 'transcript' AND ref_id = old.id;
+         END;
+
+         INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT title, id, 'title', NULL FROM sessions WHERE COALESCE(title, '') <> '';
+         INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT user_notes, session_id, 'user_notes', NULL FROM meeting_notes
+             WHERE COALESCE(user_notes, '') <> '';
+         INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT replace(replace(replace(replace(enhanced_notes, '[noted] ', ''), '[ai] ', ''), '[noted]', ''), '[ai]', ''), session_id, 'enhanced_notes', NULL FROM meeting_notes
+             WHERE COALESCE(enhanced_notes, '') <> '';
+         INSERT INTO search_index(body, session_id, field, ref_id)
+             SELECT text, session_id, 'transcript', id FROM transcript_segments
+             WHERE COALESCE(text, '') <> '';",
+    ),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -405,39 +491,55 @@ impl SessionManager {
         Ok(segment)
     }
 
+    /// Search notes by text and filters.
+    ///
+    /// Text matching goes through the `search_index` FTS5 table, which covers
+    /// titles, user notes, enhanced notes and every transcript segment. The
+    /// LIKE query this replaced could not reach transcripts at all, and matched
+    /// mid-word — "th" inside "with" — which is why it needed a second
+    /// word-boundary pass in Rust to throw results away again. FTS5 tokenises
+    /// on word boundaries, so that pass is gone.
+    ///
+    /// Results stay in reverse chronological order rather than switching to
+    /// bm25 relevance. Ranking across a five-word title and a sixty-word
+    /// transcript segment is its own problem, and worth deciding with the
+    /// feature in hand rather than alongside the index that enables it.
     pub fn search_sessions(&self, query: &str, filters: &SearchFilters) -> Result<Vec<SearchHit>> {
         let conn = self.get_connection()?;
-        let trimmed = query.trim();
-        let has_query = !trimmed.is_empty();
+        run_search(&conn, query, filters)
+    }
+}
 
-        let mut sql = String::from(
-            "SELECT DISTINCT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, s.calendar_event_id, s.transcript_wiped_at, mn.user_notes, mn.enhanced_notes \
-             FROM sessions s \
-             LEFT JOIN meeting_notes mn ON mn.session_id = s.id",
-        );
-
-        let tag_ids_vec: Vec<String> = filters
-            .tag_ids
-            .as_ref()
-            .map(|v| v.iter().filter(|t| !t.is_empty()).cloned().collect())
-            .unwrap_or_default();
-
-        if !tag_ids_vec.is_empty() {
-            sql.push_str(" INNER JOIN session_tags st ON st.session_id = s.id");
-        }
+/// The search query itself, taking a connection so it can be tested against an
+/// in-memory database rather than only through a live `SessionManager`.
+fn run_search(conn: &Connection, query: &str, filters: &SearchFilters) -> Result<Vec<SearchHit>> {
+    {
+        let fts_query = to_fts_query(query);
 
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-        let mut where_clauses: Vec<String> = Vec::new();
 
-        if has_query {
-            let pattern = format!("%{}%", trimmed);
-            where_clauses.push(
-                "(s.title LIKE ? OR mn.user_notes LIKE ? OR mn.enhanced_notes LIKE ?)".to_string(),
-            );
-            params_vec.push(Box::new(pattern.clone()));
-            params_vec.push(Box::new(pattern.clone()));
-            params_vec.push(Box::new(pattern));
-        }
+        // The MATCH argument binds before any filter, so it is pushed first.
+        let mut sql = if let Some(fts) = &fts_query {
+            params_vec.push(Box::new(fts.clone()));
+            String::from(
+                "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, \
+                        s.environment_id, s.calendar_event_id, s.transcript_wiped_at, \
+                        si.field AS field, \
+                        snippet(search_index, 0, '', '', '…', 14) AS snip \
+                 FROM search_index si \
+                 JOIN sessions s ON s.id = si.session_id \
+                 WHERE search_index MATCH ?",
+            )
+        } else {
+            String::from(
+                "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, \
+                        s.environment_id, s.calendar_event_id, s.transcript_wiped_at, \
+                        'title' AS field, '' AS snip \
+                 FROM sessions s",
+            )
+        };
+
+        let mut where_clauses: Vec<String> = Vec::new();
 
         if let Some(folder_id) = &filters.folder_id {
             if !folder_id.is_empty() {
@@ -446,12 +548,26 @@ impl SessionManager {
             }
         }
 
+        let tag_ids_vec: Vec<String> = filters
+            .tag_ids
+            .as_ref()
+            .map(|v| v.iter().filter(|t| !t.is_empty()).cloned().collect())
+            .unwrap_or_default();
+
         if !tag_ids_vec.is_empty() {
+            // A subquery rather than a join: the FTS side already produces
+            // several rows per session, and adding a tag join on top would
+            // need a GROUP BY over every selected column.
             let placeholders = vec!["?"; tag_ids_vec.len()].join(",");
-            where_clauses.push(format!("st.tag_id IN ({})", placeholders));
+            where_clauses.push(format!(
+                "s.id IN (SELECT session_id FROM session_tags WHERE tag_id IN ({}) \
+                 GROUP BY session_id HAVING COUNT(DISTINCT tag_id) = ?)",
+                placeholders
+            ));
             for tag_id in &tag_ids_vec {
                 params_vec.push(Box::new(tag_id.clone()));
             }
+            params_vec.push(Box::new(tag_ids_vec.len() as i64));
         }
 
         if let Some(after) = filters.started_after {
@@ -465,16 +581,12 @@ impl SessionManager {
         }
 
         if !where_clauses.is_empty() {
-            sql.push_str(" WHERE ");
+            sql.push_str(if fts_query.is_some() {
+                " AND "
+            } else {
+                " WHERE "
+            });
             sql.push_str(&where_clauses.join(" AND "));
-        }
-
-        if !tag_ids_vec.is_empty() {
-            sql.push_str(
-                " GROUP BY s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, s.calendar_event_id, s.transcript_wiped_at, mn.user_notes, mn.enhanced_notes",
-            );
-            sql.push_str(" HAVING COUNT(DISTINCT st.tag_id) = ?");
-            params_vec.push(Box::new(tag_ids_vec.len() as i64));
         }
 
         sql.push_str(" ORDER BY s.started_at DESC");
@@ -494,33 +606,49 @@ impl SessionManager {
                 calendar_event_id: row.get("calendar_event_id")?,
                 transcript_wiped_at: row.get("transcript_wiped_at")?,
             };
-            let user_notes: Option<String> = row.get("user_notes")?;
-            let enhanced_notes: Option<String> = row.get("enhanced_notes")?;
-            Ok((session, user_notes, enhanced_notes))
+            let field: String = row.get("field")?;
+            let snip: String = row.get("snip")?;
+            Ok((session, field, snip))
         })?;
 
-        let mut hits = Vec::new();
+        // A session can match in several fields at once. Keep one hit per
+        // session, showing the strongest match — a title hit says more about
+        // what the note is than a passing mention in the transcript.
+        let mut hits: Vec<SearchHit> = Vec::new();
+        let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
         for row in rows {
-            let (session, user_notes, enhanced_notes) = row?;
-            let (matched_field, snippet) = if has_query {
-                match pick_match(trimmed, &session.title, &user_notes, &enhanced_notes) {
-                    Some(pair) => pair,
-                    // DB LIKE matched substring but nothing matched at a word boundary.
-                    // Drop noisy results like "th" inside "with" or "path".
-                    None => continue,
-                }
+            let (session, field, snip) = row?;
+            // Title matches show no snippet: the title is already on screen.
+            let snippet = if field == "title" {
+                String::new()
             } else {
-                ("title".to_string(), String::new())
+                snip
             };
-            hits.push(SearchHit {
-                session,
-                matched_field,
-                snippet,
-            });
+
+            match seen.get(&session.id) {
+                Some(&i) => {
+                    if field_rank(&field) < field_rank(&hits[i].matched_field) {
+                        hits[i].matched_field = field;
+                        hits[i].snippet = snippet;
+                    }
+                }
+                None => {
+                    seen.insert(session.id.clone(), hits.len());
+                    hits.push(SearchHit {
+                        session,
+                        matched_field: field,
+                        snippet,
+                    });
+                }
+            }
         }
+
         Ok(hits)
     }
+}
 
+impl SessionManager {
     pub fn get_sessions(&self) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
@@ -563,7 +691,7 @@ impl SessionManager {
                         status: row.get("status")?,
                         folder_id: row.get("folder_id")?,
                         environment_id: row.get("environment_id")?,
-                calendar_event_id: row.get("calendar_event_id")?,
+                        calendar_event_id: row.get("calendar_event_id")?,
                         transcript_wiped_at: row.get("transcript_wiped_at")?,
                     })
                 },
@@ -1542,161 +1670,478 @@ impl SessionManager {
     }
 }
 
-/// Pick which field matched the query and build a display snippet.
-/// Priority: title > user_notes > enhanced_notes. Requires a word-boundary
-/// match so short queries like "th" don't light up every occurrence inside
-/// words like "with", "path", "both".
-/// Returns None when no field has a word-start match — the hit should be dropped.
-fn pick_match(
-    query: &str,
-    title: &str,
-    user_notes: &Option<String>,
-    enhanced_notes: &Option<String>,
-) -> Option<(String, String)> {
-    let needle = query.to_lowercase();
-    if find_word_start(&title.to_lowercase(), &needle).is_some() {
-        return Some(("title".to_string(), String::new()));
+/// Strength of a match by which field it came from. Lower is stronger.
+fn field_rank(field: &str) -> u8 {
+    match field {
+        "title" => 0,
+        "user_notes" => 1,
+        "enhanced_notes" => 2,
+        "transcript" => 3,
+        _ => 4,
     }
-    if let Some(text) = user_notes.as_deref() {
-        if find_word_start(&text.to_lowercase(), &needle).is_some() {
-            return Some(("user_notes".to_string(), build_snippet(text, &needle)));
-        }
-    }
-    if let Some(text) = enhanced_notes.as_deref() {
-        if find_word_start(&text.to_lowercase(), &needle).is_some() {
-            let stripped = strip_note_tags(text);
-            return Some((
-                "enhanced_notes".to_string(),
-                build_snippet(&stripped, &needle),
-            ));
-        }
-    }
-    None
 }
 
-/// Return the byte offset of the first word-start occurrence of `needle_lower` in `haystack_lower`.
-/// "Word start" = preceded by start-of-text, whitespace, or any non-alphanumeric/non-underscore char.
-fn find_word_start(haystack_lower: &str, needle_lower: &str) -> Option<usize> {
-    if needle_lower.is_empty() {
+/// Turn what the user typed into an FTS5 query, or `None` when there is
+/// nothing to search for.
+///
+/// User text goes nowhere near the FTS5 parser directly: `"`, `*`, `:`, `-`,
+/// `NEAR` and `AND` are all operators there, so a search for `pricing - Q3`
+/// would be a syntax error rather than a search. Each word becomes a quoted
+/// phrase, which the parser treats as a literal, and the words are implicitly
+/// ANDed.
+///
+/// The final token gets a prefix match so search-as-you-type finds "procure"
+/// while the user is still typing "procurement".
+fn to_fts_query(input: &str) -> Option<String> {
+    let tokens: Vec<&str> = input
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|t| !t.is_empty())
+        .collect();
+
+    if tokens.is_empty() {
         return None;
     }
-    let mut prev_was_word = false;
-    for (i, c) in haystack_lower.char_indices() {
-        if !prev_was_word && haystack_lower[i..].starts_with(needle_lower) {
-            return Some(i);
-        }
-        prev_was_word = c.is_alphanumeric() || c == '_';
-    }
-    None
-}
 
-/// Remove `[noted]`/`[ai]` inline markers that the enhance flow writes into enhanced_notes.
-fn strip_note_tags(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(idx) = rest.find('[') {
-        out.push_str(&rest[..idx]);
-        let after = &rest[idx..];
-        let handled = if let Some(tail) = after.strip_prefix("[noted]") {
-            rest = tail.strip_prefix(' ').unwrap_or(tail);
-            true
-        } else if let Some(tail) = after.strip_prefix("[ai]") {
-            rest = tail.strip_prefix(' ').unwrap_or(tail);
-            true
-        } else {
-            false
-        };
-        if !handled {
-            out.push('[');
-            rest = &after[1..];
-        }
-    }
-    out.push_str(rest);
-    out
-}
-
-/// Build a ~180-char snippet centered on the first occurrence of `needle_lower` (already lowercased).
-/// Strips common markdown noise for display; matching still happens on raw text.
-fn build_snippet(text: &str, needle_lower: &str) -> String {
-    const LEFT: usize = 70;
-    const RIGHT: usize = 90;
-
-    let lower = text.to_lowercase();
-    let match_start =
-        match find_word_start(&lower, needle_lower).or_else(|| lower.find(needle_lower)) {
-            Some(i) => i,
-            None => return clean_for_display(&text.chars().take(LEFT + RIGHT).collect::<String>()),
-        };
-
-    // Work in char (not byte) indexes so Unicode boundaries are safe.
-    let chars: Vec<char> = text.chars().collect();
-    let byte_to_char: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
-    let match_char_start = byte_to_char
+    let last = tokens.len() - 1;
+    let terms: Vec<String> = tokens
         .iter()
-        .position(|&b| b >= match_start)
-        .unwrap_or(0);
+        .enumerate()
+        .map(|(i, token)| {
+            // A quote cannot survive inside a quoted phrase; it is also never
+            // a meaningful part of a search term.
+            let cleaned = token.replace('"', "");
+            if i == last {
+                format!("\"{}\"*", cleaned)
+            } else {
+                format!("\"{}\"", cleaned)
+            }
+        })
+        .collect();
 
-    let start = match_char_start.saturating_sub(LEFT);
-    let end = (match_char_start + needle_lower.chars().count() + RIGHT).min(chars.len());
-
-    // Nudge to word boundaries.
-    let start = if start == 0 {
-        0
-    } else {
-        (start..chars.len())
-            .find(|i| chars.get(*i).is_some_and(|c| c.is_whitespace()))
-            .map(|i| i + 1)
-            .unwrap_or(start)
-    };
-    let end = if end == chars.len() {
-        end
-    } else {
-        (0..=end)
-            .rev()
-            .find(|i| chars.get(*i).is_some_and(|c| c.is_whitespace()))
-            .unwrap_or(end)
-    };
-
-    let mut snippet: String = chars[start..end].iter().collect();
-    snippet = clean_for_display(&snippet);
-
-    let mut out = String::new();
-    if start > 0 {
-        out.push('…');
-    }
-    out.push_str(snippet.trim());
-    if end < chars.len() {
-        out.push('…');
-    }
-    out
+    Some(terms.join(" "))
 }
 
-/// Collapse markdown leaders and emphasis runs for readable snippets.
-/// Lossy on purpose — only used for display.
-fn clean_for_display(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut prev_space = true; // so leading hashes/bullets collapse cleanly
-    for line in text.split_inclusive('\n') {
-        let trimmed = line.trim_start();
-        let stripped = trimmed
-            .trim_start_matches('#')
-            .trim_start_matches('>')
-            .trim_start_matches(['-', '*'])
-            .trim_start();
-        for ch in stripped.chars() {
-            if ch == '*' || ch == '_' || ch == '`' {
-                continue;
-            }
-            if ch.is_whitespace() {
-                if !prev_space {
-                    out.push(' ');
-                    prev_space = true;
-                }
-            } else {
-                out.push(ch);
-                prev_space = false;
-            }
+#[cfg(test)]
+mod search_index_tests {
+    use super::*;
+
+    /// A migrated in-memory database. Exercises the real migration list, so a
+    /// syntax error in the trigger SQL fails here rather than on a user's disk.
+    fn migrated_db() -> Connection {
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        Migrations::new(SESSION_MIGRATIONS.to_vec())
+            .to_latest(&mut conn)
+            .expect("run migrations");
+        conn
+    }
+
+    fn indexed(conn: &Connection, session_id: &str, field: &str) -> Vec<String> {
+        let mut stmt = conn
+            .prepare("SELECT body FROM search_index WHERE session_id = ?1 AND field = ?2 ORDER BY ref_id")
+            .unwrap();
+        let rows = stmt
+            .query_map(params![session_id, field], |r| r.get::<_, String>(0))
+            .unwrap();
+        rows.map(|r| r.unwrap()).collect()
+    }
+
+    fn new_session(conn: &Connection, id: &str, title: &str) {
+        conn.execute(
+            "INSERT INTO sessions (id, title, started_at, status) VALUES (?1, ?2, 0, 'active')",
+            params![id, title],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn migrations_apply_cleanly() {
+        let conn = migrated_db();
+        let n: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'search_%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 8, "expected every search trigger to be created");
+    }
+
+    #[test]
+    fn title_is_indexed_and_follows_renames() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Procurement sync");
+        assert_eq!(indexed(&conn, "s1", "title"), vec!["Procurement sync"]);
+
+        conn.execute(
+            "UPDATE sessions SET title = ?1 WHERE id = ?2",
+            params!["Vendor shortlist", "s1"],
+        )
+        .unwrap();
+        // Exactly one row: the rename must replace, not accumulate.
+        assert_eq!(indexed(&conn, "s1", "title"), vec!["Vendor shortlist"]);
+    }
+
+    #[test]
+    fn notes_are_indexed_through_the_coalescing_upsert() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Sync");
+
+        // The shape `save_meeting_notes` uses: insert, then upsert with
+        // COALESCE so a null leaves the stored value alone.
+        let upsert = "INSERT INTO meeting_notes (session_id, user_notes, enhanced_notes, created_at, updated_at)
+             VALUES (?1, ?2, ?3, 0, 0)
+             ON CONFLICT(session_id) DO UPDATE SET
+                user_notes = COALESCE(?2, user_notes),
+                enhanced_notes = COALESCE(?3, enhanced_notes)";
+
+        conn.execute(
+            upsert,
+            params!["s1", "raw jottings", Option::<String>::None],
+        )
+        .unwrap();
+        assert_eq!(indexed(&conn, "s1", "user_notes"), vec!["raw jottings"]);
+
+        // Writing only enhanced_notes must leave user_notes indexed — this is
+        // the case a Rust-side index would get wrong, since the caller passes
+        // None and never learns the stored value.
+        conn.execute(
+            upsert,
+            params!["s1", Option::<String>::None, "[ai] Vendor shortlist agreed"],
+        )
+        .unwrap();
+        assert_eq!(indexed(&conn, "s1", "user_notes"), vec!["raw jottings"]);
+        assert_eq!(
+            indexed(&conn, "s1", "enhanced_notes"),
+            vec!["Vendor shortlist agreed"],
+            "[ai] and [noted] markers must be stripped before indexing"
+        );
+    }
+
+    #[test]
+    fn searching_for_ai_does_not_match_every_enhanced_note() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Sync");
+        conn.execute(
+            "INSERT INTO meeting_notes (session_id, enhanced_notes, created_at, updated_at)
+             VALUES ('s1', '[ai] Pricing was agreed [noted] and signed', 0, 0)",
+            [],
+        )
+        .unwrap();
+        let hits: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM search_index WHERE search_index MATCH 'ai'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(hits, 0, "the [ai] marker leaked into the index");
+    }
+
+    #[test]
+    fn transcript_segments_are_indexed_per_segment_and_cleared_together() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Sync");
+        for (i, text) in ["we should revisit pricing", "agreed on Q3"]
+            .iter()
+            .enumerate()
+        {
+            conn.execute(
+                "INSERT INTO transcript_segments (session_id, text, source, start_ms, end_ms, created_at)
+                 VALUES ('s1', ?1, 'mic', ?2, ?3, 0)",
+                params![text, i as i64 * 1000, i as i64 * 1000 + 500],
+            )
+            .unwrap();
+        }
+        assert_eq!(indexed(&conn, "s1", "transcript").len(), 2);
+
+        let hits: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM search_index WHERE search_index MATCH 'pricing'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(hits, 1, "transcripts must be searchable");
+
+        conn.execute(
+            "DELETE FROM transcript_segments WHERE session_id = 's1'",
+            [],
+        )
+        .unwrap();
+        assert!(indexed(&conn, "s1", "transcript").is_empty());
+    }
+
+    #[test]
+    fn deleting_a_session_clears_its_whole_index() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Procurement sync");
+        conn.execute(
+            "INSERT INTO transcript_segments (session_id, text, source, start_ms, end_ms, created_at)
+             VALUES ('s1', 'hello there', 'mic', 0, 1, 0)",
+            [],
+        )
+        .unwrap();
+        // Same order as `delete_session`: children first, then the session.
+        conn.execute(
+            "DELETE FROM transcript_segments WHERE session_id = 's1'",
+            [],
+        )
+        .unwrap();
+        conn.execute("DELETE FROM sessions WHERE id = 's1'", [])
+            .unwrap();
+
+        let left: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM search_index WHERE session_id = 's1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(left, 0);
+    }
+    // --- query sanitisation -------------------------------------------------
+
+    #[test]
+    fn fts_operators_in_user_input_are_neutralised() {
+        // Every one of these is FTS5 syntax. Passed through raw they would be
+        // a parse error or a query the user did not ask for.
+        assert_eq!(
+            to_fts_query("pricing - Q3").as_deref(),
+            Some(r#""pricing" "Q3"*"#)
+        );
+        assert_eq!(to_fts_query("cost:").as_deref(), Some(r#""cost"*"#));
+        assert_eq!(
+            to_fts_query(r#"say "hello""#).as_deref(),
+            Some(r#""say" "hello"*"#)
+        );
+        assert_eq!(
+            to_fts_query("a NEAR b").as_deref(),
+            Some(r#""a" "NEAR" "b"*"#)
+        );
+        assert_eq!(to_fts_query("*").as_deref(), None);
+        assert_eq!(to_fts_query("   ").as_deref(), None);
+    }
+
+    #[test]
+    fn a_query_full_of_operators_runs_without_erroring() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Budget review");
+        for q in ["\"", "* AND", "NEAR(a b)", "-x", "^foo", "a:b:c", "()"] {
+            run_search(&conn, q, &SearchFilters::default())
+                .unwrap_or_else(|e| panic!("query {:?} failed: {}", q, e));
         }
     }
-    out.trim().to_string()
+
+    // --- searching ----------------------------------------------------------
+
+    fn add_segment(conn: &Connection, session_id: &str, text: &str, start_ms: i64) {
+        conn.execute(
+            "INSERT INTO transcript_segments (session_id, text, source, start_ms, end_ms, created_at)
+             VALUES (?1, ?2, 'mic', ?3, ?4, 0)",
+            params![session_id, text, start_ms, start_ms + 500],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn transcripts_are_searchable() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Budget review");
+        add_segment(&conn, "s1", "we should revisit the vendor shortlist", 0);
+
+        let hits = run_search(&conn, "shortlist", &SearchFilters::default()).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].matched_field, "transcript");
+        assert!(
+            hits[0].snippet.contains("shortlist"),
+            "snippet was {:?}",
+            hits[0].snippet
+        );
+    }
+
+    #[test]
+    fn matching_stops_at_word_boundaries() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Sync");
+        add_segment(&conn, "s1", "we walked the path together with everyone", 0);
+
+        // The old LIKE query matched any substring, so "ath" lit up "path".
+        // FTS5 tokenises, so a fragment that only ever appears mid-word finds
+        // nothing.
+        assert!(
+            run_search(&conn, "ath", &SearchFilters::default())
+                .unwrap()
+                .is_empty(),
+            "a mid-word fragment must not match"
+        );
+        assert!(run_search(&conn, "ogether", &SearchFilters::default())
+            .unwrap()
+            .is_empty());
+
+        // Prefixes still match, because they start a word. This is the point
+        // of the trailing `*`, and is a different thing from substring search:
+        // "th" finds "the" and "together" but never "path" or "with".
+        assert_eq!(
+            run_search(&conn, "th", &SearchFilters::default())
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            run_search(&conn, "path", &SearchFilters::default())
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn prefix_matching_works_while_still_typing() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Procurement sync");
+        assert_eq!(
+            run_search(&conn, "procure", &SearchFilters::default())
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn a_session_matching_twice_yields_one_hit_from_its_strongest_field() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Pricing review");
+        add_segment(&conn, "s1", "pricing came up again", 0);
+        add_segment(&conn, "s1", "and pricing once more", 1000);
+
+        let hits = run_search(&conn, "pricing", &SearchFilters::default()).unwrap();
+        assert_eq!(hits.len(), 1, "one hit per session");
+        assert_eq!(hits[0].matched_field, "title");
+        assert_eq!(hits[0].snippet, "", "a title match needs no snippet");
+    }
+
+    #[test]
+    fn all_terms_must_match() {
+        let conn = migrated_db();
+        new_session(&conn, "s1", "Budget review");
+        add_segment(&conn, "s1", "vendor shortlist agreed", 0);
+
+        assert_eq!(
+            run_search(&conn, "vendor shortlist", &SearchFilters::default())
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            run_search(&conn, "vendor pricing", &SearchFilters::default())
+                .unwrap()
+                .is_empty(),
+            "terms are ANDed, not ORed"
+        );
+    }
+
+    #[test]
+    fn filters_apply_with_and_without_a_query() {
+        let conn = migrated_db();
+        conn.execute(
+            "INSERT INTO folders (id, name, sort_order, created_at) VALUES ('f1', 'Work', 0, 0)",
+            [],
+        )
+        .unwrap();
+        new_session(&conn, "s1", "Budget review");
+        new_session(&conn, "s2", "Budget planning");
+        conn.execute("UPDATE sessions SET folder_id = 'f1' WHERE id = 's1'", [])
+            .unwrap();
+
+        let in_folder = SearchFilters {
+            folder_id: Some("f1".to_string()),
+            ..Default::default()
+        };
+
+        // Filters alone still list notes, as they did before FTS.
+        let hits = run_search(&conn, "", &in_folder).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].session.id, "s1");
+
+        // And they narrow a text query.
+        let hits = run_search(&conn, "budget", &SearchFilters::default()).unwrap();
+        assert_eq!(hits.len(), 2);
+        let hits = run_search(&conn, "budget", &in_folder).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].session.id, "s1");
+    }
+
+    #[test]
+    fn results_stay_in_reverse_chronological_order() {
+        let conn = migrated_db();
+        for (id, started) in [("old", 100), ("new", 300), ("mid", 200)] {
+            conn.execute(
+                "INSERT INTO sessions (id, title, started_at, status) VALUES (?1, 'Budget review', ?2, 'active')",
+                params![id, started],
+            )
+            .unwrap();
+        }
+        let hits = run_search(&conn, "budget", &SearchFilters::default()).unwrap();
+        let ids: Vec<&str> = hits.iter().map(|h| h.session.id.as_str()).collect();
+        assert_eq!(ids, vec!["new", "mid", "old"]);
+    }
+    /// Migrate a copy of a real database and search it.
+    ///
+    /// Ignored: it needs a real corpus. Point `TALKY_TEST_DB` at a *copy* of
+    /// sessions.db — the migration writes to it. Prints counts only, never
+    /// note content.
+    #[test]
+    #[ignore = "requires TALKY_TEST_DB pointing at a copy of a real database"]
+    fn backfills_a_real_database() {
+        let path = std::env::var("TALKY_TEST_DB").expect("set TALKY_TEST_DB");
+        let mut conn = Connection::open(&path).expect("open db copy");
+
+        let sessions: i64 = conn
+            .query_row("SELECT count(*) FROM sessions", [], |r| r.get(0))
+            .unwrap();
+        let segments: i64 = conn
+            .query_row("SELECT count(*) FROM transcript_segments", [], |r| r.get(0))
+            .unwrap();
+
+        Migrations::new(SESSION_MIGRATIONS.to_vec())
+            .to_latest(&mut conn)
+            .expect("migrate real database");
+
+        let mut stmt = conn
+            .prepare("SELECT field, count(*) FROM search_index GROUP BY field ORDER BY field")
+            .unwrap();
+        let rows: Vec<(String, i64)> = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        drop(stmt);
+
+        println!("{} sessions, {} segments", sessions, segments);
+        for (field, n) in &rows {
+            println!("  indexed {}: {}", field, n);
+        }
+
+        let transcript_rows = rows
+            .iter()
+            .find(|(f, _)| f == "transcript")
+            .map(|(_, n)| *n)
+            .unwrap_or(0);
+        assert_eq!(
+            transcript_rows, segments,
+            "every transcript segment should have been backfilled"
+        );
+
+        let titles = rows
+            .iter()
+            .find(|(f, _)| f == "title")
+            .map(|(_, n)| *n)
+            .unwrap_or(0);
+        assert!(titles > 0, "no titles were indexed");
+
+        // The index has to survive a real query, not just exist.
+        let hits = run_search(&conn, "the", &SearchFilters::default()).unwrap();
+        println!("search for a common word returned {} notes", hits.len());
+        assert!(!hits.is_empty(), "a common word matched nothing");
+    }
 }

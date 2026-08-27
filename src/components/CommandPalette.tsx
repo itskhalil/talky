@@ -643,7 +643,9 @@ export const CommandPalette: React.FC = () => {
                         ? t("palette.matched.body")
                         : hit.matched_field === "enhanced_notes"
                           ? t("palette.matched.enhanced")
-                          : null;
+                          : hit.matched_field === "transcript"
+                            ? t("palette.matched.transcript")
+                            : null;
                     return (
                       <button
                         key={`note-${note.id}`}
