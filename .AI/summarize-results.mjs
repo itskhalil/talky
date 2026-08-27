@@ -3,8 +3,14 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const RESULTS_PATH = join(__dirname, "results.json");
-const RESULTS_DIR = join(__dirname, "results");
+// Optional args: <resultsPath> <outDir>. Defaults preserve the original
+// behaviour (results.json -> results/summary.md) so `npm run eval` is unchanged.
+const RESULTS_PATH = process.argv[2]
+  ? join(process.cwd(), process.argv[2])
+  : join(__dirname, "results.json");
+const RESULTS_DIR = process.argv[3]
+  ? join(process.cwd(), process.argv[3])
+  : join(__dirname, "results");
 const SUMMARY_PATH = join(RESULTS_DIR, "summary.md");
 
 const DIMS = [
