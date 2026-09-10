@@ -23,10 +23,7 @@ export async function callProvider(prompt, llmFn) {
       output = output.replace(/\[(noted|ai)\]\s?/g, "");
     }
     if (config.cleanPunctuation) {
-      output = output.replace(
-        / — ([a-z])/g,
-        (_, c) => `. ${c.toUpperCase()}`,
-      );
+      output = output.replace(/ — ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
       output = output.replace(/ — /g, ". ");
       output = output.replace(/— ([a-z])/g, (_, c) => `. ${c.toUpperCase()}`);
       output = output.replace(/— /g, ". ");

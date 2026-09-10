@@ -1157,7 +1157,10 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         const settings = useSettingsStore.getState().settings;
         if (settings?.word_suggestions_enabled !== false) {
           const baseline = _lastSavedEnhancedNotes.get(selectedSessionId);
-          const corrections = detectWordCorrections(baseline ?? null, normalizedTagged ?? "");
+          const corrections = detectWordCorrections(
+            baseline ?? null,
+            normalizedTagged ?? "",
+          );
           if (corrections.length > 0) {
             const session = sessions.find((s) => s.id === selectedSessionId);
             const sessionTitle = session?.title || "Untitled";

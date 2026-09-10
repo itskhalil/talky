@@ -1,0 +1,7 @@
+{
+  "name": "talky",
+  "description": "Read your Talky meeting notes and transcripts from Claude Code",
+  "version": "0.1.0",
+  "homepage": "https://github.com/itskhalil/talky",
+  "license": "MIT"
+}
