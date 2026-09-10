@@ -10,6 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# npm is the only package manager here; a stray `bun install` must not
+# leave a second lockfile behind for someone to commit.
+bun.lock
+bun.lockb
 *.local
 *.local.*
 .env
