@@ -116,8 +116,7 @@ async function callAPI(ctx) {
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok)
-    throw new Error(`API error: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`API error: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return {
     output: data.choices[0].message.content,
