@@ -684,6 +684,8 @@
   "common": {
     "appName": "talky",
     "loading": "Loading...",
+    "downloading": "Downloading...",
+    "downloadingCount": "{{count}} downloading...",
     "save": "Save",
     "cancel": "Cancel",
     "reset": "Reset",
