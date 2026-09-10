@@ -1,0 +1,60 @@
+name: "rust"
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Cheap and fast, so it runs first: a mismatched pair fails `tauri build`
+  # before anything compiles, and no other check would catch it.
+  tauri-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check Tauri npm/crate version pairing
+        run: node scripts/check-tauri-versions.mjs
+
+  # Until this job existed no pull-request check compiled Rust at all: lint and
+  # prettier are frontend, rustfmt only formats, and the platform builds are
+  # workflow_dispatch. A Rust change could go green and still leave main unable
+  # to build.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libxdo-dev \
+            libssl-dev \
+            pkg-config
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: cargo check
+        working-directory: src-tauri
+        env:
+          # Only read by `env!` at compile time; the value is not shipped from here.
+          TALKY_SUPPORT_EMAIL: ${{ secrets.TALKY_SUPPORT_EMAIL || 'support@example.com' }}
+        run: cargo check --all-targets
