@@ -1,0 +1,22 @@
+{
+  "name": "talky-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only MCP server exposing Talky meeting notes to Claude",
+  "type": "module",
+  "bin": {
+    "talky-mcp": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.6.1"
+  }
+}
