@@ -1167,6 +1167,21 @@ pub fn save_attachment(
     Ok(())
 }
 
+/// Truncate to at most `max_bytes`, stepping back to the nearest character
+/// boundary. Slicing a `str` at an arbitrary byte index panics, and PDF text is
+/// attacker-controlled: any multi-byte character straddling the limit would take
+/// the whole app down.
+fn truncate_on_char_boundary(text: &str, max_bytes: usize) -> &str {
+    if text.len() <= max_bytes {
+        return text;
+    }
+    let mut end = max_bytes;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn extract_pdf_text(app: AppHandle, attachment_id: String) -> Result<String, String> {
@@ -1192,7 +1207,7 @@ pub async fn extract_pdf_text(app: AppHandle, attachment_id: String) -> Result<S
             text.len(),
             max_chars
         );
-        text[..max_chars].to_string()
+        truncate_on_char_boundary(&text, max_chars).to_string()
     } else {
         text
     };
@@ -1208,4 +1223,33 @@ pub async fn extract_pdf_text(app: AppHandle, attachment_id: String) -> Result<S
     );
 
     Ok(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_on_char_boundary;
+
+    #[test]
+    fn keeps_text_shorter_than_the_limit() {
+        assert_eq!(truncate_on_char_boundary("café", 100), "café");
+        assert_eq!(truncate_on_char_boundary("café", 5), "café");
+    }
+
+    #[test]
+    fn steps_back_off_a_multibyte_character() {
+        // "café" is 5 bytes: the é occupies bytes 3..5.
+        assert_eq!(truncate_on_char_boundary("café", 4), "caf");
+        assert_eq!(truncate_on_char_boundary("café", 3), "caf");
+    }
+
+    #[test]
+    fn handles_a_limit_inside_the_first_character() {
+        assert_eq!(truncate_on_char_boundary("😀ab", 2), "");
+        assert_eq!(truncate_on_char_boundary("😀ab", 4), "😀");
+    }
+
+    #[test]
+    fn truncates_ascii_exactly() {
+        assert_eq!(truncate_on_char_boundary("abcdef", 3), "abc");
+    }
 }
