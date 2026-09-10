@@ -1,5 +1,13 @@
 name: "lint"
-on: [pull_request]
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -7,12 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: oven-sh/setup-bun@v1
+      - uses: actions/setup-node@v6
         with:
-          bun-version: latest
+          node-version-file: .nvmrc
+          cache: npm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm ci
 
       - name: Run ESLint
-        run: bun run lint
+        run: npm run lint
