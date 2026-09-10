@@ -474,13 +474,13 @@ Targeted a specific bug observed in production: when the user wrote multi-level 
 
 Three variants tested across 4 cases at n=2-3 (target case + 3 regression cases):
 
-| Variant | Mechanism | Target Δ | Side effects |
-|---|---|---:|---|
-| hierarchy-rule | Adds a separate "Mirror the user's own structure" guideline | **+0.125** | Verbosity uptick on dense cases; +5-9 chains everywhere |
-| hierarchy-example | Adds a 3rd in-prompt example showing structured input → preserved output | −0.052 (worse than baseline) | Backfired — truncated the target section; register bias per principle #32 |
-| hierarchy-both | Both | −0.07 | Example's negative effect dominates |
-| **hierarchy-canonical** | One-phrase extension to existing "canonical notes" rule: adds "structural choices (numbering, nesting)" | +0.063 | None significant — but didn't actually fix the bug, score gain came from elsewhere |
-| **canonical-example** | canonical change + Example 1 rewritten to demonstrate structured-input preservation | **+0.102** | dense-business verbosity (+16% words, +10 bullets) from new example's bullet count; everywhere else neutral-to-positive |
+| Variant                 | Mechanism                                                                                               |                     Target Δ | Side effects                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------: | ----------------------------------------------------------------------------------------------------------------------- |
+| hierarchy-rule          | Adds a separate "Mirror the user's own structure" guideline                                             |                   **+0.125** | Verbosity uptick on dense cases; +5-9 chains everywhere                                                                 |
+| hierarchy-example       | Adds a 3rd in-prompt example showing structured input → preserved output                                | −0.052 (worse than baseline) | Backfired — truncated the target section; register bias per principle #32                                               |
+| hierarchy-both          | Both                                                                                                    |                        −0.07 | Example's negative effect dominates                                                                                     |
+| **hierarchy-canonical** | One-phrase extension to existing "canonical notes" rule: adds "structural choices (numbering, nesting)" |                       +0.063 | None significant — but didn't actually fix the bug, score gain came from elsewhere                                      |
+| **canonical-example**   | canonical change + Example 1 rewritten to demonstrate structured-input preservation                     |                   **+0.102** | dense-business verbosity (+16% words, +10 bullets) from new example's bullet count; everywhere else neutral-to-positive |
 
 **canonical-example promoted.** Wider eval on 6 unseen cases at n=1 confirmed no catastrophic regressions: dense-review-q1 0.90, dense-review-q4 0.95, no-notes-complex 0.86, sparse-feedback 0.85, sparse-interview 0.74 (no-notes-personal 0.40 was a judge artifact — see principle #40).
 
