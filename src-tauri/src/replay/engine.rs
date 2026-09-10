@@ -1,26 +1,20 @@
 use anyhow::Result;
 use std::path::Path;
-use transcribe_rs::{
-    engines::parakeet::{
-        ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
-    },
-    TranscriptionEngine,
-};
+use transcribe_rs::onnx::parakeet::{ParakeetModel, ParakeetParams, TimestampGranularity};
+use transcribe_rs::onnx::Quantization;
 
 #[cfg(target_os = "macos")]
 use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
 
 pub enum ReplayEngine {
-    Parakeet(ParakeetEngine),
+    Parakeet(ParakeetModel),
     #[cfg(target_os = "macos")]
     ParakeetCoreML(CoreMlAsr),
 }
 
 impl ReplayEngine {
     pub fn load_parakeet(model_path: &Path) -> Result<Self> {
-        let mut engine = ParakeetEngine::new();
-        engine
-            .load_model_with_params(model_path, ParakeetModelParams::int8())
+        let engine = ParakeetModel::load(model_path, &Quantization::Int8)
             .map_err(|e| anyhow::anyhow!("Failed to load Parakeet model: {}", e))?;
         Ok(Self::Parakeet(engine))
     }
@@ -58,11 +52,12 @@ impl ReplayEngine {
 
         let text = match self {
             Self::Parakeet(engine) => {
-                let params = ParakeetInferenceParams {
-                    timestamp_granularity: TimestampGranularity::Segment,
+                let params = ParakeetParams {
+                    timestamp_granularity: Some(TimestampGranularity::Segment),
+                    ..Default::default()
                 };
                 let result = engine
-                    .transcribe_samples(audio, Some(params))
+                    .transcribe_with(&audio, &params)
                     .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))?;
                 result.text
             }
