@@ -7,6 +7,7 @@ import Link from "@tiptap/extension-link";
 import { Strike } from "@tiptap/extension-strike";
 import { Blockquote } from "@tiptap/extension-blockquote";
 import { CodeBlock } from "@tiptap/extension-code-block";
+import { OrderedList } from "@tiptap/extension-ordered-list";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { Table } from "@tiptap/extension-table";
@@ -65,6 +66,15 @@ const StrikeNoShortcut = Strike.extend({ addKeyboardShortcuts: () => ({}) });
 const BlockquoteNoShortcut = Blockquote.extend({
   addKeyboardShortcuts: () => ({}),
 });
+// Tiptap 3.31 gave OrderedList a `handlePaste` ProseMirror plugin that
+// intercepts plain-text pastes, parses numbered lists itself and replaces the
+// selection — running before tiptap-markdown's `transformPastedText` and so
+// dropping inline markdown (bold, italics, links) inside the items. Notes are
+// markdown here, so keep the node and drop the plugin.
+const OrderedListNoPaste = OrderedList.extend({
+  addProseMirrorPlugins: () => [],
+});
+
 const CodeBlockNoShortcut = CodeBlock.extend({
   // Priority 200 so our Tab handler runs before ListItem/TaskItem (which
   // bind Tab at default priority 100 to sinkListItem and consume the key).
@@ -156,10 +166,12 @@ export function NotesEditor({
           strike: false,
           blockquote: false,
           codeBlock: false,
+          orderedList: false,
         }),
         StrikeNoShortcut,
         BlockquoteNoShortcut,
         CodeBlockNoShortcut,
+        OrderedListNoPaste,
         Placeholder.configure({ placeholder }),
         PasteUnformatted,
         MarkdownShortcuts,
