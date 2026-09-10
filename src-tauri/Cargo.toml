@@ -78,7 +78,7 @@ thiserror = "2"
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
-pdf-extract = "0.8"
+pdf-extract = "0.12"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.11"
