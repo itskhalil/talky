@@ -110,7 +110,7 @@ export function HomeView() {
             <button
               key={e.id}
               onClick={() => chooseEnv(e.id)}
-              className={`flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-[13px] text-text ${
+              className={`flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text ${
                 e.id === envId ? "bg-accent/8" : "hover:bg-accent/5"
               }`}
             >
@@ -168,18 +168,13 @@ export function HomeView() {
 
   return (
     <div className="flex flex-col h-full">
-      <div
-        data-tauri-drag-region
-        className="h-8 shrink-0 flex items-center pl-[var(--titlebar-inset,12px)] pr-2"
-      >
-        <span
-          data-tauri-drag-region
-          className="font-display text-[11px] uppercase text-text-secondary"
-        >
-          {t("sidebar.home")}
-        </span>
-      </div>
+      <div data-tauri-drag-region className="h-8 shrink-0" />
       <div className="flex-1 min-h-0 flex flex-col mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-md overflow-hidden">
+        <div className="h-10 shrink-0 flex items-center px-4 border-b border-border">
+          <span className="font-display text-label uppercase text-text-secondary">
+            {t("sidebar.home")}
+          </span>
+        </div>
         <div className="flex-1 overflow-y-auto">
           <div className="w-full max-w-[640px] mx-auto px-6 pt-10 pb-6">
             {hasConversation ? (
@@ -235,7 +230,7 @@ export function HomeView() {
               </div>
             ) : (
               <>
-                <h1 className="text-[30px] font-normal tracking-[-0.03em] leading-tight text-text">
+                <h1 className="text-title font-normal tracking-[-0.03em] leading-tight text-text">
                   {sessions.length > 0 ? t("home.title") : t("home.emptyTitle")}
                 </h1>
                 {sessions.length === 0 ? (
@@ -254,7 +249,7 @@ export function HomeView() {
                 ) : (
                   <>
                     <div className="mt-5">{askBar}</div>
-                    <div className="mt-10 pb-1.5 border-b border-border-strong font-display text-[11px] uppercase text-text-secondary">
+                    <div className="mt-10 pb-1.5 border-b border-border-strong font-display text-label uppercase text-text-secondary">
                       {t("home.recent")}
                     </div>
                     {recent.map((s) => {

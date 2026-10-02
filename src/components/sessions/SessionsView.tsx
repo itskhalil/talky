@@ -417,18 +417,13 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           />
         </>
       )}
-      {/* The note (or Home) draws a toolbar row level with the window controls
-          and a framed panel below it. Collapsing the sidebar only shifts them
-          sideways, so nothing jumps when the window narrows. */}
+      {/* The note (or Home) keeps a fixed titlebar band above its framed
+          panel. Collapsing the sidebar only shifts the panel sideways, so
+          nothing jumps when the window narrows. */}
       <div
         className="flex-1 overflow-hidden"
         style={
           {
-            "--titlebar-inset": sidebarCollapsed
-              ? osType === "macos"
-                ? "112px"
-                : "44px"
-              : "12px",
             "--panel-left": sidebarCollapsed ? "8px" : "0px",
           } as React.CSSProperties
         }

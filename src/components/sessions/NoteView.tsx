@@ -23,6 +23,7 @@ import {
   Lock,
   ArrowUp,
   MoreHorizontal,
+  RefreshCw,
   AlignLeft,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
@@ -1438,206 +1439,211 @@ export function NoteView({
           </div>
         </div>
       )}
-      {/* Toolbar row on the ground, level with the window controls */}
-      <div
-        data-tauri-drag-region
-        className="h-8 shrink-0 flex items-center gap-1.5 pl-[var(--titlebar-inset,12px)] pr-2"
-      >
-        {/* Breadcrumb: the note's folder, and where you move it */}
-        <div ref={folderDropdownRef} className="relative">
-          <button
-            onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-            title={t("sessions.meta.folder")}
-            className={`flex items-center gap-1.5 h-6 px-1.5 -ml-1.5 rounded-md font-display text-[11px] uppercase transition-colors ${folderDropdownOpen ? "bg-accent/8 text-text" : "text-text-secondary hover:bg-accent/5 hover:text-text"}`}
-          >
-            <span className="truncate max-w-[220px]">
-              {currentFolder?.name ?? t("sessions.noFolder")}
-            </span>
-            <ChevronDown size={11} className="shrink-0" />
-          </button>
-          {folderDropdownOpen &&
-            (() => {
-              const q = folderFilter.trim().toLowerCase();
-              const filteredFolders = q
-                ? folders.filter((f) => f.name.toLowerCase().includes(q))
-                : folders;
-              const noFolderLabel = t("sessions.noFolder");
-              const showNoFolder =
-                !q || noFolderLabel.toLowerCase().includes(q);
-              type Option = {
-                id: string | null;
-                label: string;
-                color?: string | null;
-              };
-              const options: Option[] = [];
-              if (showNoFolder) {
-                options.push({ id: null, label: noFolderLabel });
-              }
-              for (const f of filteredFolders) {
-                options.push({
-                  id: f.id,
-                  label: f.name,
-                  color: f.color,
-                });
-              }
-              const boundedIndex = Math.min(
-                activeFolderIndex,
-                Math.max(0, options.length - 1),
-              );
-              return (
-                <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
-                  <input
-                    ref={folderFilterInputRef}
-                    type="text"
-                    value={folderFilter}
-                    onChange={(e) => {
-                      setFolderFilter(e.target.value);
-                      setActiveFolderIndex(0);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setActiveFolderIndex((i) =>
-                          options.length === 0 ? 0 : (i + 1) % options.length,
-                        );
-                      } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setActiveFolderIndex((i) =>
-                          options.length === 0
-                            ? 0
-                            : (i - 1 + options.length) % options.length,
-                        );
-                      } else if (e.key === "Enter") {
-                        e.preventDefault();
-                        const pick = options[boundedIndex];
-                        if (pick) handleFolderSelect(pick.id);
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        setFolderDropdownOpen(false);
-                      }
-                    }}
-                    placeholder={t(
-                      "notes.folderFilterPlaceholder",
-                      "Filter folders",
-                    )}
-                    className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
-                  />
-                  {options.map((opt, i) => {
-                    const isActive = i === boundedIndex;
-                    return (
-                      <button
-                        key={opt.id ?? "__none__"}
-                        onMouseEnter={() => setActiveFolderIndex(i)}
-                        onClick={() => handleFolderSelect(opt.id)}
-                        className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
-                          isActive ? "bg-accent/10" : ""
-                        }`}
-                      >
-                        {opt.id !== null && (
-                          <FolderIcon
-                            size={12}
-                            style={opt.color ? { color: opt.color } : undefined}
-                          />
-                        )}
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                  {options.length === 0 && (
-                    <div className="px-3 py-1.5 text-xs text-text-secondary">
-                      {t("palette.empty")}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-        </div>
-
-        <span data-tauri-drag-region className="flex-1 self-stretch" />
-        {hasEnhanced && (
-          <div className="flex p-0.5 rounded-md border border-border">
-            <button
-              onClick={() => onViewModeChange("notes")}
-              className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "notes" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
-              title={t("sessions.yourNotes")}
-            >
-              {t("sessions.viewNotes")}
-            </button>
-            <button
-              onClick={() => onViewModeChange("enhanced")}
-              className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "enhanced" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
-              title={t("sessions.enhancedNotes")}
-            >
-              {t("sessions.viewEnhanced")}
-            </button>
-          </div>
-        )}
-        <button
-          onClick={handleCopyNotes}
-          className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
-          title={t("sessions.copyNotes")}
-          aria-label={t("sessions.copyNotes")}
-        >
-          {notesCopied ? <Check size={15} /> : <Copy size={15} />}
-        </button>
-        {(canReenhance || canClearTranscript) && (
-          <div ref={moreMenuRef} className="relative">
-            <button
-              onClick={() => setMoreMenuOpen((o) => !o)}
-              aria-label={t("sessions.moreActions")}
-              title={t("sessions.moreActions")}
-              className={`w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors ${moreMenuOpen ? "bg-accent/8 text-text" : ""}`}
-            >
-              <MoreHorizontal size={15} />
-            </button>
-            {moreMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border rounded-lg shadow-lg">
-                {canReenhance && (
-                  <button
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      if (enhancedNotesEdited) {
-                        setShowReenhanceWarning(true);
-                      } else {
-                        onDismissEnhancePrompt();
-                        onEnhanceNotes();
-                      }
-                    }}
-                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-[13px] text-text hover:bg-accent/5"
-                  >
-                    <Sparkles size={13} className="text-text-secondary" />
-                    {t("sessions.reenhance")}
-                  </button>
-                )}
-                {canClearTranscript && (
-                  <button
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      setShowClearTranscriptDialog(true);
-                    }}
-                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-[13px] text-text hover:bg-accent/5"
-                  >
-                    <Lock size={13} className="text-text-secondary" />
-                    {t("sessions.clearTranscript")}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        {copyAsBulletsEnabled && (
-          <button
-            onClick={handleCopyAsBullets}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
-            title={t("sessions.copyAsBullets")}
-            aria-label={t("sessions.copyAsBullets")}
-          >
-            {bulletsCopied ? <Check size={15} /> : <List size={15} />}
-          </button>
-        )}
-      </div>
+      {/* Titlebar band: window controls (and the sidebar toggle when it's
+          collapsed) sit here, so the panel below never moves. */}
+      <div data-tauri-drag-region className="h-8 shrink-0" />
       {/* The note itself: a framed panel on the ground */}
       <div className="flex-1 min-h-0 flex flex-col relative mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-md overflow-hidden">
+        {/* Panel header: the note's own controls */}
+        <div
+          data-tauri-drag-region
+          className="h-10 shrink-0 flex items-center gap-1.5 pl-4 pr-2 border-b border-border"
+        >
+          {/* Breadcrumb: the note's folder, and where you move it */}
+          <div ref={folderDropdownRef} className="relative">
+            <button
+              onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
+              title={t("sessions.meta.folder")}
+              className={`flex items-center gap-1.5 h-6 px-1.5 -ml-1.5 rounded-md font-display text-label uppercase transition-colors ${folderDropdownOpen ? "bg-accent/8 text-text" : "text-text-secondary hover:bg-accent/5 hover:text-text"}`}
+            >
+              <span className="truncate max-w-[220px]">
+                {currentFolder?.name ?? t("sessions.noFolder")}
+              </span>
+              <ChevronDown size={11} className="shrink-0" />
+            </button>
+            {folderDropdownOpen &&
+              (() => {
+                const q = folderFilter.trim().toLowerCase();
+                const filteredFolders = q
+                  ? folders.filter((f) => f.name.toLowerCase().includes(q))
+                  : folders;
+                const noFolderLabel = t("sessions.noFolder");
+                const showNoFolder =
+                  !q || noFolderLabel.toLowerCase().includes(q);
+                type Option = {
+                  id: string | null;
+                  label: string;
+                  color?: string | null;
+                };
+                const options: Option[] = [];
+                if (showNoFolder) {
+                  options.push({ id: null, label: noFolderLabel });
+                }
+                for (const f of filteredFolders) {
+                  options.push({
+                    id: f.id,
+                    label: f.name,
+                    color: f.color,
+                  });
+                }
+                const boundedIndex = Math.min(
+                  activeFolderIndex,
+                  Math.max(0, options.length - 1),
+                );
+                return (
+                  <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
+                    <input
+                      ref={folderFilterInputRef}
+                      type="text"
+                      value={folderFilter}
+                      onChange={(e) => {
+                        setFolderFilter(e.target.value);
+                        setActiveFolderIndex(0);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setActiveFolderIndex((i) =>
+                            options.length === 0 ? 0 : (i + 1) % options.length,
+                          );
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setActiveFolderIndex((i) =>
+                            options.length === 0
+                              ? 0
+                              : (i - 1 + options.length) % options.length,
+                          );
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          const pick = options[boundedIndex];
+                          if (pick) handleFolderSelect(pick.id);
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          setFolderDropdownOpen(false);
+                        }
+                      }}
+                      placeholder={t(
+                        "notes.folderFilterPlaceholder",
+                        "Filter folders",
+                      )}
+                      className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
+                    />
+                    {options.map((opt, i) => {
+                      const isActive = i === boundedIndex;
+                      return (
+                        <button
+                          key={opt.id ?? "__none__"}
+                          onMouseEnter={() => setActiveFolderIndex(i)}
+                          onClick={() => handleFolderSelect(opt.id)}
+                          className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
+                            isActive ? "bg-accent/10" : ""
+                          }`}
+                        >
+                          {opt.id !== null && (
+                            <FolderIcon
+                              size={12}
+                              style={
+                                opt.color ? { color: opt.color } : undefined
+                              }
+                            />
+                          )}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                    {options.length === 0 && (
+                      <div className="px-3 py-1.5 text-xs text-text-secondary">
+                        {t("palette.empty")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+          </div>
+
+          <span data-tauri-drag-region className="flex-1 self-stretch" />
+          {hasEnhanced && (
+            <div className="flex p-0.5 rounded-md border border-border">
+              <button
+                onClick={() => onViewModeChange("notes")}
+                className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "notes" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
+                title={t("sessions.yourNotes")}
+              >
+                {t("sessions.viewNotes")}
+              </button>
+              <button
+                onClick={() => onViewModeChange("enhanced")}
+                className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "enhanced" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
+                title={t("sessions.enhancedNotes")}
+              >
+                {t("sessions.viewEnhanced")}
+              </button>
+            </div>
+          )}
+          {canReenhance && (
+            <button
+              onClick={() => {
+                if (enhancedNotesEdited) {
+                  setShowReenhanceWarning(true);
+                } else {
+                  onDismissEnhancePrompt();
+                  onEnhanceNotes();
+                }
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+              title={t("sessions.reenhance")}
+              aria-label={t("sessions.reenhance")}
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
+          <button
+            onClick={handleCopyNotes}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+            title={t("sessions.copyNotes")}
+            aria-label={t("sessions.copyNotes")}
+          >
+            {notesCopied ? <Check size={15} /> : <Copy size={15} />}
+          </button>
+          {canClearTranscript && (
+            <div ref={moreMenuRef} className="relative">
+              <button
+                onClick={() => setMoreMenuOpen((o) => !o)}
+                aria-label={t("sessions.moreActions")}
+                title={t("sessions.moreActions")}
+                className={`w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors ${moreMenuOpen ? "bg-accent/8 text-text" : ""}`}
+              >
+                <MoreHorizontal size={15} />
+              </button>
+              {moreMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border rounded-lg shadow-lg">
+                  {canClearTranscript && (
+                    <button
+                      onClick={() => {
+                        setMoreMenuOpen(false);
+                        setShowClearTranscriptDialog(true);
+                      }}
+                      className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
+                    >
+                      <Lock size={13} className="text-text-secondary" />
+                      {t("sessions.clearTranscript")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {copyAsBulletsEnabled && (
+            <button
+              onClick={handleCopyAsBullets}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+              title={t("sessions.copyAsBullets")}
+              aria-label={t("sessions.copyAsBullets")}
+            >
+              {bulletsCopied ? <Check size={15} /> : <List size={15} />}
+            </button>
+          )}
+        </div>
         {findBarOpen && onCloseFindBar && (
           <div className="absolute top-2 right-4 z-20 w-80">
             <FindBar
@@ -1665,7 +1671,7 @@ export function NoteView({
               onBlur={handleTitleBlur}
               onKeyDown={handleTitleKeyDown}
               placeholder={t("sessions.newNote")}
-              className="w-full text-[30px] leading-tight font-normal tracking-[-0.03em] bg-transparent border-none outline-none placeholder:text-mid-gray/30 pr-16 resize-none overflow-hidden p-0"
+              className="w-full text-title leading-tight font-normal tracking-[-0.03em] bg-transparent border-none outline-none placeholder:text-mid-gray/30 pr-16 resize-none overflow-hidden p-0"
             />
 
             {/* Metadata line: record strip, tags, attachments, add buttons */}
@@ -1674,7 +1680,7 @@ export function NoteView({
                 {/* Record strip: date, length, environment */}
                 <div className="inline-flex items-stretch rounded-md border border-border divide-x divide-border">
                   <div className="flex items-baseline gap-2 px-3 py-[7px]">
-                    <span className="font-display text-[10px] leading-4 uppercase text-mid-gray">
+                    <span className="font-display text-label leading-4 uppercase text-mid-gray">
                       {t("sessions.meta.date")}
                     </span>
                     <span className="font-mono text-xs leading-4 text-text">
@@ -1691,7 +1697,7 @@ export function NoteView({
                   </div>
                   {recordedMs > 0 && !isRecording && (
                     <div className="flex items-baseline gap-2 px-3 py-[7px]">
-                      <span className="font-display text-[10px] leading-4 uppercase text-mid-gray">
+                      <span className="font-display text-label leading-4 uppercase text-mid-gray">
                         {t("sessions.meta.length")}
                       </span>
                       <span className="font-mono text-xs leading-4 text-text">
@@ -1708,7 +1714,7 @@ export function NoteView({
                           onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
                           className="flex items-baseline gap-2 h-full px-3 py-[7px] hover:bg-accent/5 transition-colors"
                         >
-                          <span className="font-display text-[10px] leading-4 uppercase text-mid-gray">
+                          <span className="font-display text-label leading-4 uppercase text-mid-gray">
                             {t("sessions.meta.environment")}
                           </span>
                           <span
@@ -1994,17 +2000,17 @@ export function NoteView({
                 <div className="flex items-center gap-1 px-4 pt-2 pb-1.5">
                   <button
                     onClick={() => setPanelMode("transcript")}
-                    className={`font-display text-[11px] uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
+                    className={`font-display text-label uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
                   >
                     {t("sessions.chat.transcriptTab")}
                   </button>
                   <button
                     onClick={() => setPanelMode("chat")}
-                    className={`font-display text-[11px] uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "chat" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
+                    className={`font-display text-label uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "chat" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
                   >
                     {t("sessions.chat.chatTab")}
                     {chat.messages.length > 0 && (
-                      <span className="ml-1 text-[10px] text-text-secondary/40">
+                      <span className="ml-1 text-label text-text-secondary/40">
                         {chat.messages.length}
                       </span>
                     )}
@@ -2080,7 +2086,7 @@ export function NoteView({
                       placeholder={t("sessions.searchTranscript")}
                       className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary/40 min-w-0"
                     />
-                    <span className="text-[10px] text-text-secondary/50 tabular-nums shrink-0">
+                    <span className="text-label text-text-secondary/50 tabular-nums shrink-0">
                       {transcriptSearchQuery
                         ? totalMatches > 0
                           ? `${transcriptCurrentMatch + 1} / ${totalMatches}`
@@ -2151,7 +2157,7 @@ export function NoteView({
                               <div key={seg.id} className="flex gap-3 text-xs">
                                 <span
                                   data-ui
-                                  className="font-mono text-[11px] text-mid-gray shrink-0 pt-0.5 w-9 text-right select-none"
+                                  className="font-mono text-label text-mid-gray shrink-0 pt-0.5 w-9 text-right select-none"
                                 >
                                   {formatMs(seg.start_ms)}
                                 </span>
@@ -2295,7 +2301,7 @@ export function NoteView({
                             })
                           : t("sessions.chat.placeholderAll")
                     }
-                    className="flex-1 text-[13px] bg-transparent outline-none placeholder:text-mid-gray min-w-0"
+                    className="flex-1 text-ui bg-transparent outline-none placeholder:text-mid-gray min-w-0"
                   />
                   <div ref={scopeMenuRef} className="relative shrink-0">
                     <button
@@ -2322,7 +2328,7 @@ export function NoteView({
                           <button
                             key={scope}
                             onClick={() => chooseScope(scope)}
-                            className={`flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-[13px] text-text ${
+                            className={`flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text ${
                               chatScope === scope
                                 ? "bg-accent/8"
                                 : "hover:bg-accent/5"

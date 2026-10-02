@@ -125,7 +125,7 @@ const FilterChip: React.FC<FilterChipProps> = ({
     onClick={onClick}
   >
     {icon}
-    <span className="text-[11px]">{label}</span>
+    <span className="text-label">{label}</span>
     {onClear ? (
       <button
         type="button"
@@ -185,7 +185,7 @@ const ChipDropdownItem: React.FC<ChipDropdownItemProps> = ({
       e.stopPropagation();
       onSelect();
     }}
-    className={`flex w-full items-center h-[30px] px-2.5 rounded-md text-left text-[13px] ${
+    className={`flex w-full items-center h-[30px] px-2.5 rounded-md text-left text-ui ${
       active ? "bg-accent/10 text-text" : "text-text hover:bg-accent/5"
     }`}
   >
@@ -529,7 +529,7 @@ export const CommandPalette: React.FC = () => {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t("palette.placeholder")}
-              className="flex-1 bg-transparent outline-none text-[15px] text-text placeholder:text-mid-gray"
+              className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-mid-gray"
             />
           </div>
           <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border text-xs relative flex-wrap">
@@ -645,7 +645,7 @@ export const CommandPalette: React.FC = () => {
               </ChipDropdown>
             )}
 
-            <div className="ml-auto font-display text-[10px] uppercase text-mid-gray">
+            <div className="ml-auto font-display text-label uppercase text-mid-gray">
               {t("palette.filters.searchingHint")}
             </div>
           </div>
@@ -657,7 +657,7 @@ export const CommandPalette: React.FC = () => {
             ) : (
               <>
                 {showingCommandsHeader && (
-                  <div className="px-2.5 pt-2.5 pb-1 font-display text-[10px] uppercase text-mid-gray">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-label uppercase text-mid-gray">
                     {t("palette.sections.commands")}
                   </div>
                 )}
@@ -673,7 +673,7 @@ export const CommandPalette: React.FC = () => {
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-[13px] text-left transition-colors ${
+                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-ui text-left transition-colors ${
                           isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
@@ -685,7 +685,7 @@ export const CommandPalette: React.FC = () => {
                     );
                   })}
                 {showingNotesHeader && (
-                  <div className="px-2.5 pt-2.5 pb-1 font-display text-[10px] uppercase text-mid-gray">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-label uppercase text-mid-gray">
                     {t("palette.sections.notes")}
                   </div>
                 )}
@@ -711,7 +711,7 @@ export const CommandPalette: React.FC = () => {
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-start gap-2.5 w-full px-2.5 py-2 rounded-md text-[13px] text-left transition-colors ${
+                        className={`flex items-start gap-2.5 w-full px-2.5 py-2 rounded-md text-ui text-left transition-colors ${
                           isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
@@ -724,7 +724,7 @@ export const CommandPalette: React.FC = () => {
                               {highlightMatches(note.title, q)}
                             </span>
                             {badge && (
-                              <span className="shrink-0 rounded border border-border px-1.5 py-px font-display text-[10px] uppercase text-text-secondary">
+                              <span className="shrink-0 rounded border border-border px-1.5 py-px font-display text-label uppercase text-text-secondary">
                                 {badge}
                               </span>
                             )}
@@ -739,7 +739,7 @@ export const CommandPalette: React.FC = () => {
                     );
                   })}
                 {results.some((r) => r.kind === "ask") && (
-                  <div className="px-2.5 pt-2.5 pb-1 font-display text-[10px] uppercase text-mid-gray">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-label uppercase text-mid-gray">
                     {t("palette.sections.ask")}
                   </div>
                 )}
@@ -755,7 +755,7 @@ export const CommandPalette: React.FC = () => {
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-[13px] text-left transition-colors ${
+                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-ui text-left transition-colors ${
                           isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
@@ -770,7 +770,7 @@ export const CommandPalette: React.FC = () => {
                         )}
                         <span className="flex-1 truncate">{ask.label}</span>
                         {ask.count !== null && (
-                          <span className="shrink-0 font-mono text-[11px] text-mid-gray">
+                          <span className="shrink-0 font-mono text-label text-mid-gray">
                             {t("palette.ask.found", { count: ask.count })}
                           </span>
                         )}

@@ -47,7 +47,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
           >
             <ArrowLeft size={16} />
           </button>
-          <h1 className="text-[22px] font-normal tracking-[-0.02em]">
+          <h1 className="text-title font-normal tracking-[-0.02em]">
             {t("settings.title")}
           </h1>
         </div>
@@ -58,7 +58,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-2 text-[13px] transition-colors ${
+              className={`pb-2 text-ui transition-colors ${
                 activeTab === tab.id
                   ? "text-text shadow-[inset_0_-2px_0_var(--color-text)]"
                   : "text-text-secondary hover:text-text"

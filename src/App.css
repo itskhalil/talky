@@ -22,6 +22,12 @@
   /* The window ground the note panel sits on, with a faint dot grid. */
   --color-ground: #f3f3f1;
   --color-grid: #dededa;
+  /* Type scale: six steps, all rem so the Font size setting scales them.
+     label 11 (mono caps) · xs 12 (meta) · ui 13 (controls, menus, rows)
+     sm 14 (body) · base 16 (headings, dialog titles) · title 30 (pages). */
+  --text-label: 0.6875rem;
+  --text-ui: 0.8125rem;
+  --text-title: 1.875rem;
   --font-sans: "Geist Variable", -apple-system, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
   /* Small uppercase labels (section headers) use the mono face. */

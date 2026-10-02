@@ -356,11 +356,11 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         }`}
       >
         <span
-          className={`font-mono text-[11px] ${live ? "text-live uppercase tracking-wider" : "text-mid-gray"}`}
+          className={`font-mono text-label ${live ? "text-live uppercase tracking-wider" : "text-mid-gray"}`}
         >
           {timeLabel}
         </span>
-        <span data-ui className="text-[13px] truncate">
+        <span data-ui className="text-ui truncate">
           {s.title}
         </span>
         <span className="relative flex items-center justify-center">
@@ -389,7 +389,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   };
 
   const dayHeader = (label: string) => (
-    <div className="px-3 pt-3 pb-1 border-b border-border-strong font-display text-[11px] uppercase text-text-secondary">
+    <div className="px-3 pt-3 pb-1 border-b border-border-strong font-display text-label uppercase text-text-secondary">
       {label}
     </div>
   );
@@ -406,14 +406,14 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     <div
       key={key}
       onClick={onClick}
-      className={`group flex items-center gap-2 h-[30px] px-2.5 rounded-md cursor-pointer text-[13px] text-text ${
+      className={`group flex items-center gap-2 h-[30px] px-2.5 rounded-md cursor-pointer text-ui text-text ${
         selected ? "bg-accent/8" : "hover:bg-accent/5"
       }`}
     >
       <span className="w-3.5 flex justify-center text-mid-gray">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
       {count !== null && (
-        <span className="font-mono text-[11px] text-mid-gray group-hover:hidden">
+        <span className="font-mono text-label text-mid-gray group-hover:hidden">
           {count}
         </span>
       )}
@@ -476,7 +476,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         <button
           onClick={() => setMenuOpen((o) => !o)}
           aria-label={t("sidebar.viewMenu")}
-          className={`flex items-center gap-1.5 h-6 px-1.5 rounded-md text-[13px] font-medium text-text min-w-0 ${
+          className={`flex items-center gap-1.5 h-6 px-1.5 rounded-md text-ui font-medium text-text min-w-0 ${
             menuOpen ? "bg-accent/8" : "hover:bg-accent/5"
           }`}
         >
@@ -485,7 +485,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         </button>
         <span className="flex-1" />
         {isAllNotes ? (
-          <span className="font-mono text-[11px] text-mid-gray">
+          <span className="font-mono text-label text-mid-gray">
             {filteredSessions.length}
           </span>
         ) : (
@@ -513,7 +513,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               },
             )}
             {folders.length > 0 && (
-              <div className="px-2.5 pt-2 pb-1 font-display text-[10px] uppercase text-mid-gray">
+              <div className="px-2.5 pt-2 pb-1 font-display text-label uppercase text-mid-gray">
                 {t("sidebar.folders")}
               </div>
             )}
@@ -532,7 +532,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               ),
             )}
             {tags.length > 0 && (
-              <div className="px-2.5 pt-2 pb-1 font-display text-[10px] uppercase text-mid-gray">
+              <div className="px-2.5 pt-2 pb-1 font-display text-label uppercase text-mid-gray">
                 {t("sidebar.tags")}
               </div>
             )}
@@ -561,7 +561,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
                     }
                   }}
                   placeholder={t("sidebar.folderName")}
-                  className="flex-1 min-w-0 h-6 px-2 text-[13px] rounded border border-border bg-transparent text-text outline-none focus:border-border-strong"
+                  className="flex-1 min-w-0 h-6 px-2 text-ui rounded border border-border bg-transparent text-text outline-none focus:border-border-strong"
                 />
                 <button
                   onClick={handleAddFolder}
@@ -597,7 +597,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           </div>
         ))}
         {filteredSessions.length === 0 && (
-          <div className="px-4 pt-6 text-center text-[13px] text-text-secondary">
+          <div className="px-4 pt-6 text-center text-ui text-text-secondary">
             {t("sidebar.noNotesInView")}
           </div>
         )}
