@@ -48,7 +48,7 @@ export const UserNameSetting: React.FC<UserNameSettingProps> = React.memo(
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           placeholder={t("settings.userName.placeholder")}
-          className="w-40 px-2.5 py-1.5 text-sm rounded-md border border-mid-gray/20 bg-transparent outline-none focus:border-accent transition-colors"
+          className="w-40 px-2.5 py-1.5 text-sm rounded-md border border-border bg-transparent outline-none focus:border-accent transition-colors"
         />
       </SettingContainer>
     );

@@ -19,11 +19,11 @@ export const Button: React.FC<ButtonProps> = ({
     primary:
       "text-white bg-background-ui border-background-ui dark:border-border-strong hover:bg-background-ui/80 focus:ring-1 focus:ring-background-ui",
     secondary:
-      "bg-mid-gray/10 border-mid-gray/20 hover:bg-background-ui/30 hover:border-logo-primary focus:outline-none",
+      "bg-mid-gray/10 border-border hover:bg-background-ui/30 hover:border-logo-primary focus:outline-none",
     danger:
-      "text-white bg-red-600 border-mid-gray/20 hover:bg-red-700 hover:border-red-700 focus:ring-1 focus:ring-red-500",
+      "text-white bg-red-600 border-border hover:bg-red-700 hover:border-red-700 focus:ring-1 focus:ring-red-500",
     ghost:
-      "text-current border-transparent hover:bg-mid-gray/10 hover:border-logo-primary focus:bg-mid-gray/20",
+      "text-current border-transparent hover:bg-accent/5 focus:bg-accent/8",
   };
 
   const sizeClasses = {

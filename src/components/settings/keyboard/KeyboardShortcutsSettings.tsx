@@ -237,7 +237,7 @@ const GlobalShortcutInput: React.FC = () => {
           </button>
         ) : (
           <button
-            className="px-3 py-1.5 text-xs font-mono bg-mid-gray/10 rounded border border-mid-gray/20 min-w-[120px] text-center hover:bg-mid-gray/20 transition-colors"
+            className="px-3 py-1.5 text-xs font-mono bg-mid-gray/10 rounded border border-border min-w-[120px] text-center hover:bg-mid-gray/20 transition-colors"
             onClick={startRecording}
           >
             {currentShortcut
@@ -278,7 +278,7 @@ export const KeyboardShortcutsSettings: React.FC = () => {
               className="flex items-center justify-between py-3 px-4"
             >
               <span className="text-sm">{t(shortcut.actionKey)}</span>
-              <kbd className="px-2 py-1 text-xs font-mono bg-mid-gray/10 rounded border border-mid-gray/20">
+              <kbd className="px-2 py-1 text-xs font-mono bg-mid-gray/10 rounded border border-border">
                 {shortcut.keys}
               </kbd>
             </div>

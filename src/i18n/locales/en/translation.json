@@ -753,7 +753,8 @@
     "yes": "Yes",
     "no": "No",
     "noOptionsFound": "No options found",
-    "continue": "Continue"
+    "continue": "Continue",
+    "back": "Back"
   },
   "errors": {
     "loadDirectory": "Error loading directory: {{error}}"

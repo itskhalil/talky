@@ -27,7 +27,7 @@ export const SendLogsSetting: React.FC = () => {
         type="button"
         onClick={handleClick}
         disabled={sending}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-text hover:text-logo-primary px-3 py-1.5 border border-mid-gray/20 rounded-md hover:bg-white/5 transition-colors disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-text hover:text-logo-primary px-3 py-1.5 border border-border rounded-md hover:bg-white/5 transition-colors disabled:opacity-50"
       >
         <Send className="h-3.5 w-3.5" />
         {t("sendLogs.title")}

@@ -85,7 +85,7 @@ export const HistorySettings: React.FC = () => {
               </h2>
             </div>
           </div>
-          <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
+          <div className="bg-background border border-border rounded-lg overflow-visible">
             <div className="px-4 py-3 text-center text-text/60">
               {t("settings.history.loading")}
             </div>
@@ -106,7 +106,7 @@ export const HistorySettings: React.FC = () => {
               </h2>
             </div>
           </div>
-          <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
+          <div className="bg-background border border-border rounded-lg overflow-visible">
             <div className="px-4 py-3 text-center text-text/60">
               {t("settings.history.empty")}
             </div>
@@ -126,8 +126,8 @@ export const HistorySettings: React.FC = () => {
             </h2>
           </div>
         </div>
-        <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
-          <div className="divide-y divide-mid-gray/20">
+        <div className="bg-background border border-border rounded-lg overflow-visible">
+          <div className="divide-y divide-border">
             {historyEntries.map((entry) => (
               <HistoryEntryComponent
                 key={entry.id}

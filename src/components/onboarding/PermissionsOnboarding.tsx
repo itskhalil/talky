@@ -27,7 +27,7 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
   grantText,
   error,
 }) => (
-  <div className="flex items-center justify-between p-4 bg-background border border-mid-gray/20 rounded-lg">
+  <div className="flex items-center justify-between p-4 bg-background border border-border rounded-lg">
     <div className="flex-1">
       <h3 className="font-medium text-text">{title}</h3>
       <p className="text-sm text-text/60">{description}</p>

@@ -39,26 +39,29 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
       <div data-tauri-drag-region className="h-7 w-full shrink-0" />
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 pb-3 border-b border-mid-gray/20">
+      <div className="flex items-center gap-3 px-6 pb-3 border-b border-border">
         <button
           onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-mid-gray/20 transition-colors"
+          aria-label={t("common.back")}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={16} />
         </button>
-        <h1 className="text-lg font-semibold">{t("settings.title")}</h1>
+        <h1 className="text-[22px] font-normal tracking-[-0.02em]">
+          {t("settings.title")}
+        </h1>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-4 px-6 pt-3 border-b border-mid-gray/10">
+      <div className="flex gap-4 px-6 pt-3 border-b border-border">
         {visibleTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-2 text-sm font-medium transition-colors ${
+            className={`pb-2 text-[13px] transition-colors ${
               activeTab === tab.id
-                ? "border-b-2 border-logo-primary text-logo-primary"
-                : "text-mid-gray hover:text-foreground"
+                ? "text-text shadow-[inset_0_-2px_0_var(--color-text)]"
+                : "text-text-secondary hover:text-text"
             }`}
           >
             {t(tab.labelKey)}

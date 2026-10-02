@@ -139,7 +139,7 @@ function App() {
           unstyled: true,
           classNames: {
             toast:
-              "bg-background border border-mid-gray/20 rounded-xl shadow-lg px-5 py-4 flex items-center justify-between gap-6 text-sm min-w-[400px]",
+              "bg-background border border-border rounded-xl shadow-lg px-5 py-4 flex items-center justify-between gap-6 text-sm min-w-[400px]",
             title: "font-semibold text-text",
             description: "text-text-secondary text-xs mt-1",
             actionButton:
