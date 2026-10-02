@@ -72,7 +72,7 @@ export function WaveformBars({
         width={svgWidth}
         height={svgHeight}
         viewBox="0 0 24 24"
-        className="text-green-500"
+        className="text-live"
       >
         {multipliers.map((m, i) => {
           const h = minH + clamped * (maxH - minH) * m;

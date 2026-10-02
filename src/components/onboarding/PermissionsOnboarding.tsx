@@ -55,7 +55,7 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
         <button
           onClick={onRequest}
           disabled={isRequesting}
-          className="px-4 py-2 bg-logo-primary text-white rounded-lg font-medium hover:bg-logo-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-background-ui text-white rounded-lg font-medium hover:bg-background-ui/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isRequesting ? "..." : grantText}
         </button>

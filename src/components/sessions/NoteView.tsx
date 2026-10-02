@@ -1116,7 +1116,7 @@ export function NoteView({
     return () => window.removeEventListener("resize", adjustTextareaHeight);
   }, [adjustTextareaHeight]);
 
-  // Re-adjust title height after fonts load (Cabinet Grotesk swaps in after system-ui)
+  // Re-adjust title height after fonts load (Geist swaps in after system-ui)
   useEffect(() => {
     document.fonts.ready.then(() => {
       adjustTextareaHeight();
@@ -2055,7 +2055,7 @@ export function NoteView({
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => setPanelOpen(!panelOpen)}
-                className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-green-500" : "text-text-secondary/60"}`}
+                className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-live" : "text-text-secondary/60"}`}
               >
                 {!isSealed && (
                   <WaveformBars

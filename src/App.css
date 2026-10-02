@@ -1,28 +1,33 @@
 @import "tailwindcss";
 
+/* Signal: ink on white, one grotesk (Geist) with a mono companion, and
+   orange reserved for one meaning: live audio. */
 @theme {
-  --color-text: #000000;
-  --color-text-secondary: #7c7c78;
-  --color-text-ai: #555550;
-  --color-background: #f8f6f3;
-  --color-background-sidebar: #edeae3;
-  --color-background-ui: #7a7a5f;
-  --color-accent: #5c5c42;
-  --color-accent-soft: #e7e5e0;
-  --color-border: rgba(0, 0, 0, 0.06);
-  --color-border-strong: rgba(0, 0, 0, 0.1);
-  --color-logo-primary: #7a7a5f;
-  --color-logo-stroke: #2c2c2c;
-  --color-text-stroke: #f8f6f3;
-  --color-mid-gray: #9c9c94;
-  --font-display: "Cabinet Grotesk", system-ui, sans-serif;
+  --color-text: #0a0a0a;
+  --color-text-secondary: #5c5c5c;
+  --color-text-ai: #737373;
+  --color-background: #ffffff;
+  --color-background-sidebar: #f7f7f7;
+  /* Fill for primary buttons. Text on it is white in both themes. */
+  --color-background-ui: #0a0a0a;
+  --color-accent: #0a0a0a;
+  --color-accent-soft: #ededed;
+  --color-border: #e6e6e6;
+  --color-border-strong: #d4d4d4;
+  --color-logo-primary: #0a0a0a;
+  --color-logo-stroke: #0a0a0a;
+  --color-text-stroke: #ffffff;
+  --color-mid-gray: #a3a3a3;
+  --color-live: #f36702;
+  --font-sans: "Geist Variable", -apple-system, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
+  /* Small uppercase labels (section headers) use the mono face. */
+  --font-display: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
 }
 
 :root {
   --font-size-base: 16px;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
-    system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: var(--font-size-base);
   line-height: 1.5;
   font-weight: 400;
@@ -48,19 +53,22 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-text: #e8e6e1;
-    --color-text-secondary: #9c9a93;
-    --color-text-ai: #b5b3ac;
-    --color-background: #2a2924;
-    --color-background-sidebar: #24231f;
-    --color-background-ui: #8b8b73;
-    --color-accent: #a3a38a;
-    --color-accent-soft: #393830;
-    --color-border: rgba(255, 255, 255, 0.06);
-    --color-border-strong: rgba(255, 255, 255, 0.1);
-    --color-logo-primary: #a3a38a;
-    --color-logo-stroke: #e8e6e1;
-    --color-mid-gray: #7c7a73;
+    --color-text: #ededed;
+    --color-text-secondary: #a1a1a1;
+    --color-text-ai: #8f8f8f;
+    --color-background: #0a0a0a;
+    --color-background-sidebar: #050505;
+    /* Raised grey, never inverted white. */
+    --color-background-ui: #232323;
+    --color-accent: #ededed;
+    --color-accent-soft: #1a1a1a;
+    --color-border: #262626;
+    --color-border-strong: #363636;
+    --color-logo-primary: #ededed;
+    --color-logo-stroke: #ededed;
+    --color-text-stroke: #0a0a0a;
+    --color-mid-gray: #5e5e5e;
+    --color-live: #ff7a1a;
   }
 }
 
@@ -70,30 +78,11 @@
   }
   .font-display {
     font-family: var(--font-display);
+    letter-spacing: 0.05em;
   }
   .animate-spin-slow {
     animation: spin 2s linear infinite;
   }
-}
-
-/* Subtle noise texture overlay */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.02;
-  z-index: 9999;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-}
-
-/* Sidebar gradient background */
-.sidebar-gradient {
-  background: linear-gradient(
-    180deg,
-    var(--color-background-sidebar) 0%,
-    color-mix(in srgb, var(--color-background-sidebar) 92%, black) 100%
-  );
 }
 
 .logo-primary {

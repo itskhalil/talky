@@ -359,7 +359,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   }, [isAddingFolder]);
 
   return (
-    <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar sidebar-gradient">
+    <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar">
       {/* macOS title bar drag region */}
       <div data-tauri-drag-region className="h-7 w-full shrink-0" />
       {/* Search + New Note buttons */}
