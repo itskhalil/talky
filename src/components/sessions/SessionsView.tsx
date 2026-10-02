@@ -102,6 +102,25 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
   });
+  // Below the auto-collapse width, the sidebar opens over the note instead of
+  // resizing the window, so Talky can keep sharing the screen with a call.
+  const [isNarrow, setIsNarrow] = useState(
+    () => window.innerWidth < AUTO_COLLAPSE_THRESHOLD,
+  );
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  useEffect(() => {
+    const onResize = () => {
+      const narrow = window.innerWidth < AUTO_COLLAPSE_THRESHOLD;
+      setIsNarrow(narrow);
+      if (!narrow) setOverlayOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  // Picking anything (a note, Home, a new note) closes the overlay.
+  useEffect(() => {
+    setOverlayOpen(false);
+  }, [selectedSessionId]);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
@@ -327,24 +346,56 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     <div className="relative flex h-full">
       <button
         onClick={() => {
-          if (sidebarCollapsed) {
+          if (isNarrow && sidebarCollapsed) {
+            setOverlayOpen((o) => !o);
+          } else if (sidebarCollapsed) {
             handleExpandSidebar();
           } else {
             wasAutoCollapsed.current = false;
             setSidebarCollapsed(true);
           }
         }}
-        className={`absolute top-0.5 ${buttonLeftClass} z-10 p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors`}
+        className={`absolute top-0.5 ${buttonLeftClass} z-[60] p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors`}
         title={t(
-          sidebarCollapsed ? "notes.expandSidebar" : "notes.collapseSidebar",
+          sidebarCollapsed && !overlayOpen
+            ? "notes.expandSidebar"
+            : "notes.collapseSidebar",
         )}
       >
-        {sidebarCollapsed ? (
+        {sidebarCollapsed && !overlayOpen ? (
           <PanelLeftOpen size={18} />
         ) : (
           <PanelLeftClose size={18} />
         )}
       </button>
+      {sidebarCollapsed && isNarrow && overlayOpen && (
+        <>
+          <div
+            className="absolute inset-0 z-40 bg-black/20"
+            onClick={() => setOverlayOpen(false)}
+          />
+          <div className="absolute left-0 top-0 bottom-0 z-50 w-[280px] shadow-xl">
+            <NotesSidebar
+              sessions={sessions}
+              selectedId={selectedSessionId}
+              recordingSessionId={isRecording ? recordingSessionId : null}
+              onSelect={(id) => {
+                selectSession(id);
+                setOverlayOpen(false);
+              }}
+              onNewNote={async () => {
+                await createNote();
+                setOverlayOpen(false);
+              }}
+              onDelete={deleteSession}
+              onOpenSettings={() => {
+                setOverlayOpen(false);
+                onOpenSettings();
+              }}
+            />
+          </div>
+        </>
+      )}
       {!sidebarCollapsed && (
         <>
           <div style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
