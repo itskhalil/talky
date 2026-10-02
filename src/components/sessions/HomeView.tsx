@@ -157,7 +157,7 @@ export function HomeView() {
         <button
           onClick={submit}
           disabled={!chat.input.trim()}
-          aria-label={t("chat.send")}
+          aria-label={t("sessions.chat.send")}
           className="w-[30px] h-[30px] shrink-0 flex items-center justify-center rounded-md bg-background-ui text-white border border-background-ui dark:border-border-strong disabled:opacity-40"
         >
           <ArrowUp size={15} strokeWidth={2.2} />

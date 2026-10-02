@@ -17,7 +17,7 @@ import {
   ChevronDown,
   Sparkles,
 } from "lucide-react";
-import type { SearchHit } from "@/bindings";
+import type { ModelEnvironment, SearchHit } from "@/bindings";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { useNoteUiIntentStore } from "@/stores/noteUiIntentStore";
@@ -26,6 +26,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { highlightMatches } from "@/utils/highlight";
+
+const NO_ENVIRONMENTS: ModelEnvironment[] = [];
 
 type DateRangeKey = "any" | "today" | "week" | "month" | "year";
 
@@ -203,9 +205,8 @@ export const CommandPalette: React.FC = () => {
   const selectedCache = useSessionStore((s) =>
     s.selectedSessionId ? s.cache[s.selectedSessionId] : undefined,
   );
-  const environments = useSettingsStore(
-    (s) => s.settings?.model_environments ?? [],
-  );
+  const environments =
+    useSettingsStore((s) => s.settings?.model_environments) ?? NO_ENVIRONMENTS;
   const defaultEnvId = useSettingsStore(
     (s) =>
       s.settings?.default_environment_id ??
