@@ -660,7 +660,15 @@
       "thinking": "Thinking...",
       "chatTab": "Chat",
       "transcriptTab": "Transcript",
-      "whatDidIMiss": "What did I miss?"
+      "whatDidIMiss": "What did I miss?",
+      "scopeNote": "This note",
+      "scopeAll": "All notes",
+      "scopeAllEnv": "All {{env}} notes",
+      "scopeMenu": "Choose what to ask about",
+      "placeholderNote": "Ask about this note…",
+      "placeholderAll": "Ask across your notes…",
+      "placeholderAllEnv": "Ask across {{env}} notes…",
+      "scopeFootnote": "Answered by the {{env}} model. Notes in other environments aren't visible here."
     },
     "attachments": {
       "add": "Add document",
@@ -696,7 +704,9 @@
       "pending": "No reply",
       "justYou": "Just you",
       "loadError": "Couldn't read the calendar"
-    }
+    },
+    "lengthMinutes_one": "{{count}} min",
+    "lengthMinutes_other": "{{count}} min"
   },
   "footer": {
     "downloadingModel": "Downloading {{model}}...",

@@ -1273,13 +1273,48 @@ export function NoteView({
     return userNotes;
   }, [userNotes]);
 
-  const chat = useGlobalChat({
-    currentNoteId: session?.id ?? "",
-    getCurrentTranscript: getTranscriptText,
-    getCurrentNotes: getUserNotesText,
-    environmentId: session?.environment_id,
-    filterEnvironmentId: session?.environment_id,
-  });
+  // Ask about this note, or across every note in this note's environment.
+  const [chatScope, setChatScope] = useState<"note" | "all">("note");
+  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
+  const scopeMenuRef = useRef<HTMLDivElement>(null);
+  const effectiveEnvId =
+    session?.environment_id ?? defaultEnvId ?? environments[0]?.id ?? null;
+  const chat = useGlobalChat(
+    chatScope === "note"
+      ? {
+          currentNoteId: session?.id ?? "",
+          getCurrentTranscript: getTranscriptText,
+          getCurrentNotes: getUserNotesText,
+          environmentId: session?.environment_id,
+          filterEnvironmentId: session?.environment_id,
+        }
+      : { environmentId: effectiveEnvId, filterEnvironmentId: effectiveEnvId },
+  );
+  const scopeLabel =
+    chatScope === "note"
+      ? t("sessions.chat.scopeNote")
+      : showEnvSelector && currentEnv
+        ? t("sessions.chat.scopeAllEnv", { env: currentEnv.name })
+        : t("sessions.chat.scopeAll");
+  const chooseScope = (scope: "note" | "all") => {
+    if (scope !== chatScope) chat.clearMessages();
+    setChatScope(scope);
+    setScopeMenuOpen(false);
+    chatInputRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!scopeMenuOpen) return;
+    const handle = (e: MouseEvent) => {
+      if (
+        scopeMenuRef.current &&
+        !scopeMenuRef.current.contains(e.target as Node)
+      )
+        setScopeMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [scopeMenuOpen]);
 
   useEffect(() => {
     if (panelOpen && panelMode === "chat") {
@@ -1392,7 +1427,7 @@ export function NoteView({
       </div>
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-2 pb-32 scroll-pb-24 w-full cursor-text select-text"
+        className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-2 pb-10 w-full cursor-text select-text"
       >
         {/* Editable title */}
         <div className="max-w-3xl mx-auto mb-4">
@@ -1412,18 +1447,26 @@ export function NoteView({
 
           {/* Metadata line: date, folder, tags, attachments, add buttons */}
           {session && (
-            <div className="flex items-center gap-x-5 gap-y-2 mt-1.5 flex-wrap text-xs text-text-secondary">
-              {/* Date + time */}
-              <span>
+            <div className="flex items-center gap-x-3 gap-y-2 mt-3 flex-wrap text-xs text-text-secondary">
+              {/* Date, time and length */}
+              <span className="font-mono">
                 {new Date(session.started_at * 1000).toLocaleDateString(
                   undefined,
-                  { month: "short", day: "numeric" },
+                  { weekday: "short", day: "numeric", month: "short" },
                 )}
                 {", "}
                 {new Date(session.started_at * 1000).toLocaleTimeString(
                   undefined,
-                  { hour: "numeric", minute: "2-digit" },
+                  { hour: "2-digit", minute: "2-digit", hour12: false },
                 )}
+                {session.ended_at &&
+                  session.ended_at > session.started_at &&
+                  ` · ${t("sessions.lengthMinutes", {
+                    count: Math.max(
+                      1,
+                      Math.round((session.ended_at - session.started_at) / 60),
+                    ),
+                  })}`}
               </span>
 
               {/* Who was in the meeting, from the calendar */}
@@ -1439,7 +1482,7 @@ export function NoteView({
                   <div ref={envDropdownRef} className="relative">
                     <button
                       onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
-                      className="flex items-center gap-1 rounded-md hover:text-text transition-colors"
+                      className="flex items-center gap-1 h-6 px-1.5 rounded-md border border-border hover:border-border-strong hover:text-text transition-colors"
                     >
                       <span
                         className="w-1.5 h-1.5 rounded-full"
@@ -1450,6 +1493,7 @@ export function NoteView({
                       <span>
                         {currentEnv?.name ?? t("sessions.environment")}
                       </span>
+                      <ChevronDown size={10} />
                     </button>
                     {envDropdownOpen && (
                       <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
@@ -1476,7 +1520,7 @@ export function NoteView({
               <div ref={folderDropdownRef} className="relative">
                 <button
                   onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-                  className="flex items-center gap-1 rounded-md hover:text-text transition-colors"
+                  className="flex items-center gap-1 h-6 px-1.5 rounded-md border border-border hover:border-border-strong hover:text-text transition-colors"
                 >
                   <FolderIcon
                     size={11}
@@ -1489,6 +1533,7 @@ export function NoteView({
                   <span>
                     {currentFolder?.name ?? t("notes.noFolder", "Notes")}
                   </span>
+                  <ChevronDown size={10} />
                 </button>
                 {folderDropdownOpen &&
                   (() => {
@@ -1723,7 +1768,7 @@ export function NoteView({
                   Re-enhance, since it's a post-enhancement move. */}
               {isSealed && (
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-text/5 border border-border-strong text-text-secondary cursor-default"
+                  className="inline-flex items-center gap-1 h-6 px-1.5 rounded-md bg-text/5 border border-border text-text-secondary cursor-default"
                   title={t("sessions.transcriptClearedPlaceholder", {
                     date: transcriptClearedDate,
                   })}
@@ -1817,9 +1862,10 @@ export function NoteView({
         </div>
       </div>
 
-      {/* Floating recording panel — always show for any note */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex gap-2 items-end">
-        <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
+      {/* The bar: record, transcript, ask. It sits in the page flow, so opening
+          the transcript shrinks the notes rather than covering them. */}
+      <div className="shrink-0 w-full max-w-3xl mx-auto px-4 pt-2 pb-4 flex gap-2 items-end">
+        <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.04),0_6px_20px_rgba(0,0,0,0.06)] overflow-hidden">
           {/* Expandable area — transcript or chat */}
           {panelOpen && (
             <div className="border-b border-border">
@@ -1827,13 +1873,13 @@ export function NoteView({
               <div className="flex items-center gap-1 px-4 pt-2 pb-1.5">
                 <button
                   onClick={() => setPanelMode("transcript")}
-                  className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                  className={`font-display text-[11px] uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
                 >
                   {t("sessions.chat.transcriptTab")}
                 </button>
                 <button
                   onClick={() => setPanelMode("chat")}
-                  className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${panelMode === "chat" ? "bg-text/8 text-text" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                  className={`font-display text-[11px] uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "chat" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
                 >
                   {t("sessions.chat.chatTab")}
                   {chat.messages.length > 0 && (
@@ -1946,7 +1992,7 @@ export function NoteView({
               {/* Panel content */}
               <div
                 ref={transcriptScrollRef}
-                className="max-h-64 overflow-y-auto px-5 pt-2 pb-2 select-text"
+                className="max-h-[38vh] overflow-y-auto px-5 pt-2 pb-2 select-text"
               >
                 {panelMode === "transcript" ? (
                   <>
@@ -1984,13 +2030,13 @@ export function NoteView({
                             <div key={seg.id} className="flex gap-3 text-xs">
                               <span
                                 data-ui
-                                className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums select-none"
+                                className="font-mono text-[11px] text-mid-gray shrink-0 pt-0.5 w-9 text-right select-none"
                               >
                                 {formatMs(seg.start_ms)}
                               </span>
                               <span
                                 data-ui
-                                className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
+                                className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-text font-medium" : "text-text-secondary"}`}
                               >
                                 {seg.source === "mic"
                                   ? t("sessions.sourceMe")
@@ -2107,9 +2153,76 @@ export function NoteView({
                   onFocus={() => {
                     chat.handleInputFocus();
                   }}
-                  placeholder={t("sessions.chat.placeholder")}
-                  className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary min-w-0"
+                  placeholder={
+                    chatScope === "note"
+                      ? t("sessions.chat.placeholderNote")
+                      : showEnvSelector && currentEnv
+                        ? t("sessions.chat.placeholderAllEnv", {
+                            env: currentEnv.name,
+                          })
+                        : t("sessions.chat.placeholderAll")
+                  }
+                  className="flex-1 text-[13px] bg-transparent outline-none placeholder:text-mid-gray min-w-0"
                 />
+                <div ref={scopeMenuRef} className="relative shrink-0">
+                  <button
+                    onClick={() => setScopeMenuOpen((o) => !o)}
+                    aria-label={t("sessions.chat.scopeMenu")}
+                    className={`flex items-center gap-1.5 h-7 px-2 rounded-md border text-xs text-text-secondary whitespace-nowrap transition-colors ${
+                      scopeMenuOpen
+                        ? "border-border-strong bg-accent/5"
+                        : "border-border hover:border-border-strong"
+                    }`}
+                  >
+                    {chatScope === "all" && showEnvSelector && currentEnv && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: currentEnv.color }}
+                      />
+                    )}
+                    <span>{scopeLabel}</span>
+                    <ChevronDown size={11} />
+                  </button>
+                  {scopeMenuOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 z-30 w-[290px] p-1 bg-background border border-border rounded-lg shadow-lg">
+                      {(["note", "all"] as const).map((scope) => (
+                        <button
+                          key={scope}
+                          onClick={() => chooseScope(scope)}
+                          className={`flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-[13px] text-text ${
+                            chatScope === scope
+                              ? "bg-accent/8"
+                              : "hover:bg-accent/5"
+                          }`}
+                        >
+                          {scope === "all" && showEnvSelector && currentEnv && (
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: currentEnv.color }}
+                            />
+                          )}
+                          <span className="flex-1">
+                            {scope === "note"
+                              ? t("sessions.chat.scopeNote")
+                              : showEnvSelector && currentEnv
+                                ? t("sessions.chat.scopeAllEnv", {
+                                    env: currentEnv.name,
+                                  })
+                                : t("sessions.chat.scopeAll")}
+                          </span>
+                          {chatScope === scope && <Check size={13} />}
+                        </button>
+                      ))}
+                      {showEnvSelector && currentEnv && (
+                        <p className="px-2.5 pt-2 pb-1.5 mt-1 border-t border-border text-xs leading-snug text-text-secondary">
+                          {t("sessions.chat.scopeFootnote", {
+                            env: currentEnv.name,
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {chat.isLoading ? (
                   <button
                     onClick={chat.stop}
@@ -2130,7 +2243,7 @@ export function NoteView({
                 {isRecording && hasTranscript && (
                   <button
                     onClick={handleWhatDidIMiss}
-                    className="px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent/10 transition-colors whitespace-nowrap shrink-0"
+                    className="h-7 px-2.5 text-xs text-text border border-border rounded-md hover:border-border-strong transition-colors whitespace-nowrap shrink-0"
                   >
                     {t("sessions.chat.whatDidIMiss")}
                   </button>
@@ -2155,7 +2268,7 @@ export function NoteView({
                 onClick={() => setShowClearTranscriptDialog(true)}
                 title={t("sessions.clearTranscript")}
                 aria-label={t("sessions.clearTranscript")}
-                className="group/clear relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-2xl shadow-sm text-xs font-medium shrink-0 bg-background text-text-secondary hover:text-text hover:bg-accent-soft focus:text-text focus:bg-accent-soft border border-border-strong transition-all duration-200"
+                className="group/clear relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-lg shadow-sm text-xs font-medium shrink-0 bg-background text-text-secondary hover:text-text hover:bg-accent-soft focus:text-text focus:bg-accent-soft border border-border-strong transition-all duration-200"
               >
                 <Lock size={14} className="shrink-0" />
                 <span className="whitespace-nowrap overflow-hidden max-w-0 mr-0 group-hover/clear:max-w-[200px] group-hover/clear:mr-1.5 group-focus/clear:max-w-[200px] group-focus/clear:mr-1.5 transition-all duration-200 ease-linear delay-150 group-hover/cluster:delay-0 group-focus-within/cluster:delay-0">
@@ -2193,8 +2306,8 @@ export function NoteView({
               }
               className={
                 enhancedNotes
-                  ? "group/reenhance relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-2xl shadow-sm text-xs font-medium shrink-0 bg-background text-accent hover:bg-accent-soft focus:bg-accent-soft border border-border-strong transition-all duration-200"
-                  : "flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 bg-background-ui text-white hover:bg-background-ui/90"
+                  ? "group/reenhance relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-lg shadow-sm text-xs font-medium shrink-0 bg-background text-accent hover:bg-accent-soft focus:bg-accent-soft border border-border-strong transition-all duration-200"
+                  : "flex items-center gap-1.5 px-4 h-[50px] rounded-lg shadow-sm transition-colors text-xs font-medium shrink-0 bg-background-ui text-white hover:bg-background-ui/90"
               }
             >
               <Sparkles size={14} className="shrink-0" />
