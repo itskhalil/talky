@@ -41,6 +41,15 @@
     "quit": "Quit"
   },
   "sidebar": {
+    "general": "General",
+    "sessions": "Notes",
+    "advanced": "Advanced",
+    "postProcessing": "Post Process",
+    "history": "History",
+    "debug": "Debug",
+    "keyboard": "Shortcuts",
+    "about": "About",
+    "chat": "Chat",
     "home": "Home",
     "newNote": "New note",
     "settings": "Settings",
