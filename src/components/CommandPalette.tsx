@@ -117,7 +117,7 @@ const FilterChip: React.FC<FilterChipProps> = ({
   onClear,
 }) => (
   <span
-    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 cursor-pointer transition-colors ${
+    className={`inline-flex items-center gap-1 h-6 rounded-md border px-2 cursor-pointer transition-colors ${
       active
         ? "border-accent/40 bg-accent/10 text-text"
         : "border-border text-text-secondary hover:border-border-strong"
@@ -161,7 +161,7 @@ const ChipDropdown: React.FC<ChipDropdownProps> = ({ onClose, children }) => {
   return (
     <div
       ref={ref}
-      className="absolute left-3 top-full z-10 mt-1 min-w-[180px] max-h-[240px] overflow-y-auto rounded-md border border-border bg-background shadow-lg py-1"
+      className="absolute left-3 top-full z-10 mt-1 min-w-[180px] max-h-[240px] overflow-y-auto rounded-lg border border-border bg-background shadow-lg p-1"
     >
       {children}
     </div>
@@ -185,7 +185,7 @@ const ChipDropdownItem: React.FC<ChipDropdownItemProps> = ({
       e.stopPropagation();
       onSelect();
     }}
-    className={`flex w-full items-center px-3 py-1.5 text-left text-xs ${
+    className={`flex w-full items-center h-[30px] px-2.5 rounded-md text-left text-[13px] ${
       active ? "bg-accent/10 text-text" : "text-text hover:bg-accent/5"
     }`}
   >
@@ -513,15 +513,15 @@ export const CommandPalette: React.FC = () => {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/30"
+        className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/25"
         onMouseDown={close}
       >
         <div
-          className="w-[560px] max-w-[90vw] bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
+          className="w-[560px] max-w-[90vw] bg-background border border-border rounded-lg shadow-2xl overflow-hidden"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
-            <Search size={14} className="text-text-secondary shrink-0" />
+          <div className="flex items-center gap-2.5 h-12 px-4 border-b border-border">
+            <Search size={15} className="text-mid-gray shrink-0" />
             <input
               ref={inputRef}
               type="text"
@@ -529,10 +529,10 @@ export const CommandPalette: React.FC = () => {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t("palette.placeholder")}
-              className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-text-secondary"
+              className="flex-1 bg-transparent outline-none text-[15px] text-text placeholder:text-mid-gray"
             />
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border text-xs relative flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border text-xs relative flex-wrap">
             <FilterChip
               icon={<FolderIcon size={12} />}
               label={folderName ?? t("palette.filters.folder.any")}
@@ -645,11 +645,11 @@ export const CommandPalette: React.FC = () => {
               </ChipDropdown>
             )}
 
-            <div className="ml-auto text-[10px] text-text-secondary">
+            <div className="ml-auto font-display text-[10px] uppercase text-mid-gray">
               {t("palette.filters.searchingHint")}
             </div>
           </div>
-          <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
+          <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-1">
             {results.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-text-secondary">
                 {t("palette.empty")}
@@ -657,7 +657,7 @@ export const CommandPalette: React.FC = () => {
             ) : (
               <>
                 {showingCommandsHeader && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-[10px] uppercase text-mid-gray">
                     {t("palette.sections.commands")}
                   </div>
                 )}
@@ -673,8 +673,8 @@ export const CommandPalette: React.FC = () => {
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm text-left transition-colors ${
-                          isActive ? "bg-accent/10 text-text" : "text-text"
+                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-[13px] text-left transition-colors ${
+                          isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
                         <span className="text-text-secondary shrink-0">
@@ -685,7 +685,7 @@ export const CommandPalette: React.FC = () => {
                     );
                   })}
                 {showingNotesHeader && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-[10px] uppercase text-mid-gray">
                     {t("palette.sections.notes")}
                   </div>
                 )}
@@ -711,8 +711,8 @@ export const CommandPalette: React.FC = () => {
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-start gap-2.5 w-full px-3 py-2 text-sm text-left transition-colors ${
-                          isActive ? "bg-accent/10 text-text" : "text-text"
+                        className={`flex items-start gap-2.5 w-full px-2.5 py-2 rounded-md text-[13px] text-left transition-colors ${
+                          isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
                         <span className="text-text-secondary shrink-0 mt-0.5">
@@ -724,7 +724,7 @@ export const CommandPalette: React.FC = () => {
                               {highlightMatches(note.title, q)}
                             </span>
                             {badge && (
-                              <span className="shrink-0 rounded-sm bg-border/60 px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+                              <span className="shrink-0 rounded border border-border px-1.5 py-px font-display text-[10px] uppercase text-text-secondary">
                                 {badge}
                               </span>
                             )}
@@ -739,7 +739,7 @@ export const CommandPalette: React.FC = () => {
                     );
                   })}
                 {results.some((r) => r.kind === "ask") && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-[10px] uppercase text-mid-gray">
                     {t("palette.sections.ask")}
                   </div>
                 )}
@@ -755,8 +755,8 @@ export const CommandPalette: React.FC = () => {
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm text-left transition-colors ${
-                          isActive ? "bg-accent/10 text-text" : "text-text"
+                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-[13px] text-left transition-colors ${
+                          isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
                         <span className="text-text-secondary shrink-0">
