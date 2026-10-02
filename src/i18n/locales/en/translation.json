@@ -725,10 +725,11 @@
       "create": "Create “{{name}}”",
       "addFolder": "Folder",
       "addTag": "Tag",
-      "folderPlaceholder": "Move to folder…",
-      "tagPlaceholder": "Add tags…",
+      "folderPlaceholder": "Move to…",
+      "tagPlaceholder": "Add or create…",
       "removeFromFolder": "Remove from folder",
-      "removeTag": "Remove tag"
+      "removeTag": "Remove tag",
+      "tags": "Tags"
     },
     "viewNotes": "Notes",
     "viewEnhanced": "Enhanced",

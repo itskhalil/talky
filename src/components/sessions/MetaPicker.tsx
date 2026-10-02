@@ -13,6 +13,8 @@ interface MetaPickerProps {
   selectedIds: string[];
   /** Tags stay open and toggle; a folder is one choice and closes. */
   multi: boolean;
+  /** Mono caps label in the search row: "FOLDER", "TAGS". */
+  label: string;
   placeholder: string;
   onPick: (id: string) => void;
   onCreate: (name: string) => void;
@@ -37,6 +39,7 @@ export function MetaPicker({
   items,
   selectedIds,
   multi,
+  label,
   placeholder,
   onPick,
   onCreate,
@@ -98,36 +101,41 @@ export function MetaPicker({
   return (
     <div
       ref={rootRef}
-      className="absolute top-full left-0 mt-1 z-30 w-[240px] bg-background border border-border rounded-lg shadow-lg"
+      className="absolute top-full left-0 mt-1 z-30 w-[240px] bg-background border border-border-strong rounded-lg shadow-lg"
     >
-      <input
-        ref={inputRef}
-        type="text"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setActive(0);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
-            setActive((i) => (rows.length ? (i + 1) % rows.length : 0));
-          } else if (e.key === "ArrowUp") {
-            e.preventDefault();
-            setActive((i) =>
-              rows.length ? (i - 1 + rows.length) % rows.length : 0,
-            );
-          } else if (e.key === "Enter") {
-            e.preventDefault();
-            choose(rows[bounded]);
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            onClose();
-          }
-        }}
-        placeholder={placeholder}
-        className="w-full h-9 px-3 text-ui bg-transparent border-b border-border text-text placeholder:text-mid-gray focus:outline-none"
-      />
+      <div className="flex items-center gap-2 h-9 px-3 border-b border-border">
+        <span className="shrink-0 font-display text-label uppercase text-mid-gray">
+          {label}
+        </span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActive((i) => (rows.length ? (i + 1) % rows.length : 0));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActive((i) =>
+                rows.length ? (i - 1 + rows.length) % rows.length : 0,
+              );
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              choose(rows[bounded]);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              onClose();
+            }
+          }}
+          placeholder={placeholder}
+          className="flex-1 min-w-0 h-full text-ui bg-transparent text-text placeholder:text-mid-gray focus:outline-none"
+        />
+      </div>
       <div className="max-h-[240px] overflow-y-auto p-1">
         {rows.map((row, i) => {
           const isActive = i === bounded;

@@ -37,7 +37,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
     <div className="flex flex-col h-screen ground">
       {/* Drag region for window dragging; the traffic lights sit on the ground */}
       <div data-tauri-drag-region className="h-9 w-full shrink-0" />
-      <div className="flex-1 min-h-0 mx-2 mb-2 flex flex-col bg-background border border-border rounded-md overflow-hidden">
+      <div className="flex-1 min-h-0 mx-2 mb-2 flex flex-col bg-background border border-border rounded-lg overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 h-12 shrink-0 border-b border-border">
           <button

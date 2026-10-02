@@ -1426,7 +1426,7 @@ export function NoteView({
           collapsed) sit here, so the panel below never moves. */}
       <div data-tauri-drag-region className="h-8 shrink-0" />
       {/* The note itself: a framed panel on the ground */}
-      <div className="flex-1 min-h-0 flex flex-col relative mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-md overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col relative mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-lg overflow-hidden">
         {/* Panel header: the note's own controls */}
         <div
           data-tauri-drag-region
@@ -1496,7 +1496,7 @@ export function NoteView({
               <MoreHorizontal size={15} />
             </button>
             {moreMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border rounded-lg shadow-lg">
+              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border-strong rounded-lg shadow-lg">
                 <button
                   onClick={() => {
                     setMoreMenuOpen(false);
@@ -1547,7 +1547,7 @@ export function NoteView({
         )}
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-10 pb-10 w-full cursor-text select-text"
+          className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-6 pb-10 w-full cursor-text select-text"
         >
           {/* Editable title */}
           <div className="max-w-3xl mx-auto mb-4">
@@ -1588,7 +1588,7 @@ export function NoteView({
                       <ChevronDown size={11} className="text-text-secondary" />
                     </button>
                     {envDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-30 min-w-[160px] p-1">
+                      <div className="absolute top-full left-0 mt-1 bg-background border border-border-strong rounded-lg shadow-lg z-30 min-w-[160px] p-1">
                         {environments.map((env) => (
                           <button
                             key={env.id}
@@ -1645,6 +1645,7 @@ export function NoteView({
                       }))}
                       selectedIds={localFolderId ? [localFolderId] : []}
                       multi={false}
+                      label={t("sessions.meta.folder")}
                       placeholder={t("sessions.meta.folderPlaceholder")}
                       onPick={(id) => void handleFolderSelect(id)}
                       onCreate={(name) => void handleCreateFolder(name)}
@@ -1708,6 +1709,7 @@ export function NoteView({
                       }))}
                       selectedIds={sessionTags.map((st) => st.id)}
                       multi
+                      label={t("sessions.meta.tags")}
                       placeholder={t("sessions.meta.tagPlaceholder")}
                       onPick={(id) =>
                         void (sessionTags.some((st) => st.id === id)
@@ -2174,7 +2176,7 @@ export function NoteView({
                       <ChevronDown size={11} />
                     </button>
                     {scopeMenuOpen && (
-                      <div className="absolute bottom-full right-0 mb-2 z-30 w-[290px] p-1 bg-background border border-border rounded-lg shadow-lg">
+                      <div className="absolute bottom-full right-0 mb-2 z-30 w-[290px] p-1 bg-background border border-border-strong rounded-lg shadow-lg">
                         {(["note", "all"] as const).map((scope) => (
                           <button
                             key={scope}

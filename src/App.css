@@ -22,6 +22,15 @@
   /* The window ground the note panel sits on, with a faint dot grid. */
   --color-ground: #f3f3f1;
   --color-grid: #dededa;
+  /* Corners: near-square, like instrument panels. Controls 3px, panels and
+     popovers 4px; nothing is pill-shaped except dots. */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  /* Popovers: a crisp hairline and a short shadow, not a soft float. */
+  --shadow-lg: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
   /* Type scale: six steps, all rem so the Font size setting scales them.
      label 11 (mono caps) · xs 12 (meta) · ui 13 (controls, menus, rows)
      sm 14 (body) · base 16 (headings, dialog titles) · title 30 (pages). */

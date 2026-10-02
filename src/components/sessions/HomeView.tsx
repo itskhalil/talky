@@ -105,7 +105,7 @@ export function HomeView() {
         <ChevronDown size={11} />
       </button>
       {envMenuOpen && (
-        <div className="absolute bottom-full right-0 mb-1 z-20 min-w-[180px] p-1 bg-background border border-border rounded-lg shadow-lg">
+        <div className="absolute bottom-full right-0 mb-1 z-20 min-w-[180px] p-1 bg-background border border-border-strong rounded-lg shadow-lg">
           {environments.map((e) => (
             <button
               key={e.id}
@@ -169,7 +169,7 @@ export function HomeView() {
   return (
     <div className="flex flex-col h-full">
       <div data-tauri-drag-region className="h-8 shrink-0" />
-      <div className="flex-1 min-h-0 flex flex-col mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-md overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-lg overflow-hidden">
         <div className="h-10 shrink-0 flex items-center px-4 border-b border-border">
           <span className="font-display text-label uppercase text-text-secondary">
             {t("sidebar.home")}

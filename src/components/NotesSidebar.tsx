@@ -500,7 +500,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
         )}
 
         {menuOpen && (
-          <div className="absolute left-2 top-8 z-30 w-[250px] p-1 bg-background border border-border rounded-lg shadow-lg flex flex-col gap-px">
+          <div className="absolute left-2 top-8 z-30 w-[250px] p-1 bg-background border border-border-strong rounded-lg shadow-lg flex flex-col gap-px">
             {menuRow(
               "all",
               t("sidebar.allNotes"),

@@ -172,7 +172,7 @@ export const MeetingChip: React.FC<MeetingChipProps> = ({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[240px] max-w-[320px] py-1">
+        <div className="absolute top-full left-0 mt-1 bg-background border border-border-strong rounded-lg shadow-lg z-20 min-w-[240px] max-w-[320px] py-1">
           {picking || !meeting ? (
             <>
               <div className="px-3 py-1.5 text-xs text-text-secondary">
