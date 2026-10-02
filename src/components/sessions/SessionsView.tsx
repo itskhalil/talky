@@ -343,7 +343,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const buttonLeftClass = osType === "macos" ? "left-[78px]" : "left-2";
 
   return (
-    <div className="relative flex h-full">
+    <div className="relative flex h-full ground">
       <button
         onClick={() => {
           if (isNarrow && sidebarCollapsed) {
@@ -374,7 +374,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             className="absolute inset-0 z-40 bg-black/20"
             onClick={() => setOverlayOpen(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 z-50 w-[280px] shadow-xl">
+          <div className="absolute left-0 top-0 bottom-0 z-50 w-[280px] shadow-xl ground border-r border-border">
             <NotesSidebar
               sessions={sessions}
               selectedId={selectedSessionId}
@@ -411,51 +411,57 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           </div>
           {/* Drag handle */}
           <div
-            className="w-1 cursor-col-resize hover:bg-accent/20 active:bg-accent/30 transition-colors shrink-0"
+            className="w-1.5 cursor-col-resize shrink-0"
             onMouseDown={handleDragStart}
             onDoubleClick={handleDragDoubleClick}
           />
         </>
       )}
-      <div className="flex-1 overflow-hidden">
-        {selectedSessionId ? (
-          <NoteView
-            key={selectedSessionId}
-            session={session}
-            isRecording={isSelectedRecording}
-            amplitude={amplitude}
-            transcript={transcript}
-            userNotes={userNotes}
-            notesLoaded={notesLoaded || !!selectedCache}
-            summary={summary}
-            summaryLoading={summaryLoading}
-            summaryError={summaryError}
-            onNotesChange={setUserNotes}
-            onEnhancedNotesChange={setEnhancedNotes}
-            onTitleChange={updateTitle}
-            onStartRecording={() => startRecording(selectedSessionId)}
-            onStopRecording={stopRecording}
-            onGenerateSummary={generateSummary}
-            enhancedNotes={enhancedNotes}
-            enhancedNotesEdited={selectedCache?.enhancedNotesEdited ?? false}
-            showEnhancePrompt={showEnhancePrompt}
-            onEnhanceNotes={enhanceNotes}
-            onDismissEnhancePrompt={() =>
-              dismissEnhancePrompt(selectedSessionId)
-            }
-            enhanceLoading={enhanceLoading}
-            enhanceError={enhanceError}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            findBarOpen={findBarOpen}
-            showReplace={showReplace}
-            onCloseFindBar={closeFindBar}
-            streamingEnhancedNotes={streamingEnhancedNotes}
-            enhanceStreaming={enhanceStreaming}
-          />
-        ) : (
-          <HomeView />
-        )}
+      {/* The note (or Home) sits in a framed panel on the ground. Collapsed,
+          the panel drops below the traffic lights. */}
+      <div
+        className={`flex-1 overflow-hidden pr-2 pb-2 ${sidebarCollapsed ? "pl-2 pt-9" : "pt-2"}`}
+      >
+        <div className="h-full bg-background border border-border rounded-md overflow-hidden">
+          {selectedSessionId ? (
+            <NoteView
+              key={selectedSessionId}
+              session={session}
+              isRecording={isSelectedRecording}
+              amplitude={amplitude}
+              transcript={transcript}
+              userNotes={userNotes}
+              notesLoaded={notesLoaded || !!selectedCache}
+              summary={summary}
+              summaryLoading={summaryLoading}
+              summaryError={summaryError}
+              onNotesChange={setUserNotes}
+              onEnhancedNotesChange={setEnhancedNotes}
+              onTitleChange={updateTitle}
+              onStartRecording={() => startRecording(selectedSessionId)}
+              onStopRecording={stopRecording}
+              onGenerateSummary={generateSummary}
+              enhancedNotes={enhancedNotes}
+              enhancedNotesEdited={selectedCache?.enhancedNotesEdited ?? false}
+              showEnhancePrompt={showEnhancePrompt}
+              onEnhanceNotes={enhanceNotes}
+              onDismissEnhancePrompt={() =>
+                dismissEnhancePrompt(selectedSessionId)
+              }
+              enhanceLoading={enhanceLoading}
+              enhanceError={enhanceError}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              findBarOpen={findBarOpen}
+              showReplace={showReplace}
+              onCloseFindBar={closeFindBar}
+              streamingEnhancedNotes={streamingEnhancedNotes}
+              enhanceStreaming={enhanceStreaming}
+            />
+          ) : (
+            <HomeView />
+          )}
+        </div>
       </div>
 
       <ExportDialog

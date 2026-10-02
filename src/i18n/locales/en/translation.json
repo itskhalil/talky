@@ -614,7 +614,7 @@
     "notesPlaceholder": "Type your notes here...",
     "notesTab": "Notes",
     "transcriptTab": "Transcript",
-    "startRecording": "Start Recording",
+    "startRecording": "Record",
     "stopRecording": "Stop Recording",
     "resumeRecording": "Resume",
     "recording": "Recording",
@@ -715,7 +715,15 @@
       "loadError": "Couldn't read the calendar"
     },
     "lengthMinutes_one": "{{count}} min",
-    "lengthMinutes_other": "{{count}} min"
+    "lengthMinutes_other": "{{count}} min",
+    "meta": {
+      "date": "Date",
+      "environment": "Environment",
+      "folder": "Folder"
+    },
+    "viewNotes": "Notes",
+    "viewEnhanced": "Enhanced",
+    "moreActions": "More actions"
   },
   "footer": {
     "downloadingModel": "Downloading {{model}}...",

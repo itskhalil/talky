@@ -21,6 +21,9 @@ import {
   Search,
   Paperclip,
   Lock,
+  ArrowUp,
+  MoreHorizontal,
+  AlignLeft,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
@@ -1273,6 +1276,43 @@ export function NoteView({
     return userNotes;
   }, [userNotes]);
 
+  // Elapsed time of the current recording run, shown next to the live dot.
+  const [recordingSince, setRecordingSince] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isRecording) {
+      setRecordingSince(null);
+      return;
+    }
+    setRecordingSince((since) => since ?? Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isRecording]);
+  const elapsedLabel = (() => {
+    const secs = recordingSince
+      ? Math.max(0, Math.floor((now - recordingSince) / 1000))
+      : 0;
+    const m = Math.floor(secs / 60);
+    const sec = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  })();
+
+  // Rare, post-meeting actions live in the header's ⋯ menu.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handle = (e: MouseEvent) => {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      )
+        setMoreMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [moreMenuOpen]);
+
   // Ask about this note, or across every note in this note's environment.
   const [chatScope, setChatScope] = useState<"note" | "all">("note");
   const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
@@ -1348,6 +1388,21 @@ export function NoteView({
   }, [chat]);
 
   const hasTranscript = transcript.length > 0;
+  // Enhance is the one obvious next step after a meeting, so it lives in the bar.
+  const canEnhanceFirst =
+    !isRecording &&
+    hasTranscript &&
+    !enhanceLoading &&
+    !enhanceStreaming &&
+    !isSealed &&
+    !enhancedNotes;
+  const canReenhance =
+    !isRecording &&
+    hasTranscript &&
+    !enhanceLoading &&
+    !enhanceStreaming &&
+    !isSealed &&
+    !!enhancedNotes;
   const hasEnhanced =
     enhancedNotes != null ||
     enhanceLoading ||
@@ -1364,10 +1419,102 @@ export function NoteView({
           </div>
         </div>
       )}
-      {/* macOS title bar drag region */}
-      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
+      {/* Panel header: where the note lives, and view controls */}
+      <div
+        data-tauri-drag-region
+        className="h-10 shrink-0 flex items-center gap-2 pl-4 pr-2 border-b border-border"
+      >
+        <span
+          data-tauri-drag-region
+          className="font-display text-[11px] uppercase text-text-secondary truncate"
+        >
+          {currentFolder?.name ?? t("sidebar.allNotes")}
+        </span>
+        <span data-tauri-drag-region className="flex-1 self-stretch" />
+        {hasEnhanced && (
+          <div className="flex p-0.5 rounded-md border border-border">
+            <button
+              onClick={() => onViewModeChange("notes")}
+              className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "notes" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
+              title={t("sessions.yourNotes")}
+            >
+              {t("sessions.viewNotes")}
+            </button>
+            <button
+              onClick={() => onViewModeChange("enhanced")}
+              className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "enhanced" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
+              title={t("sessions.enhancedNotes")}
+            >
+              {t("sessions.viewEnhanced")}
+            </button>
+          </div>
+        )}
+        <button
+          onClick={handleCopyNotes}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+          title={t("sessions.copyNotes")}
+          aria-label={t("sessions.copyNotes")}
+        >
+          {notesCopied ? <Check size={15} /> : <Copy size={15} />}
+        </button>
+        {(canReenhance || canClearTranscript) && (
+          <div ref={moreMenuRef} className="relative">
+            <button
+              onClick={() => setMoreMenuOpen((o) => !o)}
+              aria-label={t("sessions.moreActions")}
+              title={t("sessions.moreActions")}
+              className={`w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors ${moreMenuOpen ? "bg-accent/8 text-text" : ""}`}
+            >
+              <MoreHorizontal size={15} />
+            </button>
+            {moreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border rounded-lg shadow-lg">
+                {canReenhance && (
+                  <button
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      if (enhancedNotesEdited) {
+                        setShowReenhanceWarning(true);
+                      } else {
+                        onDismissEnhancePrompt();
+                        onEnhanceNotes();
+                      }
+                    }}
+                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-[13px] text-text hover:bg-accent/5"
+                  >
+                    <Sparkles size={13} className="text-text-secondary" />
+                    {t("sessions.reenhance")}
+                  </button>
+                )}
+                {canClearTranscript && (
+                  <button
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      setShowClearTranscriptDialog(true);
+                    }}
+                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-[13px] text-text hover:bg-accent/5"
+                  >
+                    <Lock size={13} className="text-text-secondary" />
+                    {t("sessions.clearTranscript")}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {copyAsBulletsEnabled && (
+          <button
+            onClick={handleCopyAsBullets}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+            title={t("sessions.copyAsBullets")}
+            aria-label={t("sessions.copyAsBullets")}
+          >
+            {bulletsCopied ? <Check size={15} /> : <List size={15} />}
+          </button>
+        )}
+      </div>
       {findBarOpen && onCloseFindBar && (
-        <div className="absolute top-8 right-4 z-20 w-80">
+        <div className="absolute top-12 right-4 z-20 w-80">
           <FindBar
             editor={activeEditor}
             onClose={onCloseFindBar}
@@ -1376,58 +1523,9 @@ export function NoteView({
           />
         </div>
       )}
-      {/* Pinned toggle + copy controls */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex justify-end pointer-events-none z-10">
-        <div className="flex items-center gap-1.5 pointer-events-auto">
-          {hasEnhanced && (
-            <div className="flex bg-background-sidebar rounded-lg p-0.5">
-              <button
-                onClick={() => onViewModeChange("enhanced")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                title={t("sessions.enhancedNotes")}
-              >
-                <Sparkles size={16} />
-              </button>
-              <button
-                onClick={() => onViewModeChange("notes")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                title={t("sessions.yourNotes")}
-              >
-                <PenLine size={16} />
-              </button>
-            </div>
-          )}
-          <div className="flex items-center bg-background-sidebar rounded-lg p-0.5">
-            <button
-              onClick={handleCopyNotes}
-              className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-              title={t("sessions.copyNotes")}
-            >
-              {notesCopied ? (
-                <Check size={16} className="text-green-500" />
-              ) : (
-                <Copy size={16} />
-              )}
-            </button>
-            {copyAsBulletsEnabled && (
-              <button
-                onClick={handleCopyAsBullets}
-                className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-                title={t("sessions.copyAsBullets")}
-              >
-                {bulletsCopied ? (
-                  <Check size={16} className="text-green-500" />
-                ) : (
-                  <List size={16} />
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-2 pb-10 w-full cursor-text select-text"
+        className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-8 pb-10 w-full cursor-text select-text"
       >
         {/* Editable title */}
         <div className="max-w-3xl mx-auto mb-4">
@@ -1448,26 +1546,206 @@ export function NoteView({
           {/* Metadata line: date, folder, tags, attachments, add buttons */}
           {session && (
             <div className="flex items-center gap-x-3 gap-y-2 mt-3 flex-wrap text-xs text-text-secondary">
-              {/* Date, time and length */}
-              <span className="font-mono">
-                {new Date(session.started_at * 1000).toLocaleDateString(
-                  undefined,
-                  { weekday: "short", day: "numeric", month: "short" },
+              {/* Record strip: date, environment, folder */}
+              <div className="inline-flex items-stretch h-8 rounded-md border border-border divide-x divide-border">
+                <div className="flex items-center gap-2 px-2.5">
+                  <span className="font-display text-[10px] uppercase text-mid-gray">
+                    {t("sessions.meta.date")}
+                  </span>
+                  <span className="font-mono text-text">
+                    {new Date(session.started_at * 1000).toLocaleDateString(
+                      undefined,
+                      { weekday: "short", day: "numeric", month: "short" },
+                    )}
+                    {", "}
+                    {new Date(session.started_at * 1000).toLocaleTimeString(
+                      undefined,
+                      { hour: "2-digit", minute: "2-digit", hour12: false },
+                    )}
+                    {session.ended_at &&
+                      session.ended_at > session.started_at &&
+                      ` · ${t("sessions.lengthMinutes", {
+                        count: Math.max(
+                          1,
+                          Math.round(
+                            (session.ended_at - session.started_at) / 60,
+                          ),
+                        ),
+                      })}`}
+                  </span>
+                </div>
+
+                {/* Environment selector - only show if 2+ environments */}
+                {showEnvSelector && (
+                  <>
+                    <div ref={envDropdownRef} className="relative h-full">
+                      <button
+                        onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
+                        className="flex items-center gap-1.5 h-full px-2.5 hover:bg-accent/5 hover:text-text transition-colors"
+                      >
+                        <span className="font-display text-[10px] uppercase text-mid-gray">
+                          {t("sessions.meta.environment")}
+                        </span>
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{
+                            backgroundColor: currentEnv?.color || "#6b7280",
+                          }}
+                        />
+                        <span>
+                          {currentEnv?.name ?? t("sessions.environment")}
+                        </span>
+                        <ChevronDown size={10} />
+                      </button>
+                      {envDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+                          {environments.map((env) => (
+                            <button
+                              key={env.id}
+                              onClick={() => handleEnvSelect(env.id)}
+                              className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
+                            >
+                              <span
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: env.color }}
+                              />
+                              {env.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
-                {", "}
-                {new Date(session.started_at * 1000).toLocaleTimeString(
-                  undefined,
-                  { hour: "2-digit", minute: "2-digit", hour12: false },
-                )}
-                {session.ended_at &&
-                  session.ended_at > session.started_at &&
-                  ` · ${t("sessions.lengthMinutes", {
-                    count: Math.max(
-                      1,
-                      Math.round((session.ended_at - session.started_at) / 60),
-                    ),
-                  })}`}
-              </span>
+
+                {/* Folder selector */}
+                <div ref={folderDropdownRef} className="relative h-full">
+                  <button
+                    onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
+                    className="flex items-center gap-1.5 h-full px-2.5 hover:bg-accent/5 hover:text-text transition-colors"
+                  >
+                    <span className="font-display text-[10px] uppercase text-mid-gray">
+                      {t("sessions.meta.folder")}
+                    </span>
+                    <FolderIcon
+                      size={11}
+                      style={
+                        currentFolder?.color
+                          ? { color: currentFolder.color }
+                          : undefined
+                      }
+                    />
+                    <span>
+                      {currentFolder?.name ?? t("notes.noFolder", "Notes")}
+                    </span>
+                    <ChevronDown size={10} />
+                  </button>
+                  {folderDropdownOpen &&
+                    (() => {
+                      const q = folderFilter.trim().toLowerCase();
+                      const filteredFolders = q
+                        ? folders.filter((f) =>
+                            f.name.toLowerCase().includes(q),
+                          )
+                        : folders;
+                      const noFolderLabel = t("notes.noFolder", "Notes");
+                      const showNoFolder =
+                        !q || noFolderLabel.toLowerCase().includes(q);
+                      type Option = {
+                        id: string | null;
+                        label: string;
+                        color?: string | null;
+                      };
+                      const options: Option[] = [];
+                      if (showNoFolder) {
+                        options.push({ id: null, label: noFolderLabel });
+                      }
+                      for (const f of filteredFolders) {
+                        options.push({
+                          id: f.id,
+                          label: f.name,
+                          color: f.color,
+                        });
+                      }
+                      const boundedIndex = Math.min(
+                        activeFolderIndex,
+                        Math.max(0, options.length - 1),
+                      );
+                      return (
+                        <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
+                          <input
+                            ref={folderFilterInputRef}
+                            type="text"
+                            value={folderFilter}
+                            onChange={(e) => {
+                              setFolderFilter(e.target.value);
+                              setActiveFolderIndex(0);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setActiveFolderIndex((i) =>
+                                  options.length === 0
+                                    ? 0
+                                    : (i + 1) % options.length,
+                                );
+                              } else if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setActiveFolderIndex((i) =>
+                                  options.length === 0
+                                    ? 0
+                                    : (i - 1 + options.length) % options.length,
+                                );
+                              } else if (e.key === "Enter") {
+                                e.preventDefault();
+                                const pick = options[boundedIndex];
+                                if (pick) handleFolderSelect(pick.id);
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                setFolderDropdownOpen(false);
+                              }
+                            }}
+                            placeholder={t(
+                              "notes.folderFilterPlaceholder",
+                              "Filter folders",
+                            )}
+                            className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
+                          />
+                          {options.map((opt, i) => {
+                            const isActive = i === boundedIndex;
+                            return (
+                              <button
+                                key={opt.id ?? "__none__"}
+                                onMouseEnter={() => setActiveFolderIndex(i)}
+                                onClick={() => handleFolderSelect(opt.id)}
+                                className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
+                                  isActive ? "bg-accent/10" : ""
+                                }`}
+                              >
+                                {opt.id !== null && (
+                                  <FolderIcon
+                                    size={12}
+                                    style={
+                                      opt.color
+                                        ? { color: opt.color }
+                                        : undefined
+                                    }
+                                  />
+                                )}
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                          {options.length === 0 && (
+                            <div className="px-3 py-1.5 text-xs text-text-secondary">
+                              {t("palette.empty")}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                </div>
+              </div>
 
               {/* Who was in the meeting, from the calendar */}
               <MeetingChip
@@ -1475,163 +1753,6 @@ export function NoteView({
                 startedAt={session.started_at}
                 calendarEventId={session.calendar_event_id}
               />
-
-              {/* Environment selector - only show if 2+ environments */}
-              {showEnvSelector && (
-                <>
-                  <div ref={envDropdownRef} className="relative">
-                    <button
-                      onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
-                      className="flex items-center gap-1 h-6 px-1.5 rounded-md border border-border hover:border-border-strong hover:text-text transition-colors"
-                    >
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{
-                          backgroundColor: currentEnv?.color || "#6b7280",
-                        }}
-                      />
-                      <span>
-                        {currentEnv?.name ?? t("sessions.environment")}
-                      </span>
-                      <ChevronDown size={10} />
-                    </button>
-                    {envDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
-                        {environments.map((env) => (
-                          <button
-                            key={env.id}
-                            onClick={() => handleEnvSelect(env.id)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
-                          >
-                            <span
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: env.color }}
-                            />
-                            {env.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Folder selector */}
-              <div ref={folderDropdownRef} className="relative">
-                <button
-                  onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-                  className="flex items-center gap-1 h-6 px-1.5 rounded-md border border-border hover:border-border-strong hover:text-text transition-colors"
-                >
-                  <FolderIcon
-                    size={11}
-                    style={
-                      currentFolder?.color
-                        ? { color: currentFolder.color }
-                        : undefined
-                    }
-                  />
-                  <span>
-                    {currentFolder?.name ?? t("notes.noFolder", "Notes")}
-                  </span>
-                  <ChevronDown size={10} />
-                </button>
-                {folderDropdownOpen &&
-                  (() => {
-                    const q = folderFilter.trim().toLowerCase();
-                    const filteredFolders = q
-                      ? folders.filter((f) => f.name.toLowerCase().includes(q))
-                      : folders;
-                    const noFolderLabel = t("notes.noFolder", "Notes");
-                    const showNoFolder =
-                      !q || noFolderLabel.toLowerCase().includes(q);
-                    type Option = {
-                      id: string | null;
-                      label: string;
-                      color?: string | null;
-                    };
-                    const options: Option[] = [];
-                    if (showNoFolder) {
-                      options.push({ id: null, label: noFolderLabel });
-                    }
-                    for (const f of filteredFolders) {
-                      options.push({ id: f.id, label: f.name, color: f.color });
-                    }
-                    const boundedIndex = Math.min(
-                      activeFolderIndex,
-                      Math.max(0, options.length - 1),
-                    );
-                    return (
-                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
-                        <input
-                          ref={folderFilterInputRef}
-                          type="text"
-                          value={folderFilter}
-                          onChange={(e) => {
-                            setFolderFilter(e.target.value);
-                            setActiveFolderIndex(0);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "ArrowDown") {
-                              e.preventDefault();
-                              setActiveFolderIndex((i) =>
-                                options.length === 0
-                                  ? 0
-                                  : (i + 1) % options.length,
-                              );
-                            } else if (e.key === "ArrowUp") {
-                              e.preventDefault();
-                              setActiveFolderIndex((i) =>
-                                options.length === 0
-                                  ? 0
-                                  : (i - 1 + options.length) % options.length,
-                              );
-                            } else if (e.key === "Enter") {
-                              e.preventDefault();
-                              const pick = options[boundedIndex];
-                              if (pick) handleFolderSelect(pick.id);
-                            } else if (e.key === "Escape") {
-                              e.preventDefault();
-                              setFolderDropdownOpen(false);
-                            }
-                          }}
-                          placeholder={t(
-                            "notes.folderFilterPlaceholder",
-                            "Filter folders",
-                          )}
-                          className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
-                        />
-                        {options.map((opt, i) => {
-                          const isActive = i === boundedIndex;
-                          return (
-                            <button
-                              key={opt.id ?? "__none__"}
-                              onMouseEnter={() => setActiveFolderIndex(i)}
-                              onClick={() => handleFolderSelect(opt.id)}
-                              className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
-                                isActive ? "bg-accent/10" : ""
-                              }`}
-                            >
-                              {opt.id !== null && (
-                                <FolderIcon
-                                  size={12}
-                                  style={
-                                    opt.color ? { color: opt.color } : undefined
-                                  }
-                                />
-                              )}
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                        {options.length === 0 && (
-                          <div className="px-3 py-1.5 text-xs text-text-secondary">
-                            {t("palette.empty")}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-              </div>
 
               {/* Tags (content — only rendered when they exist) */}
               {sessionTags.map((tag) => (
@@ -2097,47 +2218,59 @@ export function NoteView({
 
           {/* Bottom bar */}
           <div data-ui className="flex items-center px-3 h-[50px]">
-            {/* Section 1: Audio controls */}
+            {/* Section 1: recording and transcript */}
             <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => setPanelOpen(!panelOpen)}
-                className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-live" : "text-text-secondary/60"}`}
-              >
-                {!isSealed && (
-                  <WaveformBars
-                    amplitude={amplitude}
-                    isRecording={isRecording}
-                  />
-                )}
-                {panelOpen ? (
-                  <ChevronDown size={16} />
-                ) : (
-                  <ChevronUp size={16} />
-                )}
-              </button>
               {isRecording ? (
-                <button
-                  onClick={onStopRecording}
-                  className="p-1.5 rounded-md bg-text/8 hover:bg-text/12 transition-colors text-text-secondary/60"
-                  title={t("sessions.stopRecording")}
-                >
-                  <Square size={11} fill="currentColor" />
-                </button>
-              ) : (
-                !isSealed && (
+                <>
                   <button
-                    onClick={onStartRecording}
-                    className="text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
+                    onClick={() => setPanelOpen(!panelOpen)}
+                    title={t("sessions.chat.transcriptTab")}
+                    aria-label={t("sessions.chat.transcriptTab")}
+                    className={`flex items-center gap-2 h-8 pl-2 pr-1 rounded-md text-mid-gray transition-colors ${panelOpen ? "bg-accent/8" : "hover:bg-accent/5"}`}
                   >
-                    {hasTranscript
-                      ? t("sessions.resumeRecording")
-                      : t("sessions.startRecording")}
+                    <span className="w-2 h-2 rounded-full bg-live" />
+                    <span className="font-mono text-xs text-text-secondary">
+                      {elapsedLabel}
+                    </span>
+                    <WaveformBars amplitude={amplitude} isRecording={true} />
                   </button>
-                )
+                  <button
+                    onClick={onStopRecording}
+                    title={t("sessions.stopRecording")}
+                    aria-label={t("sessions.stopRecording")}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+                  >
+                    <Square size={11} fill="currentColor" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {!isSealed && (
+                    <button
+                      onClick={onStartRecording}
+                      className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs text-text hover:border-border-strong transition-colors whitespace-nowrap"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-live" />
+                      {hasTranscript
+                        ? t("sessions.resumeRecording")
+                        : t("sessions.startRecording")}
+                    </button>
+                  )}
+                  {(hasTranscript || isSealed) && (
+                    <button
+                      onClick={() => setPanelOpen(!panelOpen)}
+                      title={t("sessions.chat.transcriptTab")}
+                      aria-label={t("sessions.chat.transcriptTab")}
+                      className={`w-8 h-8 flex items-center justify-center rounded-md text-text-secondary transition-colors ${panelOpen ? "bg-accent/8 text-text" : "hover:bg-accent/5 hover:text-text"}`}
+                    >
+                      <AlignLeft size={15} />
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
-            <span className="w-px h-3.5 bg-border-strong mx-4 shrink-0" />
+            <span className="w-px h-4 bg-border mx-3 shrink-0" />
 
             {/* Section 2: Chat */}
             {session && (
@@ -2231,14 +2364,30 @@ export function NoteView({
                     <X size={16} />
                   </button>
                 ) : (
-                  chat.input.trim() && (
-                    <button
-                      onClick={handleChatSubmit}
-                      className="p-1 rounded-md text-accent hover:text-accent/70 transition-colors shrink-0"
-                    >
-                      <Send size={16} />
-                    </button>
-                  )
+                  <>
+                    {chat.input.trim() ? (
+                      <button
+                        onClick={handleChatSubmit}
+                        aria-label={t("sessions.chat.send")}
+                        className="w-[30px] h-[30px] flex items-center justify-center rounded-md bg-background-ui text-white border border-background-ui dark:border-border-strong shrink-0"
+                      >
+                        <ArrowUp size={15} strokeWidth={2.2} />
+                      </button>
+                    ) : (
+                      canEnhanceFirst && (
+                        <button
+                          onClick={() => {
+                            onDismissEnhancePrompt();
+                            onEnhanceNotes();
+                          }}
+                          className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-background-ui text-white text-xs font-medium border border-background-ui dark:border-border-strong whitespace-nowrap shrink-0"
+                        >
+                          <Sparkles size={13} />
+                          {t("sessions.enhanceNotes")}
+                        </button>
+                      )
+                    )}
+                  </>
                 )}
                 {isRecording && hasTranscript && (
                   <button
@@ -2252,83 +2401,6 @@ export function NoteView({
             )}
           </div>
         </div>
-
-        {/* Post-enhancement action cluster. `group-hover/cluster:delay-0` keeps
-            the collapse delay at 0 as long as the cursor is anywhere inside the
-            cluster's bounding box — including the 8px gap between buttons,
-            because in CSS the parent is :hover whenever the cursor is over any
-            part of its box. So mousing between siblings never triggers the
-            delay-150 base; both transitions fire with the same delay-0. The
-            base delay-150 only re-engages when the cursor fully leaves the
-            cluster, preserving the linger-on-exit feel. */}
-        {!isRecording && hasTranscript && !enhanceLoading && !isSealed && (
-          <div className="group/cluster flex gap-2 items-end">
-            {canClearTranscript && (
-              <button
-                onClick={() => setShowClearTranscriptDialog(true)}
-                title={t("sessions.clearTranscript")}
-                aria-label={t("sessions.clearTranscript")}
-                className="group/clear relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-lg shadow-sm text-xs font-medium shrink-0 bg-background text-text-secondary hover:text-text hover:bg-accent-soft focus:text-text focus:bg-accent-soft border border-border-strong transition-all duration-200"
-              >
-                <Lock size={14} className="shrink-0" />
-                <span className="whitespace-nowrap overflow-hidden max-w-0 mr-0 group-hover/clear:max-w-[200px] group-hover/clear:mr-1.5 group-focus/clear:max-w-[200px] group-focus/clear:mr-1.5 transition-all duration-200 ease-linear delay-150 group-hover/cluster:delay-0 group-focus-within/cluster:delay-0">
-                  {t("sessions.clearTranscript")}
-                </span>
-                {/* Transparent hit-area extender covering the left half of the
-                    gap. Keeps Clear `:hover` until the cursor reaches the
-                    midpoint, where Re-enhance's mirror extender takes over.
-                    Both transitions fire in the same frame at the crossover. */}
-                <span
-                  aria-hidden
-                  className="absolute top-0 bottom-0 left-full w-1"
-                />
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                if (enhancedNotes && enhancedNotesEdited) {
-                  setShowReenhanceWarning(true);
-                } else {
-                  onDismissEnhancePrompt();
-                  onEnhanceNotes();
-                }
-              }}
-              title={
-                enhancedNotes
-                  ? t("sessions.reenhance")
-                  : t("sessions.enhanceNotes")
-              }
-              aria-label={
-                enhancedNotes
-                  ? t("sessions.reenhance")
-                  : t("sessions.enhanceNotes")
-              }
-              className={
-                enhancedNotes
-                  ? "group/reenhance relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-lg shadow-sm text-xs font-medium shrink-0 bg-background text-accent hover:bg-accent-soft focus:bg-accent-soft border border-border-strong transition-all duration-200"
-                  : "flex items-center gap-1.5 px-4 h-[50px] rounded-lg shadow-sm transition-colors text-xs font-medium shrink-0 bg-background-ui text-white hover:bg-background-ui/90"
-              }
-            >
-              <Sparkles size={14} className="shrink-0" />
-              {enhancedNotes ? (
-                <span className="whitespace-nowrap overflow-hidden max-w-0 mr-0 group-hover/reenhance:max-w-[200px] group-hover/reenhance:mr-1.5 group-focus/reenhance:max-w-[200px] group-focus/reenhance:mr-1.5 transition-all duration-200 ease-linear delay-150 group-hover/cluster:delay-0 group-focus-within/cluster:delay-0">
-                  {t("sessions.reenhance")}
-                </span>
-              ) : (
-                t("sessions.enhanceNotes")
-              )}
-              {/* Mirror extender on the left, covering the right half of the
-                  gap. See the matching extender on the Clear button above. */}
-              {enhancedNotes && (
-                <span
-                  aria-hidden
-                  className="absolute top-0 bottom-0 right-full w-1"
-                />
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Re-enhance warning dialog */}

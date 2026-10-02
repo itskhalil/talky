@@ -47,56 +47,89 @@ interface NotesSidebarProps {
   onOpenSettings: () => void;
 }
 
-type DateGroup = "today" | "yesterday" | "thisWeek" | "lastWeek" | "earlier";
-
-const DATE_GROUP_ORDER: DateGroup[] = [
-  "today",
-  "yesterday",
-  "thisWeek",
-  "lastWeek",
-  "earlier",
-];
-
-function getDateGroup(timestamp: number): DateGroup {
-  const now = new Date();
-  const date = new Date(timestamp * 1000);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  // Weeks start on Monday
-  const dayOfWeek = today.getDay();
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const thisWeekStart = new Date(today);
-  thisWeekStart.setDate(today.getDate() - daysFromMonday);
-  const lastWeekStart = new Date(thisWeekStart);
-  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
-  const dateStart = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
-
-  if (dateStart >= today) return "today";
-  if (dateStart >= yesterday) return "yesterday";
-  if (dateStart >= thisWeekStart) return "thisWeek";
-  if (dateStart >= lastWeekStart) return "lastWeek";
-  return "earlier";
+interface LogGroup {
+  key: string;
+  label: string;
+  /** Day groups show a time per row; month groups show the day. */
+  kind: "day" | "month";
+  items: Session[];
 }
 
-/** Short label for the log's left column: a time today/yesterday, a weekday this week, a date before that. */
-function formatLogTime(timestamp: number, group: DateGroup): string {
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * The log is grouped by day for the last week (Today, Yesterday, then each
+ * date), and by month before that, so older notes don't collapse into one
+ * undated heap.
+ */
+function groupForLog(
+  sessions: Session[],
+  labels: { today: string; yesterday: string },
+): LogGroup[] {
+  const today = startOfDay(new Date());
+  const weekAgo = new Date(today);
+  weekAgo.setDate(today.getDate() - 6);
+  const thisYear = today.getFullYear();
+  const groups: LogGroup[] = [];
+  const byKey = new Map<string, LogGroup>();
+
+  for (const s of sessions) {
+    const date = new Date(s.started_at * 1000);
+    const day = startOfDay(date);
+    let key: string;
+    let label: string;
+    let kind: LogGroup["kind"];
+    if (day >= weekAgo) {
+      kind = "day";
+      key = `d-${day.getTime()}`;
+      const diffDays = Math.round(
+        (today.getTime() - day.getTime()) / 86_400_000,
+      );
+      label =
+        diffDays === 0
+          ? labels.today
+          : diffDays === 1
+            ? labels.yesterday
+            : date.toLocaleDateString(undefined, {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              });
+    } else {
+      kind = "month";
+      key = `m-${date.getFullYear()}-${date.getMonth()}`;
+      label = date.toLocaleDateString(undefined, {
+        month: "long",
+        ...(date.getFullYear() !== thisYear ? { year: "numeric" } : {}),
+      });
+    }
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, label, kind, items: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(s);
+  }
+  return groups;
+}
+
+/** Left-column label: a time in day groups, weekday + date in month groups. */
+function formatLogTime(timestamp: number, kind: LogGroup["kind"]): string {
   const date = new Date(timestamp * 1000);
-  if (group === "today" || group === "yesterday") {
+  if (kind === "day") {
     return date.toLocaleTimeString(undefined, {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     });
   }
-  if (group === "thisWeek") {
-    return date.toLocaleDateString(undefined, { weekday: "short" });
-  }
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+  });
 }
 
 const iconButton =
@@ -277,20 +310,18 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     return result;
   }, [sessions, selectedFolderId, selectedTagIds, sessionTagsMap]);
 
-  const groupedSessions = useMemo(() => {
-    const groups: Record<DateGroup, Session[]> = {
-      today: [],
-      yesterday: [],
-      thisWeek: [],
-      lastWeek: [],
-      earlier: [],
-    };
-    for (const s of filteredSessions) {
-      if (s.id === recordingSessionId) continue; // pinned above
-      groups[getDateGroup(s.started_at)].push(s);
-    }
-    return groups;
-  }, [filteredSessions, recordingSessionId]);
+  const logGroups = useMemo(
+    () =>
+      groupForLog(
+        // the live note is pinned above the groups
+        filteredSessions.filter((s) => s.id !== recordingSessionId),
+        {
+          today: t("notes.dateGroups.today"),
+          yesterday: t("notes.dateGroups.yesterday"),
+        },
+      ),
+    [filteredSessions, recordingSessionId, t],
+  );
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -318,7 +349,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       <div
         key={s.id}
         onClick={() => onSelect(s.id)}
-        className={`group grid grid-cols-[44px_minmax(0,1fr)_14px] items-center gap-2 h-[30px] pl-3 pr-2 border-b border-border cursor-pointer transition-colors ${
+        className={`group grid grid-cols-[48px_minmax(0,1fr)_14px] items-center gap-2 h-[30px] pl-3 pr-2 border-b border-border cursor-pointer transition-colors ${
           isSelected
             ? "bg-accent/8 text-text font-medium"
             : "text-text-secondary hover:bg-accent/4 hover:text-text"
@@ -404,7 +435,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   );
 
   return (
-    <div className="flex flex-col w-full h-full bg-background-sidebar border-r border-border">
+    <div className="flex flex-col w-full h-full">
       {/* macOS title bar drag region (traffic lights + sidebar toggle live here) */}
       <div data-tauri-drag-region className="h-8 w-full shrink-0" />
 
@@ -557,18 +588,14 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       {/* The list */}
       <div className="flex-1 overflow-y-auto border-t border-border-strong">
         {liveSession && renderSessionRow(liveSession, t("sidebar.live"), true)}
-        {DATE_GROUP_ORDER.map((group) => {
-          const items = groupedSessions[group];
-          if (items.length === 0) return null;
-          return (
-            <div key={group}>
-              {dayHeader(t(`notes.dateGroups.${group}`))}
-              {items.map((s) =>
-                renderSessionRow(s, formatLogTime(s.started_at, group)),
-              )}
-            </div>
-          );
-        })}
+        {logGroups.map((group) => (
+          <div key={group.key}>
+            {dayHeader(group.label)}
+            {group.items.map((s) =>
+              renderSessionRow(s, formatLogTime(s.started_at, group.kind)),
+            )}
+          </div>
+        ))}
         {filteredSessions.length === 0 && (
           <div className="px-4 pt-6 text-center text-[13px] text-text-secondary">
             {t("sidebar.noNotesInView")}

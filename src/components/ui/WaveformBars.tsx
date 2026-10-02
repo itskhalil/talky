@@ -68,12 +68,7 @@ export function WaveformBars({
 
   if (isRecording) {
     return (
-      <svg
-        width={svgWidth}
-        height={svgHeight}
-        viewBox="0 0 24 24"
-        className="text-live"
-      >
+      <svg width={svgWidth} height={svgHeight} viewBox="0 0 24 24">
         {multipliers.map((m, i) => {
           const h = minH + clamped * (maxH - minH) * m;
           return (

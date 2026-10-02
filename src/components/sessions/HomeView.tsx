@@ -168,7 +168,17 @@ export function HomeView() {
 
   return (
     <div className="flex flex-col h-full">
-      <div data-tauri-drag-region className="h-8 w-full shrink-0" />
+      <div
+        data-tauri-drag-region
+        className="h-10 shrink-0 flex items-center pl-4 pr-2 border-b border-border"
+      >
+        <span
+          data-tauri-drag-region
+          className="font-display text-[11px] uppercase text-text-secondary"
+        >
+          {t("sidebar.home")}
+        </span>
+      </div>
       <div className="flex-1 overflow-y-auto">
         <div className="w-full max-w-[640px] mx-auto px-6 pt-10 pb-6">
           {hasConversation ? (
