@@ -15,7 +15,6 @@ import {
   PenLine,
   List,
   FolderIcon,
-  Tag,
   Plus,
   Globe,
   Search,
@@ -33,12 +32,13 @@ import {
   MAX_ATTACHMENTS,
   type AttachmentsRowHandle,
 } from "./AttachmentsRow";
+import { MetaPicker } from "./MetaPicker";
 import { MeetingChip } from "./MeetingChip";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { WaveformBars } from "@/components/ui/WaveformBars";
 import { useAttachments } from "@/stores/sessionStore";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useGlobalChat, type ChatMessage } from "@/hooks/useGlobalChat";
 import { useSettings } from "@/hooks/useSettings";
@@ -653,7 +653,6 @@ export function NoteView({
   const [envDropdownOpen, setEnvDropdownOpen] = useState(false);
   const [sessionTags, setSessionTags] = useState<TagType[]>([]);
   const [tagInputOpen, setTagInputOpen] = useState(false);
-  const [tagInputValue, setTagInputValue] = useState("");
   const [transcriptSearchOpen, setTranscriptSearchOpen] = useState(false);
   const [transcriptSearchQuery, setTranscriptSearchQuery] = useState("");
   const [transcriptCurrentMatch, setTranscriptCurrentMatch] = useState(0);
@@ -662,13 +661,8 @@ export function NoteView({
   const [localFolderId, setLocalFolderId] = useState<string | null>(
     session?.folder_id ?? null,
   );
-  const folderDropdownRef = useRef<HTMLDivElement>(null);
   const envDropdownRef = useRef<HTMLDivElement>(null);
-  const tagInputRef = useRef<HTMLInputElement>(null);
   const attachmentsRowRef = useRef<AttachmentsRowHandle>(null);
-  const [folderFilter, setFolderFilter] = useState("");
-  const [activeFolderIndex, setActiveFolderIndex] = useState(0);
-  const folderFilterInputRef = useRef<HTMLInputElement>(null);
 
   const folderPickerTick = useNoteUiIntentStore((s) => s.folderPickerTick);
   const tagInputTick = useNoteUiIntentStore((s) => s.tagInputTick);
@@ -682,7 +676,6 @@ export function NoteView({
   useEffect(() => {
     if (folderPickerTick !== lastFolderTick.current) {
       lastFolderTick.current = folderPickerTick;
-      setFolderFilter("");
       setFolderDropdownOpen(true);
     }
   }, [folderPickerTick]);
@@ -721,6 +714,7 @@ export function NoteView({
     addTagToSession,
     removeTagFromSession,
     createTag,
+    createFolder,
   } = useOrganizationStore();
 
   // Fetch session tags when session changes
@@ -736,23 +730,6 @@ export function NoteView({
   useEffect(() => {
     setLocalFolderId(session?.folder_id ?? null);
   }, [session?.id, session?.folder_id]);
-
-  // Close folder dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        folderDropdownRef.current &&
-        !folderDropdownRef.current.contains(e.target as Node)
-      ) {
-        setFolderDropdownOpen(false);
-      }
-    };
-    if (folderDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [folderDropdownOpen]);
 
   // Close environment dropdown when clicking outside
   useEffect(() => {
@@ -777,23 +754,6 @@ export function NoteView({
     }
     setEnvDropdownOpen(false);
   };
-
-  // Focus tag input when opened
-  useEffect(() => {
-    if (tagInputOpen && tagInputRef.current) {
-      tagInputRef.current.focus();
-    }
-  }, [tagInputOpen]);
-
-  // Focus folder filter when dropdown opens
-  useEffect(() => {
-    if (folderDropdownOpen) {
-      setActiveFolderIndex(0);
-      folderFilterInputRef.current?.focus();
-    } else {
-      setFolderFilter("");
-    }
-  }, [folderDropdownOpen]);
 
   // Drag & drop file handling for attachments
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -950,22 +910,7 @@ export function NoteView({
     }
   };
 
-  const handleCreateAndAddTag = async () => {
-    if (!tagInputValue.trim() || !session?.id) return;
-    const newTag = await createTag(tagInputValue.trim());
-    if (newTag) {
-      await addTagToSession(session.id, newTag.id);
-      const updated = await getSessionTags(session.id);
-      setSessionTags(updated);
-    }
-    setTagInputValue("");
-    setTagInputOpen(false);
-  };
-
   const currentFolder = folders.find((f) => f.id === localFolderId);
-  const availableTags = allTags.filter(
-    (t) => !sessionTags.some((st) => st.id === t.id),
-  );
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     setActiveEditor(editor);
@@ -1429,6 +1374,44 @@ export function NoteView({
     enhanceError != null ||
     enhanceStreaming;
 
+  // Header stamp: the facts about this meeting, read-only.
+  const stampLabel = (() => {
+    if (!session) return "";
+    const start = new Date(session.started_at * 1000);
+    const parts = [
+      start.toLocaleDateString(undefined, {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        ...(start.getFullYear() !== new Date().getFullYear()
+          ? { year: "numeric" }
+          : {}),
+      }),
+      start.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }),
+    ];
+    if (recordedMs > 0 && !isRecording) parts.push(lengthLabel);
+    return parts.join(" · ");
+  })();
+  const chipClass =
+    "inline-flex items-center gap-1.5 h-6 px-2 rounded-md border border-border text-xs text-text hover:border-border-strong transition-colors";
+  const ghostClass =
+    "inline-flex items-center gap-1 h-6 px-1.5 rounded-md text-xs text-mid-gray hover:bg-accent/5 hover:text-text-secondary transition-colors";
+
+  const handleCreateFolder = async (name: string) => {
+    const folder = await createFolder(name);
+    if (folder) await handleFolderSelect(folder.id);
+  };
+
+  const handleCreateTag = async (name: string) => {
+    if (!session?.id) return;
+    const newTag = await createTag(name);
+    if (newTag) await handleAddTag(newTag.id);
+  };
+
   return (
     <div className="flex flex-col h-full relative">
       {/* File drop overlay */}
@@ -1449,117 +1432,15 @@ export function NoteView({
           data-tauri-drag-region
           className="h-10 shrink-0 flex items-center gap-1.5 pl-4 pr-2 border-b border-border"
         >
-          {/* Breadcrumb: the note's folder, and where you move it */}
-          <div ref={folderDropdownRef} className="relative">
-            <button
-              onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-              title={t("sessions.meta.folder")}
-              className={`flex items-center gap-1.5 h-6 px-1.5 -ml-1.5 rounded-md font-display text-label uppercase transition-colors ${folderDropdownOpen ? "bg-accent/8 text-text" : "text-text-secondary hover:bg-accent/5 hover:text-text"}`}
+          {/* Stamp: when the meeting happened and how long it ran */}
+          {session && (
+            <span
+              data-tauri-drag-region
+              className="font-display text-label uppercase text-text-secondary truncate min-w-0"
             >
-              <span className="truncate max-w-[220px]">
-                {currentFolder?.name ?? t("sessions.noFolder")}
-              </span>
-              <ChevronDown size={11} className="shrink-0" />
-            </button>
-            {folderDropdownOpen &&
-              (() => {
-                const q = folderFilter.trim().toLowerCase();
-                const filteredFolders = q
-                  ? folders.filter((f) => f.name.toLowerCase().includes(q))
-                  : folders;
-                const noFolderLabel = t("sessions.noFolder");
-                const showNoFolder =
-                  !q || noFolderLabel.toLowerCase().includes(q);
-                type Option = {
-                  id: string | null;
-                  label: string;
-                  color?: string | null;
-                };
-                const options: Option[] = [];
-                if (showNoFolder) {
-                  options.push({ id: null, label: noFolderLabel });
-                }
-                for (const f of filteredFolders) {
-                  options.push({
-                    id: f.id,
-                    label: f.name,
-                    color: f.color,
-                  });
-                }
-                const boundedIndex = Math.min(
-                  activeFolderIndex,
-                  Math.max(0, options.length - 1),
-                );
-                return (
-                  <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
-                    <input
-                      ref={folderFilterInputRef}
-                      type="text"
-                      value={folderFilter}
-                      onChange={(e) => {
-                        setFolderFilter(e.target.value);
-                        setActiveFolderIndex(0);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          setActiveFolderIndex((i) =>
-                            options.length === 0 ? 0 : (i + 1) % options.length,
-                          );
-                        } else if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          setActiveFolderIndex((i) =>
-                            options.length === 0
-                              ? 0
-                              : (i - 1 + options.length) % options.length,
-                          );
-                        } else if (e.key === "Enter") {
-                          e.preventDefault();
-                          const pick = options[boundedIndex];
-                          if (pick) handleFolderSelect(pick.id);
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          setFolderDropdownOpen(false);
-                        }
-                      }}
-                      placeholder={t(
-                        "notes.folderFilterPlaceholder",
-                        "Filter folders",
-                      )}
-                      className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
-                    />
-                    {options.map((opt, i) => {
-                      const isActive = i === boundedIndex;
-                      return (
-                        <button
-                          key={opt.id ?? "__none__"}
-                          onMouseEnter={() => setActiveFolderIndex(i)}
-                          onClick={() => handleFolderSelect(opt.id)}
-                          className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
-                            isActive ? "bg-accent/10" : ""
-                          }`}
-                        >
-                          {opt.id !== null && (
-                            <FolderIcon
-                              size={12}
-                              style={
-                                opt.color ? { color: opt.color } : undefined
-                              }
-                            />
-                          )}
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                    {options.length === 0 && (
-                      <div className="px-3 py-1.5 text-xs text-text-secondary">
-                        {t("palette.empty")}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-          </div>
+              {stampLabel}
+            </span>
+          )}
 
           <span data-tauri-drag-region className="flex-1 self-stretch" />
           {hasEnhanced && (
@@ -1605,44 +1486,54 @@ export function NoteView({
           >
             {notesCopied ? <Check size={15} /> : <Copy size={15} />}
           </button>
-          {canClearTranscript && (
-            <div ref={moreMenuRef} className="relative">
-              <button
-                onClick={() => setMoreMenuOpen((o) => !o)}
-                aria-label={t("sessions.moreActions")}
-                title={t("sessions.moreActions")}
-                className={`w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors ${moreMenuOpen ? "bg-accent/8 text-text" : ""}`}
-              >
-                <MoreHorizontal size={15} />
-              </button>
-              {moreMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border rounded-lg shadow-lg">
-                  {canClearTranscript && (
-                    <button
-                      onClick={() => {
-                        setMoreMenuOpen(false);
-                        setShowClearTranscriptDialog(true);
-                      }}
-                      className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
-                    >
-                      <Lock size={13} className="text-text-secondary" />
-                      {t("sessions.clearTranscript")}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          {copyAsBulletsEnabled && (
+          <div ref={moreMenuRef} className="relative">
             <button
-              onClick={handleCopyAsBullets}
-              className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
-              title={t("sessions.copyAsBullets")}
-              aria-label={t("sessions.copyAsBullets")}
+              onClick={() => setMoreMenuOpen((o) => !o)}
+              aria-label={t("sessions.moreActions")}
+              title={t("sessions.moreActions")}
+              className={`w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors ${moreMenuOpen ? "bg-accent/8 text-text" : ""}`}
             >
-              {bulletsCopied ? <Check size={15} /> : <List size={15} />}
+              <MoreHorizontal size={15} />
             </button>
-          )}
+            {moreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border rounded-lg shadow-lg">
+                <button
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    attachmentsRowRef.current?.openPicker();
+                  }}
+                  className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
+                >
+                  <Paperclip size={13} className="text-text-secondary" />
+                  {t("sessions.attachments.attachFile")}
+                </button>
+                {copyAsBulletsEnabled && (
+                  <button
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      handleCopyAsBullets();
+                    }}
+                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
+                  >
+                    <List size={13} className="text-text-secondary" />
+                    {t("sessions.copyAsBullets")}
+                  </button>
+                )}
+                {canClearTranscript && (
+                  <button
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      setShowClearTranscriptDialog(true);
+                    }}
+                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
+                  >
+                    <Lock size={13} className="text-text-secondary" />
+                    {t("sessions.clearTranscript")}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         {findBarOpen && onCloseFindBar && (
           <div className="absolute top-2 right-4 z-20 w-80">
@@ -1674,82 +1565,166 @@ export function NoteView({
               className="w-full text-title leading-tight font-normal tracking-[-0.03em] bg-transparent border-none outline-none placeholder:text-mid-gray/30 pr-16 resize-none overflow-hidden p-0"
             />
 
-            {/* Metadata line: record strip, tags, attachments, add buttons */}
+            {/* Filing line: environment, folder and tags. Facts (date,
+                length) live in the header stamp; files sit at the end. */}
             {session && (
-              <div className="flex items-center gap-x-3 gap-y-2 mt-3 flex-wrap text-xs text-text-secondary">
-                {/* Record strip: date, length, environment */}
-                <div className="inline-flex items-stretch rounded-md border border-border divide-x divide-border">
-                  <div className="flex items-baseline gap-2 px-3 py-[7px]">
-                    <span className="font-display text-label leading-4 uppercase text-mid-gray">
-                      {t("sessions.meta.date")}
-                    </span>
-                    <span className="font-mono text-xs leading-4 text-text">
-                      {new Date(session.started_at * 1000).toLocaleDateString(
-                        undefined,
-                        { weekday: "short", day: "numeric", month: "short" },
-                      )}
-                      {", "}
-                      {new Date(session.started_at * 1000).toLocaleTimeString(
-                        undefined,
-                        { hour: "2-digit", minute: "2-digit", hour12: false },
-                      )}
-                    </span>
-                  </div>
-                  {recordedMs > 0 && !isRecording && (
-                    <div className="flex items-baseline gap-2 px-3 py-[7px]">
-                      <span className="font-display text-label leading-4 uppercase text-mid-gray">
-                        {t("sessions.meta.length")}
-                      </span>
-                      <span className="font-mono text-xs leading-4 text-text">
-                        {lengthLabel}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Environment selector - only show if 2+ environments */}
-                  {showEnvSelector && (
-                    <>
-                      <div ref={envDropdownRef} className="relative h-full">
-                        <button
-                          onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
-                          className="flex items-baseline gap-2 h-full px-3 py-[7px] hover:bg-accent/5 transition-colors"
-                        >
-                          <span className="font-display text-label leading-4 uppercase text-mid-gray">
-                            {t("sessions.meta.environment")}
-                          </span>
-                          <span
-                            className="self-center w-1.5 h-1.5 rounded-full"
-                            style={{
-                              backgroundColor: currentEnv?.color || "#6b7280",
-                            }}
-                          />
-                          <span className="font-mono text-xs leading-4 text-text">
-                            {currentEnv?.name ?? t("sessions.environment")}
-                          </span>
-                          <ChevronDown
-                            size={10}
-                            className="self-center text-text-secondary"
-                          />
-                        </button>
-                        {envDropdownOpen && (
-                          <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
-                            {environments.map((env) => (
-                              <button
-                                key={env.id}
-                                onClick={() => handleEnvSelect(env.id)}
-                                className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
-                              >
-                                <span
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: env.color }}
-                                />
-                                {env.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+              <div
+                className={`flex items-center gap-1.5 mt-3 flex-wrap ${!showEnvSelector && !currentFolder ? "-ml-1.5" : ""}`}
+              >
+                {showEnvSelector && (
+                  <div ref={envDropdownRef} className="relative">
+                    <button
+                      onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
+                      title={t("sessions.meta.environment")}
+                      className={chipClass}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{
+                          backgroundColor: currentEnv?.color || "#6b7280",
+                        }}
+                      />
+                      {currentEnv?.name ?? t("sessions.environment")}
+                      <ChevronDown size={11} className="text-text-secondary" />
+                    </button>
+                    {envDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-30 min-w-[160px] p-1">
+                        {environments.map((env) => (
+                          <button
+                            key={env.id}
+                            onClick={() => handleEnvSelect(env.id)}
+                            className="w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5 flex items-center gap-2"
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: env.color }}
+                            />
+                            <span className="flex-1">{env.name}</span>
+                            {env.id === currentEnv?.id && <Check size={13} />}
+                          </button>
+                        ))}
                       </div>
-                    </>
+                    )}
+                  </div>
+                )}
+
+                {/* Folder: one per note */}
+                <div className="relative">
+                  {currentFolder ? (
+                    <button
+                      onClick={() => setFolderDropdownOpen((o) => !o)}
+                      title={t("sessions.meta.folder")}
+                      className={chipClass}
+                    >
+                      <FolderIcon
+                        size={12}
+                        className="text-text-secondary"
+                        style={
+                          currentFolder.color
+                            ? { color: currentFolder.color }
+                            : undefined
+                        }
+                      />
+                      {currentFolder.name}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setFolderDropdownOpen((o) => !o)}
+                      className={ghostClass}
+                    >
+                      <Plus size={12} />
+                      {t("sessions.meta.addFolder")}
+                    </button>
+                  )}
+                  {folderDropdownOpen && (
+                    <MetaPicker
+                      items={folders.map((f) => ({
+                        id: f.id,
+                        label: f.name,
+                        color: f.color,
+                      }))}
+                      selectedIds={localFolderId ? [localFolderId] : []}
+                      multi={false}
+                      placeholder={t("sessions.meta.folderPlaceholder")}
+                      onPick={(id) => void handleFolderSelect(id)}
+                      onCreate={(name) => void handleCreateFolder(name)}
+                      clearLabel={
+                        currentFolder
+                          ? t("sessions.meta.removeFromFolder")
+                          : undefined
+                      }
+                      onClear={
+                        currentFolder
+                          ? () => void handleFolderSelect(null)
+                          : undefined
+                      }
+                      onClose={() => setFolderDropdownOpen(false)}
+                      renderIcon={(item) => (
+                        <FolderIcon
+                          size={12}
+                          className="shrink-0 text-text-secondary"
+                          style={item.color ? { color: item.color } : undefined}
+                        />
+                      )}
+                    />
+                  )}
+                </div>
+
+                {/* Tags: any number */}
+                {sessionTags.map((tag) => (
+                  <span key={tag.id} className={`group ${chipClass} pr-1`}>
+                    <span
+                      className="text-mid-gray"
+                      style={tag.color ? { color: tag.color } : undefined}
+                    >
+                      #
+                    </span>
+                    {tag.name}
+                    <button
+                      onClick={() => void handleRemoveTag(tag.id)}
+                      aria-label={t("sessions.meta.removeTag")}
+                      title={t("sessions.meta.removeTag")}
+                      className="w-4 h-4 flex items-center justify-center rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:text-text"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+                <div className="relative">
+                  <button
+                    onClick={() => setTagInputOpen((o) => !o)}
+                    title={t("sessions.meta.tagPlaceholder")}
+                    className={ghostClass}
+                  >
+                    <Plus size={12} />
+                    {sessionTags.length === 0 && t("sessions.meta.addTag")}
+                  </button>
+                  {tagInputOpen && (
+                    <MetaPicker
+                      items={allTags.map((tg) => ({
+                        id: tg.id,
+                        label: tg.name,
+                        color: tg.color,
+                      }))}
+                      selectedIds={sessionTags.map((st) => st.id)}
+                      multi
+                      placeholder={t("sessions.meta.tagPlaceholder")}
+                      onPick={(id) =>
+                        void (sessionTags.some((st) => st.id === id)
+                          ? handleRemoveTag(id)
+                          : handleAddTag(id))
+                      }
+                      onCreate={(name) => void handleCreateTag(name)}
+                      onClose={() => setTagInputOpen(false)}
+                      renderIcon={(item) => (
+                        <span
+                          className="w-3 shrink-0 text-center text-mid-gray"
+                          style={item.color ? { color: item.color } : undefined}
+                        >
+                          #
+                        </span>
+                      )}
+                    />
                   )}
                 </div>
 
@@ -1759,155 +1734,6 @@ export function NoteView({
                   startedAt={session.started_at}
                   calendarEventId={session.calendar_event_id}
                 />
-
-                {/* Tags (content — only rendered when they exist) */}
-                {sessionTags.map((tag) => (
-                  <span key={tag.id} className="inline-flex items-center">
-                    <span
-                      className="hover:text-text transition-colors cursor-default group inline-flex items-center gap-1"
-                      style={tag.color ? { color: tag.color } : undefined}
-                    >
-                      <Tag size={10} />
-                      {tag.name}
-                      <button
-                        onClick={() => handleRemoveTag(tag.id)}
-                        className="hidden group-hover:inline-flex hover:text-red-400"
-                      >
-                        <X size={10} />
-                      </button>
-                    </span>
-                  </span>
-                ))}
-
-                {/* Attachment names (content — only when attachments exist) */}
-                {attachments.map((att) => (
-                  <span key={att.id} className="inline-flex items-center">
-                    <span className="relative hover:text-text transition-colors cursor-default group/att inline-flex items-center gap-1">
-                      <Paperclip size={10} />
-                      <button
-                        onClick={async () => {
-                          if (att.mime_type.startsWith("image/")) {
-                            const idx = imageAttachments.findIndex(
-                              (a) => a.id === att.id,
-                            );
-                            if (idx !== -1) setLightboxIndex(idx);
-                          } else {
-                            try {
-                              await invoke("open_attachment", {
-                                attachmentId: att.id,
-                              });
-                            } catch (e) {
-                              console.error("Failed to open attachment:", e);
-                            }
-                          }
-                        }}
-                        className="hover:underline"
-                      >
-                        {att.filename}
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await invoke("delete_attachment", {
-                              attachmentId: att.id,
-                            });
-                            refreshAttachments(session.id);
-                          } catch (e) {
-                            console.error("Failed to delete attachment:", e);
-                          }
-                        }}
-                        className="hidden group-hover/att:inline-flex hover:text-red-400"
-                      >
-                        <X size={10} />
-                      </button>
-                      {/* Image hover preview */}
-                      {att.mime_type.startsWith("image/") && (
-                        <div className="hidden group-hover/att:block absolute top-full left-0 mt-2 p-1 bg-background border border-border rounded-lg shadow-lg z-50">
-                          <img
-                            src={convertFileSrc(att.file_path)}
-                            alt={att.filename}
-                            className="max-w-[200px] max-h-[150px] rounded object-contain"
-                          />
-                        </div>
-                      )}
-                    </span>
-                  </span>
-                ))}
-
-                {/* Add tag */}
-                {tagInputOpen ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      ref={tagInputRef}
-                      type="text"
-                      value={tagInputValue}
-                      onChange={(e) => setTagInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleCreateAndAddTag();
-                        if (e.key === "Escape") {
-                          setTagInputOpen(false);
-                          setTagInputValue("");
-                        }
-                      }}
-                      placeholder={t("notes.newTag", "New tag")}
-                      className="w-20 px-1.5 py-0 text-xs rounded border border-border bg-transparent focus:outline-none focus:border-accent"
-                    />
-                    {availableTags.length > 0 && (
-                      <div className="flex gap-1">
-                        {availableTags.slice(0, 3).map((tag) => (
-                          <button
-                            key={tag.id}
-                            onClick={() => {
-                              handleAddTag(tag.id);
-                              setTagInputOpen(false);
-                            }}
-                            className="px-1.5 py-0 rounded text-xs text-text-secondary hover:text-text transition-colors"
-                            style={tag.color ? { color: tag.color } : undefined}
-                          >
-                            {tag.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setTagInputOpen(true)}
-                    className="flex items-center gap-0.5 rounded-md hover:text-text transition-colors"
-                    title={t("notes.addTag", "Add tag")}
-                  >
-                    <Tag size={10} />
-                    <Plus size={8} />
-                  </button>
-                )}
-
-                {/* Add attachment */}
-                <AttachmentsRow
-                  ref={attachmentsRowRef}
-                  sessionId={session.id}
-                  attachments={[]}
-                  onAttachmentsChange={() => refreshAttachments(session.id)}
-                  disabled={false}
-                />
-
-                {/* Sealed status pill — past-tense state, not an action.
-                  The Clear action itself lives in the bottom bar next to
-                  Re-enhance, since it's a post-enhancement move. */}
-                {isSealed && (
-                  <span
-                    className="inline-flex items-center gap-1 h-6 px-1.5 rounded-md bg-text/5 border border-border text-text-secondary cursor-default"
-                    title={t("sessions.transcriptClearedPlaceholder", {
-                      date: transcriptClearedDate,
-                    })}
-                  >
-                    <Lock size={11} />
-                    <span>
-                      {t("sessions.sealedBadge", {
-                        date: transcriptClearedDateShort,
-                      })}
-                    </span>
-                  </span>
-                )}
               </div>
             )}
           </div>
@@ -1985,6 +1811,16 @@ export function NoteView({
                   onPasteImage={handlePasteImage}
                 />
               </>
+            )}
+            {/* Files: attachments are content (Enhance reads them), so they
+                sit at the end of the note like email attachments. */}
+            {session && (
+              <AttachmentsRow
+                ref={attachmentsRowRef}
+                sessionId={session.id}
+                attachments={attachments}
+                onAttachmentsChange={() => refreshAttachments(session.id)}
+              />
             )}
           </div>
         </div>
@@ -2262,15 +2098,30 @@ export function NoteView({
                           : t("sessions.startRecording")}
                       </button>
                     )}
-                    {(hasTranscript || isSealed) && (
+                    {isSealed ? (
                       <button
                         onClick={() => setPanelOpen(!panelOpen)}
-                        title={t("sessions.chat.transcriptTab")}
-                        aria-label={t("sessions.chat.transcriptTab")}
-                        className={`w-8 h-8 flex items-center justify-center rounded-md text-text-secondary transition-colors ${panelOpen ? "bg-accent/8 text-text" : "hover:bg-accent/5 hover:text-text"}`}
+                        title={t("sessions.transcriptClearedPlaceholder", {
+                          date: transcriptClearedDate,
+                        })}
+                        className={`flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-text-secondary whitespace-nowrap transition-colors ${panelOpen ? "bg-accent/8 text-text" : "hover:bg-accent/5 hover:text-text"}`}
                       >
-                        <AlignLeft size={15} />
+                        <Lock size={12} />
+                        {t("sessions.sealedBadge", {
+                          date: transcriptClearedDateShort,
+                        })}
                       </button>
+                    ) : (
+                      hasTranscript && (
+                        <button
+                          onClick={() => setPanelOpen(!panelOpen)}
+                          title={t("sessions.chat.transcriptTab")}
+                          aria-label={t("sessions.chat.transcriptTab")}
+                          className={`w-8 h-8 flex items-center justify-center rounded-md text-text-secondary transition-colors ${panelOpen ? "bg-accent/8 text-text" : "hover:bg-accent/5 hover:text-text"}`}
+                        >
+                          <AlignLeft size={15} />
+                        </button>
+                      )
                     )}
                   </>
                 )}

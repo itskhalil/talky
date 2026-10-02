@@ -696,7 +696,10 @@
       "lightboxSave": "Save image",
       "lightboxClose": "Close image viewer",
       "lightboxPrev": "Previous image",
-      "lightboxNext": "Next image"
+      "lightboxNext": "Next image",
+      "title": "Files · {{count}}",
+      "addFile": "Add file",
+      "attachFile": "Attach file…"
     },
     "meeting": {
       "link": "Link meeting",
@@ -717,10 +720,15 @@
     "lengthMinutes_one": "{{count}} min",
     "lengthMinutes_other": "{{count}} min",
     "meta": {
-      "date": "Date",
       "environment": "Environment",
       "folder": "Folder",
-      "length": "Length"
+      "create": "Create “{{name}}”",
+      "addFolder": "Folder",
+      "addTag": "Tag",
+      "folderPlaceholder": "Move to folder…",
+      "tagPlaceholder": "Add tags…",
+      "removeFromFolder": "Remove from folder",
+      "removeTag": "Remove tag"
     },
     "viewNotes": "Notes",
     "viewEnhanced": "Enhanced",
