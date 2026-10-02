@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   getCurrentWindow,
@@ -417,12 +417,23 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           />
         </>
       )}
-      {/* The note (or Home) sits in a framed panel on the ground. Collapsed,
-          the panel drops below the traffic lights. */}
+      {/* The note (or Home) draws a toolbar row level with the window controls
+          and a framed panel below it. Collapsing the sidebar only shifts them
+          sideways, so nothing jumps when the window narrows. */}
       <div
-        className={`flex-1 overflow-hidden pr-2 pb-2 ${sidebarCollapsed ? "pl-2 pt-9" : "pt-2"}`}
+        className="flex-1 overflow-hidden"
+        style={
+          {
+            "--titlebar-inset": sidebarCollapsed
+              ? osType === "macos"
+                ? "112px"
+                : "44px"
+              : "12px",
+            "--panel-left": sidebarCollapsed ? "8px" : "0px",
+          } as React.CSSProperties
+        }
       >
-        <div className="h-full bg-background border border-border rounded-md overflow-hidden">
+        <div className="h-full">
           {selectedSessionId ? (
             <NoteView
               key={selectedSessionId}

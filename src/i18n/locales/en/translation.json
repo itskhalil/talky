@@ -719,11 +719,14 @@
     "meta": {
       "date": "Date",
       "environment": "Environment",
-      "folder": "Folder"
+      "folder": "Folder",
+      "length": "Length"
     },
     "viewNotes": "Notes",
     "viewEnhanced": "Enhanced",
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "lengthHours": "{{hours}} h {{minutes}} min",
+    "noFolder": "No folder"
   },
   "footer": {
     "downloadingModel": "Downloading {{model}}...",

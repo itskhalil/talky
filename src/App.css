@@ -20,8 +20,8 @@
   --color-mid-gray: #a3a3a3;
   --color-live: #f36702;
   /* The window ground the note panel sits on, with a faint dot grid. */
-  --color-ground: #f1f1ef;
-  --color-grid: #d3d3cf;
+  --color-ground: #f3f3f1;
+  --color-grid: #dededa;
   --font-sans: "Geist Variable", -apple-system, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
   /* Small uppercase labels (section headers) use the mono face. */
@@ -73,7 +73,7 @@
     --color-mid-gray: #5e5e5e;
     --color-live: #ff7a1a;
     --color-ground: #050505;
-    --color-grid: #242424;
+    --color-grid: #1a1a1a;
   }
 }
 
@@ -93,7 +93,7 @@
 .ground {
   background-color: var(--color-ground);
   background-image: radial-gradient(var(--color-grid) 1px, transparent 1px);
-  background-size: 14px 14px;
+  background-size: 18px 18px;
 }
 
 .logo-primary {

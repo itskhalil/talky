@@ -435,7 +435,7 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   );
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="flex flex-col w-full h-full bg-[var(--color-ground)]">
       {/* macOS title bar drag region (traffic lights + sidebar toggle live here) */}
       <div data-tauri-drag-region className="h-8 w-full shrink-0" />
 
