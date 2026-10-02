@@ -1425,8 +1425,8 @@ export function NoteView({
       {/* Titlebar band: window controls (and the sidebar toggle when it's
           collapsed) sit here, so the panel below never moves. */}
       <div data-tauri-drag-region className="h-8 shrink-0" />
-      {/* The note itself: a framed panel on the ground */}
-      <div className="flex-1 min-h-0 flex flex-col relative mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-lg overflow-hidden">
+      {/* The note itself */}
+      <div className="flex-1 min-h-0 flex flex-col relative bg-background overflow-hidden">
         {/* Panel header: the note's own controls */}
         <div
           data-tauri-drag-region

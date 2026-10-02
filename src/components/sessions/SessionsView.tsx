@@ -343,7 +343,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const buttonLeftClass = osType === "macos" ? "left-[78px]" : "left-2";
 
   return (
-    <div className="relative flex h-full ground">
+    <div className="relative flex h-full bg-background">
       <button
         onClick={() => {
           if (isNarrow && sidebarCollapsed) {
@@ -374,7 +374,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             className="absolute inset-0 z-40 bg-black/20"
             onClick={() => setOverlayOpen(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 z-50 w-[280px] shadow-xl ground border-r border-border">
+          <div className="absolute left-0 top-0 bottom-0 z-50 w-[280px] shadow-xl bg-background border-r border-border">
             <NotesSidebar
               sessions={sessions}
               selectedId={selectedSessionId}
@@ -411,23 +411,15 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           </div>
           {/* Drag handle */}
           <div
-            className="w-1.5 cursor-col-resize shrink-0"
+            className="relative w-px shrink-0 bg-border cursor-col-resize after:absolute after:inset-y-0 after:-left-1 after:-right-1 after:content-['']"
             onMouseDown={handleDragStart}
             onDoubleClick={handleDragDoubleClick}
           />
         </>
       )}
-      {/* The note (or Home) keeps a fixed titlebar band above its framed
-          panel. Collapsing the sidebar only shifts the panel sideways, so
-          nothing jumps when the window narrows. */}
-      <div
-        className="flex-1 overflow-hidden"
-        style={
-          {
-            "--panel-left": sidebarCollapsed ? "8px" : "0px",
-          } as React.CSSProperties
-        }
-      >
+      {/* The note (or Home) keeps a fixed titlebar band above its header, so
+          nothing jumps when the sidebar collapses or the window narrows. */}
+      <div className="flex-1 min-w-0 overflow-hidden">
         <div className="h-full">
           {selectedSessionId ? (
             <NoteView

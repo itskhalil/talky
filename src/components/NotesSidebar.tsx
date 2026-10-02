@@ -435,12 +435,12 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   );
 
   return (
-    <div className="flex flex-col w-full h-full bg-[var(--color-ground)]">
+    <div className="flex flex-col w-full h-full bg-background">
       {/* macOS title bar drag region (traffic lights + sidebar toggle live here) */}
       <div data-tauri-drag-region className="h-8 w-full shrink-0" />
 
       {/* Home · New · Search */}
-      <div className="flex items-center gap-1 px-2.5 pb-2">
+      <div className="flex items-center gap-1 h-10 px-2.5 shrink-0">
         <button
           onClick={deselectSession}
           className={`${iconButton} ${selectedId === null ? "bg-accent/8 text-text" : ""}`}

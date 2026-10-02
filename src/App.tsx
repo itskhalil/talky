@@ -4,6 +4,7 @@ import "./App.css";
 import Onboarding, { PermissionsOnboarding } from "./components/onboarding";
 import { SessionsView } from "./components/sessions/SessionsView";
 import { SettingsPage } from "./components/SettingsPage";
+import { StatusRail } from "./components/StatusRail";
 import { CommandPalette } from "./components/CommandPalette";
 import { ErrorEventBanner } from "./components/error-events/ErrorEventBanner";
 import { CoreMlMigrationToast } from "./components/coreml-migration/CoreMlMigrationToast";
@@ -158,6 +159,7 @@ function App() {
           <SettingsPage onBack={() => setView("notes")} />
         )}
       </div>
+      <StatusRail />
       <CoreMlMigrationToast />
       <CommandPalette />
     </div>

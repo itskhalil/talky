@@ -169,7 +169,7 @@ export function HomeView() {
   return (
     <div className="flex flex-col h-full">
       <div data-tauri-drag-region className="h-8 shrink-0" />
-      <div className="flex-1 min-h-0 flex flex-col mr-2 mb-2 ml-[var(--panel-left,0px)] bg-background border border-border rounded-lg overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col bg-background overflow-hidden">
         <div className="h-10 shrink-0 flex items-center px-4 border-b border-border">
           <span className="font-display text-label uppercase text-text-secondary">
             {t("sidebar.home")}

@@ -34,10 +34,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
   const visibleTabs = tabs.filter((tab) => tab.enabled);
 
   return (
-    <div className="flex flex-col h-screen ground">
-      {/* Drag region for window dragging; the traffic lights sit on the ground */}
-      <div data-tauri-drag-region className="h-9 w-full shrink-0" />
-      <div className="flex-1 min-h-0 mx-2 mb-2 flex flex-col bg-background border border-border rounded-lg overflow-hidden">
+    <div className="flex flex-col h-full bg-background">
+      {/* Drag region for window dragging; the traffic lights sit here */}
+      <div data-tauri-drag-region className="h-8 w-full shrink-0" />
+      <div className="flex-1 min-h-0 flex flex-col bg-background border-t border-border overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 h-12 shrink-0 border-b border-border">
           <button

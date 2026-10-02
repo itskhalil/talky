@@ -890,5 +890,15 @@
     "emptyBody": "Start a note when your next meeting begins, or now.",
     "chooseEnv": "Choose which notes to ask",
     "stop": "Stop"
+  },
+  "status": {
+    "rec": "Rec",
+    "ready": "Ready",
+    "downloading": "Downloading model {{percent}}%",
+    "preparing": "Preparing model",
+    "defaultMic": "Default mic",
+    "systemDefault": "System default",
+    "changeMic": "Change microphone",
+    "goToRecording": "Go to the recording"
   }
 }
