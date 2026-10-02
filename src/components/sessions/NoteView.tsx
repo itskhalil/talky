@@ -1830,7 +1830,7 @@ export function NoteView({
         {/* The bar: record, transcript, ask. It sits in the page flow, so opening
           the transcript shrinks the notes rather than covering them. */}
         <div className="shrink-0 w-full max-w-3xl mx-auto px-4 pt-2 pb-4 flex gap-2 items-end">
-          <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.04),0_6px_20px_rgba(0,0,0,0.06)] overflow-hidden">
+          <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.04),0_6px_20px_rgba(0,0,0,0.06)]">
             {/* Expandable area — transcript or chat */}
             {panelOpen && (
               <div className="border-b border-border">
