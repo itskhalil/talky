@@ -159,7 +159,7 @@ function App() {
           <SettingsPage onBack={() => setView("notes")} />
         )}
       </div>
-      <StatusRail />
+      <StatusRail onOpenSettings={() => setView("settings")} />
       <CoreMlMigrationToast />
       <CommandPalette />
     </div>

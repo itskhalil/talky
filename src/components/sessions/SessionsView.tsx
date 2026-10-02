@@ -355,7 +355,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             setSidebarCollapsed(true);
           }
         }}
-        className={`absolute top-0.5 ${buttonLeftClass} z-[60] p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors`}
+        className={`absolute top-0.5 ${buttonLeftClass} z-[60] p-1 rounded hover:bg-accent/10 text-mid-gray hover:text-text-secondary transition-colors`}
         title={t(
           sidebarCollapsed && !overlayOpen
             ? "notes.expandSidebar"

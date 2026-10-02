@@ -899,6 +899,10 @@
     "defaultMic": "Default mic",
     "systemDefault": "System default",
     "changeMic": "Change microphone",
-    "goToRecording": "Go to the recording"
+    "goToRecording": "Go to the recording",
+    "app": "Talky",
+    "update": "Update available · Install",
+    "suggestions_one": "{{count}} word suggestion",
+    "suggestions_other": "{{count}} word suggestions"
   }
 }

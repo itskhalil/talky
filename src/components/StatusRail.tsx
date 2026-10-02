@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Mic } from "lucide-react";
+import { ArrowDown, Check, Mic } from "lucide-react";
+import { useUpdateChecker } from "@/components/update-checker/UpdateChecker";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useModelStore } from "@/stores/modelStore";
 import { useSettings } from "@/hooks/useSettings";
+import { commands } from "@/bindings";
 
 function formatElapsed(ms: number): string {
   const secs = Math.floor(ms / 1000);
@@ -18,7 +20,7 @@ function formatElapsed(ms: number): string {
  * a glance: what's recording (click to go back to it), background work, and
  * which microphone is listening. Everything here is machine state, so mono.
  */
-export function StatusRail() {
+export function StatusRail({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { t } = useTranslation();
   const isRecording = useSessionStore((s) => s.isRecording);
   const recordingSessionId = useSessionStore((s) => s.recordingSessionId);
@@ -33,6 +35,13 @@ export function StatusRail() {
   const extracting = useModelStore((s) => s.extractingModels.size > 0);
   const { getSetting, updateSetting, audioDevices, refreshAudioDevices } =
     useSettings();
+  const {
+    updateAvailable,
+    updateChecksEnabled,
+    isInstalling,
+    downloadProgress: updateProgress,
+    installUpdate,
+  } = useUpdateChecker();
 
   // Recorded time continues across Record/Resume: segments carry on from
   // the last segment's end, so start the clock from that.
@@ -76,6 +85,22 @@ export function StatusRail() {
     // Only on mount; the picker refreshes when it opens.
   }, []);
 
+  // Word suggestions waiting for review (Settings › custom words).
+  const [suggestionCount, setSuggestionCount] = useState(0);
+  useEffect(() => {
+    const fetchCount = async () => {
+      const suggestions = await commands.getWordSuggestions();
+      setSuggestionCount(suggestions.length);
+    };
+    void fetchCount();
+    window.addEventListener("word-suggestions-changed", fetchCount);
+    window.addEventListener("focus", fetchCount);
+    return () => {
+      window.removeEventListener("word-suggestions-changed", fetchCount);
+      window.removeEventListener("focus", fetchCount);
+    };
+  }, []);
+
   const [micOpen, setMicOpen] = useState(false);
   const micRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -93,13 +118,13 @@ export function StatusRail() {
 
   return (
     <div className="h-6 shrink-0 flex items-center gap-4 px-3 border-t border-border bg-background-sidebar font-mono text-label uppercase tracking-[0.05em] text-text-secondary select-none">
+      <span className="text-text">{t("status.app")}</span>
       {isRecording && recordingSessionId ? (
         <button
           onClick={() => selectSession(recordingSessionId)}
           title={t("status.goToRecording")}
           className={`${item} min-w-0 hover:bg-accent/5 hover:text-text transition-colors`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-live shrink-0" />
           <span className="text-text">{t("status.rec")}</span>
           <span>{formatElapsed(run ? run.baseMs + (now - run.since) : 0)}</span>
           {recordingSession?.title && (
@@ -121,6 +146,34 @@ export function StatusRail() {
       )}
 
       <span className="flex-1" />
+
+      {suggestionCount > 0 && (
+        <button
+          onClick={onOpenSettings}
+          className={`${item} hover:bg-accent/5 hover:text-text transition-colors`}
+        >
+          {t("status.suggestions", { count: suggestionCount })}
+        </button>
+      )}
+
+      {updateChecksEnabled && updateAvailable && (
+        <button
+          onClick={installUpdate}
+          disabled={isInstalling}
+          className={`${item} text-text hover:bg-accent/5 transition-colors disabled:opacity-60`}
+        >
+          <ArrowDown size={11} className="shrink-0" />
+          {isInstalling
+            ? updateProgress === 100
+              ? t("footer.installing")
+              : updateProgress > 0
+                ? t("footer.downloading", {
+                    progress: updateProgress.toString().padStart(3),
+                  })
+                : t("footer.preparing")
+            : t("status.update")}
+        </button>
+      )}
 
       <div ref={micRef} className="relative h-full">
         <button

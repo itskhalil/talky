@@ -17,7 +17,6 @@ import {
   X,
   Check,
   ChevronDown,
-  ArrowDown,
 } from "lucide-react";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -25,7 +24,6 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { commands } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useUpdateChecker } from "@/components/update-checker";
 
 interface Session {
   id: string;
@@ -145,13 +143,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   onOpenSettings,
 }) => {
   const { t } = useTranslation();
-  const {
-    updateAvailable,
-    updateChecksEnabled,
-    isInstalling,
-    downloadProgress,
-    installUpdate,
-  } = useUpdateChecker();
   const deselectSession = useSessionStore((s) => s.deselectSession);
 
   const { settings } = useSettingsStore();
@@ -180,7 +171,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   } = useOrganizationStore();
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [suggestionCount, setSuggestionCount] = useState(0);
   const [sessionTagsMap, setSessionTagsMap] = useState<
     Record<string, string[]>
   >({});
@@ -200,22 +190,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   useEffect(() => {
     loadTags();
   }, [sessions, loadTags]);
-
-  // Word-suggestion count for the settings badge
-  useEffect(() => {
-    const fetchSuggestionCount = async () => {
-      const suggestions = await commands.getWordSuggestions();
-      setSuggestionCount(suggestions.length);
-    };
-    fetchSuggestionCount();
-    const handleChange = () => fetchSuggestionCount();
-    window.addEventListener("word-suggestions-changed", handleChange);
-    window.addEventListener("focus", handleChange);
-    return () => {
-      window.removeEventListener("word-suggestions-changed", handleChange);
-      window.removeEventListener("focus", handleChange);
-    };
-  }, []);
 
   // Tag view needs each session's tags
   useEffect(() => {
@@ -344,7 +318,9 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
 
   const renderSessionRow = (s: Session, timeLabel: string, live = false) => {
     const isSelected = selectedId === s.id;
-    const dot = live ? "var(--color-live)" : envDotFor(s);
+    // The LIVE label already marks the recording row; its environment dot
+    // still shows, but no second orange marker.
+    const dot = envDotFor(s);
     return (
       <div
         key={s.id}
@@ -465,6 +441,15 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           title={t("palette.openTitle")}
         >
           <Search size={15} />
+        </button>
+        <span data-tauri-drag-region className="flex-1 self-stretch" />
+        <button
+          onClick={onOpenSettings}
+          aria-label={t("sidebar.settings")}
+          title={t("sidebar.settings")}
+          className={iconButton}
+        >
+          <Settings size={15} />
         </button>
       </div>
 
@@ -600,41 +585,6 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
           <div className="px-4 pt-6 text-center text-ui text-text-secondary">
             {t("sidebar.noNotesInView")}
           </div>
-        )}
-      </div>
-
-      {/* Settings + update */}
-      <div className="flex items-center gap-2 px-2 py-1.5 border-t border-border">
-        <button
-          onClick={onOpenSettings}
-          aria-label={t("sidebar.settings")}
-          title={t("sidebar.settings")}
-          className={`${iconButton} relative`}
-        >
-          <Settings size={16} />
-          {suggestionCount > 0 && (
-            <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-amber-500 rounded-full" />
-          )}
-        </button>
-        {updateChecksEnabled && updateAvailable && (
-          <button
-            onClick={installUpdate}
-            disabled={isInstalling}
-            className="flex items-center gap-1.5 ml-auto px-2.5 py-1 rounded-md bg-background-ui text-white text-xs font-medium hover:bg-background-ui/90 transition-colors disabled:opacity-50"
-          >
-            <span className="truncate">
-              {isInstalling
-                ? downloadProgress === 100
-                  ? t("footer.installing")
-                  : downloadProgress > 0
-                    ? t("footer.downloading", {
-                        progress: downloadProgress.toString().padStart(3),
-                      })
-                    : t("footer.preparing")
-                : t("settings.general.updateBanner.message")}
-            </span>
-            <ArrowDown size={12} strokeWidth={2.5} />
-          </button>
         )}
       </div>
 

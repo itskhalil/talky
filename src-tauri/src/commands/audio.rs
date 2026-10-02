@@ -30,7 +30,9 @@ pub fn get_available_microphones() -> Result<Vec<AudioDevice>, String> {
     result.extend(devices.into_iter().map(|d| AudioDevice {
         index: d.index,
         name: d.name,
-        is_default: false, // The explicit default is handled separately
+        // Marks the device the OS is currently using, so the UI can name it
+        // next to the synthetic "Default" entry.
+        is_default: d.is_default,
     }));
 
     Ok(result)
@@ -79,7 +81,9 @@ pub fn get_available_output_devices() -> Result<Vec<AudioDevice>, String> {
     result.extend(devices.into_iter().map(|d| AudioDevice {
         index: d.index,
         name: d.name,
-        is_default: false, // The explicit default is handled separately
+        // Marks the device the OS is currently using, so the UI can name it
+        // next to the synthetic "Default" entry.
+        is_default: d.is_default,
     }));
 
     Ok(result)
