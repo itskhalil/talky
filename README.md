@@ -102,7 +102,7 @@ Talky includes a debug pane for development, troubleshooting, and advanced setti
 #### Prerequisites
 
 - [Rust](https://rustup.rs/) (latest stable)
-- [Bun](https://bun.sh/) package manager
+- [Node.js](https://nodejs.org/) (version in `.nvmrc`) with npm
 - [Tauri prerequisites](https://tauri.app/start/prerequisites/)
 
 Platform extras:
@@ -116,8 +116,8 @@ Platform extras:
 ```bash
 git clone git@github.com:itskhalil/talky.git
 cd talky
-bun install
-bun tauri dev
+npm install
+npm run tauri dev
 ```
 
 ## License
