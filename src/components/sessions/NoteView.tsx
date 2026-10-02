@@ -1407,7 +1407,7 @@ export function NoteView({
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             placeholder={t("sessions.newNote")}
-            className="w-full text-2xl leading-tight font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden font-display p-0"
+            className="w-full text-[30px] leading-tight font-normal tracking-[-0.03em] bg-transparent border-none outline-none placeholder:text-mid-gray/30 pr-16 resize-none overflow-hidden p-0"
           />
 
           {/* Metadata line: date, folder, tags, attachments, add buttons */}

@@ -224,7 +224,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   if (isWindows && allGranted) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-        <h1 className="text-5xl font-bold text-text font-display">
+        <h1 className="text-4xl font-normal tracking-[-0.03em] text-text">
           {t("common.appName")}
         </h1>
         <p className="text-green-500 font-medium">
@@ -236,7 +236,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
 
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-      <h1 className="text-5xl font-bold text-text font-display">
+      <h1 className="text-4xl font-normal tracking-[-0.03em] text-text">
         {t("common.appName")}
       </h1>
       <div className="max-w-md w-full text-center space-y-6">

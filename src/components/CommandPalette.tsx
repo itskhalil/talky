@@ -15,12 +15,15 @@ import {
   X,
   Calendar,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import type { SearchHit } from "@/bindings";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { useNoteUiIntentStore } from "@/stores/noteUiIntentStore";
 import { useOrganizationStore } from "@/stores/organizationStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { highlightMatches } from "@/utils/highlight";
 
@@ -73,7 +76,17 @@ interface CommandResult {
   command: PaletteCommand;
 }
 
-type Result = CommandResult | NoteResult;
+/** Turns the query into a question, answered on Home within one environment. */
+interface AskResult {
+  kind: "ask";
+  environmentId: string | null;
+  label: string;
+  /** Matching notes in this environment; null with a single environment. */
+  count: number | null;
+  color: string | null;
+}
+
+type Result = CommandResult | NoteResult | AskResult;
 
 /** Simple title-only scorer; used for commands and as the offline fallback for notes. */
 function scoreMatch(haystack: string, needle: string): number {
@@ -189,6 +202,15 @@ export const CommandPalette: React.FC = () => {
   const recordingSessionId = useSessionStore((s) => s.recordingSessionId);
   const selectedCache = useSessionStore((s) =>
     s.selectedSessionId ? s.cache[s.selectedSessionId] : undefined,
+  );
+  const environments = useSettingsStore(
+    (s) => s.settings?.model_environments ?? [],
+  );
+  const defaultEnvId = useSettingsStore(
+    (s) =>
+      s.settings?.default_environment_id ??
+      s.settings?.model_environments?.[0]?.id ??
+      null,
   );
   const folders = useOrganizationStore((s) => s.folders);
   const tags = useOrganizationStore((s) => s.tags);
@@ -386,8 +408,40 @@ export const CommandPalette: React.FC = () => {
         }));
     }
 
-    return [...filteredCommands, ...notes];
-  }, [commands, noteResults, sessions, query]);
+    // One ask row per environment, so a question never mixes them.
+    let asks: AskResult[] = [];
+    if (q) {
+      if (environments.length < 2) {
+        asks = [
+          {
+            kind: "ask",
+            environmentId: defaultEnvId,
+            label: t("palette.ask.about", { query: q }),
+            count: null,
+            color: null,
+          },
+        ];
+      } else {
+        const counts: Record<string, number> = {};
+        for (const hit of noteResults ?? []) {
+          const envId = hit.session.environment_id ?? defaultEnvId;
+          if (envId) counts[envId] = (counts[envId] || 0) + 1;
+        }
+        const withMatches = environments.filter((e) => counts[e.id]);
+        asks = (withMatches.length > 0 ? withMatches : environments).map(
+          (e) => ({
+            kind: "ask",
+            environmentId: e.id,
+            label: t("palette.ask.env", { env: e.name, query: q }),
+            count: counts[e.id] ?? 0,
+            color: e.color,
+          }),
+        );
+      }
+    }
+
+    return [...filteredCommands, ...notes, ...asks];
+  }, [commands, noteResults, sessions, query, environments, defaultEnvId, t]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -408,6 +462,10 @@ export const CommandPalette: React.FC = () => {
   const runResult = (r: Result) => {
     if (r.kind === "command") {
       r.command.run();
+    } else if (r.kind === "ask") {
+      close();
+      useNavigationStore.getState().askOnHome(query.trim(), r.environmentId);
+      useSessionStore.getState().deselectSession();
     } else {
       close();
       useSessionStore.getState().selectSession(r.hit.session.id);
@@ -676,6 +734,45 @@ export const CommandPalette: React.FC = () => {
                             </span>
                           )}
                         </span>
+                      </button>
+                    );
+                  })}
+                {results.some((r) => r.kind === "ask") && (
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                    {t("palette.sections.ask")}
+                  </div>
+                )}
+                {results
+                  .filter((r) => r.kind === "ask")
+                  .map((r) => {
+                    const idx = ++renderedIndex;
+                    const isActive = idx === activeIndex;
+                    const ask = r as AskResult;
+                    return (
+                      <button
+                        key={`ask-${ask.environmentId ?? "default"}`}
+                        data-palette-index={idx}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onClick={() => runResult(r)}
+                        className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm text-left transition-colors ${
+                          isActive ? "bg-accent/10 text-text" : "text-text"
+                        }`}
+                      >
+                        <span className="text-text-secondary shrink-0">
+                          <Sparkles size={16} />
+                        </span>
+                        {ask.color && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: ask.color }}
+                          />
+                        )}
+                        <span className="flex-1 truncate">{ask.label}</span>
+                        {ask.count !== null && (
+                          <span className="shrink-0 font-mono text-[11px] text-mid-gray">
+                            {t("palette.ask.found", { count: ask.count })}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

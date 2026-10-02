@@ -41,15 +41,20 @@
     "quit": "Quit"
   },
   "sidebar": {
-    "general": "General",
-    "sessions": "Notes",
-    "advanced": "Advanced",
-    "postProcessing": "Post Process",
-    "history": "History",
-    "debug": "Debug",
-    "keyboard": "Shortcuts",
-    "about": "About",
-    "chat": "Chat"
+    "home": "Home",
+    "newNote": "New note",
+    "settings": "Settings",
+    "allNotes": "All notes",
+    "folders": "Folders",
+    "tags": "Tags",
+    "newFolder": "New folder…",
+    "folderName": "Folder name",
+    "deleteFolder": "Delete folder",
+    "showAll": "Show all notes",
+    "viewMenu": "Choose which notes to show",
+    "live": "Live",
+    "deleteNote": "Delete note",
+    "noNotesInView": "No notes here yet"
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
@@ -747,7 +752,8 @@
     "empty": "No results",
     "sections": {
       "commands": "Commands",
-      "notes": "Notes"
+      "notes": "Notes",
+      "ask": "Ask"
     },
     "commands": {
       "newNote": "New note",
@@ -782,6 +788,11 @@
       "body": "in body",
       "enhanced": "in enhanced",
       "transcript": "in transcript"
+    },
+    "ask": {
+      "about": "Ask about “{{query}}”",
+      "env": "Ask {{env}} notes about “{{query}}”",
+      "found": "{{count}} found"
     }
   },
   "editor": {
@@ -827,5 +838,17 @@
         "description": "3 × 3 table with header row"
       }
     }
+  },
+  "home": {
+    "title": "Ask across your notes",
+    "placeholder": "Ask across your notes…",
+    "followUp": "Follow up…",
+    "envNotes": "{{env}} notes",
+    "recent": "Recent",
+    "newQuestion": "New question",
+    "emptyTitle": "No notes yet",
+    "emptyBody": "Start a note when your next meeting begins, or now.",
+    "chooseEnv": "Choose which notes to ask",
+    "stop": "Stop"
   }
 }

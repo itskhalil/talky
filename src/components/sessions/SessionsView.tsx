@@ -5,12 +5,7 @@ import {
   LogicalSize,
   LogicalPosition,
 } from "@tauri-apps/api/window";
-import {
-  StickyNote,
-  PanelLeftOpen,
-  PanelLeftClose,
-  Settings,
-} from "lucide-react";
+import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
@@ -18,6 +13,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useOsType } from "@/hooks/useOsType";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
+import { HomeView } from "./HomeView";
 import { ExportDialog, type ExportOptions } from "@/components/ui/ExportDialog";
 import {
   useSessionStore,
@@ -35,27 +31,6 @@ import {
 
 interface SessionsViewProps {
   onOpenSettings: () => void;
-}
-
-function EmptyState({ onNewNote }: { onNewNote: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col h-full text-text-secondary">
-      {/* macOS title bar drag region */}
-      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
-      <div className="flex-1 flex flex-col items-center justify-center gap-4">
-        <StickyNote size={40} strokeWidth={1} className="opacity-25" />
-        <p className="text-sm">{t("notes.emptyState")}</p>
-        <button
-          onClick={onNewNote}
-          data-ui
-          className="text-sm px-4 py-2 bg-accent/5 rounded-lg hover:bg-accent/10 transition-colors text-accent border border-border"
-        >
-          {t("sessions.newNote")}
-        </button>
-      </div>
-    </div>
-  );
 }
 
 export function SessionsView({ onOpenSettings }: SessionsViewProps) {
@@ -428,7 +403,7 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
             enhanceStreaming={enhanceStreaming}
           />
         ) : (
-          <EmptyState onNewNote={createNote} />
+          <HomeView />
         )}
       </div>
 
