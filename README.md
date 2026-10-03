@@ -50,7 +50,7 @@ Transcription runs locally with NVIDIA's Parakeet model. None of your meeting co
 curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.sh | bash
 ```
 
-**Windows** (x64 and ARM64; builds in CI, lightly tested)
+**Windows** (x64; experimental, lightly tested)
 
 ```powershell
 irm https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.ps1 | iex
