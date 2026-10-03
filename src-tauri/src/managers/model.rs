@@ -381,9 +381,18 @@ impl ModelManager {
 
         // If no model is selected or selected model is empty
         if settings.selected_model.is_empty() {
-            // Find the first available (downloaded) model
+            // Prefer the recommended model, so a reinstall that still has
+            // Ultra in the shared Core ML cache starts on it; otherwise the
+            // most accurate downloaded model. Map order is arbitrary.
             let models = self.available_models.lock_or_recover();
-            if let Some(available_model) = models.values().find(|model| model.is_downloaded) {
+            let recommended = models
+                .get(recommended_model_id())
+                .filter(|model| model.is_downloaded);
+            let most_accurate = models
+                .values()
+                .filter(|model| model.is_downloaded)
+                .max_by(|a, b| a.accuracy_score.total_cmp(&b.accuracy_score));
+            if let Some(available_model) = recommended.or(most_accurate) {
                 info!(
                     "Auto-selecting model: {} ({})",
                     available_model.id, available_model.name
