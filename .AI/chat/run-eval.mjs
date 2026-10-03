@@ -349,7 +349,11 @@ function lengthScore(input, answer) {
   };
 }
 
-/** 0 when any prose block or bullet runs to three or more sentences. */
+/**
+ * 0 when any prose block or bullet runs to three or more sentences, or any
+ * sentence runs past 25 words. Semicolons count as sentence breaks: joining
+ * two points with a semicolon or a chain of clauses reads worse, not better.
+ */
 function formScore(answer) {
   const units = [];
   let para = [];
@@ -370,9 +374,15 @@ function formScore(answer) {
   }
   flush();
   const sentences = (u) =>
-    u.split(/(?<=[.!?])\s+(?=[^a-z\s])/).filter((x) => words(x) > 0).length;
-  const worst = Math.max(0, ...units.map(sentences));
-  return { score: worst >= 3 ? 0 : 1, worst };
+    u
+      .split(/(?<=[.!?]["”’)]?)\s+(?=[^a-z\s])|;\s+/)
+      .filter((x) => words(x) > 0);
+  const worst = Math.max(0, ...units.map((u) => sentences(u).length));
+  const longest = Math.max(
+    0,
+    ...units.flatMap((u) => sentences(u).map((x) => words(x))),
+  );
+  return { score: worst >= 3 || longest > 25 ? 0 : 1, worst, longest };
 }
 
 const ago = (startedAt) => {
@@ -571,7 +581,7 @@ async function gradeCase(input, run, ref, ctx) {
       direct: j.direct.why,
       lean: j.lean.why,
       length: `${len.n} words; budget ${len.budget}`,
-      form: `longest block: ${form.worst} sentence(s)`,
+      form: `longest block: ${form.worst} sentence(s); longest sentence: ${form.longest} words`,
     },
   };
 }
