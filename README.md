@@ -20,27 +20,19 @@ Transcription runs locally with NVIDIA's Parakeet model. None of your meeting co
 
 ## What it does
 
-<table>
-<tr>
-<td width="50%" valign="top">
-<img src="docs/images/transcript.png" alt="Rough notes with the live transcript open underneath">
-<p><b>Take notes, Talky listens.</b> Your microphone and the other side of the call are captured as separate streams, so the transcript knows who said what.</p>
-</td>
-<td width="50%" valign="top">
-<img src="docs/images/ask.png" alt="Home with an answer that cites several meetings">
-<p><b>Ask across meetings.</b> "What did we decide this week?" The model searches and reads your notes with tools, and cites the meetings it used.</p>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-<img src="docs/images/search.png" alt="The command palette searching notes and transcripts">
-<p><b>Find anything.</b> Full-text search over titles, notes and transcripts, with filters for folder, tag and date. Any search can become a question.</p>
-</td>
-<td width="50%" valign="middle">
-<p><b>Keep confidential meetings separate.</b> Each note belongs to one environment, and every AI call goes to that environment's endpoint with that environment's notes only.</p>
-</td>
-</tr>
-</table>
+**Take notes; Talky listens.** Your microphone and the other side of the call are captured as separate streams, so the transcript knows who said what.
+
+<img src="docs/images/transcript.png" alt="Rough notes with the live transcript open underneath, lines labelled Me and Them" width="100%">
+
+**Ask across meetings.** "What do I owe people this week?" The model searches and reads your notes with tools, answers from them, and lists the meetings it used. Each one opens the note.
+
+<img src="docs/images/ask.png" alt="The question What do I owe people this week? answered with commitments from two meetings, and the notes it read listed underneath" width="100%">
+
+**Find anything.** Full-text search over titles, notes and transcripts, with filters for folder, tag and date. Any search can become a question.
+
+<img src="docs/images/search.png" alt="The search palette with matches from note bodies and an option to ask" width="100%">
+
+**Keep confidential meetings separate.** Each note belongs to one environment, and every AI call goes to that environment's endpoint with that environment's notes only.
 
 ## Install
 
