@@ -36,7 +36,10 @@ const FIELD_RANK: Record<string, number> = {
 };
 
 const stripMarkers = (s: string) =>
-  s.replace(/\[noted\] /g, "").replace(/\[ai\] /g, "").replace(/\[noted\]|\[ai\]/g, "");
+  s
+    .replace(/\[noted\] /g, "")
+    .replace(/\[ai\] /g, "")
+    .replace(/\[noted\]|\[ai\]/g, "");
 
 /** Same rule as the Rust `to_fts_query`. */
 function toFtsQuery(input: string): string | null {
@@ -100,7 +103,10 @@ export function fixtureSource(notes: Note[]): NoteSource {
           best.set(row.session_id, { field: row.field, snippet });
       }
       return [...best.entries()]
-        .map(([id, hit]) => ({ ...summary(byId.get(id)!), snippet: hit.snippet }))
+        .map(([id, hit]) => ({
+          ...summary(byId.get(id)!),
+          snippet: hit.snippet,
+        }))
         .sort((a, b) => b.startedAt - a.startedAt);
     },
     async list() {

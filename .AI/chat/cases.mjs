@@ -53,7 +53,13 @@ export const CASES = [
     mode: "across",
     question: "what do I owe people?",
     tags: ["across", "actions"],
-    sources: ["design-review", "product-sync", "sam-1on1", "northwind-call", "vendor-call"],
+    sources: [
+      "design-review",
+      "product-sync",
+      "sam-1on1",
+      "northwind-call",
+      "vendor-call",
+    ],
     shape: "a short list",
     facts: [
       "Write the copy for the permissions screen",
@@ -256,7 +262,9 @@ export const CASES = [
     tags: ["note", "absent"],
     sources: ["design-review"],
     shape: "one sentence",
-    facts: ["Says this note doesn't cover Sam's design doc (it can only see this note), without guessing"],
+    facts: [
+      "Says this note doesn't cover Sam's design doc (it can only see this note), without guessing",
+    ],
   },
   {
     id: "n06-uptime",
@@ -276,7 +284,10 @@ export const CASES = [
     tags: ["note", "lookup"],
     sources: ["vendor-call"],
     shape: "one sentence",
-    facts: ["Yes, per seat", "15% off annual billing and a 20-seat minimum (either is fine as extra context)"],
+    facts: [
+      "Yes, per seat",
+      "15% off annual billing and a 20-seat minimum (either is fine as extra context)",
+    ],
   },
   {
     id: "n08-what-did-i-miss",
