@@ -7,6 +7,7 @@ import {
   ask,
   buildModel,
   noteTools,
+  oneNoteContent,
   oneNotePrompt,
   type AskSource,
   type NoteSource,
@@ -171,10 +172,10 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
               title: s?.title ?? "Untitled",
               date: s ? new Date(s.started_at * 1000).toLocaleDateString() : "",
               userNotes: options.getCurrentNotes?.() ?? "",
-              // Enhanced notes already summarise the transcript.
-              content: enhanced
-                ? `### Enhanced notes\n${enhanced}`
-                : `### Transcript\n${options.getCurrentTranscript?.() || "(none yet)"}`,
+              content: oneNoteContent(
+                enhanced,
+                options.getCurrentTranscript?.() ?? "",
+              ),
             },
             userName,
           );

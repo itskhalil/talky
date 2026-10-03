@@ -24,7 +24,10 @@ import {
   tool,
   wrapLanguageModel,
   type LanguageModel,
+  type LanguageModelUsage,
   type ModelMessage,
+  type StepResult,
+  type ToolSet,
 } from "ai";
 import * as chrono from "chrono-node";
 import { z } from "zod";
@@ -231,6 +234,17 @@ ${note.userNotes || "(none)"}
 ${note.content}`;
 }
 
+/** The part of a note the one-note prompt shows after the user's notes. */
+export function oneNoteContent(
+  enhancedNotes: string,
+  transcript: string,
+): string {
+  // Enhanced notes already summarise the transcript.
+  return enhancedNotes
+    ? `### Enhanced notes\n${enhancedNotes}`
+    : `### Transcript\n${transcript || "(none yet)"}`;
+}
+
 /** "Sat, 3 Oct 2026" → "3 Oct": enough to tell notes apart in a chip. */
 function shortDay(date?: string): string {
   return (date ?? "").replace(/^\w+, /, "").replace(/ \d{4}$/, "");
@@ -243,6 +257,14 @@ export interface AskSource {
   date: string;
 }
 
+/** What one question did and cost: every step, total usage, served model. */
+export interface AskRun {
+  steps: StepResult<ToolSet>[];
+  usage: LanguageModelUsage;
+  modelId: string;
+  finishReason: string;
+}
+
 /**
  * Run one question. Streams the answer through `onText` (the full text so
  * far), reports the notes it drew on through `onSources`, and resolves when
@@ -250,6 +272,8 @@ export interface AskSource {
  * searched notes named in the answer); they come from the tool calls, not
  * from the model's own formatting. Tool errors, such as a malformed call,
  * go back to the model, which can retry; they never stall the loop.
+ * `onFinish` reports the whole run (the chat eval records it); it fires
+ * before the empty-answer check so a failed run's usage is still counted.
  */
 export async function ask({
   model,
@@ -259,6 +283,7 @@ export async function ask({
   signal,
   onText,
   onSources,
+  onFinish,
 }: {
   model: LanguageModel;
   system: string;
@@ -267,6 +292,7 @@ export async function ask({
   signal?: AbortSignal;
   onText: (text: string) => void;
   onSources?: (sources: AskSource[]) => void;
+  onFinish?: (run: AskRun) => void;
 }): Promise<string> {
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
@@ -314,6 +340,14 @@ export async function ask({
           ? part.error
           : new Error(String(part.error));
     }
+  }
+  if (onFinish) {
+    onFinish({
+      steps: (await result.steps) as StepResult<ToolSet>[],
+      usage: await result.totalUsage,
+      modelId: (await result.response).modelId,
+      finishReason: await result.finishReason,
+    });
   }
   if (!text.trim()) {
     throw new Error("The model finished without an answer. Try asking again.");

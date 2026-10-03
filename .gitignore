@@ -48,6 +48,13 @@ recording_*
 !.AI/traces/
 !.AI/traces/db.mjs
 !.AI/traces/query.mjs
+!.AI/chat/
+!.AI/chat/PRINCIPLES.md
+!.AI/chat/CASES.md
+!.AI/chat/cases.mjs
+!.AI/chat/fixtures.mjs
+!.AI/chat/app.ts
+!.AI/chat/run-eval.mjs
 PROMPT CHANGES.md
 .env
 
