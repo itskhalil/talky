@@ -11,12 +11,8 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter};
-use transcribe_rs::{
-    engines::parakeet::{
-        ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
-    },
-    TranscriptionEngine,
-};
+use transcribe_rs::onnx::parakeet::{ParakeetModel, ParakeetParams, TimestampGranularity};
+use transcribe_rs::onnx::Quantization;
 
 /// Returns the current timestamp in milliseconds since UNIX epoch.
 /// Uses `unwrap_or_default()` to avoid panicking if `SystemTime` is before UNIX epoch.
@@ -36,7 +32,7 @@ pub struct ModelStateEvent {
 }
 
 enum LoadedEngine {
-    Parakeet(ParakeetEngine),
+    Parakeet(ParakeetModel),
     #[cfg(target_os = "macos")]
     ParakeetCoreML(crate::managers::coreml_asr::CoreMlAsr),
 }
@@ -157,7 +153,8 @@ impl TranscriptionManager {
             let mut engine = self.engine.lock_or_recover();
             if let Some(ref mut loaded_engine) = *engine {
                 match loaded_engine {
-                    LoadedEngine::Parakeet(ref mut e) => e.unload_model(),
+                    // Dropping the ParakeetModel below releases its ORT sessions.
+                    LoadedEngine::Parakeet(_) => {}
                     #[cfg(target_os = "macos")]
                     LoadedEngine::ParakeetCoreML(_) => {
                         // Drop impl on CoreMlAsr handles sidecar shutdown.
@@ -299,10 +296,8 @@ impl TranscriptionManager {
                     unreachable!()
                 } else {
                     let model_path = self.model_manager.get_model_path(model_id)?;
-                    let mut engine = ParakeetEngine::new();
-                    engine
-                        .load_model_with_params(&model_path, ParakeetModelParams::int8())
-                        .map_err(|e| {
+                    let engine =
+                        ParakeetModel::load(&model_path, &Quantization::Int8).map_err(|e| {
                             let error_msg =
                                 format!("Failed to load parakeet model {}: {}", model_id, e);
                             let _ = self.app_handle.emit(
@@ -492,13 +487,14 @@ impl TranscriptionManager {
             LoadedEngine::Parakeet(parakeet_engine) => {
                 debug!("Calling parakeet.transcribe: {} samples", audio.len());
 
-                let params = ParakeetInferenceParams {
-                    timestamp_granularity: TimestampGranularity::Segment,
+                let params = ParakeetParams {
+                    timestamp_granularity: Some(TimestampGranularity::Segment),
+                    ..Default::default()
                 };
 
                 let start = std::time::Instant::now();
                 let result = parakeet_engine
-                    .transcribe_samples(audio, Some(params))
+                    .transcribe_with(&audio, &params)
                     .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))?;
                 info!(
                     "Parakeet transcription completed in {:?}: '{}' ({} chars)",
@@ -590,11 +586,13 @@ impl TranscriptionManager {
                 return false;
             }
         };
-        let mut engine = ParakeetEngine::new();
-        if let Err(e) = engine.load_model_with_params(&model_path, ParakeetModelParams::int8()) {
-            warn!("ONNX fallback load failed: {}", e);
-            return false;
-        }
+        let engine = match ParakeetModel::load(&model_path, &Quantization::Int8) {
+            Ok(engine) => engine,
+            Err(e) => {
+                warn!("ONNX fallback load failed: {}", e);
+                return false;
+            }
+        };
         info!("Fell back to ONNX Parakeet ({})", model_info.name);
         let mut engine_guard = self.engine.lock_or_recover();
         *engine_guard = Some(LoadedEngine::Parakeet(engine));
