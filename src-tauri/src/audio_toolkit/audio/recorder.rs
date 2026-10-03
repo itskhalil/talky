@@ -14,6 +14,11 @@ use crate::audio_toolkit::{
     constants,
 };
 
+/// How often the consumer checks for commands when no audio arrives.
+const COMMAND_POLL: Duration = Duration::from_millis(50);
+/// Upper bound on waiting for the consumer to answer a command.
+const REPLY_TIMEOUT: Duration = Duration::from_secs(2);
+
 enum Cmd {
     Start,
     Stop(mpsc::Sender<Vec<f32>>),
@@ -68,8 +73,16 @@ impl AudioRecorder {
         let level_cb = self.level_cb.clone();
 
         let worker = std::thread::spawn(move || {
-            let config = AudioRecorder::get_preferred_config(&thread_device)
-                .expect("failed to fetch preferred config");
+            // Release builds abort on panic, so a device that vanishes between
+            // enumeration and opening must not panic here: log and exit, and
+            // callers get errors from the closed command channel instead.
+            let config = match AudioRecorder::get_preferred_config(&thread_device) {
+                Ok(config) => config,
+                Err(e) => {
+                    log::error!("Failed to fetch input config: {e}");
+                    return;
+                }
+            };
 
             let sample_rate = config.sample_rate().0;
             let channels = config.channels() as usize;
@@ -85,28 +98,36 @@ impl AudioRecorder {
             let stream = match config.sample_format() {
                 cpal::SampleFormat::U8 => {
                     AudioRecorder::build_stream::<u8>(&thread_device, &config, sample_tx, channels)
-                        .unwrap()
                 }
                 cpal::SampleFormat::I8 => {
                     AudioRecorder::build_stream::<i8>(&thread_device, &config, sample_tx, channels)
-                        .unwrap()
                 }
                 cpal::SampleFormat::I16 => {
                     AudioRecorder::build_stream::<i16>(&thread_device, &config, sample_tx, channels)
-                        .unwrap()
                 }
                 cpal::SampleFormat::I32 => {
                     AudioRecorder::build_stream::<i32>(&thread_device, &config, sample_tx, channels)
-                        .unwrap()
                 }
                 cpal::SampleFormat::F32 => {
                     AudioRecorder::build_stream::<f32>(&thread_device, &config, sample_tx, channels)
-                        .unwrap()
                 }
-                _ => panic!("unsupported sample format"),
+                other => {
+                    log::error!("Unsupported input sample format: {other:?}");
+                    return;
+                }
+            };
+            let stream = match stream {
+                Ok(stream) => stream,
+                Err(e) => {
+                    log::error!("Failed to build input stream: {e}");
+                    return;
+                }
             };
 
-            stream.play().expect("failed to start stream");
+            if let Err(e) = stream.play() {
+                log::error!("Failed to start input stream: {e}");
+                return;
+            }
 
             // keep the stream alive while we process samples
             run_consumer(sample_rate, sample_rx, cmd_rx, level_cb);
@@ -134,7 +155,7 @@ impl AudioRecorder {
         } else {
             return Ok(Vec::new()); // already closed
         }
-        Ok(resp_rx.recv()?) // wait for the samples
+        Ok(resp_rx.recv_timeout(REPLY_TIMEOUT)?) // wait for the samples
     }
 
     /// Take accumulated samples without stopping the stream.
@@ -146,7 +167,7 @@ impl AudioRecorder {
         } else {
             return Ok(Vec::new()); // not recording
         }
-        Ok(resp_rx.recv()?)
+        Ok(resp_rx.recv_timeout(REPLY_TIMEOUT)?)
     }
 
     pub fn close(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -209,13 +230,26 @@ impl AudioRecorder {
     fn get_preferred_config(
         device: &cpal::Device,
     ) -> Result<cpal::SupportedStreamConfig, Box<dyn std::error::Error>> {
-        let supported_configs = device.supported_input_configs()?;
+        // Use the device's native/default sample rate and let the FrameResampler
+        // in run_consumer() downsample to 16kHz. Forcing hardware into a
+        // non-native rate degrades some devices (Bluetooth codecs, certain ALSA
+        // drivers, USB mics). Ported from Handy (#1084).
+        let default_config = device.default_input_config()?;
+        let target_rate = default_config.sample_rate();
+
+        // Pick the best sample format at the device's default rate
+        let supported_configs = match device.supported_input_configs() {
+            Ok(configs) => configs,
+            Err(e) => {
+                log::warn!("Could not enumerate input configs ({e}), using device default");
+                return Ok(default_config);
+            }
+        };
         let mut best_config: Option<cpal::SupportedStreamConfigRange> = None;
 
-        // Try to find a config that supports 16kHz, prioritizing better formats
         for config_range in supported_configs {
-            if config_range.min_sample_rate().0 <= constants::WHISPER_SAMPLE_RATE
-                && config_range.max_sample_rate().0 >= constants::WHISPER_SAMPLE_RATE
+            if config_range.min_sample_rate() <= target_rate
+                && config_range.max_sample_rate() >= target_rate
             {
                 match best_config {
                     None => best_config = Some(config_range),
@@ -237,11 +271,15 @@ impl AudioRecorder {
         }
 
         if let Some(config) = best_config {
-            return Ok(config.with_sample_rate(cpal::SampleRate(constants::WHISPER_SAMPLE_RATE)));
+            return Ok(config.with_sample_rate(target_rate));
         }
 
-        // If no config supports 16kHz, fall back to default
-        Ok(device.default_input_config()?)
+        // Fall back to device default if no config matched (exotic/virtual devices)
+        log::warn!(
+            "No supported config matched device default rate {:?}, using default config",
+            target_rate
+        );
+        Ok(default_config)
     }
 }
 
@@ -259,6 +297,7 @@ fn run_consumer(
 
     let mut processed_samples = Vec::<f32>::new();
     let mut recording = false;
+    let mut stream_lost = false;
 
     // ---------- spectrum visualisation setup ---------------------------- //
     const BUCKETS: usize = 16;
@@ -271,28 +310,52 @@ fn run_consumer(
         4000.0, // vocal_max_hz
     );
 
-    while let Ok(raw) = sample_rx.recv() {
-        // ---------- spectrum processing ---------------------------------- //
-        if let Some(buckets) = visualizer.feed(&raw) {
-            if let Some(cb) = &level_cb {
-                cb(buckets);
+    loop {
+        // Wait for audio, but never so long that a command goes unanswered: if
+        // the device stops delivering (unplugged, Bluetooth drop, sleep),
+        // Stop and Take must still reply or the caller blocks forever.
+        match sample_rx.recv_timeout(COMMAND_POLL) {
+            Ok(raw) => {
+                // ---------- spectrum processing ------------------------------ //
+                if let Some(buckets) = visualizer.feed(&raw) {
+                    if let Some(cb) = &level_cb {
+                        cb(buckets);
+                    }
+                }
+
+                // ---------- resample and accumulate ---------------------------- //
+                // No VAD filtering here - we capture all audio and do VAD-based
+                // segmentation in the pipeline instead to avoid double-VAD issues.
+                frame_resampler.push(&raw, &mut |frame: &[f32]| {
+                    if recording {
+                        processed_samples.extend_from_slice(frame);
+                    }
+                });
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                // The stream is gone; keep answering commands until shutdown.
+                if !stream_lost {
+                    log::warn!("Microphone stream stopped delivering audio");
+                    stream_lost = true;
+                }
+                std::thread::sleep(COMMAND_POLL);
             }
         }
 
-        // ---------- resample and accumulate -------------------------------- //
-        // No VAD filtering here - we capture all audio and do VAD-based
-        // segmentation in the pipeline instead to avoid double-VAD issues.
-        frame_resampler.push(&raw, &mut |frame: &[f32]| {
-            if recording {
-                processed_samples.extend_from_slice(frame);
-            }
-        });
-
         // non-blocking check for a command
-        while let Ok(cmd) = cmd_rx.try_recv() {
+        loop {
+            let cmd = match cmd_rx.try_recv() {
+                Ok(cmd) => cmd,
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::TryRecvError::Disconnected) => return,
+            };
             match cmd {
                 Cmd::Start => {
                     processed_samples.clear();
+                    // Drop audio buffered inside the resampler from before this
+                    // recording so it can't leak into it.
+                    frame_resampler.reset();
                     recording = true;
                     visualizer.reset(); // Reset visualization buffer
                 }
@@ -303,6 +366,7 @@ fn run_consumer(
                         // we still want to process the last few frames
                         processed_samples.extend_from_slice(frame);
                     });
+                    frame_resampler.reset();
 
                     let _ = reply_tx.send(std::mem::take(&mut processed_samples));
                 }
