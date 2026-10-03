@@ -360,6 +360,15 @@ fn run_consumer(
                     visualizer.reset(); // Reset visualization buffer
                 }
                 Cmd::Stop(reply_tx) => {
+                    // Audio captured before the stop but not yet consumed
+                    // belongs to this recording (Handy #838).
+                    while let Ok(raw) = sample_rx.try_recv() {
+                        frame_resampler.push(&raw, &mut |frame: &[f32]| {
+                            if recording {
+                                processed_samples.extend_from_slice(frame);
+                            }
+                        });
+                    }
                     recording = false;
 
                     frame_resampler.finish(&mut |frame: &[f32]| {
@@ -382,5 +391,36 @@ fn run_consumer(
                 Cmd::Shutdown => return,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stop_keeps_audio_still_queued() {
+        let (sample_tx, sample_rx) = mpsc::channel::<Vec<f32>>();
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Cmd>();
+        let worker = std::thread::spawn(move || run_consumer(16_000, sample_rx, cmd_rx, None));
+
+        // Take's reply means Start has been handled.
+        cmd_tx.send(Cmd::Start).unwrap();
+        let (tx, rx) = mpsc::channel();
+        cmd_tx.send(Cmd::Take(tx)).unwrap();
+        rx.recv_timeout(REPLY_TIMEOUT).unwrap();
+
+        // Queue a second of audio and stop before the consumer can drain it.
+        for _ in 0..100 {
+            sample_tx.send(vec![0.1; 160]).unwrap();
+        }
+        let (tx, rx) = mpsc::channel();
+        cmd_tx.send(Cmd::Stop(tx)).unwrap();
+        let samples = rx.recv_timeout(REPLY_TIMEOUT).unwrap();
+        // The last 30 ms frame is zero-padded, so a little more comes back.
+        assert!(samples.len() >= 16_000, "got {} samples", samples.len());
+
+        cmd_tx.send(Cmd::Shutdown).unwrap();
+        worker.join().unwrap();
     }
 }
