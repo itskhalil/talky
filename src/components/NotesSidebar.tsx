@@ -5,30 +5,26 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 import {
   Plus,
   Trash2,
   Settings,
   Search,
+  Home,
   FolderIcon,
-  FolderOpen,
+  Hash,
   X,
-  ChevronRight,
+  Check,
   ChevronDown,
-  Sparkles,
-  Send,
-  Loader,
-  ArrowDown,
 } from "lucide-react";
-import { useGlobalChat } from "@/hooks/useGlobalChat";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { commands } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useUpdateChecker } from "@/components/update-checker";
 
 interface Session {
   id: string;
@@ -45,87 +41,98 @@ interface NotesSidebarProps {
   selectedId: string | null;
   recordingSessionId: string | null;
   onSelect: (id: string) => void;
-  onNewNote: () => void;
+  onNewNote: () => void | Promise<void>;
   onDelete: (id: string) => void;
   onOpenSettings: () => void;
 }
 
-function formatDate(timestamp: number): string {
-  const date = new Date(timestamp * 1000);
-  const datePart = date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-  const timePart = date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return `${datePart}, ${timePart}`;
+interface LogGroup {
+  key: string;
+  label: string;
+  /** Day groups show a time per row; month groups show the day. */
+  kind: "day" | "month";
+  items: Session[];
 }
 
-type DateGroup = "today" | "yesterday" | "thisWeek" | "lastWeek" | "earlier";
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
 
-function getDateGroup(timestamp: number): DateGroup {
-  const now = new Date();
-  const date = new Date(timestamp * 1000);
+/**
+ * The log is grouped by day for the last week (Today, Yesterday, then each
+ * date), and by month before that, so older notes don't collapse into one
+ * undated heap.
+ */
+function groupForLog(
+  sessions: Session[],
+  labels: { today: string; yesterday: string },
+): LogGroup[] {
+  const today = startOfDay(new Date());
+  const weekAgo = new Date(today);
+  weekAgo.setDate(today.getDate() - 6);
+  const thisYear = today.getFullYear();
+  const groups: LogGroup[] = [];
+  const byKey = new Map<string, LogGroup>();
 
-  // Reset to start of day for comparison
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  // Get Monday of current week (weeks start on Monday)
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ...
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const thisWeekStart = new Date(today);
-  thisWeekStart.setDate(today.getDate() - daysFromMonday);
-
-  // Get Monday of last week
-  const lastWeekStart = new Date(thisWeekStart);
-  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
-
-  const dateStart = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
-
-  if (dateStart >= today) {
-    return "today";
-  } else if (dateStart >= yesterday) {
-    return "yesterday";
-  } else if (dateStart >= thisWeekStart) {
-    return "thisWeek";
-  } else if (dateStart >= lastWeekStart) {
-    return "lastWeek";
+  for (const s of sessions) {
+    const date = new Date(s.started_at * 1000);
+    const day = startOfDay(date);
+    let key: string;
+    let label: string;
+    let kind: LogGroup["kind"];
+    if (day >= weekAgo) {
+      kind = "day";
+      key = `d-${day.getTime()}`;
+      const diffDays = Math.round(
+        (today.getTime() - day.getTime()) / 86_400_000,
+      );
+      label =
+        diffDays === 0
+          ? labels.today
+          : diffDays === 1
+            ? labels.yesterday
+            : date.toLocaleDateString(undefined, {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              });
+    } else {
+      kind = "month";
+      key = `m-${date.getFullYear()}-${date.getMonth()}`;
+      label = date.toLocaleDateString(undefined, {
+        month: "long",
+        ...(date.getFullYear() !== thisYear ? { year: "numeric" } : {}),
+      });
+    }
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, label, kind, items: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(s);
   }
-  return "earlier";
-}
-
-interface GroupedSessions {
-  today: Session[];
-  yesterday: Session[];
-  thisWeek: Session[];
-  lastWeek: Session[];
-  earlier: Session[];
-}
-
-function groupSessionsByDate(sessions: Session[]): GroupedSessions {
-  const groups: GroupedSessions = {
-    today: [],
-    yesterday: [],
-    thisWeek: [],
-    lastWeek: [],
-    earlier: [],
-  };
-
-  for (const session of sessions) {
-    const group = getDateGroup(session.started_at);
-    groups[group].push(session);
-  }
-
   return groups;
 }
+
+/** Left-column label: a time in day groups, weekday + date in month groups. */
+function formatLogTime(timestamp: number, kind: LogGroup["kind"]): string {
+  const date = new Date(timestamp * 1000);
+  if (kind === "day") {
+    return date.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+  });
+}
+
+const iconButton =
+  "w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors";
 
 export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   sessions,
@@ -137,109 +144,16 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   onOpenSettings,
 }) => {
   const { t } = useTranslation();
-  const {
-    updateAvailable,
-    updateChecksEnabled,
-    isInstalling,
-    downloadProgress,
-    installUpdate,
-  } = useUpdateChecker();
-  const [newFolderName, setNewFolderName] = useState("");
-  const [isAddingFolder, setIsAddingFolder] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [sessionTagsMap, setSessionTagsMap] = useState<
-    Record<string, string[]>
-  >({});
-  const [foldersExpanded, setFoldersExpanded] = useState(true);
-  const [tagsExpanded, setTagsExpanded] = useState(true);
-  const [chatExpanded, setChatExpanded] = useState(false);
-  const [chatHeight, setChatHeight] = useState(192); // default ~max-h-48
-  const [suggestionCount, setSuggestionCount] = useState(0);
-  const [chatEnvId, setChatEnvId] = useState<string | null>(null);
-  const [chatEnvDropdownOpen, setChatEnvDropdownOpen] = useState(false);
-  const folderInputRef = useRef<HTMLInputElement>(null);
-  const chatInputRef = useRef<HTMLInputElement>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const chatEnvDropdownRef = useRef<HTMLDivElement>(null);
-  const resizeRef = useRef<{ startY: number; startHeight: number } | null>(
-    null,
-  );
+  const deselectSession = useSessionStore((s) => s.deselectSession);
 
-  // Get environments from settings store
   const { settings } = useSettingsStore();
-  const environments = settings?.model_environments || [];
-  const defaultEnvId = settings?.default_environment_id;
-  const showEnvSelector = environments.length >= 2;
-
-  // Resolve the effective environment ID for chat filtering
-  const effectiveChatEnvId =
-    chatEnvId ?? defaultEnvId ?? environments[0]?.id ?? null;
-  const currentChatEnv = environments.find((e) => e.id === effectiveChatEnvId);
-
-  const globalChat = useGlobalChat({
-    environmentId: effectiveChatEnvId,
-    filterEnvironmentId: effectiveChatEnvId,
-  });
-
-  // Scroll to latest chat message
-  useEffect(() => {
-    if (chatExpanded && globalChat.messages.length > 0) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [chatExpanded, globalChat.messages]);
-
-  // Clear chat when environment changes
-  const prevEnvIdRef = useRef(effectiveChatEnvId);
-  useEffect(() => {
-    if (prevEnvIdRef.current !== effectiveChatEnvId) {
-      globalChat.clearMessages();
-      prevEnvIdRef.current = effectiveChatEnvId;
-    }
-  }, [effectiveChatEnvId, globalChat.clearMessages]);
-
-  // Close environment dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        chatEnvDropdownRef.current &&
-        !chatEnvDropdownRef.current.contains(e.target as Node)
-      ) {
-        setChatEnvDropdownOpen(false);
-      }
-    };
-    if (chatEnvDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [chatEnvDropdownOpen]);
-
-  // Chat resize handlers
-  const handleResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      resizeRef.current = { startY: e.clientY, startHeight: chatHeight };
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!resizeRef.current) return;
-        const delta = resizeRef.current.startY - e.clientY;
-        const newHeight = Math.max(
-          100,
-          Math.min(500, resizeRef.current.startHeight + delta),
-        );
-        setChatHeight(newHeight);
-      };
-
-      const handleMouseUp = () => {
-        resizeRef.current = null;
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [chatHeight],
+  const environments = settings?.model_environments ?? [];
+  const defaultEnvId =
+    settings?.default_environment_id ?? environments[0]?.id ?? null;
+  const multiEnv = environments.length >= 2;
+  const envById = useMemo(
+    () => Object.fromEntries(environments.map((e) => [e.id, e])),
+    [environments],
   );
 
   const {
@@ -249,49 +163,44 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     selectedTagIds,
     selectFolder,
     toggleTagFilter,
+    clearTagFilters,
     createFolder,
     deleteFolder,
     loadTags,
+    moveSessionToFolder,
     initialize: initOrganization,
   } = useOrganizationStore();
 
-  // Initialize organization store on mount
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [sessionTagsMap, setSessionTagsMap] = useState<
+    Record<string, string[]>
+  >({});
+
+  // View menu ("All notes ▾")
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isAddingFolder, setIsAddingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     initOrganization();
   }, [initOrganization]);
 
-  // Reload tags when sessions change (to clean up orphaned tags)
+  // Reload tags when sessions change (cleans up orphaned tags)
   useEffect(() => {
     loadTags();
   }, [sessions, loadTags]);
 
-  // Fetch word suggestion count for settings badge
-  useEffect(() => {
-    const fetchSuggestionCount = async () => {
-      const suggestions = await commands.getWordSuggestions();
-      setSuggestionCount(suggestions.length);
-    };
-    fetchSuggestionCount();
-    // Refetch when suggestions change or window regains focus
-    const handleChange = () => fetchSuggestionCount();
-    window.addEventListener("word-suggestions-changed", handleChange);
-    window.addEventListener("focus", handleChange);
-    return () => {
-      window.removeEventListener("word-suggestions-changed", handleChange);
-      window.removeEventListener("focus", handleChange);
-    };
-  }, []);
-
-  // Fetch session tags when tags are selected for filtering
+  // Tag view needs each session's tags
   useEffect(() => {
     if (selectedTagIds.length === 0) return;
-
     const fetchSessionTags = async () => {
       const newMap: Record<string, string[]> = {};
       for (const session of sessions) {
         const result = await commands.getSessionTags(session.id);
         if (result.status === "ok") {
-          newMap[session.id] = result.data.map((t) => t.id);
+          newMap[session.id] = result.data.map((tag) => tag.id);
         }
       }
       setSessionTagsMap(newMap);
@@ -299,526 +208,397 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
     fetchSessionTags();
   }, [sessions, selectedTagIds.length]);
 
-  // Filter sessions by folder and tags
+  // Close the view menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handle = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setIsAddingFolder(false);
+        setNewFolderName("");
+      }
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (isAddingFolder) folderInputRef.current?.focus();
+  }, [isAddingFolder]);
+
+  // ---- current view ----
+  const selectedTag = tags.find((tag) => tag.id === selectedTagIds[0]);
+  const selectedFolder = folders.find((f) => f.id === selectedFolderId);
+  const viewLabel = selectedFolder
+    ? selectedFolder.name
+    : selectedTag
+      ? `#${selectedTag.name}`
+      : t("sidebar.allNotes");
+  const isAllNotes = !selectedFolder && !selectedTag;
+
+  const showAll = useCallback(() => {
+    selectFolder(null);
+    clearTagFilters();
+  }, [selectFolder, clearTagFilters]);
+
+  const chooseFolder = (id: string) => {
+    clearTagFilters();
+    selectFolder(id);
+    setMenuOpen(false);
+  };
+
+  const chooseTag = (id: string) => {
+    selectFolder(null);
+    clearTagFilters();
+    toggleTagFilter(id);
+    setMenuOpen(false);
+  };
+
+  const handleAddFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    const folder = await createFolder(name);
+    setNewFolderName("");
+    setIsAddingFolder(false);
+    if (folder) chooseFolder(folder.id);
+  };
+
+  // A note started while viewing a folder belongs in that folder.
+  const handleNewNote = async () => {
+    const folderId = selectedFolderId;
+    await onNewNote();
+    const newId = useSessionStore.getState().selectedSessionId;
+    if (folderId && newId) await moveSessionToFolder(newId, folderId);
+  };
+
   const filteredSessions = useMemo(() => {
     let result = sessions;
-
-    // Filter by folder
     if (selectedFolderId !== null) {
       result = result.filter((s) => s.folder_id === selectedFolderId);
     }
-
-    // Filter by tags (must have ALL selected tags)
     if (selectedTagIds.length > 0) {
       result = result.filter((s) => {
         const sessionTags = sessionTagsMap[s.id] ?? [];
         return selectedTagIds.every((tagId) => sessionTags.includes(tagId));
       });
     }
-
     return result;
   }, [sessions, selectedFolderId, selectedTagIds, sessionTagsMap]);
 
-  // Count sessions per folder
+  const logGroups = useMemo(
+    () =>
+      groupForLog(
+        // the live note is pinned above the groups
+        filteredSessions.filter((s) => s.id !== recordingSessionId),
+        {
+          today: t("notes.dateGroups.today"),
+          yesterday: t("notes.dateGroups.yesterday"),
+        },
+      ),
+    [filteredSessions, recordingSessionId, t],
+  );
+
   const folderCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: sessions.length };
+    const counts: Record<string, number> = {};
     for (const s of sessions) {
-      if (s.folder_id) {
-        counts[s.folder_id] = (counts[s.folder_id] || 0) + 1;
-      }
+      if (s.folder_id) counts[s.folder_id] = (counts[s.folder_id] || 0) + 1;
     }
     return counts;
   }, [sessions]);
 
-  // Group filtered sessions by date
-  const groupedSessions = useMemo(
-    () => groupSessionsByDate(filteredSessions),
-    [filteredSessions],
-  );
+  const liveSession = recordingSessionId
+    ? sessions.find((s) => s.id === recordingSessionId)
+    : undefined;
 
-  const dateGroupOrder: DateGroup[] = [
-    "today",
-    "yesterday",
-    "thisWeek",
-    "lastWeek",
-    "earlier",
-  ];
-
-  const handleAddFolder = async () => {
-    if (newFolderName.trim()) {
-      await createFolder(newFolderName.trim());
-      setNewFolderName("");
-      setIsAddingFolder(false);
-    }
+  const envDotFor = (s: Session) => {
+    if (!multiEnv) return null;
+    const envId = s.environment_id ?? defaultEnvId;
+    if (!envId || envId === defaultEnvId) return null;
+    return envById[envId]?.color ?? null;
   };
 
-  useEffect(() => {
-    if (isAddingFolder && folderInputRef.current) {
-      folderInputRef.current.focus();
-    }
-  }, [isAddingFolder]);
+  const renderSessionRow = (s: Session, timeLabel: string, live = false) => {
+    const isSelected = selectedId === s.id;
+    // The LIVE label already marks the recording row; its environment dot
+    // still shows, but no second orange marker.
+    const dot = envDotFor(s);
+    return (
+      <div
+        key={s.id}
+        onClick={() => onSelect(s.id)}
+        className={`group grid grid-cols-[48px_minmax(0,1fr)_14px] items-center gap-2 h-[30px] pl-3 pr-2 border-b border-border cursor-pointer transition-colors ${
+          isSelected
+            ? "bg-accent/8 text-text font-medium"
+            : "text-text-secondary hover:bg-accent/4 hover:text-text"
+        }`}
+      >
+        <span
+          className={`font-mono text-label ${live ? "text-live uppercase tracking-wider" : "text-mid-gray"}`}
+        >
+          {timeLabel}
+        </span>
+        <span data-ui className="text-ui truncate">
+          {s.title}
+        </span>
+        <span className="relative flex items-center justify-center">
+          {dot && (
+            <span
+              className="w-1.5 h-1.5 rounded-full group-hover:opacity-0 transition-opacity"
+              style={{ backgroundColor: dot }}
+            />
+          )}
+          {!live && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteConfirmId(s.id);
+              }}
+              aria-label={t("sidebar.deleteNote")}
+              title={t("sidebar.deleteNote")}
+              className="absolute opacity-0 group-hover:opacity-100 text-mid-gray hover:text-red-500 transition-opacity"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
+        </span>
+      </div>
+    );
+  };
+
+  const dayHeader = (label: string) => (
+    <div className="px-3 pt-3 pb-1 border-b border-border-strong font-display text-label uppercase text-text-secondary">
+      {label}
+    </div>
+  );
+
+  const menuRow = (
+    key: string,
+    label: React.ReactNode,
+    icon: React.ReactNode,
+    count: number | null,
+    selected: boolean,
+    onClick: () => void,
+    onDeleteRow?: () => void,
+  ) => (
+    <div
+      key={key}
+      onClick={onClick}
+      className={`group flex items-center gap-2 h-[30px] px-2.5 rounded-md cursor-pointer text-ui text-text ${
+        selected ? "bg-accent/8" : "hover:bg-accent/5"
+      }`}
+    >
+      <span className="w-3.5 flex justify-center text-mid-gray">{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {count !== null && (
+        <span className="font-mono text-label text-mid-gray group-hover:hidden">
+          {count}
+        </span>
+      )}
+      {onDeleteRow && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteRow();
+          }}
+          aria-label={t("sidebar.deleteFolder")}
+          title={t("sidebar.deleteFolder")}
+          className="hidden group-hover:block text-mid-gray hover:text-red-500"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+      {selected && <Check size={13} className="text-text" />}
+    </div>
+  );
 
   return (
-    <div className="flex flex-col w-full h-full border-t border-border bg-background-sidebar sidebar-gradient">
-      {/* macOS title bar drag region */}
-      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
-      {/* Search + New Note buttons */}
-      <div className="flex items-center justify-end gap-2 px-3 pt-1 pb-2">
+    <div className="flex flex-col w-full h-full bg-background">
+      {/* macOS title bar drag region (traffic lights + sidebar toggle live here) */}
+      <div data-tauri-drag-region className="h-8 w-full shrink-0" />
+
+      {/* Home · New · Search */}
+      <div className="flex items-center gap-1 h-10 px-2.5 shrink-0">
         <button
-          onClick={() => useCommandPaletteStore.getState().open()}
-          className="w-8 h-8 flex items-center justify-center rounded-full text-text-secondary hover:bg-accent/10 hover:text-text transition-colors shrink-0"
-          title={t("palette.openTitle")}
+          onClick={() => {
+            deselectSession();
+            useNavigationStore.getState().goHome();
+          }}
+          className={`${iconButton} ${selectedId === null ? "bg-accent/8 text-text" : ""}`}
+          aria-label={t("sidebar.home")}
+          title={t("sidebar.home")}
         >
-          <Search size={16} strokeWidth={2} />
+          <Home size={15} />
         </button>
         <button
-          onClick={onNewNote}
+          onClick={handleNewNote}
           data-ui
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-background-ui text-white hover:bg-background-ui/90 transition-colors shrink-0"
-          title={t("sessions.newNote")}
+          className={iconButton}
+          aria-label={t("sidebar.newNote")}
+          title={t("sidebar.newNote")}
         >
           <Plus size={16} strokeWidth={2} />
         </button>
+        <button
+          onClick={() => useCommandPaletteStore.getState().open()}
+          className={iconButton}
+          aria-label={t("palette.openTitle")}
+          title={t("palette.openTitle")}
+        >
+          <Search size={15} />
+        </button>
+        <span data-tauri-drag-region className="flex-1 self-stretch" />
+        <button
+          onClick={onOpenSettings}
+          aria-label={t("sidebar.settings")}
+          title={t("sidebar.settings")}
+          className={iconButton}
+        >
+          <Settings size={15} />
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Folders section */}
-        <div className="px-3 pb-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
-              {t("notes.folders", "Folders")}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setIsAddingFolder(true)}
-                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
-              >
-                <Plus size={14} />
-              </button>
-              <button
-                onClick={() => setFoldersExpanded(!foldersExpanded)}
-                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
-              >
-                {foldersExpanded ? (
-                  <ChevronDown size={14} />
-                ) : (
-                  <ChevronRight size={14} />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Add folder input */}
-          {foldersExpanded && isAddingFolder && (
-            <div className="flex items-center gap-1 mb-1 pl-4">
-              <input
-                ref={folderInputRef}
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddFolder();
-                  if (e.key === "Escape") {
-                    setIsAddingFolder(false);
-                    setNewFolderName("");
-                  }
-                }}
-                placeholder={t("notes.newFolderName", "Folder name")}
-                className="flex-1 px-2 py-1 text-xs rounded border border-border bg-transparent text-text focus:outline-none focus:border-accent"
-              />
-              <button
-                onClick={handleAddFolder}
-                className="p-1 rounded hover:bg-accent/10 text-accent"
-              >
-                <Plus size={12} />
-              </button>
-              <button
-                onClick={() => {
-                  setIsAddingFolder(false);
-                  setNewFolderName("");
-                }}
-                className="p-1 rounded hover:bg-accent/10 text-text-secondary"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          )}
-
-          {/* All Notes and Folder list */}
-          {foldersExpanded && (
-            <>
-              <button
-                onClick={() => selectFolder(null)}
-                className={`flex items-center gap-2 w-full pl-4 pr-2 py-1.5 rounded-lg text-sm transition-colors ${
-                  selectedFolderId === null
-                    ? "bg-accent/10 text-text"
-                    : "text-text"
-                }`}
-              >
-                <FolderOpen size={16} />
-                <span className="flex-1 text-left">
-                  {t("notes.allNotes", "All Notes")}
-                </span>
-                <span className="text-xs text-text-secondary">
-                  {folderCounts.all}
-                </span>
-              </button>
-
-              {folders.map((folder) => (
-                <div
-                  key={folder.id}
-                  className={`group relative flex items-center gap-2 w-full pl-4 pr-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
-                    selectedFolderId === folder.id
-                      ? "bg-accent/10 text-text"
-                      : "text-text"
-                  }`}
-                  onClick={() => selectFolder(folder.id)}
-                >
-                  <FolderIcon
-                    size={16}
-                    style={folder.color ? { color: folder.color } : undefined}
-                  />
-                  <span className="flex-1 text-left truncate">
-                    {folder.name}
-                  </span>
-                  <span className="text-xs text-text-secondary group-hover:opacity-0 transition-opacity">
-                    {folderCounts[folder.id] || 0}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteFolder(folder.id);
-                    }}
-                    className="absolute right-2 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all"
-                    title={t("notes.deleteFolder", "Delete folder")}
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-
-        {/* Tags section */}
-        {tags.length > 0 && (
-          <div className="px-3 pb-2">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
-                {t("notes.tags", "Tags")}
-              </span>
-              <button
-                onClick={() => setTagsExpanded(!tagsExpanded)}
-                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
-              >
-                {tagsExpanded ? (
-                  <ChevronDown size={14} />
-                ) : (
-                  <ChevronRight size={14} />
-                )}
-              </button>
-            </div>
-            {tagsExpanded && (
-              <div className="flex flex-wrap gap-1 pl-4 -ml-2">
-                {tags.map((tag) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => toggleTagFilter(tag.id)}
-                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
-                      selectedTagIds.includes(tag.id)
-                        ? "bg-background-ui text-white"
-                        : "bg-accent/5 text-text"
-                    }`}
-                    style={
-                      tag.color && !selectedTagIds.includes(tag.id)
-                        ? {
-                            backgroundColor: `${tag.color}20`,
-                            color: tag.color,
-                          }
-                        : undefined
-                    }
-                  >
-                    {tag.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Divider */}
-        <div className="border-t border-border mx-3 my-2" />
-
-        {/* Notes list */}
-        <div className="px-3 pb-2">
-          <span className="text-xs font-medium text-text-secondary uppercase tracking-wide font-display">
-            {t("notes.notes", "Notes")}
-            <span className="text-text-secondary/50 ml-1">
-              ({filteredSessions.length})
-            </span>
+      {/* View header: All notes ▾ */}
+      <div
+        ref={menuRef}
+        className="relative flex items-center h-8 pl-1.5 pr-2 border-t border-border"
+      >
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label={t("sidebar.viewMenu")}
+          className={`flex items-center gap-1.5 h-6 px-1.5 rounded-md text-ui font-medium text-text min-w-0 ${
+            menuOpen ? "bg-accent/8" : "hover:bg-accent/5"
+          }`}
+        >
+          <span className="truncate">{viewLabel}</span>
+          <ChevronDown size={12} className="shrink-0 text-text-secondary" />
+        </button>
+        <span className="flex-1" />
+        {isAllNotes ? (
+          <span className="font-mono text-label text-mid-gray">
+            {filteredSessions.length}
           </span>
-        </div>
-        <div className="px-3">
-          {dateGroupOrder.map((group) => {
-            const sessionsInGroup = groupedSessions[group];
-            if (sessionsInGroup.length === 0) return null;
-
-            return (
-              <div
-                key={group}
-                className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:mt-2"
-              >
-                <div className="pt-1.5 pb-1.5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider font-display">
-                  {t(`notes.dateGroups.${group}`)}
-                </div>
-                {sessionsInGroup.map((session) => {
-                  const isSelected = selectedId === session.id;
-                  const isRecordingThis = recordingSessionId === session.id;
-
-                  return (
-                    <div
-                      key={session.id}
-                      className={`group flex items-start gap-2 pl-4 pr-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                        isSelected ? "bg-accent/10" : ""
-                      }`}
-                      onClick={() => onSelect(session.id)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          {isRecordingThis && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
-                          )}
-                          <span
-                            data-ui
-                            className={`text-sm truncate ${
-                              isSelected ? "font-medium text-text" : "text-text"
-                            }`}
-                          >
-                            {session.title}
-                          </span>
-                        </div>
-                        <div data-ui className="text-xs text-text-secondary">
-                          {formatDate(session.started_at)}
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteConfirmId(session.id);
-                        }}
-                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-all shrink-0"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Global Chat */}
-      <div className="border-t border-border">
-        {/* Chat messages (when expanded) */}
-        {chatExpanded && (
-          <>
-            {/* Resize handle with collapse button */}
-            <div className="flex items-center group">
-              <div
-                onMouseDown={handleResizeStart}
-                className="flex-1 h-2 cursor-ns-resize flex items-center justify-center"
-              >
-                <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-text-secondary transition-colors" />
-              </div>
-              <button
-                onClick={() => setChatExpanded(false)}
-                className="p-0.5 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
-              >
-                <ChevronDown size={14} />
-              </button>
-            </div>
-            <div
-              style={{ height: chatHeight }}
-              className="overflow-y-auto px-3 py-2 space-y-2"
-            >
-              {globalChat.messages.length === 0 ? (
-                <p className="text-xs text-text-secondary text-center py-4">
-                  {t("chat.askAboutNotes", "Ask anything about your notes...")}
-                </p>
-              ) : (
-                globalChat.messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`text-xs ${msg.role === "user" ? "flex justify-end" : ""}`}
-                  >
-                    {msg.role === "user" ? (
-                      <div className="bg-accent/10 text-text rounded-lg px-2.5 py-1.5 max-w-[85%]">
-                        <span className="whitespace-pre-wrap select-text cursor-text">
-                          {msg.content}
-                        </span>
-                      </div>
-                    ) : msg.content ? (
-                      <div className="text-text select-text cursor-text [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:my-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_code]:bg-mid-gray/10 [&_code]:px-1 [&_code]:rounded">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
-                    ) : (
-                      <Loader
-                        size={16}
-                        className="animate-spin-slow text-text-secondary"
-                      />
-                    )}
-                  </div>
-                ))
-              )}
-              {globalChat.error && (
-                <div className="text-xs text-red-400 px-1">
-                  {globalChat.error}
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-          </>
+        ) : (
+          <button
+            onClick={showAll}
+            aria-label={t("sidebar.showAll")}
+            title={t("sidebar.showAll")}
+            className="text-mid-gray hover:text-text"
+          >
+            <X size={12} />
+          </button>
         )}
 
-        {/* Environment selector - only show if 2+ environments and chat is expanded */}
-        {showEnvSelector && chatExpanded && (
-          <div className="px-3 pt-2">
-            <div ref={chatEnvDropdownRef} className="relative inline-block">
-              <button
-                onClick={() => setChatEnvDropdownOpen(!chatEnvDropdownOpen)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/10 transition-colors"
-              >
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{
-                    backgroundColor: currentChatEnv?.color || "#6b7280",
+        {menuOpen && (
+          <div className="absolute left-2 top-8 z-30 w-[250px] p-1 bg-background border border-border-strong rounded-lg shadow-lg flex flex-col gap-px">
+            {menuRow(
+              "all",
+              t("sidebar.allNotes"),
+              null,
+              sessions.length,
+              isAllNotes,
+              () => {
+                showAll();
+                setMenuOpen(false);
+              },
+            )}
+            {folders.length > 0 && (
+              <div className="px-2.5 pt-2 pb-1 font-display text-label uppercase text-mid-gray">
+                {t("sidebar.folders")}
+              </div>
+            )}
+            {folders.map((f) =>
+              menuRow(
+                f.id,
+                f.name,
+                <FolderIcon size={13} />,
+                folderCounts[f.id] || 0,
+                selectedFolderId === f.id,
+                () => chooseFolder(f.id),
+                () => {
+                  if (selectedFolderId === f.id) showAll();
+                  deleteFolder(f.id);
+                },
+              ),
+            )}
+            {tags.length > 0 && (
+              <div className="px-2.5 pt-2 pb-1 font-display text-label uppercase text-mid-gray">
+                {t("sidebar.tags")}
+              </div>
+            )}
+            {tags.map((tag) =>
+              menuRow(
+                tag.id,
+                tag.name,
+                <Hash size={12} />,
+                null,
+                selectedTagIds[0] === tag.id,
+                () => chooseTag(tag.id),
+              ),
+            )}
+            <div className="h-px bg-border mx-1.5 my-1" />
+            {isAddingFolder ? (
+              <div className="flex items-center gap-1 px-1.5 h-[30px]">
+                <input
+                  ref={folderInputRef}
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddFolder();
+                    if (e.key === "Escape") {
+                      setIsAddingFolder(false);
+                      setNewFolderName("");
+                    }
                   }}
+                  placeholder={t("sidebar.folderName")}
+                  className="flex-1 min-w-0 h-6 px-2 text-ui rounded border border-border bg-transparent text-text outline-none focus:border-border-strong"
                 />
-                <span>{currentChatEnv?.name ?? t("sessions.environment")}</span>
-                <ChevronDown size={10} />
-              </button>
-              {chatEnvDropdownOpen && (
-                <div className="absolute bottom-full left-0 mb-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
-                  {environments.map((env) => (
-                    <button
-                      key={env.id}
-                      onClick={() => {
-                        setChatEnvId(env.id);
-                        setChatEnvDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: env.color }}
-                      />
-                      {env.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                <button
+                  onClick={handleAddFolder}
+                  aria-label={t("sidebar.newFolder")}
+                  className="p-1 text-text-secondary hover:text-text"
+                >
+                  <Check size={13} />
+                </button>
+              </div>
+            ) : (
+              menuRow(
+                "new-folder",
+                t("sidebar.newFolder"),
+                <Plus size={13} />,
+                null,
+                false,
+                () => setIsAddingFolder(true),
+              )
+            )}
           </div>
         )}
-
-        {/* Chat input bar */}
-        <div className="flex items-center gap-2 px-3 py-2.5">
-          <button
-            onClick={() => setChatExpanded(!chatExpanded)}
-            className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
-              chatExpanded
-                ? "bg-accent/10 text-accent"
-                : "text-text-secondary hover:bg-accent/10 hover:text-text"
-            }`}
-          >
-            <Sparkles size={16} />
-          </button>
-          <input
-            ref={chatInputRef}
-            type="text"
-            value={globalChat.input}
-            onChange={(e) => globalChat.setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                setChatExpanded(true);
-                globalChat.handleSubmit();
-              }
-            }}
-            onFocus={() => setChatExpanded(true)}
-            placeholder={t("chat.placeholder", "Ask about your notes...")}
-            className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary min-w-0"
-          />
-          {globalChat.isLoading ? (
-            <button
-              onClick={globalChat.stop}
-              className="p-1 rounded-md text-text-secondary hover:text-text transition-colors"
-            >
-              <X size={16} />
-            </button>
-          ) : (
-            globalChat.input.trim() && (
-              <button
-                onClick={() => {
-                  setChatExpanded(true);
-                  globalChat.handleSubmit();
-                }}
-                className="p-1 rounded-md text-accent hover:text-accent/70 transition-colors"
-              >
-                <Send size={16} />
-              </button>
-            )
-          )}
-        </div>
       </div>
 
-      {/* Bottom: settings + update banner */}
-      <div className="border-t border-border">
-        <div className="flex items-center gap-2 px-3 py-2.5">
-          <button
-            onClick={onOpenSettings}
-            className="relative w-6 h-6 flex items-center justify-center rounded-lg hover:bg-accent/10 text-text-secondary hover:text-text transition-colors"
-          >
-            <Settings size={20} />
-            {suggestionCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
+      {/* The list */}
+      <div className="flex-1 overflow-y-auto border-t border-border-strong">
+        {liveSession && renderSessionRow(liveSession, t("sidebar.live"), true)}
+        {logGroups.map((group) => (
+          <div key={group.key}>
+            {dayHeader(group.label)}
+            {group.items.map((s) =>
+              renderSessionRow(s, formatLogTime(s.started_at, group.kind)),
             )}
-          </button>
-          {updateChecksEnabled && updateAvailable && (
-            <button
-              onClick={installUpdate}
-              disabled={isInstalling}
-              className="flex items-center gap-1.5 ml-auto px-2.5 py-1 rounded-full bg-background-ui text-white text-xs font-medium hover:bg-background-ui/90 transition-colors disabled:opacity-50"
-            >
-              <span className="truncate">
-                {isInstalling
-                  ? downloadProgress === 100
-                    ? t("footer.installing")
-                    : downloadProgress > 0
-                      ? t("footer.downloading", {
-                          progress: downloadProgress.toString().padStart(3),
-                        })
-                      : t("footer.preparing")
-                  : t("settings.general.updateBanner.message")}
-              </span>
-              <ArrowDown size={12} strokeWidth={2.5} />
-            </button>
-          )}
-        </div>
+          </div>
+        ))}
+        {filteredSessions.length === 0 && (
+          <div className="px-4 pt-6 text-center text-ui text-text-secondary">
+            {t("sidebar.noNotesInView")}
+          </div>
+        )}
       </div>
 
-      {/* Delete confirmation dialog */}
       <ConfirmDialog
         open={deleteConfirmId !== null}
         title={t("sessions.deleteConfirmTitle")}
         message={t("sessions.deleteConfirmMessage")}
         variant="danger"
         onConfirm={() => {
-          if (deleteConfirmId) {
-            onDelete(deleteConfirmId);
-          }
+          if (deleteConfirmId) onDelete(deleteConfirmId);
           setDeleteConfirmId(null);
         }}
         onCancel={() => setDeleteConfirmId(null)}

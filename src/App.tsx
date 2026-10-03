@@ -4,6 +4,7 @@ import "./App.css";
 import Onboarding, { PermissionsOnboarding } from "./components/onboarding";
 import { SessionsView } from "./components/sessions/SessionsView";
 import { SettingsPage } from "./components/SettingsPage";
+import { StatusRail } from "./components/StatusRail";
 import { CommandPalette } from "./components/CommandPalette";
 import { ErrorEventBanner } from "./components/error-events/ErrorEventBanner";
 import { CoreMlMigrationToast } from "./components/coreml-migration/CoreMlMigrationToast";
@@ -140,7 +141,7 @@ function App() {
           unstyled: true,
           classNames: {
             toast:
-              "bg-background border border-mid-gray/20 rounded-xl shadow-lg px-5 py-4 flex items-center justify-between gap-6 text-sm min-w-[400px]",
+              "bg-background border border-border rounded-xl shadow-lg px-5 py-4 flex items-center justify-between gap-6 text-sm min-w-[400px]",
             title: "font-semibold text-text",
             description: "text-text-secondary text-xs mt-1",
             actionButton:
@@ -160,6 +161,7 @@ function App() {
           <SettingsPage onBack={() => setView("notes")} />
         )}
       </div>
+      <StatusRail onOpenSettings={() => setView("settings")} />
       <CoreMlMigrationToast />
       <CommandPalette />
     </div>

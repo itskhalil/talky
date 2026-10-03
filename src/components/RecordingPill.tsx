@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { resolveResource } from "@tauri-apps/api/path";
 import { Maximize2 } from "lucide-react";
 import { WaveformBars } from "@/components/ui/WaveformBars";
 import "../App.css";
@@ -15,18 +13,12 @@ interface AmplitudeEvent {
 
 export function RecordingPill() {
   const [amplitude, setAmplitude] = useState({ mic: 0, speaker: 0 });
-  const [iconSrc, setIconSrc] = useState<string | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     // Make the window background transparent
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
-
-    // Load the tray icon
-    resolveResource("resources/tray_idle.png").then((path) => {
-      setIconSrc(convertFileSrc(path));
-    });
   }, []);
 
   useEffect(() => {
@@ -65,18 +57,12 @@ export function RecordingPill() {
       onMouseUp={handleMouseUp}
       className="w-full h-full p-1.5 box-border cursor-pointer"
     >
-      <div className="w-full h-full flex flex-col items-center justify-center gap-3 py-2 bg-[#edeae3] border border-black/6 rounded-[24px] shadow-lg pointer-events-none">
-        {iconSrc && (
-          <img
-            src={iconSrc}
-            alt=""
-            width={20}
-            height={20}
-            className="opacity-70"
-          />
-        )}
-        <WaveformBars amplitude={amplitude} isRecording={true} />
-        <Maximize2 size={12} className="text-[#7c7c78]/50" />
+      {/* Orange level bars are the live signal: they move with the audio. */}
+      <div className="w-full h-full flex flex-col items-center pt-2 pb-3 bg-background border border-border-strong rounded-lg shadow-lg pointer-events-none">
+        <span className="flex-1 flex items-center text-live scale-125">
+          <WaveformBars amplitude={amplitude} isRecording={true} floor={0.3} />
+        </span>
+        <Maximize2 size={12} className="text-mid-gray" />
       </div>
     </div>
   );

@@ -139,10 +139,10 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
         {/* Suggestions section */}
         {wordSuggestionsEnabled && suggestions.length > 0 && (
           <div
-            className={`px-4 py-3 ${grouped ? "" : "rounded-lg border border-amber-500/30 bg-amber-500/5"}`}
+            className={`px-4 py-3 ${grouped ? "" : "rounded-lg border border-border"}`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+              <span className="font-display text-label uppercase text-mid-gray">
                 {t("settings.advanced.customWords.suggestions", "Suggestions")}
                 <span className="ml-1.5 text-text-secondary">
                   ({suggestions.length})
@@ -167,7 +167,7 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleApproveSuggestion(suggestion.word)}
-                      className="p-1 rounded hover:bg-green-500/10 text-green-600 dark:text-green-400 transition-colors"
+                      className="p-1 rounded text-text-secondary hover:text-text hover:bg-accent/8 transition-colors"
                       title={t(
                         "settings.advanced.customWords.approve",
                         "Add to custom words",
@@ -193,7 +193,7 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
         )}
         {customWords.length > 0 && (
           <div
-            className={`px-4 p-2 ${grouped ? "" : "rounded-lg border border-mid-gray/20"} flex flex-wrap gap-1`}
+            className={`px-4 p-2 ${grouped ? "" : "rounded-lg border border-border"} flex flex-wrap gap-1`}
           >
             {customWords.map((word) => (
               <Button

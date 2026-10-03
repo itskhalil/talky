@@ -29,8 +29,8 @@
       {
         "label": "pill",
         "title": "",
-        "width": 56,
-        "height": 120,
+        "width": 48,
+        "height": 132,
         "resizable": false,
         "visible": false,
         "decorations": false,

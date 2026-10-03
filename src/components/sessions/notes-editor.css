@@ -52,7 +52,7 @@
 
 /* Enhanced mode heading styles */
 .notes-editor .tiptap h1 {
-  font-size: 1.07rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-top: 1.25rem;
   margin-bottom: 0.25rem;
@@ -74,7 +74,8 @@
 
 .notes-editor .tiptap h4 {
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--color-text-secondary);
   margin-top: 0.75rem;
   margin-bottom: 0.25rem;
 }
@@ -305,7 +306,7 @@
   border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
   background: transparent;
   color: inherit;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   cursor: pointer;
 }
 
@@ -381,7 +382,7 @@
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   padding: 4px;
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 
 .slash-menu__item {
@@ -427,7 +428,7 @@
 }
 
 .slash-menu__description {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--color-text-secondary, #666);
   line-height: 1.2;
   margin-top: 1px;

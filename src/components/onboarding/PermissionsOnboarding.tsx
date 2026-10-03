@@ -27,7 +27,7 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
   grantText,
   error,
 }) => (
-  <div className="flex items-center justify-between p-4 bg-background border border-mid-gray/20 rounded-lg">
+  <div className="flex items-center justify-between p-4 bg-background border border-border rounded-lg">
     <div className="flex-1">
       <h3 className="font-medium text-text">{title}</h3>
       <p className="text-sm text-text/60">{description}</p>
@@ -55,7 +55,7 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
         <button
           onClick={onRequest}
           disabled={isRequesting}
-          className="px-4 py-2 bg-logo-primary text-white rounded-lg font-medium hover:bg-logo-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-background-ui text-white rounded-lg font-medium hover:bg-background-ui/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isRequesting ? "..." : grantText}
         </button>
@@ -224,7 +224,7 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
   if (isWindows && allGranted) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-        <h1 className="text-5xl font-bold text-text font-display">
+        <h1 className="text-title font-normal tracking-[-0.03em] text-text">
           {t("common.appName")}
         </h1>
         <p className="text-green-500 font-medium">
@@ -236,12 +236,12 @@ export const PermissionsOnboarding: React.FC<PermissionsOnboardingProps> = ({
 
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
-      <h1 className="text-5xl font-bold text-text font-display">
+      <h1 className="text-title font-normal tracking-[-0.03em] text-text">
         {t("common.appName")}
       </h1>
       <div className="max-w-md w-full text-center space-y-6">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-base font-semibold">
             {t("onboarding.permissions.title")}
           </h2>
           <p className="text-text/70">

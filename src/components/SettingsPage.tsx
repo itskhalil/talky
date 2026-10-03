@@ -34,45 +34,49 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
   const visibleTabs = tabs.filter((tab) => tab.enabled);
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Drag region for window dragging */}
-      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
-
-      {/* Header */}
-      <div className="flex items-center gap-3 px-6 pb-3 border-b border-mid-gray/20">
-        <button
-          onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-mid-gray/20 transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-lg font-semibold">{t("settings.title")}</h1>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex gap-4 px-6 pt-3 border-b border-mid-gray/10">
-        {visibleTabs.map((tab) => (
+    <div className="flex flex-col h-full bg-background">
+      {/* Drag region for window dragging; the traffic lights sit here */}
+      <div data-tauri-drag-region className="h-8 w-full shrink-0" />
+      <div className="flex-1 min-h-0 flex flex-col bg-background border-t border-border overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 h-12 shrink-0 border-b border-border">
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`pb-2 text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? "border-b-2 border-logo-primary text-logo-primary"
-                : "text-mid-gray hover:text-foreground"
-            }`}
+            onClick={onBack}
+            aria-label={t("common.back")}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
           >
-            {t(tab.labelKey)}
+            <ArrowLeft size={16} />
           </button>
-        ))}
-      </div>
+          <h1 className="text-title font-normal tracking-[-0.02em]">
+            {t("settings.title")}
+          </h1>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col items-center p-4 gap-4">
-          {activeTab === "general" && <GeneralSettings />}
-          {activeTab === "debug" && <DebugSettings />}
-          {activeTab === "keyboard" && <KeyboardShortcutsSettings />}
-          {activeTab === "about" && <AboutSettings />}
+        {/* Tab bar */}
+        <div className="flex gap-4 px-4 pt-3 shrink-0 border-b border-border">
+          {visibleTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`pb-2 text-ui transition-colors ${
+                activeTab === tab.id
+                  ? "text-text shadow-[inset_0_-2px_0_var(--color-text)]"
+                  : "text-text-secondary hover:text-text"
+              }`}
+            >
+              {t(tab.labelKey)}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-col items-center p-4 gap-4">
+            {activeTab === "general" && <GeneralSettings />}
+            {activeTab === "debug" && <DebugSettings />}
+            {activeTab === "keyboard" && <KeyboardShortcutsSettings />}
+            {activeTab === "about" && <AboutSettings />}
+          </div>
         </div>
       </div>
     </div>

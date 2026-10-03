@@ -1,23 +1,20 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   getCurrentWindow,
   LogicalSize,
   LogicalPosition,
 } from "@tauri-apps/api/window";
-import {
-  StickyNote,
-  PanelLeftOpen,
-  PanelLeftClose,
-  Settings,
-} from "lucide-react";
+import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useOsType } from "@/hooks/useOsType";
+import { useOrganizationStore } from "@/stores/organizationStore";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
+import { HomeView } from "./HomeView";
 import { ExportDialog, type ExportOptions } from "@/components/ui/ExportDialog";
 import {
   useSessionStore,
@@ -35,27 +32,6 @@ import {
 
 interface SessionsViewProps {
   onOpenSettings: () => void;
-}
-
-function EmptyState({ onNewNote }: { onNewNote: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col h-full text-text-secondary">
-      {/* macOS title bar drag region */}
-      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
-      <div className="flex-1 flex flex-col items-center justify-center gap-4">
-        <StickyNote size={40} strokeWidth={1} className="opacity-25" />
-        <p className="text-sm">{t("notes.emptyState")}</p>
-        <button
-          onClick={onNewNote}
-          data-ui
-          className="text-sm px-4 py-2 bg-accent/5 rounded-lg hover:bg-accent/10 transition-colors text-accent border border-border"
-        >
-          {t("sessions.newNote")}
-        </button>
-      </div>
-    </div>
-  );
 }
 
 export function SessionsView({ onOpenSettings }: SessionsViewProps) {
@@ -127,6 +103,30 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
   });
+  // Below the auto-collapse width, the sidebar opens over the note instead of
+  // resizing the window, so Talky can keep sharing the screen with a call.
+  const [isNarrow, setIsNarrow] = useState(
+    () => window.innerWidth < AUTO_COLLAPSE_THRESHOLD,
+  );
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  // Folders and tags are needed by the note itself, not just the sidebar,
+  // which isn't mounted when the window starts narrow.
+  useEffect(() => {
+    void useOrganizationStore.getState().initialize();
+  }, []);
+  useEffect(() => {
+    const onResize = () => {
+      const narrow = window.innerWidth < AUTO_COLLAPSE_THRESHOLD;
+      setIsNarrow(narrow);
+      if (!narrow) setOverlayOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  // Picking anything (a note, Home, a new note) closes the overlay.
+  useEffect(() => {
+    setOverlayOpen(false);
+  }, [selectedSessionId]);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
@@ -349,27 +349,59 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
   const buttonLeftClass = osType === "macos" ? "left-[78px]" : "left-2";
 
   return (
-    <div className="relative flex h-full">
+    <div className="relative flex h-full bg-background">
       <button
         onClick={() => {
-          if (sidebarCollapsed) {
+          if (isNarrow && sidebarCollapsed) {
+            setOverlayOpen((o) => !o);
+          } else if (sidebarCollapsed) {
             handleExpandSidebar();
           } else {
             wasAutoCollapsed.current = false;
             setSidebarCollapsed(true);
           }
         }}
-        className={`absolute top-0.5 ${buttonLeftClass} z-10 p-1 rounded hover:bg-accent/10 text-text-secondary hover:text-text transition-colors`}
+        className={`absolute top-0.5 ${buttonLeftClass} z-[60] p-1 rounded hover:bg-accent/10 text-mid-gray hover:text-text-secondary transition-colors`}
         title={t(
-          sidebarCollapsed ? "notes.expandSidebar" : "notes.collapseSidebar",
+          sidebarCollapsed && !overlayOpen
+            ? "notes.expandSidebar"
+            : "notes.collapseSidebar",
         )}
       >
-        {sidebarCollapsed ? (
+        {sidebarCollapsed && !overlayOpen ? (
           <PanelLeftOpen size={18} />
         ) : (
           <PanelLeftClose size={18} />
         )}
       </button>
+      {sidebarCollapsed && isNarrow && overlayOpen && (
+        <>
+          <div
+            className="absolute inset-0 z-40 bg-black/20"
+            onClick={() => setOverlayOpen(false)}
+          />
+          <div className="absolute left-0 top-0 bottom-0 z-50 w-[280px] shadow-xl bg-background border-r border-border">
+            <NotesSidebar
+              sessions={sessions}
+              selectedId={selectedSessionId}
+              recordingSessionId={isRecording ? recordingSessionId : null}
+              onSelect={(id) => {
+                selectSession(id);
+                setOverlayOpen(false);
+              }}
+              onNewNote={async () => {
+                await createNote();
+                setOverlayOpen(false);
+              }}
+              onDelete={deleteSession}
+              onOpenSettings={() => {
+                setOverlayOpen(false);
+                onOpenSettings();
+              }}
+            />
+          </div>
+        </>
+      )}
       {!sidebarCollapsed && (
         <>
           <div style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
@@ -385,51 +417,55 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
           </div>
           {/* Drag handle */}
           <div
-            className="w-1 cursor-col-resize hover:bg-accent/20 active:bg-accent/30 transition-colors shrink-0"
+            className="relative w-px shrink-0 bg-border cursor-col-resize after:absolute after:inset-y-0 after:-left-1 after:-right-1 after:content-['']"
             onMouseDown={handleDragStart}
             onDoubleClick={handleDragDoubleClick}
           />
         </>
       )}
-      <div className="flex-1 overflow-hidden">
-        {selectedSessionId ? (
-          <NoteView
-            key={selectedSessionId}
-            session={session}
-            isRecording={isSelectedRecording}
-            amplitude={amplitude}
-            transcript={transcript}
-            userNotes={userNotes}
-            notesLoaded={notesLoaded || !!selectedCache}
-            summary={summary}
-            summaryLoading={summaryLoading}
-            summaryError={summaryError}
-            onNotesChange={setUserNotes}
-            onEnhancedNotesChange={setEnhancedNotes}
-            onTitleChange={updateTitle}
-            onStartRecording={() => startRecording(selectedSessionId)}
-            onStopRecording={stopRecording}
-            onGenerateSummary={generateSummary}
-            enhancedNotes={enhancedNotes}
-            enhancedNotesEdited={selectedCache?.enhancedNotesEdited ?? false}
-            showEnhancePrompt={showEnhancePrompt}
-            onEnhanceNotes={enhanceNotes}
-            onDismissEnhancePrompt={() =>
-              dismissEnhancePrompt(selectedSessionId)
-            }
-            enhanceLoading={enhanceLoading}
-            enhanceError={enhanceError}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            findBarOpen={findBarOpen}
-            showReplace={showReplace}
-            onCloseFindBar={closeFindBar}
-            streamingEnhancedNotes={streamingEnhancedNotes}
-            enhanceStreaming={enhanceStreaming}
-          />
-        ) : (
-          <EmptyState onNewNote={createNote} />
-        )}
+      {/* The note (or Home) keeps a fixed titlebar band above its header, so
+          nothing jumps when the sidebar collapses or the window narrows. */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="h-full">
+          {selectedSessionId ? (
+            <NoteView
+              key={selectedSessionId}
+              session={session}
+              isRecording={isSelectedRecording}
+              amplitude={amplitude}
+              transcript={transcript}
+              userNotes={userNotes}
+              notesLoaded={notesLoaded || !!selectedCache}
+              summary={summary}
+              summaryLoading={summaryLoading}
+              summaryError={summaryError}
+              onNotesChange={setUserNotes}
+              onEnhancedNotesChange={setEnhancedNotes}
+              onTitleChange={updateTitle}
+              onStartRecording={() => startRecording(selectedSessionId)}
+              onStopRecording={stopRecording}
+              onGenerateSummary={generateSummary}
+              enhancedNotes={enhancedNotes}
+              enhancedNotesEdited={selectedCache?.enhancedNotesEdited ?? false}
+              showEnhancePrompt={showEnhancePrompt}
+              onEnhanceNotes={enhanceNotes}
+              onDismissEnhancePrompt={() =>
+                dismissEnhancePrompt(selectedSessionId)
+              }
+              enhanceLoading={enhanceLoading}
+              enhanceError={enhanceError}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              findBarOpen={findBarOpen}
+              showReplace={showReplace}
+              onCloseFindBar={closeFindBar}
+              streamingEnhancedNotes={streamingEnhancedNotes}
+              enhanceStreaming={enhanceStreaming}
+            />
+          ) : (
+            <HomeView />
+          )}
+        </div>
       </div>
 
       <ExportDialog

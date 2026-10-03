@@ -26,10 +26,10 @@ const ColorPicker: React.FC<{
         <button
           key={color}
           onClick={() => onChange(color)}
-          className={`w-7 h-7 rounded-full transition-all ${
+          className={`w-5 h-5 rounded-full transition-opacity ${
             value === color
-              ? "ring-2 ring-offset-2 ring-offset-background ring-text/30 scale-110"
-              : "hover:scale-110 opacity-70 hover:opacity-100"
+              ? "ring-2 ring-offset-2 ring-offset-background ring-text/40"
+              : "opacity-60 hover:opacity-100"
           }`}
           style={{ backgroundColor: color }}
           type="button"
@@ -52,21 +52,18 @@ const EnvironmentPill: React.FC<{
     <button
       onClick={onClick}
       className={`
-        flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium
-        transition-all duration-200 ease-out
+        flex items-center gap-2 h-7 px-2.5 rounded-md border text-sm
+        transition-colors
         ${
           isSelected
-            ? "bg-accent/10 text-text shadow-sm"
-            : "text-text-secondary hover:text-text hover:bg-accent/10"
+            ? "border-border-strong bg-accent/5 text-text"
+            : "border-transparent text-text-secondary hover:text-text hover:bg-accent/5"
         }
       `}
     >
       <span
-        className="w-2.5 h-2.5 rounded-full shrink-0 transition-transform duration-200"
-        style={{
-          backgroundColor: color,
-          transform: isSelected ? "scale(1.2)" : "scale(1)",
-        }}
+        className="w-2 h-2 rounded-full shrink-0"
+        style={{ backgroundColor: color }}
       />
       <span className="truncate max-w-[120px]">{name}</span>
       {isDefault && (
@@ -252,7 +249,7 @@ export const EnvironmentsSection: React.FC = () => {
           <button
             onClick={handleAddEnvironment}
             className="
-              flex items-center justify-center w-8 h-8 rounded-full
+              flex items-center justify-center w-7 h-7 rounded-md
               text-text-secondary hover:text-text
               hover:bg-accent/10 transition-colors
             "
@@ -265,7 +262,7 @@ export const EnvironmentsSection: React.FC = () => {
           <button
             onClick={handleDeleteEnvironment}
             className="
-              flex items-center justify-center w-8 h-8 rounded-full
+              flex items-center justify-center w-7 h-7 rounded-md
               text-text-secondary hover:text-red-500
               transition-colors ml-auto
             "

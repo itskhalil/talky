@@ -141,7 +141,7 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
       <div className="space-y-2">
         {/* Path display with actions */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 px-2 py-2 bg-mid-gray/10 border border-mid-gray/80 rounded text-xs font-mono break-all select-text cursor-text">
+          <div className="flex-1 min-w-0 px-2 py-2 bg-background border border-border rounded text-xs font-mono break-all select-text cursor-text">
             {dataPath}
           </div>
           <Button
@@ -181,7 +181,7 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
 
         {/* Success message */}
         {success && (
-          <div className="text-xs text-green-600">
+          <div className="text-xs text-text-secondary">
             {t("settings.about.userDataDirectory.success")}
           </div>
         )}

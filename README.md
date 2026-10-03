@@ -1,135 +1,113 @@
-# Talky
+<h1 align="center">Talky</h1>
 
-**A free, open source meeting notes app with live transcription and AI-powered note enhancement.**
+<p align="center">
+  Meeting notes that write themselves, without your audio leaving your computer.
+</p>
 
-Talky is a desktop application built with Tauri (Rust + React/TypeScript) that lets you take notes during meetings while automatically transcribing both sides of the conversation. Transcription runs entirely on your device — your audio never leaves your computer. Optional AI features let you enhance your notes and chat with your transcript.
+<p align="center">
+  <a href="https://github.com/itskhalil/talky/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/itskhalil/talky?style=flat-square&color=0a0a0a"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows-0a0a0a?style=flat-square">
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-0a0a0a?style=flat-square"></a>
+</p>
 
-## Features
+<p align="center">
+  <img src="docs/images/enhanced.png" alt="A meeting note in Talky after Enhance: the user's own bullets in black, details filled in from the transcript in grey" width="100%">
+</p>
 
-<table>
-<tr>
-<td width="50%">
-<img src="docs/images/01-take-notes.png" alt="Take your own notes" />
-<p><strong>Take your own notes</strong><br/>
-Jot down thoughts, agenda items, and key points in the built-in editor while Talky records and transcribes in the background.</p>
-</td>
-<td width="50%">
-<img src="docs/images/04-transcript.png" alt="View the full transcript in real time" />
-<p><strong>View the full transcript in real time</strong><br/>
-Access the complete timestamped transcript as it's generated, with your mic and speaker audio clearly separated.</p>
-</td>
-</tr>
-<tr>
-<td width="50%">
-<img src="docs/images/02-ai-enhance.png" alt="AI-enhanced notes" />
-<p><strong>Enhance with AI</strong><br/>
-One click transforms your rough notes into polished, detailed meeting notes — AI fills in context from the transcript while preserving your original thoughts.</p>
-</td>
-<td width="50%">
-<img src="docs/images/03-ask-questions.png" alt="Ask questions about your meeting" />
-<p><strong>Ask any question</strong><br/>
-Chat with your meeting in natural language. Ask about decisions, action items, or anything discussed — AI has full context of your notes and transcript.</p>
-</td>
-</tr>
-</table>
+You type rough notes during a meeting. Talky transcribes both sides of the call on your machine, then turns your notes into a full set of meeting notes in your own voice: your lines stay as you wrote them, and what you missed comes from the transcript, shown in grey.
 
-## Quick Start
+Transcription runs locally with NVIDIA's Parakeet model. None of your meeting content leaves your machine until you press Enhance or ask a question, and then it goes only to the AI endpoint you chose for that note.
 
-#### macOS (quick install)
+## What it does
+
+**Take notes; Talky listens.** Your microphone and the other side of the call are captured as separate streams, so the transcript knows who said what.
+
+<img src="docs/images/transcript.png" alt="Rough notes with the live transcript open underneath, lines labelled Me and Them" width="100%">
+
+**Ask across meetings.** "What do I owe people this week?" The model searches and reads your notes with tools, answers from them, and lists the meetings it used. Each one opens the note.
+
+<img src="docs/images/ask.png" alt="The question What do I owe people this week? answered with commitments from two meetings, and the notes it read listed underneath" width="100%">
+
+**Find anything.** Full-text search over titles, notes and transcripts, with filters for folder, tag and date. Any search can become a question.
+
+<img src="docs/images/search.png" alt="The search palette with matches from note bodies and an option to ask" width="100%">
+
+**Keep confidential meetings separate.** Each note belongs to one environment, and every AI call goes to that environment's endpoint with that environment's notes only.
+
+## Install
+
+**macOS** (Apple Silicon)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.sh | bash
 ```
 
-#### Windows (quick install)
+**Windows** (x64; experimental, lightly tested)
 
 ```powershell
 irm https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.ps1 | iex
 ```
 
-## How It Works
+Or download a build from [Releases](https://github.com/itskhalil/talky/releases/latest).
 
-1. **Create a Note** — open the app and start a new note
-2. **Type your own notes** — jot down thoughts, agenda items, or context in the built-in editor
-3. **Start recording** — hit record and Talky transcribes both your microphone and system audio (speaker) in real time
-4. **Stop and resume** — pause recording whenever you want, start again within the same note
-5. **Enhance with AI** — use AI to polish your notes, filling in details you missed from the transcript
-6. **Chat** — ask questions about your meeting and get answers based on your notes and transcript
+## How it works
 
-### Local Transcription
+<p align="center">
+  <img src="docs/images/pipeline.svg" alt="Mic audio goes through echo cancellation and voice activity detection; system audio through voice activity detection; both into Parakeet; transcripts are stored with the note. AI calls go to one environment at a time." width="100%">
+</p>
 
-All transcription happens on your device with Parakeet models. Mic and speaker audio are captured and transcribed separately so you can tell who said what.
+**Two streams, not one.** The microphone and system audio are recorded separately: a Core Audio process tap on macOS, WASAPI loopback on Windows. The mic stream runs through WebRTC's AEC3 echo canceller, using the system audio as its reference, so the other side's voice coming out of your speakers isn't transcribed twice. Each stream is segmented with Silero VAD and transcribed separately, which gives "Me" and "Them" labels without speaker diarisation.
 
-### AI Features
+**On-device ASR.** Parakeet Ultra, a further-trained Parakeet TDT 0.6B v3 that makes about a quarter fewer mistakes on meeting audio; v3 stays selectable. On macOS it runs in a small Swift sidecar on Core ML (via FluidAudio), so inference can run on the Neural Engine. The sidecar talks to the Rust app over stdio with a length-prefixed binary protocol. On Windows the same model runs as int8 ONNX.
 
-Talky integrates with AI providers for enhanced productivity:
+**Environments.** An environment is an endpoint, an API key and a pair of models: one for enhancing notes and one for chat. Anything that speaks the Anthropic or OpenAI APIs works, including Ollama and on-prem servers. A note belongs to exactly one environment. Asking across notes uses two tools, `search_notes` and `read_note`, and both check every note against the environment the question was asked in. The boundary is enforced in code, not in the prompt.
 
-- **Enhanced Notes** — AI merges your rough notes with transcript details to create polished, comprehensive meeting notes. Your original notes are preserved and clearly marked alongside AI-extracted content.
-- **Chat** — Ask questions about your meeting in natural language. The AI has full context of your notes and transcript to provide relevant answers.
+**Storage.** Notes, transcripts and files live in SQLite on your machine, with an FTS5 index for search.
 
-#### Supported AI Providers
+## Engineering notes
 
-- **Local**: Ollama, Apple Intelligence (macOS Apple Silicon)
-- **Cloud**: OpenAI, Anthropic, OpenRouter, Groq, Cerebras (disabled by default, enable via debug pane)
-- **Custom**: Any OpenAI-compatible endpoint
+A few parts of the codebase that might be interesting if you work on models or evals.
 
-## Architecture
+- **Prompt evals with an LLM judge** ([`.AI/`](.AI)). The note-enhancement prompt is tested against a suite of meeting cases with [promptfoo](https://promptfoo.dev). A judge model first checks for fatal flaws, such as writing a summary instead of notes or addressing the user as "you", then scores the output on several dimensions. A fatal flaw caps the score however good the rest is. How to read the results, including where the judge gets it wrong, is in [`EVAL_REVIEW_GUIDE.md`](.AI/EVAL_REVIEW_GUIDE.md). Needs model API keys.
 
-Talky is built as a Tauri application combining:
+  ```bash
+  npm run eval        # runs each case 4 times
+  npm run eval:view   # browse results
+  ```
 
-- **Frontend**: React + TypeScript with Tailwind CSS for the notes and settings UI
-- **Backend**: Rust for system integration, audio processing, and ML inference
-- **Core Libraries**:
-  - `transcribe-rs`: Local speech recognition with Whisper and Parakeet models
-  - `cpal`: Cross-platform audio I/O
-  - `vad-rs`: Voice Activity Detection
-  - `rubato`: Audio resampling
+- **Audio pipeline replay** ([`src-tauri/src/replay/`](src-tauri/src/replay)). Talky can save raw two-channel recordings of a meeting (a debug setting). The `replay` binary runs them back through the real pipeline (echo cancellation, VAD, ASR) and scores the result against a hand-checked transcript, by word error rate and by how often words are attributed to the right channel. `sweep` does this across a grid of pipeline parameters.
 
-### Debug Mode
+  ```bash
+  cd src-tauri && cargo run --release --bin replay -- run --help
+  ```
 
-Talky includes a debug pane for development, troubleshooting, and advanced settings like enabling cloud AI providers. Access it by pressing:
+- **Demo data** ([`scripts/demo/`](scripts/demo)). Every screenshot here comes from a separate copy of the app seeded with invented meetings, so no real notes are in the repo.
 
-- **macOS**: `Cmd+Shift+D`
-- **Windows**: `Ctrl+Shift+D`
+## Development
 
-### Platform Support
-
-- **macOS** (Apple Silicon)
-- **Windows** (x64 and ARM64)
-
-## Development Setup
-
-#### Prerequisites
-
-- [Rust](https://rustup.rs/) (latest stable)
-- [Node.js](https://nodejs.org/) (version in `.nvmrc`) with npm
-- [Tauri prerequisites](https://tauri.app/start/prerequisites/)
-
-Platform extras:
-
-- **macOS** — `xcode-select --install`
-- **Windows** — Visual Studio 2019/2022 with C++ Build Tools
-- **Linux** — build essentials, ALSA, GTK/WebKit dev libraries (see [Tauri prerequisites](https://tauri.app/start/prerequisites/))
-
-#### Build from source
+Requires [Rust](https://rustup.rs) (stable), [Node.js](https://nodejs.org) (version in `.nvmrc`) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
 
 ```bash
-git clone git@github.com:itskhalil/talky.git
+git clone https://github.com/itskhalil/talky.git
 cd talky
 npm install
 npm run tauri dev
 ```
 
-## License
+On macOS, if CMake complains, prefix with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. `Cmd+Shift+D` (or `Ctrl+Shift+D`) opens the debug pane.
 
-MIT License - see [LICENSE](LICENSE) file for details.
+|        |                                                                  |
+| ------ | ---------------------------------------------------------------- |
+| App    | Tauri 2, Rust backend, React + TypeScript + Tailwind frontend    |
+| Audio  | cpal, rubato, Core Audio process taps / WASAPI loopback          |
+| Speech | Parakeet Ultra and v3 (Core ML or ONNX), Silero VAD, WebRTC AEC3 |
+| AI     | Vercel AI SDK, any Anthropic- or OpenAI-compatible endpoint      |
+| Data   | SQLite with FTS5                                                 |
 
-## Acknowledgments
+## Licence
 
-- **Handy** by CJ Pais, for inspiration and the core transcription stack
-- **NVIDIA** for [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (CC-BY-4.0)
-- **Moondream** for [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra) (CC-BY-4.0), and **Olicorne** for its [ONNX export](https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx)
-- **FluidAudio** by FluidInference, for running Parakeet on the Apple Neural Engine
-- **Silero** for great lightweight VAD
-- **WebRTC**'s AEC3 echo canceller, via [sonora](https://crates.io/crates/sonora)
-- **Tauri** team for the excellent Rust-based app framework
+MIT. See [LICENSE](LICENSE).
+
+Talky started from [Handy](https://github.com/cjpais/Handy) by CJ Pais, which supplied the original transcription stack. Thanks to the Silero, NVIDIA NeMo, FluidAudio and Tauri teams.
+
+The speech models are CC-BY-4.0: [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA, and [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra) by Moondream, with its [ONNX export](https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx) by Olicorne. Echo cancellation is WebRTC's AEC3, via [sonora](https://crates.io/crates/sonora).

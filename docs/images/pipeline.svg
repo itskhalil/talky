@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 330" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">
+  <style>
+    .ink { fill: #0a0a0a; }
+    .muted { fill: #6b6b6b; }
+    .box { fill: #ffffff; stroke: #d4d4d4; }
+    .dev { fill: #f5f5f4; stroke: #e2e2e2; }
+    .line { stroke: #9a9a9a; fill: none; }
+    .head { fill: #9a9a9a; }
+    .env { fill: #ffffff; stroke: #0a0a0a; }
+    .live { fill: #f36702; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #ededed; }
+      .muted { fill: #8a8a8a; }
+      .box { fill: #141414; stroke: #333333; }
+      .dev { fill: #0d0d0d; stroke: #262626; }
+      .line { stroke: #6a6a6a; }
+      .head { fill: #6a6a6a; }
+      .env { fill: #141414; stroke: #ededed; }
+      .live { fill: #ff7a1a; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" class="head"/>
+    </marker>
+  </defs>
+
+  <!-- On-device region -->
+  <rect x="8" y="8" width="600" height="314" rx="4" class="dev"/>
+  <text x="24" y="32" class="muted" letter-spacing="1">ON YOUR COMPUTER — NOTHING LEAVES</text>
+
+  <!-- Mic lane -->
+  <rect x="24" y="56" width="104" height="40" rx="3" class="box"/>
+  <circle cx="40" cy="76" r="4" class="live"/>
+  <text x="52" y="80" class="ink">Mic</text>
+  <rect x="154" y="56" width="112" height="40" rx="3" class="box"/>
+  <text x="166" y="74" class="ink">Echo cancel</text>
+  <text x="166" y="88" class="muted" font-size="10">WebRTC AEC3</text>
+  <rect x="292" y="56" width="92" height="40" rx="3" class="box"/>
+  <text x="304" y="74" class="ink">VAD</text>
+  <text x="304" y="88" class="muted" font-size="10">Silero</text>
+
+  <!-- Speaker lane -->
+  <rect x="24" y="150" width="104" height="40" rx="3" class="box"/>
+  <text x="36" y="168" class="ink">System</text>
+  <text x="36" y="182" class="muted" font-size="10">audio tap</text>
+  <rect x="292" y="150" width="92" height="40" rx="3" class="box"/>
+  <text x="304" y="168" class="ink">VAD</text>
+  <text x="304" y="182" class="muted" font-size="10">Silero</text>
+
+  <!-- ASR -->
+  <rect x="410" y="92" width="176" height="62" rx="3" class="box"/>
+  <text x="422" y="112" class="ink">Parakeet Ultra</text>
+  <text x="422" y="129" class="muted" font-size="10">Core ML sidecar (macOS)</text>
+  <text x="422" y="144" class="muted" font-size="10">ONNX int8 (Windows)</text>
+
+  <!-- Transcript store -->
+  <rect x="24" y="240" width="562" height="62" rx="3" class="box"/>
+  <text x="40" y="262" class="ink">Note = your typed notes + transcript (Me / Them) + files</text>
+  <text x="40" y="282" class="muted" font-size="10">SQLite · full-text search · each note belongs to one environment</text>
+
+  <!-- Lane lines -->
+  <path d="M128 76 H154" class="line" marker-end="url(#a)"/>
+  <path d="M266 76 H292" class="line" marker-end="url(#a)"/>
+  <path d="M128 170 H292" class="line" marker-end="url(#a)"/>
+  <path d="M76 150 V122 H210 V96" class="line" stroke-dasharray="3 3" marker-end="url(#a)"/>
+  <text x="96" y="116" class="muted" font-size="10">echo reference</text>
+  <path d="M384 76 H430 V92" class="line" marker-end="url(#a)"/>
+  <path d="M384 170 H430 V154" class="line" marker-end="url(#a)"/>
+  <path d="M498 154 V240" class="line" marker-end="url(#a)"/>
+
+  <!-- Environments -->
+  <text x="640" y="32" class="muted" letter-spacing="1">ONLY WHEN YOU ASK</text>
+  <rect x="640" y="56" width="264" height="104" rx="3" class="env"/>
+  <text x="656" y="78" class="ink">Environment A</text>
+  <text x="656" y="96" class="muted" font-size="10">its own endpoint + key + models</text>
+  <text x="656" y="112" class="muted" font-size="10">e.g. Anthropic, OpenAI, OpenRouter</text>
+  <text x="656" y="140" class="ink" font-size="11">sees only A's notes</text>
+  <rect x="640" y="186" width="264" height="104" rx="3" class="env"/>
+  <text x="656" y="208" class="ink">Environment B</text>
+  <text x="656" y="226" class="muted" font-size="10">e.g. Ollama or an on-prem</text>
+  <text x="656" y="242" class="muted" font-size="10">OpenAI-compatible server</text>
+  <text x="656" y="270" class="ink" font-size="11">sees only B's notes</text>
+
+  <path d="M586 262 H612 V108 H640" class="line" marker-end="url(#a)"/>
+  <path d="M612 238 H640" class="line" marker-end="url(#a)"/>
+  <text x="640" y="314" class="muted" font-size="10">Enhance and Ask: one environment per call</text>
+</svg>

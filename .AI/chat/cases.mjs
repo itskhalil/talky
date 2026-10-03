@@ -1,0 +1,331 @@
+// Chat eval cases. Questions are what a person types into Talky's chat;
+// `facts` are what a correct answer must convey (checked by the judge, which
+// also gets the `sources` notes in full to check nothing is made up);
+// `shape` is the answer form the question calls for.
+//
+// mode "across": the sidebar chat, which searches all notes with tools.
+// mode "note":   the chat inside one note (`note`), which sees only that note.
+//
+// tags[0] is the mode, tags[1] the kind of question.
+
+const WHAT_DID_I_MISS =
+  "I lost focus for a moment during this meeting. Quickly scan the latest portion of the transcript and get me back on track.\n- Skip any preamble and go straight to the summary\n- Only cover what was just discussed, not earlier topics\n- Keep it to 1-3 bullet points max\n- Avoid using direct quotes\n- Make sure to include the last thing that was said\n- Be brief—I need to rejoin the conversation seamlessly";
+
+export const CASES = [
+  // ── Across notes ─────────────────────────────────────────────────────────
+  {
+    id: "a01-sam",
+    mode: "across",
+    question: "what's sam up to?",
+    tags: ["across", "person"],
+    sources: ["sam-1on1", "product-sync", "sso-review"],
+    shape: "a few short bullets",
+    facts: [
+      "Sam wants more infrastructure work and to own the audio pipeline; you agreed to pair on the next change",
+      "Sam is revising the design doc's rollout plan to add a fallback (due Wednesday)",
+      "Sam is fixing the recording-pill wrong-monitor bug",
+      "Sam owns the SAML/SSO integration",
+    ],
+  },
+  {
+    id: "a02-northwind-seats",
+    mode: "across",
+    question: "how many seats is northwind?",
+    tags: ["across", "lookup"],
+    sources: ["northwind-call"],
+    shape: "one sentence",
+    facts: ["40 seats"],
+  },
+  {
+    id: "a03-mobile-decision",
+    mode: "across",
+    question: "what did we decide about the mobile app?",
+    tags: ["across", "decision"],
+    sources: ["q4-planning"],
+    shape: "one sentence",
+    facts: [
+      "The mobile app was cut from Q4",
+      "It will be revisited in Q1 once sharing has shipped",
+    ],
+  },
+  {
+    id: "a04-my-actions",
+    mode: "across",
+    question: "what do I owe people?",
+    tags: ["across", "actions"],
+    sources: [
+      "design-review",
+      "product-sync",
+      "sam-1on1",
+      "northwind-call",
+      "vendor-call",
+    ],
+    shape: "a short list",
+    facts: [
+      "Write the copy for the permissions screen",
+      "Send the team a summary of the calendar beta feedback (by Monday)",
+      "Review Sam's revised rollout plan",
+      "Send Northwind the SSO setup guide and a sample Markdown export (by Friday)",
+    ],
+  },
+  {
+    id: "a05-launch-date",
+    mode: "across",
+    question: "when's onboarding v2 launching?",
+    tags: ["across", "lookup"],
+    sources: ["design-review"],
+    shape: "one or two sentences",
+    facts: [
+      "Target is the 14th",
+      "Only if QA gets the final build by the 9th; otherwise it moves to the 21st",
+    ],
+  },
+  {
+    id: "a06-yesterday",
+    mode: "across",
+    question: "what happened yesterday?",
+    tags: ["across", "time"],
+    sources: ["product-sync", "sam-1on1"],
+    shape: "a short list, grouped by meeting",
+    facts: [
+      "Covers the weekly product sync (search shipped, calendar beta feedback, the recording-pill bug)",
+      "Covers the 1:1 with Sam (infra/audio pipeline, design doc feedback)",
+      "Does not present meetings from other days as yesterday's",
+    ],
+  },
+  {
+    id: "a07-contoso-absent",
+    mode: "across",
+    question: "did we talk to contoso about pricing?",
+    tags: ["across", "absent"],
+    sources: [],
+    shape: "one sentence",
+    facts: ["Says there is nothing about Contoso in the notes"],
+  },
+  {
+    id: "a08-sso-status",
+    mode: "across",
+    question: "where are we on SSO?",
+    tags: ["across", "synthesis"],
+    sources: ["sso-review", "northwind-call"],
+    shape: "a short list",
+    facts: [
+      "Okta SAML first, Azure AD later",
+      "Sam owns it; SAML beta targeted for 20 October",
+      "External pen test in the first week of November; GA waits on the report",
+      "Northwind needs it (Okta/SAML) for their November rollout",
+    ],
+  },
+  {
+    id: "a09-vendor-pricing",
+    mode: "across",
+    question: "what did the vendor say about pricing?",
+    tags: ["across", "lookup"],
+    sources: ["vendor-call"],
+    shape: "one or two sentences",
+    facts: [
+      "Per-seat pricing",
+      "15% off for annual billing",
+      "Minimum of 20 seats",
+    ],
+  },
+  {
+    id: "a10-backend-interview",
+    mode: "across",
+    question: "how did the backend interview go?",
+    tags: ["across", "synthesis"],
+    sources: ["backend-interview"],
+    shape: "a few short bullets",
+    facts: [
+      "Strong on concurrency",
+      "Rate limiter design: token bucket, then sliding window for bursts",
+      "Concern: testing (no property-based tests, open to learning)",
+      "No decision yet; waiting on references",
+    ],
+  },
+  {
+    id: "a11-sam-followup",
+    mode: "across",
+    question: "and what did I say I'd do for him?",
+    history: [
+      { role: "user", content: "what's sam up to?" },
+      {
+        role: "assistant",
+        content:
+          "Sam wants more infrastructure work and is keen to own the audio pipeline (your 1:1 yesterday). He's revising the rollout plan in his design doc to add a fallback, is fixing the recording-pill monitor bug, and owns the SAML integration for SSO.",
+      },
+    ],
+    tags: ["across", "follow-up"],
+    sources: ["sam-1on1"],
+    shape: "one or two sentences",
+    facts: [
+      "Pair with Sam on the next audio pipeline change",
+      "Review his revised rollout plan when it arrives",
+    ],
+  },
+  {
+    id: "a12-northwind-prep",
+    mode: "across",
+    question: "prep me for my next northwind call",
+    tags: ["across", "prep"],
+    sources: ["northwind-call", "sso-review"],
+    shape: "a few short bullets, optionally under two or three headings",
+    facts: [
+      "40 seats, rolling out in November: research team first, then sales in December",
+      "SSO required: Okta, SAML",
+      "SAML beta targeted 20 October, pen test early November before GA (timing against their rollout)",
+      "They want transcript export; Markdown is enough",
+      "Your open follow-up: send the SSO setup guide and a sample Markdown export",
+    ],
+  },
+  {
+    id: "a13-priya-worry",
+    mode: "across",
+    question: "what was priya worried about?",
+    tags: ["across", "person"],
+    sources: ["design-review"],
+    shape: "one or two sentences",
+    facts: [
+      "That a sample note on first launch would read as fake",
+      "Agreed to label it clearly and make it removable in one click (Tom is mocking up a guided-recording alternative)",
+    ],
+  },
+  {
+    id: "a14-crash-free",
+    mode: "across",
+    question: "what's our crash-free target?",
+    tags: ["across", "lookup"],
+    sources: ["q4-planning"],
+    shape: "one sentence",
+    facts: ["99.5% crash-free sessions, before anything new"],
+  },
+
+  // ── One note ─────────────────────────────────────────────────────────────
+  {
+    id: "n01-launch",
+    mode: "note",
+    note: "design-review",
+    question: "when are we launching?",
+    tags: ["note", "lookup"],
+    sources: ["design-review"],
+    shape: "one or two sentences",
+    facts: [
+      "The 14th",
+      "Only if QA gets the final build by the 9th; otherwise the 21st",
+    ],
+  },
+  {
+    id: "n02-my-action",
+    mode: "note",
+    note: "design-review",
+    question: "what am I on the hook for?",
+    tags: ["note", "actions"],
+    sources: ["design-review"],
+    shape: "one sentence",
+    facts: ["Write the copy for the permissions screen (this week)"],
+  },
+  {
+    id: "n03-why-calendar",
+    mode: "note",
+    note: "design-review",
+    question: "why are we moving calendar access?",
+    tags: ["note", "lookup"],
+    sources: ["design-review"],
+    shape: "one or two sentences",
+    facts: [
+      "Most people drop off at step 4, the calendar access screen",
+      "It moves to after the first note",
+    ],
+  },
+  {
+    id: "n04-followup-email",
+    mode: "note",
+    note: "design-review",
+    question: "draft a quick follow-up to priya and tom",
+    tags: ["note", "draft"],
+    extraWords: 25, // greeting and sign-off
+    sources: ["design-review"],
+    shape: "a short email",
+    facts: [
+      "Onboarding goes from 5 steps to 3; calendar access moves after the first note",
+      "Tom: guided-recording mock-up by Thursday",
+      "Priya: confirm the QA window with the release team",
+      "Launch on the 14th depends on QA getting the build by the 9th (else the 21st)",
+      "Written in the user's voice (signed or framed as from the user), not about the user in the third person",
+    ],
+  },
+  {
+    id: "n05-other-meeting",
+    mode: "note",
+    note: "design-review",
+    question: "what did we decide about sam's design doc?",
+    tags: ["note", "absent"],
+    sources: ["design-review"],
+    shape: "one sentence",
+    facts: [
+      "Says this note doesn't cover Sam's design doc (it can only see this note), without guessing",
+    ],
+  },
+  {
+    id: "n06-uptime",
+    mode: "note",
+    note: "vendor-call",
+    question: "what uptime did they commit to?",
+    tags: ["note", "transcript-only"],
+    sources: ["vendor-call"],
+    shape: "one sentence",
+    facts: ["99.9% monthly SLA, with service credits if missed"],
+  },
+  {
+    id: "n07-vendor-pricing",
+    mode: "note",
+    note: "vendor-call",
+    question: "is it per seat?",
+    tags: ["note", "lookup"],
+    sources: ["vendor-call"],
+    shape: "one sentence",
+    facts: [
+      "Yes, per seat",
+      "15% off annual billing and a 20-seat minimum (either is fine as extra context)",
+    ],
+  },
+  {
+    id: "n08-what-did-i-miss",
+    mode: "note",
+    note: "budget-live",
+    question: WHAT_DID_I_MISS,
+    tags: ["note", "live"],
+    sources: ["budget-live"],
+    shape: "one to three short bullets",
+    facts: [
+      "The agency retainer: 45k budgeted, their quote is 52k, plan is to drop the video work; Dana will go back to them tomorrow",
+      "The last thing said: Dana needs you to confirm the budget with finance by Friday or the agency won't hold the slot",
+    ],
+  },
+  {
+    id: "n09-paid-search",
+    mode: "note",
+    note: "budget-live",
+    question: "what number did she give for paid search?",
+    tags: ["note", "live"],
+    sources: ["budget-live"],
+    shape: "one sentence",
+    facts: ["40k (up from 25k last quarter)"],
+  },
+  {
+    id: "n10-summary-so-far",
+    mode: "note",
+    note: "budget-live",
+    question: "summarise this meeting so far",
+    tags: ["note", "live"],
+    sources: ["budget-live"],
+    shape: "a few short bullets",
+    facts: [
+      "Total 150k for Q1",
+      "Events cut from 60k to 35k: keep the London summit, drop Berlin (lose ~4k deposit)",
+      "Content 30k; paid search 40k (up from 25k, cheapest per signup), reviewed end of January",
+      "Agency rebrand 45k vs a 52k quote; drop video work to fit",
+      "Actions: Dana goes back to the agency tomorrow; you confirm the budget with finance by Friday",
+    ],
+  },
+];
