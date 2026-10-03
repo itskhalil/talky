@@ -141,6 +141,14 @@ impl TranscriptionManager {
         Ok(manager)
     }
 
+    /// Counts as activity for the idle-unload watcher. The session loop calls
+    /// this while recording so a long silence mid-meeting doesn't unload the
+    /// model under it.
+    pub fn mark_active(&self) {
+        self.last_activity
+            .store(current_timestamp_ms(), Ordering::Release);
+    }
+
     pub fn is_model_loaded(&self) -> bool {
         let engine = self.engine.lock_or_recover();
         engine.is_some()

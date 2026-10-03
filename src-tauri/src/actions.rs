@@ -174,6 +174,7 @@ pub async fn run_session_transcription_loop(
             break;
         }
 
+        tm.mark_active();
         let new_mic = rm.take_session_chunk();
         let new_spk = sm.take_speaker_samples();
         if let Some(ref mut w) = debug_writer {
