@@ -181,7 +181,7 @@ export const UserDataDirectory: React.FC<UserDataDirectoryProps> = ({
 
         {/* Success message */}
         {success && (
-          <div className="text-xs text-green-600">
+          <div className="text-xs text-text-secondary">
             {t("settings.about.userDataDirectory.success")}
           </div>
         )}

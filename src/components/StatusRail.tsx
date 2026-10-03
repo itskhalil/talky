@@ -59,6 +59,7 @@ export function StatusRail({ onOpenSettings }: { onOpenSettings: () => void }) {
       0,
     );
     setRun((r) => r ?? { since: Date.now(), baseMs });
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
     // The base is captured once per run; later segments are on the run clock.
@@ -109,8 +110,18 @@ export function StatusRail({ onOpenSettings }: { onOpenSettings: () => void }) {
     const onDown = (e: MouseEvent) => {
       if (!micRef.current?.contains(e.target as Node)) setMicOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMicOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey, true);
+    };
   }, [micOpen, refreshAudioDevices]);
 
   // Buttons reset text-transform, so the uppercase is repeated on each item.
@@ -126,7 +137,9 @@ export function StatusRail({ onOpenSettings }: { onOpenSettings: () => void }) {
           className={`${item} min-w-0 hover:bg-accent/5 hover:text-text transition-colors`}
         >
           <span className="text-text">{t("status.rec")}</span>
-          <span>{formatElapsed(run ? run.baseMs + (now - run.since) : 0)}</span>
+          <span>
+            {formatElapsed(run ? run.baseMs + Math.max(0, now - run.since) : 0)}
+          </span>
           {recordingSession?.title && (
             <span className="truncate normal-case tracking-normal font-sans text-xs">
               {recordingSession.title}

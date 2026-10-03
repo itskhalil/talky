@@ -4,6 +4,18 @@ function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Flatten markdown syntax so search snippets read as plain text. */
+export function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\s#{1,6}\s+/g, " ")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/\s[-*+]\s+/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\s+/g, " ");
+}
+
 export function highlightMatches(
   text: string,
   query: string,
@@ -16,10 +28,7 @@ export function highlightMatches(
   const parts = text.split(re);
   return parts.map((part, i) =>
     i % 2 === 1 ? (
-      <mark
-        key={i}
-        className="rounded-sm bg-yellow-200/70 px-0.5 text-inherit dark:bg-yellow-500/30"
-      >
+      <mark key={i} className="rounded-[2px] bg-accent/10 text-text">
         {part}
       </mark>
     ) : (

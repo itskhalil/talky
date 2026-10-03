@@ -1274,8 +1274,18 @@ export function NoteView({
       )
         setMoreMenuOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMoreMenuOpen(false);
+    };
     document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", handle);
+      document.removeEventListener("keydown", onKey, true);
+    };
   }, [moreMenuOpen]);
 
   // Ask about this note, or across every note in this note's environment.
@@ -1317,8 +1327,18 @@ export function NoteView({
       )
         setScopeMenuOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setScopeMenuOpen(false);
+    };
     document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", handle);
+      document.removeEventListener("keydown", onKey, true);
+    };
   }, [scopeMenuOpen]);
 
   useEffect(() => {
@@ -1673,7 +1693,7 @@ export function NoteView({
 
                 {/* Tags: any number */}
                 {sessionTags.map((tag) => (
-                  <span key={tag.id} className={`group ${chipClass} pr-1`}>
+                  <span key={tag.id} className={`group ${chipClass} pr-0.5`}>
                     <span
                       className="text-mid-gray"
                       style={tag.color ? { color: tag.color } : undefined}
@@ -1685,7 +1705,7 @@ export function NoteView({
                       onClick={() => void handleRemoveTag(tag.id)}
                       aria-label={t("sessions.meta.removeTag")}
                       title={t("sessions.meta.removeTag")}
-                      className="w-4 h-4 flex items-center justify-center rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:text-text"
+                      className="w-0 group-hover:w-4 h-4 overflow-hidden flex items-center justify-center rounded text-text-secondary hover:text-text"
                     >
                       <X size={10} />
                     </button>
@@ -1873,7 +1893,7 @@ export function NoteView({
                         title={t("sessions.copyTranscript")}
                       >
                         {transcriptCopied ? (
-                          <Check size={12} className="text-green-500" />
+                          <Check size={12} className="text-text" />
                         ) : (
                           <Copy size={12} />
                         )}
@@ -2094,7 +2114,7 @@ export function NoteView({
                         onClick={onStartRecording}
                         className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs text-text hover:border-border-strong transition-colors whitespace-nowrap"
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-live" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-text-secondary" />
                         {hasTranscript
                           ? t("sessions.resumeRecording")
                           : t("sessions.startRecording")}
@@ -2176,7 +2196,13 @@ export function NoteView({
                       <ChevronDown size={11} />
                     </button>
                     {scopeMenuOpen && (
-                      <div className="absolute bottom-full right-0 mb-2 z-30 w-[290px] p-1 bg-background border border-border-strong rounded-lg shadow-lg">
+                      <div
+                        className={`absolute bottom-full right-0 mb-2 z-30 p-1 bg-background border border-border-strong rounded-lg shadow-lg ${
+                          showEnvSelector && currentEnv
+                            ? "w-[260px]"
+                            : "w-max min-w-[160px]"
+                        }`}
+                      >
                         {(["note", "all"] as const).map((scope) => (
                           <button
                             key={scope}

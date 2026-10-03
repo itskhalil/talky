@@ -20,7 +20,7 @@ interface Shortcut {
 
 const shortcuts: Shortcut[] = [
   { keys: `${modKey}+N`, actionKey: "settings.keyboard.actions.newNote" },
-  { keys: `${modKey}+P`, actionKey: "settings.keyboard.actions.palette" },
+  { keys: `${modKey}+K`, actionKey: "settings.keyboard.actions.palette" },
   { keys: `${modKey}+/`, actionKey: "settings.keyboard.actions.focusChat" },
   { keys: `${modKey}+,`, actionKey: "settings.keyboard.actions.openSettings" },
   { keys: `${modKey}+1`, actionKey: "settings.keyboard.actions.notesView" },
@@ -278,8 +278,10 @@ export const KeyboardShortcutsSettings: React.FC = () => {
               className="flex items-center justify-between py-3 px-4"
             >
               <span className="text-sm">{t(shortcut.actionKey)}</span>
-              <kbd className="px-2 py-1 text-xs font-mono bg-mid-gray/10 rounded border border-border">
-                {shortcut.keys}
+              <kbd className="px-1.5 h-6 inline-flex items-center text-xs font-mono text-text-secondary rounded border border-border">
+                {isMac
+                  ? shortcut.keys.replace("+Shift+", "\u21e7").replace("+", "")
+                  : shortcut.keys}
               </kbd>
             </div>
           ))}

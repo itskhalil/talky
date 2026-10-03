@@ -75,7 +75,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
   };
 
   return (
-    <div className="absolute top-full left-0 mt-2 w-full min-w-64 bg-background border border-border-strong rounded-lg shadow-lg py-2 z-50">
+    <div className="absolute top-full right-0 mt-1 w-80 bg-background border border-border-strong rounded-lg shadow-lg py-2 z-50">
       {/* First Run Welcome */}
       {isFirstRun && (
         <div className="px-3 py-2 bg-logo-primary/10 border-b border-logo-primary/20">

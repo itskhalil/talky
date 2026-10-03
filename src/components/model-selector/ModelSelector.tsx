@@ -418,24 +418,27 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
 
   return (
     <>
-      <div className="relative" ref={dropdownRef}>
-        <ModelStatusButton
-          displayText={getModelDisplayText()}
-          isDropdownOpen={showModelDropdown}
-          onClick={() => setShowModelDropdown(!showModelDropdown)}
-        />
-
-        {showModelDropdown && (
-          <ModelDropdown
-            models={models}
-            currentModelId={currentModelId}
-            downloadProgress={modelDownloadProgress}
-            onModelSelect={handleModelSelect}
-            onModelDownload={handleModelDownload}
-            onModelDelete={handleModelDelete}
-            onError={onError}
+      <div className="flex items-center justify-between gap-4 px-4 py-2">
+        <span className="text-sm font-medium">{t("modelSelector.label")}</span>
+        <div className="relative" ref={dropdownRef}>
+          <ModelStatusButton
+            displayText={getModelDisplayText()}
+            isDropdownOpen={showModelDropdown}
+            onClick={() => setShowModelDropdown(!showModelDropdown)}
           />
-        )}
+
+          {showModelDropdown && (
+            <ModelDropdown
+              models={models}
+              currentModelId={currentModelId}
+              downloadProgress={modelDownloadProgress}
+              onModelSelect={handleModelSelect}
+              onModelDownload={handleModelDownload}
+              onModelDelete={handleModelDelete}
+              onError={onError}
+            />
+          )}
+        </div>
       </div>
 
       {/* Download Progress Bar for Models */}

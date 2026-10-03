@@ -25,7 +25,7 @@ import { useOrganizationStore } from "@/stores/organizationStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { highlightMatches } from "@/utils/highlight";
+import { highlightMatches, stripMarkdown } from "@/utils/highlight";
 
 const NO_ENVIRONMENTS: ModelEnvironment[] = [];
 
@@ -731,7 +731,7 @@ export const CommandPalette: React.FC = () => {
                           </span>
                           {hit.snippet && (
                             <span className="mt-0.5 block text-xs text-text-secondary line-clamp-2 break-words">
-                              {highlightMatches(hit.snippet, q)}
+                              {highlightMatches(stripMarkdown(hit.snippet), q)}
                             </span>
                           )}
                         </span>

@@ -64,8 +64,20 @@ export function MetaPicker({
       const scope = rootRef.current?.parentElement ?? rootRef.current;
       if (!scope?.contains(e.target as Node)) onClose();
     };
+    // Escape closes the picker only; capture it before the app-wide
+    // Escape (which leaves the note) can see it.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey, true);
+    };
   }, [onClose]);
 
   const rows = useMemo<Row[]>(() => {
@@ -127,9 +139,6 @@ export function MetaPicker({
             } else if (e.key === "Enter") {
               e.preventDefault();
               choose(rows[bounded]);
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              onClose();
             }
           }}
           placeholder={placeholder}
@@ -183,7 +192,9 @@ export function MetaPicker({
         })}
         {rows.length === 0 && (
           <p className="px-2.5 py-1.5 text-xs text-text-secondary">
-            {t("palette.empty")}
+            {query.trim()
+              ? t("palette.empty")
+              : t("sessions.meta.typeToCreate")}
           </p>
         )}
       </div>

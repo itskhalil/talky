@@ -41,6 +41,7 @@
 }
 
 :root {
+  color-scheme: light dark;
   --font-size-base: 16px;
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
@@ -119,30 +120,4 @@
   background-color: rgb(234 179 8 / 0.55);
 }
 
-/* Smooth scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.12);
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-}
+/* Scrollbars: native macOS overlay bars, shown only while scrolling. */
