@@ -60,7 +60,7 @@ export function RecordingPill() {
       {/* Orange level bars are the live signal: they move with the audio. */}
       <div className="w-full h-full flex flex-col items-center pt-2 pb-3 bg-background border border-border-strong rounded-lg shadow-lg pointer-events-none">
         <span className="flex-1 flex items-center text-live scale-125">
-          <WaveformBars amplitude={amplitude} isRecording={true} />
+          <WaveformBars amplitude={amplitude} isRecording={true} floor={0.3} />
         </span>
         <Maximize2 size={12} className="text-mid-gray" />
       </div>

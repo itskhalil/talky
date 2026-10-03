@@ -19,12 +19,16 @@ interface WaveformBarsProps {
   amplitude: { mic: number; speaker: number };
   isRecording: boolean;
   size?: "sm" | "md";
+  // Lowest level to draw while recording, 0–1, so the bars keep moving in
+  // silence instead of sitting as three dots.
+  floor?: number;
 }
 
 export function WaveformBars({
   amplitude,
   isRecording,
   size = "md",
+  floor = 0,
 }: WaveformBarsProps) {
   const cy = 12;
   const barWidth = 3;
@@ -39,7 +43,7 @@ export function WaveformBars({
   const tickRef = useRef(0);
 
   const amp = Math.max(amplitude.mic, amplitude.speaker) / 1000;
-  const clamped = Math.min(Math.max(amp * 1.5, 0), 1);
+  const clamped = Math.min(Math.max(amp * 1.5, floor), 1);
 
   useEffect(() => {
     if (!isRecording) {
