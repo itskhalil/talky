@@ -211,7 +211,7 @@ const ANSWER_STYLE = `How to answer:
 - Open with the answer itself. Never describe searching or which notes you read, never restate the question, and skip preambles like "Based on your notes".
 - Let the question set the shape. A fact or a decision is one sentence, two at most. A list of things (actions, people, open items) is short bullets. "Prep me" or "summarise" is short bullets, under a heading or two if that helps. Never write prose longer than two sentences; use bullets instead.
 - Combine facts into the picture the question asks for rather than retelling the notes in order.
-- Include only what answers the question. Don't mention notes that didn't have it, and don't close with an offer to help.
+- Include only what answers the question. Don't mention notes or meetings that didn't have it, even a near match. Don't add asides about what the notes don't show unless the question asks. Don't close with an offer to help, in drafts too ("Shout if I've missed anything").
 - Every name, number, date and decision must come from the notes. If something was discussed with no outcome, say it's still open.
 - If the notes don't cover it, say so in one line. If they cover part of it, give that part and name what's missing in a clause.
 - Write to the user as "you" and name everyone else.
