@@ -108,23 +108,22 @@ pub fn apply_pending(app: &AppHandle) {
         return;
     }
 
-    // Loading can take a while (Core ML compiles on first load).
-    let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let loaded = app.state::<Arc<TranscriptionManager>>().load_model(&target);
-        let mut settings = get_settings(&app);
-        settings.model_upgrade_target = None;
-        if let Err(e) = loaded {
-            // load_model already recorded the error; stay on the old model.
-            warn!("Model upgrade load failed: {}", e);
-            write_settings(&app, settings);
-            return;
+    // Switch the setting and drop the old model rather than loading the new
+    // one here: the next recording loads it the way it loads any model, so
+    // this can't race a recording that starts during a long first load
+    // (Core ML compiles Ultra on first use).
+    let mut settings = get_settings(app);
+    settings.selected_model = target.clone();
+    settings.model_upgrade_target = None;
+    write_settings(app, settings);
+    let transcription = app.state::<Arc<TranscriptionManager>>();
+    if transcription.is_model_loaded() {
+        if let Err(e) = transcription.unload_model() {
+            warn!("Couldn't unload the previous model: {}", e);
         }
-        settings.selected_model = target.clone();
-        write_settings(&app, settings);
-        info!("Switched to {}", target);
-        let _ = app.emit("model-upgrade-applied", &target);
-    });
+    }
+    info!("Switched to {}", target);
+    let _ = app.emit("model-upgrade-applied", &target);
 }
 
 #[cfg(test)]

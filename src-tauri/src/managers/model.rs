@@ -55,7 +55,8 @@ pub fn coreml_version(model_id: &str) -> &'static str {
 }
 
 /// The ONNX model to fall back to when a Core ML model can't load. Ultra
-/// has no ONNX build; v3 covers the same languages.
+/// falls back to v3, which covers the same languages and which Macs that
+/// started on ONNX already have; almost none will have the ONNX Ultra files.
 pub fn coreml_onnx_fallback(model_id: &str) -> &str {
     if model_id == CORE_ML_ULTRA_MODEL_ID {
         ONNX_MODEL_ID
