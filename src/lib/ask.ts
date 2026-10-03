@@ -189,7 +189,7 @@ export function noteTools(
           title: note.title,
           date: day(note.startedAt),
           userNotes: body.userNotes || "(none)",
-          enhancedNotes: body.enhancedNotes || "(none)",
+          enhancedNotes: stripMarkers(body.enhancedNotes) || "(none)",
           transcript: transcript || "(none)",
         };
       },
@@ -206,14 +206,26 @@ function today(): string {
   });
 }
 
+/** How to write an answer: shared by both modes. See .AI/chat/PRINCIPLES.md. */
+const ANSWER_STYLE = `How to answer:
+- Open with the answer itself. Never describe searching or which notes you read, never restate the question, and skip preambles like "Based on your notes".
+- Let the question set the shape. A fact or a decision is one sentence, two at most. A list of things (actions, people, open items) is short bullets. "Prep me" or "summarise" is short bullets, under a heading or two if that helps. Never write prose longer than two sentences; use bullets instead.
+- Combine facts into the picture the question asks for rather than retelling the notes in order.
+- Include only what answers the question. Don't mention notes that didn't have it, and don't close with an offer to help.
+- Every name, number, date and decision must come from the notes. If something was discussed with no outcome, say it's still open.
+- If the notes don't cover it, say so in one line. If they cover part of it, give that part and name what's missing in a clause.
+- Write to the user as "you" and name everyone else.
+- Take the notes at face value; enhanced notes are drawn from the transcript.`;
+
 export function acrossNotesPrompt(userName?: string): string {
   return `You answer questions about the user's meeting notes. Today is ${today()}.${
     userName ? ` The user's name is ${userName}.` : ""
   }
 
-Use search_notes to find relevant notes, then read_note on the ones that matter before answering. Search again with different words if you find nothing. Don't describe your searching; just answer.
+Use search_notes to find relevant notes, then read_note on the ones that matter before answering. Search again with different words if the first search misses. For time words like "yesterday" or "last week", use the when filter and answer only from those meetings.
 
-Answer briefly: a few short bullets, with the meeting title and date for each point. If the notes don't say, say so.`;
+${ANSWER_STYLE}
+- Name where something came from once, where it helps ("in your 1:1 with Sam yesterday"), with relative dates for recent meetings. Don't label every bullet with a meeting title or date.`;
 }
 
 export function oneNotePrompt(
@@ -222,9 +234,13 @@ export function oneNotePrompt(
 ): string {
   return `You answer questions about one meeting note. Today is ${today()}.${
     userName ? ` The user's name is ${userName}.` : ""
-  } You can only see this note; if asked about other meetings, say so.
+  }
 
-Answer briefly: a few short bullets.
+You can only see this note. If asked about another meeting, say in one line that this note doesn't cover it; don't guess.
+
+${ANSWER_STYLE}
+- The transcript is the fullest record, and during a live meeting the freshest; look there for details the notes leave out. "What did I miss" means the latest stretch of the meeting, ending with the last thing said.
+- Drafts (an email, a summary to paste) are short and specific, with owners and dates, written as the user.
 
 ## ${note.title} (${note.date})
 
@@ -234,15 +250,24 @@ ${note.userNotes || "(none)"}
 ${note.content}`;
 }
 
+/** "[ai] " and "[noted] " mark where enhanced lines came from; the model doesn't need them. */
+function stripMarkers(notes: string): string {
+  return notes.replace(/\[(?:ai|noted)\] ?/g, "");
+}
+
 /** The part of a note the one-note prompt shows after the user's notes. */
 export function oneNoteContent(
   enhancedNotes: string,
   transcript: string,
 ): string {
-  // Enhanced notes already summarise the transcript.
-  return enhancedNotes
-    ? `### Enhanced notes\n${enhancedNotes}`
-    : `### Transcript\n${transcript || "(none yet)"}`;
+  // Enhanced notes summarise the transcript but leave details out, and lag
+  // behind it during a live meeting, so both go in. A long transcript keeps
+  // its end: that's where "what did I miss" looks.
+  const t =
+    transcript.length > MAX_TRANSCRIPT_CHARS
+      ? `…(earlier transcript omitted)\n${transcript.slice(-MAX_TRANSCRIPT_CHARS)}`
+      : transcript;
+  return `### Enhanced notes\n${stripMarkers(enhancedNotes) || "(none)"}\n\n### Transcript\n${t || "(none yet)"}`;
 }
 
 /** "Sat, 3 Oct 2026" → "3 Oct": enough to tell notes apart in a chip. */

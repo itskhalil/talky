@@ -158,6 +158,10 @@ const NOTES = materialise(NOW);
 let app = null; // the bundled app module, loaded on first use
 
 function endpoint(model) {
+  // Off the Mac (e.g. a cloud session) the key comes from the environment. A
+  // name of its own, so it doesn't change how `claude -p` (the judge) bills.
+  const envKey = process.env.TALKY_EVAL_ANTHROPIC_KEY;
+  if (envKey) return { baseUrl: 'https://api.anthropic.com/v1', apiKey: envKey, model };
   const p = join(homedir(), 'Library/Application Support/com.khalil.talky/settings_store.json');
   const raw = JSON.parse(readFileSync(p, 'utf8'));
   const s = raw.settings ?? raw;
