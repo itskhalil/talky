@@ -11,6 +11,7 @@ import { save, open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useOsType } from "@/hooks/useOsType";
+import { useOrganizationStore } from "@/stores/organizationStore";
 import { NotesSidebar } from "../NotesSidebar";
 import { NoteView } from "./NoteView";
 import { HomeView } from "./HomeView";
@@ -108,6 +109,11 @@ export function SessionsView({ onOpenSettings }: SessionsViewProps) {
     () => window.innerWidth < AUTO_COLLAPSE_THRESHOLD,
   );
   const [overlayOpen, setOverlayOpen] = useState(false);
+  // Folders and tags are needed by the note itself, not just the sidebar,
+  // which isn't mounted when the window starts narrow.
+  useEffect(() => {
+    void useOrganizationStore.getState().initialize();
+  }, []);
   useEffect(() => {
     const onResize = () => {
       const narrow = window.innerWidth < AUTO_COLLAPSE_THRESHOLD;
