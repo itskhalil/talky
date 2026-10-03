@@ -75,7 +75,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
   };
 
   return (
-    <div className="absolute top-full left-0 mt-2 w-full min-w-64 bg-background border border-mid-gray/20 rounded-lg shadow-lg py-2 z-50">
+    <div className="absolute top-full right-0 mt-1 w-80 bg-background border border-border-strong rounded-lg shadow-lg py-2 z-50">
       {/* First Run Welcome */}
       {isFirstRun && (
         <div className="px-3 py-2 bg-logo-primary/10 border-b border-logo-primary/20">
@@ -91,7 +91,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
       {/* Available Models */}
       {availableModels.length > 0 && (
         <div>
-          <div className="px-3 py-1 text-xs font-medium text-text/80 border-b border-mid-gray/10">
+          <div className="px-3 py-1 text-xs font-medium text-text/80 border-b border-border">
             {t("modelSelector.availableModels")}
           </div>
           {availableModels.map((model) => (
@@ -159,7 +159,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
       {downloadableModels.length > 0 && (
         <div>
           {(availableModels.length > 0 || isFirstRun) && (
-            <div className="border-t border-mid-gray/10 my-1" />
+            <div className="border-t border-border my-1" />
           )}
           <div className="px-3 py-1 text-xs font-medium text-text/80">
             {isFirstRun

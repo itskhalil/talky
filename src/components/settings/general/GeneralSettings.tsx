@@ -10,6 +10,7 @@ import { EnvironmentsSection } from "../environments/EnvironmentsSection";
 import { UpdateBanner } from "../../update-checker";
 import { MeetingEndActionSetting } from "./MeetingEndActionSetting";
 import { MeetingStartActionSetting } from "./MeetingStartActionSetting";
+import { CalendarSection } from "../calendar/CalendarSection";
 
 export const GeneralSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -31,6 +32,7 @@ export const GeneralSettings: React.FC = () => {
         <MeetingStartActionSetting />
         <MeetingEndActionSetting />
       </SettingsGroup>
+      <CalendarSection />
       <EnvironmentsSection />
     </div>
   );

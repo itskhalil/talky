@@ -4,7 +4,12 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { toast } from "sonner";
 import i18n from "@/i18n";
-import { commands, type MeetingNotes, type Attachment } from "@/bindings";
+import {
+  commands,
+  type MeetingNotes,
+  type Attachment,
+  type CalendarEvent,
+} from "@/bindings";
 import { useSettingsStore } from "./settingsStore";
 
 export interface Session {
@@ -15,6 +20,7 @@ export interface Session {
   status: string;
   folder_id: string | null;
   environment_id: string | null;
+  calendar_event_id: string | null;
   transcript_wiped_at: number | null;
 }
 
@@ -378,6 +384,8 @@ interface SessionStore {
   loadSessions: () => Promise<void>;
   initialize: () => Promise<void>;
   createNote: () => Promise<void>;
+  linkMeeting: (sessionId: string, event: CalendarEvent) => Promise<void>;
+  unlinkMeeting: (sessionId: string) => Promise<void>;
   startRecording: (sessionId: string) => Promise<void>;
   stopRecording: () => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -938,7 +946,36 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         });
       }
 
-      const result = await invoke<Session>("start_session", { title: null });
+      // Ask the calendar what meeting this is *before* creating the note, so
+      // the note is created with the right title rather than renamed a moment
+      // later — a late rename would fight the title field, which NoteView
+      // focuses for editing as soon as a new note appears. The query costs
+      // around 20ms, and returns null unless the calendar is switched on.
+      let meeting: CalendarEvent | null = null;
+      try {
+        const suggestion = await commands.suggestMeetingForNow();
+        if (suggestion.status === "ok") {
+          meeting = suggestion.data;
+        } else {
+          console.error("Calendar lookup failed:", suggestion.error);
+        }
+      } catch (e) {
+        console.error("Calendar lookup failed:", e);
+      }
+
+      const result = await invoke<Session>("start_session", {
+        title: meeting?.title ?? null,
+      });
+
+      if (meeting) {
+        try {
+          await commands.linkSessionToMeeting(result.id, meeting);
+          result.calendar_event_id = meeting.external_id ?? meeting.id;
+        } catch (e) {
+          // The note is still perfectly usable unlinked.
+          console.error("Failed to link note to meeting:", e);
+        }
+      }
 
       set((s) => ({
         selectedSessionId: result.id,
@@ -971,6 +1008,34 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }
     } catch (e) {
       console.error("Failed to create note:", e);
+    }
+  },
+
+  linkMeeting: async (sessionId: string, event: CalendarEvent) => {
+    try {
+      await commands.linkSessionToMeeting(sessionId, event);
+      // Adopt the meeting's title only when the note doesn't have one of its
+      // own yet. Someone who titled a note and then linked a meeting meant to
+      // keep their title.
+      const session = get().sessions.find((s) => s.id === sessionId);
+      if (
+        session &&
+        (session.title === "New Note" || session.title.trim() === "")
+      ) {
+        await invoke("update_session_title", { sessionId, title: event.title });
+      }
+      // `session-updated` from the backend refreshes the list.
+    } catch (e) {
+      console.error("Failed to link meeting:", e);
+      toast.error(i18n.t("sessions.meeting.loadError"));
+    }
+  },
+
+  unlinkMeeting: async (sessionId: string) => {
+    try {
+      await commands.unlinkSessionMeeting(sessionId);
+    } catch (e) {
+      console.error("Failed to unlink meeting:", e);
     }
   },
 

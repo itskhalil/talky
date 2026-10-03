@@ -41,7 +41,7 @@ export const UpdateBanner: React.FC = () => {
         <button
           onClick={installUpdate}
           disabled={isInstalling}
-          className="rounded-md bg-logo-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-logo-primary/90 disabled:opacity-50"
+          className="rounded-md bg-background-ui px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-background-ui/90 disabled:opacity-50"
         >
           {isInstalling
             ? downloadProgress === 100

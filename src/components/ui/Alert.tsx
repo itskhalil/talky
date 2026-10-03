@@ -26,14 +26,14 @@ const variantStyles: Record<
     text: "text-yellow-400",
   },
   info: {
-    container: "bg-blue-500/10",
-    icon: "text-blue-500",
-    text: "text-blue-400",
+    container: "bg-accent/5",
+    icon: "text-text-secondary",
+    text: "text-text-secondary",
   },
   success: {
-    container: "bg-green-500/10",
-    icon: "text-green-500",
-    text: "text-green-400",
+    container: "bg-accent/5",
+    icon: "text-text-secondary",
+    text: "text-text-secondary",
   },
 };
 

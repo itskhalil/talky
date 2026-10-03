@@ -15,14 +15,19 @@ import {
   X,
   Calendar,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
-import type { SearchHit } from "@/bindings";
+import type { ModelEnvironment, SearchHit } from "@/bindings";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { useNoteUiIntentStore } from "@/stores/noteUiIntentStore";
 import { useOrganizationStore } from "@/stores/organizationStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { highlightMatches } from "@/utils/highlight";
+import { highlightMatches, stripMarkdown } from "@/utils/highlight";
+
+const NO_ENVIRONMENTS: ModelEnvironment[] = [];
 
 type DateRangeKey = "any" | "today" | "week" | "month" | "year";
 
@@ -73,7 +78,17 @@ interface CommandResult {
   command: PaletteCommand;
 }
 
-type Result = CommandResult | NoteResult;
+/** Turns the query into a question, answered on Home within one environment. */
+interface AskResult {
+  kind: "ask";
+  environmentId: string | null;
+  label: string;
+  /** Matching notes in this environment; null with a single environment. */
+  count: number | null;
+  color: string | null;
+}
+
+type Result = CommandResult | NoteResult | AskResult;
 
 /** Simple title-only scorer; used for commands and as the offline fallback for notes. */
 function scoreMatch(haystack: string, needle: string): number {
@@ -102,7 +117,7 @@ const FilterChip: React.FC<FilterChipProps> = ({
   onClear,
 }) => (
   <span
-    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 cursor-pointer transition-colors ${
+    className={`inline-flex items-center gap-1 h-6 rounded-md border px-2 cursor-pointer transition-colors ${
       active
         ? "border-accent/40 bg-accent/10 text-text"
         : "border-border text-text-secondary hover:border-border-strong"
@@ -110,7 +125,7 @@ const FilterChip: React.FC<FilterChipProps> = ({
     onClick={onClick}
   >
     {icon}
-    <span className="text-[11px]">{label}</span>
+    <span className="text-label">{label}</span>
     {onClear ? (
       <button
         type="button"
@@ -146,7 +161,7 @@ const ChipDropdown: React.FC<ChipDropdownProps> = ({ onClose, children }) => {
   return (
     <div
       ref={ref}
-      className="absolute left-3 top-full z-10 mt-1 min-w-[180px] max-h-[240px] overflow-y-auto rounded-md border border-border bg-background shadow-lg py-1"
+      className="absolute left-3 top-full z-10 mt-1 min-w-[180px] max-h-[240px] overflow-y-auto rounded-lg border border-border bg-background shadow-lg p-1"
     >
       {children}
     </div>
@@ -170,7 +185,7 @@ const ChipDropdownItem: React.FC<ChipDropdownItemProps> = ({
       e.stopPropagation();
       onSelect();
     }}
-    className={`flex w-full items-center px-3 py-1.5 text-left text-xs ${
+    className={`flex w-full items-center h-[30px] px-2.5 rounded-md text-left text-ui ${
       active ? "bg-accent/10 text-text" : "text-text hover:bg-accent/5"
     }`}
   >
@@ -189,6 +204,14 @@ export const CommandPalette: React.FC = () => {
   const recordingSessionId = useSessionStore((s) => s.recordingSessionId);
   const selectedCache = useSessionStore((s) =>
     s.selectedSessionId ? s.cache[s.selectedSessionId] : undefined,
+  );
+  const environments =
+    useSettingsStore((s) => s.settings?.model_environments) ?? NO_ENVIRONMENTS;
+  const defaultEnvId = useSettingsStore(
+    (s) =>
+      s.settings?.default_environment_id ??
+      s.settings?.model_environments?.[0]?.id ??
+      null,
   );
   const folders = useOrganizationStore((s) => s.folders);
   const tags = useOrganizationStore((s) => s.tags);
@@ -386,8 +409,40 @@ export const CommandPalette: React.FC = () => {
         }));
     }
 
-    return [...filteredCommands, ...notes];
-  }, [commands, noteResults, sessions, query]);
+    // One ask row per environment, so a question never mixes them.
+    let asks: AskResult[] = [];
+    if (q) {
+      if (environments.length < 2) {
+        asks = [
+          {
+            kind: "ask",
+            environmentId: defaultEnvId,
+            label: t("palette.ask.about", { query: q }),
+            count: null,
+            color: null,
+          },
+        ];
+      } else {
+        const counts: Record<string, number> = {};
+        for (const hit of noteResults ?? []) {
+          const envId = hit.session.environment_id ?? defaultEnvId;
+          if (envId) counts[envId] = (counts[envId] || 0) + 1;
+        }
+        const withMatches = environments.filter((e) => counts[e.id]);
+        asks = (withMatches.length > 0 ? withMatches : environments).map(
+          (e) => ({
+            kind: "ask",
+            environmentId: e.id,
+            label: t("palette.ask.env", { env: e.name, query: q }),
+            count: counts[e.id] ?? 0,
+            color: e.color,
+          }),
+        );
+      }
+    }
+
+    return [...filteredCommands, ...notes, ...asks];
+  }, [commands, noteResults, sessions, query, environments, defaultEnvId, t]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -408,6 +463,10 @@ export const CommandPalette: React.FC = () => {
   const runResult = (r: Result) => {
     if (r.kind === "command") {
       r.command.run();
+    } else if (r.kind === "ask") {
+      close();
+      useNavigationStore.getState().askOnHome(query.trim(), r.environmentId);
+      useSessionStore.getState().deselectSession();
     } else {
       close();
       useSessionStore.getState().selectSession(r.hit.session.id);
@@ -454,15 +513,15 @@ export const CommandPalette: React.FC = () => {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/30"
+        className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/25"
         onMouseDown={close}
       >
         <div
-          className="w-[560px] max-w-[90vw] bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
+          className="w-[560px] max-w-[90vw] bg-background border border-border rounded-lg shadow-2xl overflow-hidden"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
-            <Search size={14} className="text-text-secondary shrink-0" />
+          <div className="flex items-center gap-2.5 h-12 px-4 border-b border-border">
+            <Search size={15} className="text-mid-gray shrink-0" />
             <input
               ref={inputRef}
               type="text"
@@ -470,10 +529,10 @@ export const CommandPalette: React.FC = () => {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t("palette.placeholder")}
-              className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-text-secondary"
+              className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-mid-gray"
             />
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border text-xs relative flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border text-xs relative flex-wrap">
             <FilterChip
               icon={<FolderIcon size={12} />}
               label={folderName ?? t("palette.filters.folder.any")}
@@ -586,11 +645,11 @@ export const CommandPalette: React.FC = () => {
               </ChipDropdown>
             )}
 
-            <div className="ml-auto text-[10px] text-text-secondary">
+            <div className="ml-auto font-display text-label uppercase text-mid-gray">
               {t("palette.filters.searchingHint")}
             </div>
           </div>
-          <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
+          <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-1">
             {results.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-text-secondary">
                 {t("palette.empty")}
@@ -598,7 +657,7 @@ export const CommandPalette: React.FC = () => {
             ) : (
               <>
                 {showingCommandsHeader && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-label uppercase text-mid-gray">
                     {t("palette.sections.commands")}
                   </div>
                 )}
@@ -614,8 +673,8 @@ export const CommandPalette: React.FC = () => {
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm text-left transition-colors ${
-                          isActive ? "bg-accent/10 text-text" : "text-text"
+                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-ui text-left transition-colors ${
+                          isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
                         <span className="text-text-secondary shrink-0">
@@ -626,7 +685,7 @@ export const CommandPalette: React.FC = () => {
                     );
                   })}
                 {showingNotesHeader && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-label uppercase text-mid-gray">
                     {t("palette.sections.notes")}
                   </div>
                 )}
@@ -643,15 +702,17 @@ export const CommandPalette: React.FC = () => {
                         ? t("palette.matched.body")
                         : hit.matched_field === "enhanced_notes"
                           ? t("palette.matched.enhanced")
-                          : null;
+                          : hit.matched_field === "transcript"
+                            ? t("palette.matched.transcript")
+                            : null;
                     return (
                       <button
                         key={`note-${note.id}`}
                         data-palette-index={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => runResult(r)}
-                        className={`flex items-start gap-2.5 w-full px-3 py-2 text-sm text-left transition-colors ${
-                          isActive ? "bg-accent/10 text-text" : "text-text"
+                        className={`flex items-start gap-2.5 w-full px-2.5 py-2 rounded-md text-ui text-left transition-colors ${
+                          isActive ? "bg-accent/8 text-text" : "text-text"
                         }`}
                       >
                         <span className="text-text-secondary shrink-0 mt-0.5">
@@ -663,17 +724,56 @@ export const CommandPalette: React.FC = () => {
                               {highlightMatches(note.title, q)}
                             </span>
                             {badge && (
-                              <span className="shrink-0 rounded-sm bg-border/60 px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+                              <span className="shrink-0 rounded border border-border px-1.5 py-px font-display text-label uppercase text-text-secondary">
                                 {badge}
                               </span>
                             )}
                           </span>
                           {hit.snippet && (
                             <span className="mt-0.5 block text-xs text-text-secondary line-clamp-2 break-words">
-                              {highlightMatches(hit.snippet, q)}
+                              {highlightMatches(stripMarkdown(hit.snippet), q)}
                             </span>
                           )}
                         </span>
+                      </button>
+                    );
+                  })}
+                {results.some((r) => r.kind === "ask") && (
+                  <div className="px-2.5 pt-2.5 pb-1 font-display text-label uppercase text-mid-gray">
+                    {t("palette.sections.ask")}
+                  </div>
+                )}
+                {results
+                  .filter((r) => r.kind === "ask")
+                  .map((r) => {
+                    const idx = ++renderedIndex;
+                    const isActive = idx === activeIndex;
+                    const ask = r as AskResult;
+                    return (
+                      <button
+                        key={`ask-${ask.environmentId ?? "default"}`}
+                        data-palette-index={idx}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onClick={() => runResult(r)}
+                        className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-ui text-left transition-colors ${
+                          isActive ? "bg-accent/8 text-text" : "text-text"
+                        }`}
+                      >
+                        <span className="text-text-secondary shrink-0">
+                          <Sparkles size={16} />
+                        </span>
+                        {ask.color && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: ask.color }}
+                          />
+                        )}
+                        <span className="flex-1 truncate">{ask.label}</span>
+                        {ask.count !== null && (
+                          <span className="shrink-0 font-mono text-label text-mid-gray">
+                            {t("palette.ask.found", { count: ask.count })}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

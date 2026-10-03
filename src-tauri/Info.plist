@@ -6,5 +6,9 @@
   <string>Request microphone access to transcribe audio locally</string>
   <key>NSAudioCaptureUsageDescription</key>
   <string>Request system audio access to transcribe meeting participants</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Read your calendar so notes are titled with the meeting and know who was in it. Talky never changes your calendar and never sends it anywhere.</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Read your calendar so notes are titled with the meeting and know who was in it. Talky never changes your calendar and never sends it anywhere.</string>
 </dict>
 </plist>

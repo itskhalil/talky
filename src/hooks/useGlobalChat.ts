@@ -1,29 +1,80 @@
 import { useState, useCallback, useRef } from "react";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { streamText, tool, wrapLanguageModel } from "ai";
-import { hermesToolMiddleware } from "@ai-sdk-tool/parser";
-import { z } from "zod";
-import * as chrono from "chrono-node";
 import { commands } from "@/bindings";
 import { getEffectiveEnvironment } from "@/hooks/useEffectiveEnvironment";
 import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  acrossNotesPrompt,
+  ask,
+  buildModel,
+  noteTools,
+  oneNotePrompt,
+  type AskSource,
+  type NoteSource,
+  type NoteSummary,
+} from "@/lib/ask";
+import type { Session } from "@/bindings";
 
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  // The notes an answer drew on (asking across notes only).
+  sources?: AskSource[];
 }
 
 interface UseGlobalChatOptions {
-  // Optional: preload context from a specific note (for in-note global chat)
+  // Ask about this one note (its content goes in the prompt, no tools).
   currentNoteId?: string;
   getCurrentTranscript?: () => string;
   getCurrentNotes?: () => string;
-  // Optional: use a specific environment instead of the default (for LLM calls)
+  // The environment whose model answers.
   environmentId?: string | null;
-  // Optional: filter search results to only include notes from this environment
+  // The environment whose notes the tools may return when asking across notes.
   filterEnvironmentId?: string | null;
 }
+
+const summary = (s: Session): NoteSummary => ({
+  id: s.id,
+  title: s.title,
+  startedAt: s.started_at,
+  environmentId: s.environment_id,
+});
+
+/** The app's notes, through Tauri commands. */
+const tauriNotes: NoteSource = {
+  async search(query) {
+    const r = await commands.searchSessions(query, null, null, null, null);
+    if (r.status !== "ok") throw new Error(r.error);
+    // A note can match in several places; keep its first (best) hit.
+    const seen = new Set<string>();
+    return r.data
+      .filter((hit) => !seen.has(hit.session.id) && seen.add(hit.session.id))
+      .map((hit) => ({ ...summary(hit.session), snippet: hit.snippet }));
+  },
+  async list() {
+    const r = await commands.getSessions();
+    if (r.status !== "ok") throw new Error(r.error);
+    return r.data.map(summary);
+  },
+  async get(id) {
+    const r = await commands.getSession(id);
+    return r.status === "ok" && r.data ? summary(r.data) : null;
+  },
+  async read(id) {
+    const [notes, transcript] = await Promise.all([
+      commands.getMeetingNotes(id),
+      commands.getSessionTranscript(id),
+    ]);
+    return {
+      userNotes: notes.status === "ok" ? (notes.data?.user_notes ?? "") : "",
+      enhancedNotes:
+        notes.status === "ok" ? (notes.data?.enhanced_notes ?? "") : "",
+      transcript:
+        transcript.status === "ok"
+          ? transcript.data.map((s) => `[${s.source}] ${s.text}`).join("\n")
+          : "",
+    };
+  },
+};
 
 export function useGlobalChat(options: UseGlobalChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -32,22 +83,17 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const clearMessages = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-      abortRef.current = null;
-    }
-    setMessages([]);
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setIsLoading(false);
   }, []);
 
-  const stop = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-      abortRef.current = null;
-    }
-    setIsLoading(false);
-  }, []);
+  const clearMessages = useCallback(() => {
+    stop();
+    setMessages([]);
+    setError(null);
+  }, [stop]);
 
   const handleInputFocus = useCallback(async () => {
     if (options.currentNoteId) {
@@ -61,517 +107,107 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
 
   const handleSubmit = useCallback(
     async (messageOverride?: string) => {
-      const trimmed = (messageOverride ?? input).trim();
-      if (!trimmed || isLoading) return;
+      const question = (messageOverride ?? input).trim();
+      if (!question || isLoading) return;
 
-      // Get the environment - prefer note's environment, fall back to default
       const {
         environment,
         baseUrl,
         apiKey,
         chatModel: model,
       } = getEffectiveEnvironment(options.environmentId);
-
-      if (!environment) {
+      if (!environment || !model) {
         setError(
-          "No environment configured. Go to Settings > Environments to set one up.",
+          "No chat model configured. Go to Settings > AI environments to set one up.",
         );
         return;
       }
 
-      if (!model) {
-        setError(
-          "No chat model configured. Go to Settings > Environments to set one up.",
-        );
-        return;
-      }
-
-      const isOllama = baseUrl.includes("localhost:11434");
-      const effectiveApiKey = isOllama && !apiKey ? "ollama" : apiKey;
-
-      setError(null);
-
-      const userMessage: ChatMessage = { role: "user", content: trimmed };
-      const newMessages = [...messages, userMessage];
-      setMessages(newMessages);
+      const history = [
+        ...messages,
+        { role: "user" as const, content: question },
+      ];
+      setMessages([...history, { role: "assistant", content: "" }]);
       setInput("");
+      setError(null);
       setIsLoading(true);
 
-      // Flush pending audio before getting transcript (for in-note chat)
-      if (options.currentNoteId) {
-        try {
-          await commands.flushPendingAudio(options.currentNoteId);
-        } catch {
-          // Non-fatal
-        }
-      }
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const userName =
+        useSettingsStore.getState().settings?.user_name?.trim() || undefined;
+      const setAnswer = (content: string) =>
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], content };
+          return next;
+        });
+      const setSources = (sources: AskSource[]) =>
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], sources };
+          return next;
+        });
 
-      // Determine if this is in-note chat (restricted to current note only)
-      const isInNoteChat = Boolean(options.currentNoteId);
-
-      // Build context from current note if provided
-      let currentNoteContext = "";
-      let contextInstructions = "";
-      if (
-        options.currentNoteId &&
-        options.getCurrentTranscript &&
-        options.getCurrentNotes
-      ) {
-        // Fetch current session info for title/date and enhanced notes
-        let currentTitle = "Unknown";
-        let currentDate = "";
-        let enhancedNotes = "";
-        try {
-          const [sessionResult, notesResult] = await Promise.all([
+      try {
+        let system: string;
+        let tools: ReturnType<typeof noteTools> | undefined;
+        if (options.currentNoteId) {
+          // One note: include it, with the transcript as captured so far.
+          try {
+            await commands.flushPendingAudio(options.currentNoteId);
+          } catch {
+            // Non-fatal
+          }
+          const [session, notes] = await Promise.all([
             commands.getSession(options.currentNoteId),
             commands.getMeetingNotes(options.currentNoteId),
           ]);
-          if (sessionResult.status === "ok" && sessionResult.data) {
-            currentTitle = sessionResult.data.title;
-            currentDate = new Date(
-              sessionResult.data.started_at * 1000,
-            ).toLocaleDateString();
-          }
-          if (notesResult.status === "ok" && notesResult.data?.enhanced_notes) {
-            enhancedNotes = notesResult.data.enhanced_notes;
-          }
-        } catch {
-          // Non-fatal
-        }
-
-        const transcript = options.getCurrentTranscript();
-        const userNotes = options.getCurrentNotes();
-
-        // If we have enhanced notes, use those instead of transcript (less redundant)
-        const contentSection = enhancedNotes
-          ? `### Enhanced Notes (AI Summary)\n${enhancedNotes}`
-          : `### Transcript\n${transcript || "(No transcript yet)"}`;
-
-        currentNoteContext = `
-## CURRENT NOTE: "${currentTitle}" (${currentDate})
-
-### User's Notes
-${userNotes || "(No notes taken)"}
-
-${contentSection}
-
----
-`;
-        contextInstructions = `
-For questions about THIS note (${currentTitle} from ${currentDate}): Answer directly from the context.
-${isInNoteChat ? "You only have access to this note. If asked about other notes, explain you can only see the current note." : "For questions about OTHER notes or DIFFERENT dates: Use the searchNotes tool."}
-`;
-      }
-
-      // Fetch recent meeting titles for context (sidebar chat only)
-      let recentMeetingsList = "";
-      if (!isInNoteChat) {
-        try {
-          const sessionsResult = await commands.getSessions();
-          if (sessionsResult.status === "ok") {
-            let recentSessions = sessionsResult.data;
-
-            // Filter by environment if filterEnvironmentId is set
-            if (options.filterEnvironmentId) {
-              const { environment: defaultEnv } = getEffectiveEnvironment(null);
-              const defaultEnvId = defaultEnv?.id ?? null;
-              const filterEnvId = options.filterEnvironmentId;
-
-              recentSessions = recentSessions.filter((s) => {
-                const noteEnvId = s.environment_id ?? defaultEnvId;
-                return noteEnvId === filterEnvId;
-              });
-            }
-
-            recentSessions = recentSessions.slice(0, 20);
-            if (recentSessions.length > 0) {
-              recentMeetingsList = `
-## RECENT MEETINGS
-${recentSessions.map((s) => `- ${s.title} (${new Date(s.started_at * 1000).toLocaleDateString()})`).join("\n")}
-
-`;
-            }
-          }
-        } catch {
-          // Non-fatal
-        }
-      }
-
-      const today = new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-
-      // Build system prompt - only include tool info for sidebar chat
-      const toolDescription = isInNoteChat
-        ? ""
-        : `Tool: searchNotes
-- terms: Search by meeting titles, person names, or topics (e.g. "standup", "sync", "budget"). Use words from the RECENT MEETINGS list.
-- dateHint: Use "yesterday", "last week", or unambiguous dates like "February 3" (NOT numeric formats like 03/02)
-- Returns full content for 1-3 matches, snippets for more
-`;
-
-      // Inject user identity if configured
-      const userName = useSettingsStore.getState().settings?.user_name?.trim();
-      const userIdentity = userName ? `The user's name is ${userName}.\n` : "";
-
-      const systemPrompt = `You are a helpful assistant for meeting notes. Today is ${today}.
-${userIdentity}
-${toolDescription}${contextInstructions}
-I am currently in a meeting, so keep your answer direct and clear. Be brief - I need to get my focus back to the meeting. In most cases, a handful of short bullets is best.
-
-${recentMeetingsList}${currentNoteContext}`;
-
-      const abortController = new AbortController();
-      abortRef.current = abortController;
-
-      try {
-        // Build the AI SDK provider based on base_url
-        let aiModel;
-        const isAnthropic = baseUrl.includes("anthropic.com");
-        if (isAnthropic) {
-          const anthropic = createAnthropic({
-            apiKey: effectiveApiKey,
-            baseURL: baseUrl,
-            headers: {
-              "anthropic-dangerous-direct-browser-access": "true",
+          const s = session.status === "ok" ? session.data : null;
+          const enhanced =
+            notes.status === "ok" ? (notes.data?.enhanced_notes ?? "") : "";
+          system = oneNotePrompt(
+            {
+              title: s?.title ?? "Untitled",
+              date: s ? new Date(s.started_at * 1000).toLocaleDateString() : "",
+              userNotes: options.getCurrentNotes?.() ?? "",
+              // Enhanced notes already summarise the transcript.
+              content: enhanced
+                ? `### Enhanced notes\n${enhanced}`
+                : `### Transcript\n${options.getCurrentTranscript?.() || "(none yet)"}`,
             },
-          });
-          aiModel = anthropic(model);
+            userName,
+          );
         } else {
-          const openai = createOpenAI({
-            apiKey: effectiveApiKey,
-            baseURL: baseUrl,
-          });
-          aiModel = openai.chat(model);
+          const envId = options.filterEnvironmentId ?? environment.id;
+          const defaultEnvId =
+            useSettingsStore.getState().settings?.default_environment_id ??
+            null;
+          system = acrossNotesPrompt(userName);
+          tools = noteTools(tauriNotes, envId, defaultEnvId);
         }
 
-        // Wrap model with tool middleware for providers that don't support native tools
-        const supportsNativeTools =
-          baseUrl.includes("anthropic.com") || baseUrl.includes("openai.com");
-        const finalModel = supportsNativeTools
-          ? aiModel
-          : wrapLanguageModel({
-              model: aiModel,
-              middleware: hermesToolMiddleware,
-            });
-
-        const apiMessages = newMessages.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        }));
-
-        // Single smart tool that adapts based on result count
-        // In-note chat has no tools - only sidebar chat can search across notes
-        const searchNotesTool = {
-          searchNotes: tool({
-            description:
-              "Search meeting notes. Returns full content for few matches, snippets for many. Use for any question about note content.",
-            inputSchema: z.object({
-              terms: z
-                .array(z.string())
-                .describe(
-                  "Search terms - person names, topics, keywords. Matches notes containing ANY of these.",
-                ),
-              dateHint: z
-                .string()
-                .optional()
-                .describe(
-                  "Date filter: 'yesterday', 'last week', 'February 2nd', etc.",
-                ),
-            }),
-            execute: async ({
-              terms,
-              dateHint,
-            }: {
-              terms: string[];
-              dateHint?: string;
-            }) => {
-              // Search for each term and merge results
-              const allResults = new Map<
-                string,
-                {
-                  id: string;
-                  title: string;
-                  started_at: number;
-                  environment_id: string | null;
-                }
-              >();
-
-              if (terms.length === 0) {
-                // No terms - get all recent notes
-                const result = await commands.getSessions();
-                if (result.status === "ok") {
-                  result.data.forEach((note) => allResults.set(note.id, note));
-                }
-              } else {
-                // Search for each term
-                for (const term of terms) {
-                  const result = await commands.searchSessions(
-                    term,
-                    null,
-                    null,
-                    null,
-                    null,
-                  );
-                  if (result.status === "ok") {
-                    result.data.forEach((hit) =>
-                      allResults.set(hit.session.id, hit.session),
-                    );
-                  }
-                }
-              }
-
-              let notes = Array.from(allResults.values());
-
-              // Apply environment filter if provided
-              // Notes with null environment_id are treated as belonging to the default environment
-              if (options.filterEnvironmentId) {
-                const { environment: defaultEnv } =
-                  getEffectiveEnvironment(null);
-                const defaultEnvId = defaultEnv?.id ?? null;
-                const filterEnvId = options.filterEnvironmentId;
-
-                notes = notes.filter((n) => {
-                  // If note has no environment_id, it belongs to default environment
-                  const noteEnvId = n.environment_id ?? defaultEnvId;
-                  return noteEnvId === filterEnvId;
-                });
-              }
-
-              // Apply date filter if provided
-              if (dateHint) {
-                const parsed = chrono.parse(dateHint, new Date());
-                if (parsed.length > 0) {
-                  const ref = parsed[0];
-                  // Use start of day for filtering (midnight to midnight)
-                  const startDate = ref.start.date();
-                  startDate.setHours(0, 0, 0, 0);
-                  const endDate = ref.end?.date() ?? new Date(startDate);
-                  if (!ref.end) {
-                    endDate.setHours(23, 59, 59, 999);
-                  }
-                  notes = notes.filter((n) => {
-                    const d = new Date(n.started_at * 1000);
-                    return d >= startDate && d <= endDate;
-                  });
-                }
-              }
-
-              if (notes.length === 0) {
-                return { message: "No matching notes found." };
-              }
-
-              // Adaptive response based on count
-              if (notes.length <= 3) {
-                // Few matches → return FULL content
-                return Promise.all(
-                  notes.map(async (note) => {
-                    const [notesResult, transcriptResult] = await Promise.all([
-                      commands.getMeetingNotes(note.id),
-                      commands.getSessionTranscript(note.id),
-                    ]);
-                    return {
-                      title: note.title,
-                      date: new Date(
-                        note.started_at * 1000,
-                      ).toLocaleDateString(),
-                      userNotes:
-                        notesResult.status === "ok"
-                          ? notesResult.data?.user_notes || ""
-                          : "",
-                      enhancedNotes:
-                        notesResult.status === "ok"
-                          ? notesResult.data?.enhanced_notes || ""
-                          : "",
-                      transcript:
-                        transcriptResult.status === "ok"
-                          ? transcriptResult.data
-                              .map((seg) => `[${seg.source}] ${seg.text}`)
-                              .join("\n")
-                          : "",
-                    };
-                  }),
-                );
-              } else {
-                // Many matches → return snippets only
-                return {
-                  message: `Found ${notes.length} matching notes. Here are the titles:`,
-                  notes: notes.slice(0, 10).map((n) => ({
-                    title: n.title,
-                    date: new Date(n.started_at * 1000).toLocaleDateString(),
-                  })),
-                  hint: "Ask about a specific note for full details.",
-                };
-              }
-            },
-          }),
-        };
-        const tools = isInNoteChat ? undefined : searchNotesTool;
-
-        const result = streamText({
-          model: finalModel,
-          system: systemPrompt,
-          messages: apiMessages,
+        await ask({
+          model: buildModel({ baseUrl, apiKey, model }),
+          system,
+          messages: history.map(({ role, content }) => ({ role, content })),
           tools,
-          abortSignal: abortController.signal,
+          signal: controller.signal,
+          onText: setAnswer,
+          onSources: setSources,
         });
-
-        // Add empty assistant message and stream into it
-        const assistantIdx = newMessages.length;
-        setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-        const resolved = await result;
-
-        // Collect tool results for manual multi-step
-        const collectedToolResults: Array<{
-          toolCallId: string;
-          toolName: string;
-          result: unknown;
-        }> = [];
-
-        let textContent = "";
-        for await (const part of resolved.fullStream) {
-          if (abortController.signal.aborted) break;
-
-          // Collect tool results for manual multi-step
-          if (part.type === "tool-result") {
-            collectedToolResults.push({
-              toolCallId: part.toolCallId,
-              toolName: part.toolName,
-              result: part.output,
-            });
-          } else if (part.type === "text-delta") {
-            // Try possible property names for the text delta
-            const delta =
-              (part as { textDelta?: string }).textDelta ??
-              (part as { delta?: string }).delta ??
-              (part as { text?: string }).text ??
-              "";
-            if (delta) {
-              textContent += delta;
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[assistantIdx] = {
-                  ...updated[assistantIdx],
-                  content: textContent,
-                };
-                return updated;
-              });
-            }
-          }
-        }
-
-        // Strip any raw tool call JSON from the response (from middleware)
-        // This handles both "just JSON" and "JSON followed by text" cases
-        const jsonPattern =
-          /```json\s*\{[^}]*"name"\s*:\s*"[^"]+"\s*,[^}]*\}\s*```/g;
-        const cleanedText = textContent.replace(jsonPattern, "").trim();
-
-        // Update display with cleaned text
-        if (cleanedText !== textContent) {
-          textContent = cleanedText;
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[assistantIdx] = {
-              ...updated[assistantIdx],
-              content: cleanedText,
-            };
-            return updated;
-          });
-        }
-
-        // Manual multi-step: if we got tool results but no meaningful text, make a follow-up call
-        // Only for sidebar chat (in-note chat has no tools)
-        if (
-          !isInNoteChat &&
-          collectedToolResults.length > 0 &&
-          !textContent.trim()
-        ) {
-          // Format tool results as text for the follow-up
-          const toolResultsText = collectedToolResults
-            .map(
-              (tr) =>
-                `Tool "${tr.toolName}" returned:\n${JSON.stringify(tr.result, null, 2)}`,
-            )
-            .join("\n\n");
-
-          // Build follow-up messages with tool results as assistant context
-          const followUpMessages = [
-            ...apiMessages,
-            {
-              role: "assistant" as const,
-              content: `I searched your notes. Here are the results:\n\n${toolResultsText}`,
-            },
-            {
-              role: "user" as const,
-              content:
-                "Based on those results, please answer my original question.",
-            },
-          ];
-
-          // Make follow-up call with base model (no middleware) for plain text response
-          const followUp = streamText({
-            model: aiModel,
-            system: systemPrompt,
-            messages: followUpMessages,
-            abortSignal: abortController.signal,
-          });
-
-          const followUpResolved = await followUp;
-          for await (const part of followUpResolved.fullStream) {
-            if (abortController.signal.aborted) break;
-
-            if (part.type === "text-delta") {
-              const delta =
-                (part as { textDelta?: string }).textDelta ??
-                (part as { delta?: string }).delta ??
-                (part as { text?: string }).text ??
-                "";
-              if (delta) {
-                textContent += delta;
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  updated[assistantIdx] = {
-                    ...updated[assistantIdx],
-                    content: textContent,
-                  };
-                  return updated;
-                });
-              }
-            }
-          }
-        }
       } catch (err: unknown) {
-        console.error("[global-chat] error:", err);
-        if (err instanceof Error && err.name === "AbortError") {
-          // User aborted
-        } else {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          setError(errorMsg);
-          setMessages((prev) => {
-            if (
-              prev[prev.length - 1]?.role === "assistant" &&
-              !prev[prev.length - 1].content
-            ) {
-              const updated = [...prev];
-              updated[updated.length - 1] = {
-                role: "assistant",
-                content: `Error: ${errorMsg}`,
-              };
-              return updated;
-            }
-            return [
-              ...prev,
-              { role: "assistant", content: `Error: ${errorMsg}` },
-            ];
-          });
-        }
+        if (controller.signal.aborted) return;
+        console.error("[ask] error:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg);
+        setAnswer(`Error: ${msg}`);
       } finally {
-        abortRef.current = null;
-        setIsLoading(false);
+        // A stopped or replaced question has already reset this.
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsLoading(false);
+        }
       }
     },
     [input, isLoading, messages, options],

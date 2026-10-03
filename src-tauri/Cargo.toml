@@ -98,9 +98,10 @@ tauri-plugin-window-state = "2"
 tauri-plugin-macos-permissions = "2.3.0"
 cidre = { version = "0.15", features = ["av"] }
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSNotification", "NSRunLoop", "NSString", "NSThread"] }
+objc2-foundation = { version = "0.3", features = ["NSNotification", "NSRunLoop", "NSString", "NSThread", "NSArray", "NSDate", "NSError", "NSPredicate", "NSURL"] }
 objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSRunningApplication"] }
 block2 = "0.6"
+objc2-event-kit = { version = "0.3.2", default-features = false, features = ["std", "block2", "EKEventStore", "EKEvent", "EKCalendar", "EKCalendarItem", "EKParticipant", "EKObject", "EKSource", "EKTypes", "EKStructuredLocation"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wasapi = "0.15"

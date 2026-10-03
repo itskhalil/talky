@@ -250,6 +250,12 @@ pub struct AppSettings {
     #[serde(default = "default_meeting_start_action")]
     pub meeting_start_action: String,
 
+    /// Read the system calendar to name meetings and know who is in them.
+    /// Off until the user turns it on, which is also what triggers the macOS
+    /// permission prompt — the toggle and the grant are one action.
+    #[serde(default)]
+    pub calendar_enabled: bool,
+
     // Debug flags for Windows crash diagnosis
     #[serde(default)]
     pub debug_disable_speaker_capture: bool,
@@ -618,6 +624,7 @@ pub fn get_default_settings() -> AppSettings {
         new_recording_shortcut: None,
         meeting_end_action: default_meeting_end_action(),
         meeting_start_action: default_meeting_start_action(),
+        calendar_enabled: false,
         debug_disable_speaker_capture: false,
         debug_disable_model_loading: false,
         debug_disable_pill_window: default_debug_disable_pill_window(),

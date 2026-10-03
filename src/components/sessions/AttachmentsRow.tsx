@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Paperclip, X, FileText, Image, Plus, Loader } from "lucide-react";
+import { X, FileText, Plus, Loader } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
@@ -66,70 +66,64 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(mimeType: string) {
-  if (mimeType === "application/pdf") {
-    return <FileText size={12} className="text-red-400" />;
-  }
-  if (mimeType.startsWith("image/")) {
-    return <Image size={12} className="text-blue-400" />;
-  }
-  return <Paperclip size={12} className="text-text-secondary" />;
+function fileTypeLabel(mimeType: string): string {
+  if (mimeType === "application/pdf") return "PDF";
+  if (mimeType.startsWith("image/")) return mimeType.slice(6).toUpperCase();
+  return "FILE";
 }
 
-interface AttachmentChipProps {
+interface FileRowProps {
   attachment: Attachment;
   onOpen: () => void;
   onDelete: () => void;
-  onImageClick?: () => void;
   disabled: boolean;
-  t: (key: string) => string;
+  deleteLabel: string;
 }
 
-function AttachmentChip({
+/** One file in the note's Files section: thumbnail, name, type and size. */
+function FileRow({
   attachment,
   onOpen,
   onDelete,
-  onImageClick,
   disabled,
-  t,
-}: AttachmentChipProps) {
-  const [showPreview, setShowPreview] = useState(false);
+  deleteLabel,
+}: FileRowProps) {
   const isImage = attachment.mime_type.startsWith("image/");
-  const previewUrl = isImage ? convertFileSrc(attachment.file_path) : null;
-
   return (
-    <div
-      className="group relative inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-accent/5 text-text hover:bg-accent/10 transition-colors"
-      onMouseEnter={() => isImage && setShowPreview(true)}
-      onMouseLeave={() => setShowPreview(false)}
-    >
-      {getFileIcon(attachment.mime_type)}
+    <div className="group flex items-center gap-3 h-11 px-2 -mx-2 rounded-md hover:bg-accent/5 transition-colors">
       <button
-        onClick={isImage && onImageClick ? onImageClick : onOpen}
-        className="hover:underline truncate max-w-[150px]"
-        title={`${attachment.filename} (${formatFileSize(attachment.file_size)})`}
+        onClick={onOpen}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+        title={attachment.filename}
       >
-        {attachment.filename}
+        <span className="w-8 h-8 shrink-0 flex items-center justify-center rounded border border-border overflow-hidden bg-background">
+          {isImage ? (
+            <img
+              src={convertFileSrc(attachment.file_path)}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <FileText size={14} className="text-text-secondary" />
+          )}
+        </span>
+        <span className="flex-1 min-w-0 truncate text-ui text-text">
+          {attachment.filename}
+        </span>
+        <span className="shrink-0 font-mono text-label text-mid-gray">
+          {fileTypeLabel(attachment.mime_type)} ·{" "}
+          {formatFileSize(attachment.file_size)}
+        </span>
       </button>
       {!disabled && (
         <button
           onClick={onDelete}
-          className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity"
-          title={t("sessions.attachments.delete")}
+          className="w-6 h-6 shrink-0 flex items-center justify-center rounded text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-accent/8 hover:text-text transition-opacity"
+          title={deleteLabel}
+          aria-label={deleteLabel}
         >
-          <X size={10} />
+          <X size={12} />
         </button>
-      )}
-
-      {/* Image preview tooltip */}
-      {showPreview && previewUrl && (
-        <div className="absolute top-full left-0 mt-2 p-1 bg-background border border-border rounded-lg shadow-lg z-50">
-          <img
-            src={previewUrl}
-            alt={attachment.filename}
-            className="max-w-[200px] max-h-[150px] rounded object-contain"
-          />
-        </div>
       )}
     </div>
   );
@@ -257,30 +251,46 @@ export const AttachmentsRow = forwardRef<
     }
   }, []);
 
-  // Don't render anything if no attachments and disabled
-  if (attachments.length === 0 && disabled) {
-    return null;
-  }
+  // Nothing to show until the note has files; the ref still opens the picker.
+  if (attachments.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1.5">
-      {/* Attachment chips */}
+    <section className="mt-10 pt-4 border-t border-border">
+      <div className="flex items-center h-7 mb-1">
+        <span className="font-display text-label uppercase text-mid-gray">
+          {t("sessions.attachments.title", { count: attachments.length })}
+        </span>
+        <span className="flex-1" />
+        {!disabled && (
+          <button
+            onClick={handleAddFiles}
+            disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
+            className="flex items-center gap-1 h-6 px-1.5 rounded-md text-xs text-text-secondary hover:bg-accent/5 hover:text-text transition-colors disabled:opacity-50"
+            title={t("sessions.attachments.addHint")}
+          >
+            {uploading ? (
+              <Loader size={12} className="animate-spin-slow" />
+            ) : (
+              <Plus size={12} />
+            )}
+            {t("sessions.attachments.addFile")}
+          </button>
+        )}
+      </div>
       {attachments.map((att) => (
-        <AttachmentChip
+        <FileRow
           key={att.id}
           attachment={att}
-          onOpen={() => handleOpen(att.id)}
-          onDelete={() => handleDelete(att.id)}
-          onImageClick={() => {
+          onOpen={() => {
             const idx = imageAttachments.findIndex((a) => a.id === att.id);
             if (idx !== -1) setLightboxIndex(idx);
+            else void handleOpen(att.id);
           }}
+          onDelete={() => handleDelete(att.id)}
           disabled={disabled}
-          t={t}
+          deleteLabel={t("sessions.attachments.delete")}
         />
       ))}
-
-      {/* Image lightbox */}
       {lightboxIndex !== null && (
         <ImageLightbox
           images={imageAttachments}
@@ -288,25 +298,6 @@ export const AttachmentsRow = forwardRef<
           onClose={() => setLightboxIndex(null)}
         />
       )}
-
-      {/* Add button */}
-      {!disabled && (
-        <button
-          onClick={handleAddFiles}
-          disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
-          className="flex items-center gap-1 text-xs hover:text-text transition-colors disabled:opacity-50"
-          title={t("sessions.attachments.addHint")}
-        >
-          {uploading ? (
-            <Loader size={10} className="animate-spin-slow" />
-          ) : (
-            <>
-              <Paperclip size={10} />
-              <Plus size={8} />
-            </>
-          )}
-        </button>
-      )}
-    </div>
+    </section>
   );
 });

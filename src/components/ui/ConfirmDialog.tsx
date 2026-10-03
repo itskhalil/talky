@@ -60,16 +60,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       aria-labelledby="confirm-dialog-title"
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onCancel}
-      />
+      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
 
       {/* Dialog */}
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="relative bg-background border border-border rounded-xl shadow-xl max-w-sm w-full mx-4 p-5 outline-none"
+        className="relative bg-background border border-border rounded-lg shadow-xl max-w-sm w-full mx-4 p-5 outline-none"
       >
         <h2
           id="confirm-dialog-title"

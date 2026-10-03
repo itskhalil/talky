@@ -15,12 +15,15 @@ import {
   PenLine,
   List,
   FolderIcon,
-  Tag,
   Plus,
   Globe,
   Search,
   Paperclip,
   Lock,
+  ArrowUp,
+  MoreHorizontal,
+  RefreshCw,
+  AlignLeft,
 } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { FindBar } from "./FindBar";
@@ -29,11 +32,13 @@ import {
   MAX_ATTACHMENTS,
   type AttachmentsRowHandle,
 } from "./AttachmentsRow";
+import { MetaPicker } from "./MetaPicker";
+import { MeetingChip } from "./MeetingChip";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { WaveformBars } from "@/components/ui/WaveformBars";
 import { useAttachments } from "@/stores/sessionStore";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useGlobalChat, type ChatMessage } from "@/hooks/useGlobalChat";
 import { useSettings } from "@/hooks/useSettings";
@@ -68,6 +73,7 @@ interface Session {
   status: string;
   folder_id: string | null;
   environment_id: string | null;
+  calendar_event_id: string | null;
   transcript_wiped_at: number | null;
 }
 
@@ -647,7 +653,6 @@ export function NoteView({
   const [envDropdownOpen, setEnvDropdownOpen] = useState(false);
   const [sessionTags, setSessionTags] = useState<TagType[]>([]);
   const [tagInputOpen, setTagInputOpen] = useState(false);
-  const [tagInputValue, setTagInputValue] = useState("");
   const [transcriptSearchOpen, setTranscriptSearchOpen] = useState(false);
   const [transcriptSearchQuery, setTranscriptSearchQuery] = useState("");
   const [transcriptCurrentMatch, setTranscriptCurrentMatch] = useState(0);
@@ -656,13 +661,8 @@ export function NoteView({
   const [localFolderId, setLocalFolderId] = useState<string | null>(
     session?.folder_id ?? null,
   );
-  const folderDropdownRef = useRef<HTMLDivElement>(null);
   const envDropdownRef = useRef<HTMLDivElement>(null);
-  const tagInputRef = useRef<HTMLInputElement>(null);
   const attachmentsRowRef = useRef<AttachmentsRowHandle>(null);
-  const [folderFilter, setFolderFilter] = useState("");
-  const [activeFolderIndex, setActiveFolderIndex] = useState(0);
-  const folderFilterInputRef = useRef<HTMLInputElement>(null);
 
   const folderPickerTick = useNoteUiIntentStore((s) => s.folderPickerTick);
   const tagInputTick = useNoteUiIntentStore((s) => s.tagInputTick);
@@ -676,7 +676,6 @@ export function NoteView({
   useEffect(() => {
     if (folderPickerTick !== lastFolderTick.current) {
       lastFolderTick.current = folderPickerTick;
-      setFolderFilter("");
       setFolderDropdownOpen(true);
     }
   }, [folderPickerTick]);
@@ -715,6 +714,7 @@ export function NoteView({
     addTagToSession,
     removeTagFromSession,
     createTag,
+    createFolder,
   } = useOrganizationStore();
 
   // Fetch session tags when session changes
@@ -730,23 +730,6 @@ export function NoteView({
   useEffect(() => {
     setLocalFolderId(session?.folder_id ?? null);
   }, [session?.id, session?.folder_id]);
-
-  // Close folder dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        folderDropdownRef.current &&
-        !folderDropdownRef.current.contains(e.target as Node)
-      ) {
-        setFolderDropdownOpen(false);
-      }
-    };
-    if (folderDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [folderDropdownOpen]);
 
   // Close environment dropdown when clicking outside
   useEffect(() => {
@@ -771,23 +754,6 @@ export function NoteView({
     }
     setEnvDropdownOpen(false);
   };
-
-  // Focus tag input when opened
-  useEffect(() => {
-    if (tagInputOpen && tagInputRef.current) {
-      tagInputRef.current.focus();
-    }
-  }, [tagInputOpen]);
-
-  // Focus folder filter when dropdown opens
-  useEffect(() => {
-    if (folderDropdownOpen) {
-      setActiveFolderIndex(0);
-      folderFilterInputRef.current?.focus();
-    } else {
-      setFolderFilter("");
-    }
-  }, [folderDropdownOpen]);
 
   // Drag & drop file handling for attachments
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -944,22 +910,7 @@ export function NoteView({
     }
   };
 
-  const handleCreateAndAddTag = async () => {
-    if (!tagInputValue.trim() || !session?.id) return;
-    const newTag = await createTag(tagInputValue.trim());
-    if (newTag) {
-      await addTagToSession(session.id, newTag.id);
-      const updated = await getSessionTags(session.id);
-      setSessionTags(updated);
-    }
-    setTagInputValue("");
-    setTagInputOpen(false);
-  };
-
   const currentFolder = folders.find((f) => f.id === localFolderId);
-  const availableTags = allTags.filter(
-    (t) => !sessionTags.some((st) => st.id === t.id),
-  );
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     setActiveEditor(editor);
@@ -1114,7 +1065,7 @@ export function NoteView({
     return () => window.removeEventListener("resize", adjustTextareaHeight);
   }, [adjustTextareaHeight]);
 
-  // Re-adjust title height after fonts load (Cabinet Grotesk swaps in after system-ui)
+  // Re-adjust title height after fonts load (Geist swaps in after system-ui)
   useEffect(() => {
     document.fonts.ready.then(() => {
       adjustTextareaHeight();
@@ -1271,13 +1222,124 @@ export function NoteView({
     return userNotes;
   }, [userNotes]);
 
-  const chat = useGlobalChat({
-    currentNoteId: session?.id ?? "",
-    getCurrentTranscript: getTranscriptText,
-    getCurrentNotes: getUserNotesText,
-    environmentId: session?.environment_id,
-    filterEnvironmentId: session?.environment_id,
-  });
+  // Recorded time is stored in the transcript: on resume, new segments
+  // continue from the last segment's end, so the latest end_ms is the total
+  // time recorded so far (pauses excluded).
+  const recordedMs = useMemo(
+    () => transcript.reduce((max, seg) => Math.max(max, seg.end_ms), 0),
+    [transcript],
+  );
+  const [run, setRun] = useState<{ since: number; baseMs: number } | null>(
+    null,
+  );
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isRecording) {
+      setRun(null);
+      return;
+    }
+    // Capture the total at the moment this run starts; segments arriving
+    // during the run are already covered by the run's own clock.
+    setRun((r) => r ?? { since: Date.now(), baseMs: recordedMs });
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isRecording]);
+  const elapsedLabel = (() => {
+    const ms = run ? run.baseMs + Math.max(0, now - run.since) : recordedMs;
+    const secs = Math.floor(ms / 1000);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const sec = secs % 60;
+    const mm = String(m).padStart(2, "0");
+    const ss = String(sec).padStart(2, "0");
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  })();
+  const lengthLabel = (() => {
+    const mins = Math.max(1, Math.round(recordedMs / 60000));
+    const h = Math.floor(mins / 60);
+    return h > 0
+      ? t("sessions.lengthHours", { hours: h, minutes: mins % 60 })
+      : t("sessions.lengthMinutes", { count: mins });
+  })();
+
+  // Rare, post-meeting actions live in the header's ⋯ menu.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handle = (e: MouseEvent) => {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      )
+        setMoreMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMoreMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handle);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", handle);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }, [moreMenuOpen]);
+
+  // Ask about this note, or across every note in this note's environment.
+  const [chatScope, setChatScope] = useState<"note" | "all">("note");
+  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
+  const scopeMenuRef = useRef<HTMLDivElement>(null);
+  const effectiveEnvId =
+    session?.environment_id ?? defaultEnvId ?? environments[0]?.id ?? null;
+  const chat = useGlobalChat(
+    chatScope === "note"
+      ? {
+          currentNoteId: session?.id ?? "",
+          getCurrentTranscript: getTranscriptText,
+          getCurrentNotes: getUserNotesText,
+          environmentId: session?.environment_id,
+          filterEnvironmentId: session?.environment_id,
+        }
+      : { environmentId: effectiveEnvId, filterEnvironmentId: effectiveEnvId },
+  );
+  const scopeLabel =
+    chatScope === "note"
+      ? t("sessions.chat.scopeNote")
+      : showEnvSelector && currentEnv
+        ? t("sessions.chat.scopeAllEnv", { env: currentEnv.name })
+        : t("sessions.chat.scopeAll");
+  const chooseScope = (scope: "note" | "all") => {
+    if (scope !== chatScope) chat.clearMessages();
+    setChatScope(scope);
+    setScopeMenuOpen(false);
+    chatInputRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!scopeMenuOpen) return;
+    const handle = (e: MouseEvent) => {
+      if (
+        scopeMenuRef.current &&
+        !scopeMenuRef.current.contains(e.target as Node)
+      )
+        setScopeMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setScopeMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handle);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", handle);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }, [scopeMenuOpen]);
 
   useEffect(() => {
     if (panelOpen && panelMode === "chat") {
@@ -1311,11 +1373,64 @@ export function NoteView({
   }, [chat]);
 
   const hasTranscript = transcript.length > 0;
+  // Enhance is the one obvious next step after a meeting, so it lives in the bar.
+  const canEnhanceFirst =
+    !isRecording &&
+    hasTranscript &&
+    !enhanceLoading &&
+    !enhanceStreaming &&
+    !isSealed &&
+    !enhancedNotes;
+  const canReenhance =
+    !isRecording &&
+    hasTranscript &&
+    !enhanceLoading &&
+    !enhanceStreaming &&
+    !isSealed &&
+    !!enhancedNotes;
   const hasEnhanced =
     enhancedNotes != null ||
     enhanceLoading ||
     enhanceError != null ||
     enhanceStreaming;
+
+  // Header stamp: the facts about this meeting, read-only.
+  const stampLabel = (() => {
+    if (!session) return "";
+    const start = new Date(session.started_at * 1000);
+    const parts = [
+      start.toLocaleDateString(undefined, {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        ...(start.getFullYear() !== new Date().getFullYear()
+          ? { year: "numeric" }
+          : {}),
+      }),
+      start.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }),
+    ];
+    if (recordedMs > 0 && !isRecording) parts.push(lengthLabel);
+    return parts.join(" · ");
+  })();
+  const chipClass =
+    "inline-flex items-center gap-1.5 h-6 px-2 rounded-md border border-border text-xs text-text hover:border-border-strong transition-colors";
+  const ghostClass =
+    "inline-flex items-center gap-1 h-6 px-1.5 rounded-md text-xs text-mid-gray hover:bg-accent/5 hover:text-text-secondary transition-colors";
+
+  const handleCreateFolder = async (name: string) => {
+    const folder = await createFolder(name);
+    if (folder) await handleFolderSelect(folder.id);
+  };
+
+  const handleCreateTag = async (name: string) => {
+    if (!session?.id) return;
+    const newTag = await createTag(name);
+    if (newTag) await handleAddTag(newTag.id);
+  };
 
   return (
     <div className="flex flex-col h-full relative">
@@ -1327,110 +1442,161 @@ export function NoteView({
           </div>
         </div>
       )}
-      {/* macOS title bar drag region */}
-      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
-      {findBarOpen && onCloseFindBar && (
-        <div className="absolute top-8 right-4 z-20 w-80">
-          <FindBar
-            editor={activeEditor}
-            onClose={onCloseFindBar}
-            showReplace={showReplace}
-            editable={activeEditor?.isEditable ?? false}
-          />
-        </div>
-      )}
-      {/* Pinned toggle + copy controls */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex justify-end pointer-events-none z-10">
-        <div className="flex items-center gap-1.5 pointer-events-auto">
+      {/* Titlebar band: window controls (and the sidebar toggle when it's
+          collapsed) sit here, so the panel below never moves. */}
+      <div data-tauri-drag-region className="h-8 shrink-0" />
+      {/* The note itself */}
+      <div className="flex-1 min-h-0 flex flex-col relative bg-background overflow-hidden">
+        {/* Panel header: the note's own controls */}
+        <div
+          data-tauri-drag-region
+          className="h-10 shrink-0 flex items-center gap-1.5 pl-4 pr-2 border-b border-border"
+        >
+          {/* Stamp: when the meeting happened and how long it ran */}
+          {session && (
+            <span
+              data-tauri-drag-region
+              className="font-display text-label uppercase text-text-secondary truncate min-w-0"
+            >
+              {stampLabel}
+            </span>
+          )}
+
+          <span data-tauri-drag-region className="flex-1 self-stretch" />
           {hasEnhanced && (
-            <div className="flex bg-background-sidebar rounded-lg p-0.5">
-              <button
-                onClick={() => onViewModeChange("enhanced")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "enhanced" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                title={t("sessions.enhancedNotes")}
-              >
-                <Sparkles size={16} />
-              </button>
+            <div className="flex p-0.5 rounded-md border border-border">
               <button
                 onClick={() => onViewModeChange("notes")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "notes" ? "bg-background text-text shadow-sm" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "notes" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
                 title={t("sessions.yourNotes")}
               >
-                <PenLine size={16} />
+                {t("sessions.viewNotes")}
+              </button>
+              <button
+                onClick={() => onViewModeChange("enhanced")}
+                className={`h-6 px-2 rounded text-xs transition-colors ${viewMode === "enhanced" ? "bg-accent/8 text-text" : "text-text-secondary hover:text-text"}`}
+                title={t("sessions.enhancedNotes")}
+              >
+                {t("sessions.viewEnhanced")}
               </button>
             </div>
           )}
-          <div className="flex items-center bg-background-sidebar rounded-lg p-0.5">
+          {canReenhance && (
             <button
-              onClick={handleCopyNotes}
-              className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-              title={t("sessions.copyNotes")}
+              onClick={() => {
+                if (enhancedNotesEdited) {
+                  setShowReenhanceWarning(true);
+                } else {
+                  onDismissEnhancePrompt();
+                  onEnhanceNotes();
+                }
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+              title={t("sessions.reenhance")}
+              aria-label={t("sessions.reenhance")}
             >
-              {notesCopied ? (
-                <Check size={16} className="text-green-500" />
-              ) : (
-                <Copy size={16} />
-              )}
+              <RefreshCw size={14} />
             </button>
-            {copyAsBulletsEnabled && (
-              <button
-                onClick={handleCopyAsBullets}
-                className="p-1.5 rounded-md text-text-secondary/40 hover:text-text-secondary transition-colors"
-                title={t("sessions.copyAsBullets")}
-              >
-                {bulletsCopied ? (
-                  <Check size={16} className="text-green-500" />
-                ) : (
-                  <List size={16} />
+          )}
+          <button
+            onClick={handleCopyNotes}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+            title={t("sessions.copyNotes")}
+            aria-label={t("sessions.copyNotes")}
+          >
+            {notesCopied ? <Check size={15} /> : <Copy size={15} />}
+          </button>
+          <div ref={moreMenuRef} className="relative">
+            <button
+              onClick={() => setMoreMenuOpen((o) => !o)}
+              aria-label={t("sessions.moreActions")}
+              title={t("sessions.moreActions")}
+              className={`w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors ${moreMenuOpen ? "bg-accent/8 text-text" : ""}`}
+            >
+              <MoreHorizontal size={15} />
+            </button>
+            {moreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] p-1 bg-background border border-border-strong rounded-lg shadow-lg">
+                <button
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    attachmentsRowRef.current?.openPicker();
+                  }}
+                  className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
+                >
+                  <Paperclip size={13} className="text-text-secondary" />
+                  {t("sessions.attachments.attachFile")}
+                </button>
+                {copyAsBulletsEnabled && (
+                  <button
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      handleCopyAsBullets();
+                    }}
+                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
+                  >
+                    <List size={13} className="text-text-secondary" />
+                    {t("sessions.copyAsBullets")}
+                  </button>
                 )}
-              </button>
+                {canClearTranscript && (
+                  <button
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      setShowClearTranscriptDialog(true);
+                    }}
+                    className="flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5"
+                  >
+                    <Lock size={13} className="text-text-secondary" />
+                    {t("sessions.clearTranscript")}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
-      </div>
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-2 pb-32 scroll-pb-24 w-full cursor-text select-text"
-      >
-        {/* Editable title */}
-        <div className="max-w-3xl mx-auto mb-4">
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={titleValue}
-            onChange={(e) => {
-              setTitleValue(e.target.value);
-              // Height adjustment is also handled by useEffect on titleValue
-            }}
-            onBlur={handleTitleBlur}
-            onKeyDown={handleTitleKeyDown}
-            placeholder={t("sessions.newNote")}
-            className="w-full text-2xl leading-tight font-semibold bg-transparent border-none outline-none placeholder:text-mid-gray/30 tracking-tight pr-16 resize-none overflow-hidden font-display p-0"
-          />
+        {findBarOpen && onCloseFindBar && (
+          <div className="absolute top-2 right-4 z-20 w-80">
+            <FindBar
+              editor={activeEditor}
+              onClose={onCloseFindBar}
+              showReplace={showReplace}
+              editable={activeEditor?.isEditable ?? false}
+            />
+          </div>
+        )}
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-6 pb-10 w-full cursor-text select-text"
+        >
+          {/* Editable title */}
+          <div className="max-w-3xl mx-auto mb-4">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={titleValue}
+              onChange={(e) => {
+                setTitleValue(e.target.value);
+                // Height adjustment is also handled by useEffect on titleValue
+              }}
+              onBlur={handleTitleBlur}
+              onKeyDown={handleTitleKeyDown}
+              placeholder={t("sessions.newNote")}
+              className="w-full text-title leading-tight font-normal tracking-[-0.03em] bg-transparent border-none outline-none placeholder:text-mid-gray/30 pr-16 resize-none overflow-hidden p-0"
+            />
 
-          {/* Metadata line: date, folder, tags, attachments, add buttons */}
-          {session && (
-            <div className="flex items-center gap-x-5 gap-y-2 mt-1.5 flex-wrap text-xs text-text-secondary">
-              {/* Date + time */}
-              <span>
-                {new Date(session.started_at * 1000).toLocaleDateString(
-                  undefined,
-                  { month: "short", day: "numeric" },
-                )}
-                {", "}
-                {new Date(session.started_at * 1000).toLocaleTimeString(
-                  undefined,
-                  { hour: "numeric", minute: "2-digit" },
-                )}
-              </span>
-
-              {/* Environment selector - only show if 2+ environments */}
-              {showEnvSelector && (
-                <>
+            {/* Filing line: environment, folder and tags. Facts (date,
+                length) live in the header stamp; files sit at the end. */}
+            {session && (
+              <div
+                className={`flex items-center gap-1.5 mt-3 flex-wrap ${!showEnvSelector && !currentFolder ? "-ml-1.5" : ""}`}
+              >
+                {showEnvSelector && (
                   <div ref={envDropdownRef} className="relative">
                     <button
                       onClick={() => setEnvDropdownOpen(!envDropdownOpen)}
-                      className="flex items-center gap-1 rounded-md hover:text-text transition-colors"
+                      title={t("sessions.meta.environment")}
+                      className={chipClass}
                     >
                       <span
                         className="w-1.5 h-1.5 rounded-full"
@@ -1438,820 +1604,736 @@ export function NoteView({
                           backgroundColor: currentEnv?.color || "#6b7280",
                         }}
                       />
-                      <span>
-                        {currentEnv?.name ?? t("sessions.environment")}
-                      </span>
+                      {currentEnv?.name ?? t("sessions.environment")}
+                      <ChevronDown size={11} className="text-text-secondary" />
                     </button>
                     {envDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[140px] py-1">
+                      <div className="absolute top-full left-0 mt-1 bg-background border border-border-strong rounded-lg shadow-lg z-30 min-w-[160px] p-1">
                         {environments.map((env) => (
                           <button
                             key={env.id}
                             onClick={() => handleEnvSelect(env.id)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-accent/10 transition-colors flex items-center gap-2"
+                            className="w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text hover:bg-accent/5 flex items-center gap-2"
                           >
                             <span
-                              className="w-2 h-2 rounded-full"
+                              className="w-1.5 h-1.5 rounded-full"
                               style={{ backgroundColor: env.color }}
                             />
-                            {env.name}
+                            <span className="flex-1">{env.name}</span>
+                            {env.id === currentEnv?.id && <Check size={13} />}
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
-                </>
-              )}
+                )}
 
-              {/* Folder selector */}
-              <div ref={folderDropdownRef} className="relative">
-                <button
-                  onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
-                  className="flex items-center gap-1 rounded-md hover:text-text transition-colors"
-                >
-                  <FolderIcon
-                    size={11}
-                    style={
-                      currentFolder?.color
-                        ? { color: currentFolder.color }
-                        : undefined
-                    }
-                  />
-                  <span>
-                    {currentFolder?.name ?? t("notes.noFolder", "Notes")}
-                  </span>
-                </button>
-                {folderDropdownOpen &&
-                  (() => {
-                    const q = folderFilter.trim().toLowerCase();
-                    const filteredFolders = q
-                      ? folders.filter((f) => f.name.toLowerCase().includes(q))
-                      : folders;
-                    const noFolderLabel = t("notes.noFolder", "Notes");
-                    const showNoFolder =
-                      !q || noFolderLabel.toLowerCase().includes(q);
-                    type Option = {
-                      id: string | null;
-                      label: string;
-                      color?: string | null;
-                    };
-                    const options: Option[] = [];
-                    if (showNoFolder) {
-                      options.push({ id: null, label: noFolderLabel });
-                    }
-                    for (const f of filteredFolders) {
-                      options.push({ id: f.id, label: f.name, color: f.color });
-                    }
-                    const boundedIndex = Math.min(
-                      activeFolderIndex,
-                      Math.max(0, options.length - 1),
-                    );
-                    return (
-                      <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-20 min-w-[180px] py-1">
-                        <input
-                          ref={folderFilterInputRef}
-                          type="text"
-                          value={folderFilter}
-                          onChange={(e) => {
-                            setFolderFilter(e.target.value);
-                            setActiveFolderIndex(0);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "ArrowDown") {
-                              e.preventDefault();
-                              setActiveFolderIndex((i) =>
-                                options.length === 0
-                                  ? 0
-                                  : (i + 1) % options.length,
-                              );
-                            } else if (e.key === "ArrowUp") {
-                              e.preventDefault();
-                              setActiveFolderIndex((i) =>
-                                options.length === 0
-                                  ? 0
-                                  : (i - 1 + options.length) % options.length,
-                              );
-                            } else if (e.key === "Enter") {
-                              e.preventDefault();
-                              const pick = options[boundedIndex];
-                              if (pick) handleFolderSelect(pick.id);
-                            } else if (e.key === "Escape") {
-                              e.preventDefault();
-                              setFolderDropdownOpen(false);
-                            }
-                          }}
-                          placeholder={t(
-                            "notes.folderFilterPlaceholder",
-                            "Filter folders",
-                          )}
-                          className="w-full px-3 py-1.5 text-xs bg-transparent border-b border-border text-text placeholder:text-text-secondary focus:outline-none"
-                        />
-                        {options.map((opt, i) => {
-                          const isActive = i === boundedIndex;
-                          return (
-                            <button
-                              key={opt.id ?? "__none__"}
-                              onMouseEnter={() => setActiveFolderIndex(i)}
-                              onClick={() => handleFolderSelect(opt.id)}
-                              className={`w-full text-left px-3 py-1.5 text-xs text-text transition-colors flex items-center gap-2 ${
-                                isActive ? "bg-accent/10" : ""
-                              }`}
-                            >
-                              {opt.id !== null && (
-                                <FolderIcon
-                                  size={12}
-                                  style={
-                                    opt.color ? { color: opt.color } : undefined
-                                  }
-                                />
-                              )}
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                        {options.length === 0 && (
-                          <div className="px-3 py-1.5 text-xs text-text-secondary">
-                            {t("palette.empty")}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-              </div>
-
-              {/* Tags (content — only rendered when they exist) */}
-              {sessionTags.map((tag) => (
-                <span key={tag.id} className="inline-flex items-center">
-                  <span
-                    className="hover:text-text transition-colors cursor-default group inline-flex items-center gap-1"
-                    style={tag.color ? { color: tag.color } : undefined}
-                  >
-                    <Tag size={10} />
-                    {tag.name}
+                {/* Folder: one per note */}
+                <div className="relative">
+                  {currentFolder ? (
                     <button
-                      onClick={() => handleRemoveTag(tag.id)}
-                      className="hidden group-hover:inline-flex hover:text-red-400"
+                      onClick={() => setFolderDropdownOpen((o) => !o)}
+                      title={t("sessions.meta.folder")}
+                      className={chipClass}
                     >
-                      <X size={10} />
-                    </button>
-                  </span>
-                </span>
-              ))}
-
-              {/* Attachment names (content — only when attachments exist) */}
-              {attachments.map((att) => (
-                <span key={att.id} className="inline-flex items-center">
-                  <span className="relative hover:text-text transition-colors cursor-default group/att inline-flex items-center gap-1">
-                    <Paperclip size={10} />
-                    <button
-                      onClick={async () => {
-                        if (att.mime_type.startsWith("image/")) {
-                          const idx = imageAttachments.findIndex(
-                            (a) => a.id === att.id,
-                          );
-                          if (idx !== -1) setLightboxIndex(idx);
-                        } else {
-                          try {
-                            await invoke("open_attachment", {
-                              attachmentId: att.id,
-                            });
-                          } catch (e) {
-                            console.error("Failed to open attachment:", e);
-                          }
+                      <FolderIcon
+                        size={12}
+                        className="text-text-secondary"
+                        style={
+                          currentFolder.color
+                            ? { color: currentFolder.color }
+                            : undefined
                         }
-                      }}
-                      className="hover:underline"
-                    >
-                      {att.filename}
+                      />
+                      {currentFolder.name}
                     </button>
+                  ) : (
                     <button
-                      onClick={async () => {
-                        try {
-                          await invoke("delete_attachment", {
-                            attachmentId: att.id,
-                          });
-                          refreshAttachments(session.id);
-                        } catch (e) {
-                          console.error("Failed to delete attachment:", e);
-                        }
-                      }}
-                      className="hidden group-hover/att:inline-flex hover:text-red-400"
+                      onClick={() => setFolderDropdownOpen((o) => !o)}
+                      className={ghostClass}
                     >
-                      <X size={10} />
+                      <Plus size={12} />
+                      {t("sessions.meta.addFolder")}
                     </button>
-                    {/* Image hover preview */}
-                    {att.mime_type.startsWith("image/") && (
-                      <div className="hidden group-hover/att:block absolute top-full left-0 mt-2 p-1 bg-background border border-border rounded-lg shadow-lg z-50">
-                        <img
-                          src={convertFileSrc(att.file_path)}
-                          alt={att.filename}
-                          className="max-w-[200px] max-h-[150px] rounded object-contain"
-                        />
-                      </div>
-                    )}
-                  </span>
-                </span>
-              ))}
-
-              {/* Add tag */}
-              {tagInputOpen ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    ref={tagInputRef}
-                    type="text"
-                    value={tagInputValue}
-                    onChange={(e) => setTagInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCreateAndAddTag();
-                      if (e.key === "Escape") {
-                        setTagInputOpen(false);
-                        setTagInputValue("");
+                  )}
+                  {folderDropdownOpen && (
+                    <MetaPicker
+                      items={folders.map((f) => ({
+                        id: f.id,
+                        label: f.name,
+                        color: f.color,
+                      }))}
+                      selectedIds={localFolderId ? [localFolderId] : []}
+                      multi={false}
+                      label={t("sessions.meta.folder")}
+                      placeholder={t("sessions.meta.folderPlaceholder")}
+                      onPick={(id) => void handleFolderSelect(id)}
+                      onCreate={(name) => void handleCreateFolder(name)}
+                      clearLabel={
+                        currentFolder
+                          ? t("sessions.meta.removeFromFolder")
+                          : undefined
                       }
-                    }}
-                    placeholder={t("notes.newTag", "New tag")}
-                    className="w-20 px-1.5 py-0 text-xs rounded border border-border bg-transparent focus:outline-none focus:border-accent"
-                  />
-                  {availableTags.length > 0 && (
-                    <div className="flex gap-1">
-                      {availableTags.slice(0, 3).map((tag) => (
-                        <button
-                          key={tag.id}
-                          onClick={() => {
-                            handleAddTag(tag.id);
-                            setTagInputOpen(false);
-                          }}
-                          className="px-1.5 py-0 rounded text-xs text-text-secondary hover:text-text transition-colors"
-                          style={tag.color ? { color: tag.color } : undefined}
-                        >
-                          {tag.name}
-                        </button>
-                      ))}
-                    </div>
+                      onClear={
+                        currentFolder
+                          ? () => void handleFolderSelect(null)
+                          : undefined
+                      }
+                      onClose={() => setFolderDropdownOpen(false)}
+                      renderIcon={(item) => (
+                        <FolderIcon
+                          size={12}
+                          className="shrink-0 text-text-secondary"
+                          style={item.color ? { color: item.color } : undefined}
+                        />
+                      )}
+                    />
                   )}
                 </div>
-              ) : (
-                <button
-                  onClick={() => setTagInputOpen(true)}
-                  className="flex items-center gap-0.5 rounded-md hover:text-text transition-colors"
-                  title={t("notes.addTag", "Add tag")}
-                >
-                  <Tag size={10} />
-                  <Plus size={8} />
-                </button>
-              )}
 
-              {/* Add attachment */}
-              <AttachmentsRow
-                ref={attachmentsRowRef}
-                sessionId={session.id}
-                attachments={[]}
-                onAttachmentsChange={() => refreshAttachments(session.id)}
-                disabled={false}
-              />
-
-              {/* Sealed status pill — past-tense state, not an action.
-                  The Clear action itself lives in the bottom bar next to
-                  Re-enhance, since it's a post-enhancement move. */}
-              {isSealed && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-text/5 border border-border-strong text-text-secondary cursor-default"
-                  title={t("sessions.transcriptClearedPlaceholder", {
-                    date: transcriptClearedDate,
-                  })}
-                >
-                  <Lock size={11} />
-                  <span>
-                    {t("sessions.sealedBadge", {
-                      date: transcriptClearedDateShort,
-                    })}
+                {/* Tags: any number */}
+                {sessionTags.map((tag) => (
+                  <span key={tag.id} className={`group ${chipClass} pr-0.5`}>
+                    <span
+                      className="text-mid-gray"
+                      style={tag.color ? { color: tag.color } : undefined}
+                    >
+                      #
+                    </span>
+                    {tag.name}
+                    <button
+                      onClick={() => void handleRemoveTag(tag.id)}
+                      aria-label={t("sessions.meta.removeTag")}
+                      title={t("sessions.meta.removeTag")}
+                      className="w-0 group-hover:w-4 h-4 overflow-hidden flex items-center justify-center rounded text-text-secondary hover:text-text"
+                    >
+                      <X size={10} />
+                    </button>
                   </span>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="max-w-3xl mx-auto overflow-hidden break-words">
-          {/* Content area */}
-          {hasEnhanced && viewMode === "enhanced" ? (
-            <>
-              {/* Show loading spinner until notes content starts streaming (after ---NOTES--- delimiter) */}
-              {enhanceLoading && !streamingJSON && (
-                <div className="flex items-center gap-2 text-xs text-text-secondary pt-2">
-                  <Loader size={16} className="animate-spin-slow" />
-                  {t("sessions.enhancing")}
+                ))}
+                <div className="relative">
+                  <button
+                    onClick={() => setTagInputOpen((o) => !o)}
+                    title={t("sessions.meta.tagPlaceholder")}
+                    className={ghostClass}
+                  >
+                    <Plus size={12} />
+                    {sessionTags.length === 0 && t("sessions.meta.addTag")}
+                  </button>
+                  {tagInputOpen && (
+                    <MetaPicker
+                      items={allTags.map((tg) => ({
+                        id: tg.id,
+                        label: tg.name,
+                        color: tg.color,
+                      }))}
+                      selectedIds={sessionTags.map((st) => st.id)}
+                      multi
+                      label={t("sessions.meta.tags")}
+                      placeholder={t("sessions.meta.tagPlaceholder")}
+                      onPick={(id) =>
+                        void (sessionTags.some((st) => st.id === id)
+                          ? handleRemoveTag(id)
+                          : handleAddTag(id))
+                      }
+                      onCreate={(name) => void handleCreateTag(name)}
+                      onClose={() => setTagInputOpen(false)}
+                      renderIcon={(item) => (
+                        <span
+                          className="w-3 shrink-0 text-center text-mid-gray"
+                          style={item.color ? { color: item.color } : undefined}
+                        >
+                          #
+                        </span>
+                      )}
+                    />
+                  )}
                 </div>
-              )}
-              {/* Show streaming text progressively using TipTap */}
-              {enhanceStreaming && streamingJSON && (
-                <NotesEditor
-                  content=""
-                  onChange={() => {}}
-                  mode="enhanced"
-                  disabled={true}
-                  initialJSON={streamingJSON}
+
+                {/* Who was in the meeting, from the calendar */}
+                <MeetingChip
+                  sessionId={session.id}
+                  startedAt={session.started_at}
+                  calendarEventId={session.calendar_event_id}
                 />
-              )}
-              {enhanceError && !enhanceLoading && (
-                <div className="text-xs pt-2">
-                  <p className="text-red-400">{t("sessions.enhanceError")}</p>
-                  <p className="text-xs text-text-secondary mt-1">
-                    {enhanceError}
-                  </p>
-                </div>
-              )}
-              {enhancedJSON && !enhanceLoading && !enhanceStreaming && (
+              </div>
+            )}
+          </div>
+          <div className="max-w-3xl mx-auto overflow-hidden break-words">
+            {/* Content area */}
+            {hasEnhanced && viewMode === "enhanced" ? (
+              <>
+                {/* Show loading spinner until notes content starts streaming (after ---NOTES--- delimiter) */}
+                {enhanceLoading && !streamingJSON && (
+                  <div className="flex items-center gap-2 text-xs text-text-secondary pt-2">
+                    <Loader size={16} className="animate-spin-slow" />
+                    {t("sessions.enhancing")}
+                  </div>
+                )}
+                {/* Show streaming text progressively using TipTap */}
+                {enhanceStreaming && streamingJSON && (
+                  <NotesEditor
+                    content=""
+                    onChange={() => {}}
+                    mode="enhanced"
+                    disabled={true}
+                    initialJSON={streamingJSON}
+                  />
+                )}
+                {enhanceError && !enhanceLoading && (
+                  <div className="text-xs pt-2">
+                    <p className="text-red-400">{t("sessions.enhanceError")}</p>
+                    <p className="text-xs text-text-secondary mt-1">
+                      {enhanceError}
+                    </p>
+                  </div>
+                )}
+                {enhancedJSON && !enhanceLoading && !enhanceStreaming && (
+                  <NotesEditor
+                    content=""
+                    onChange={() => {}}
+                    mode="enhanced"
+                    initialJSON={enhancedJSON}
+                    onJSONChange={handleEnhancedJSONChange}
+                    onEditorReady={handleEditorReady}
+                    onPasteImage={handlePasteImage}
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                {/* Summary display */}
+                {summaryLoading && (
+                  <div className="flex items-center gap-2 text-xs text-text-secondary mb-5">
+                    <Loader size={16} className="animate-spin-slow" />
+                    {t("sessions.summaryLoading")}
+                  </div>
+                )}
+                {summaryError && !summaryLoading && (
+                  <div className="text-xs mb-5">
+                    <p className="text-red-400">{t("sessions.summaryError")}</p>
+                    <p className="text-xs text-text-secondary mt-1">
+                      {summaryError}
+                    </p>
+                  </div>
+                )}
+                {summary && !summaryLoading && (
+                  <div className="mb-6 text-xs whitespace-pre-wrap leading-relaxed text-text">
+                    {summary}
+                  </div>
+                )}
+
+                {/* Notes editor */}
                 <NotesEditor
-                  content=""
-                  onChange={() => {}}
-                  mode="enhanced"
-                  initialJSON={enhancedJSON}
-                  onJSONChange={handleEnhancedJSONChange}
+                  content={notesLoaded ? userNotes : ""}
+                  onChange={onNotesChange}
+                  disabled={!notesLoaded}
+                  placeholder={t("sessions.notesPlaceholder")}
                   onEditorReady={handleEditorReady}
                   onPasteImage={handlePasteImage}
                 />
-              )}
-            </>
-          ) : (
-            <>
-              {/* Summary display */}
-              {summaryLoading && (
-                <div className="flex items-center gap-2 text-xs text-text-secondary mb-5">
-                  <Loader size={16} className="animate-spin-slow" />
-                  {t("sessions.summaryLoading")}
-                </div>
-              )}
-              {summaryError && !summaryLoading && (
-                <div className="text-xs mb-5">
-                  <p className="text-red-400">{t("sessions.summaryError")}</p>
-                  <p className="text-xs text-text-secondary mt-1">
-                    {summaryError}
-                  </p>
-                </div>
-              )}
-              {summary && !summaryLoading && (
-                <div className="mb-6 text-xs whitespace-pre-wrap leading-relaxed text-text">
-                  {summary}
-                </div>
-              )}
-
-              {/* Notes editor */}
-              <NotesEditor
-                content={notesLoaded ? userNotes : ""}
-                onChange={onNotesChange}
-                disabled={!notesLoaded}
-                placeholder={t("sessions.notesPlaceholder")}
-                onEditorReady={handleEditorReady}
-                onPasteImage={handlePasteImage}
+              </>
+            )}
+            {/* Files: attachments are content (Enhance reads them), so they
+                sit at the end of the note like email attachments. */}
+            {session && (
+              <AttachmentsRow
+                ref={attachmentsRowRef}
+                sessionId={session.id}
+                attachments={attachments}
+                onAttachmentsChange={() => refreshAttachments(session.id)}
               />
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Floating recording panel — always show for any note */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 flex gap-2 items-end">
-        <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-2xl shadow-sm overflow-hidden">
-          {/* Expandable area — transcript or chat */}
-          {panelOpen && (
-            <div className="border-b border-border">
-              {/* Tab switcher */}
-              <div className="flex items-center gap-1 px-4 pt-2 pb-1.5">
-                <button
-                  onClick={() => setPanelMode("transcript")}
-                  className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                >
-                  {t("sessions.chat.transcriptTab")}
-                </button>
-                <button
-                  onClick={() => setPanelMode("chat")}
-                  className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${panelMode === "chat" ? "bg-text/8 text-text" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                >
-                  {t("sessions.chat.chatTab")}
-                  {chat.messages.length > 0 && (
-                    <span className="ml-1 text-[10px] text-text-secondary/40">
-                      {chat.messages.length}
-                    </span>
+        {/* The bar: record, transcript, ask. It sits in the page flow, so opening
+          the transcript shrinks the notes rather than covering them. */}
+        <div className="shrink-0 w-full max-w-3xl mx-auto px-4 pt-2 pb-4 flex gap-2 items-end">
+          <div className="flex-1 min-w-0 bg-background border border-border-strong rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.04),0_6px_20px_rgba(0,0,0,0.06)]">
+            {/* Expandable area — transcript or chat */}
+            {panelOpen && (
+              <div className="border-b border-border">
+                {/* Tab switcher */}
+                <div className="flex items-center gap-1 px-4 pt-2 pb-1.5">
+                  <button
+                    onClick={() => setPanelMode("transcript")}
+                    className={`font-display text-label uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "transcript" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
+                  >
+                    {t("sessions.chat.transcriptTab")}
+                  </button>
+                  <button
+                    onClick={() => setPanelMode("chat")}
+                    className={`font-display text-label uppercase px-2 py-1 rounded-md transition-colors ${panelMode === "chat" ? "bg-text/8 text-text" : "text-text-secondary/60 hover:text-text-secondary"}`}
+                  >
+                    {t("sessions.chat.chatTab")}
+                    {chat.messages.length > 0 && (
+                      <span className="ml-1 text-label text-text-secondary/40">
+                        {chat.messages.length}
+                      </span>
+                    )}
+                  </button>
+                  {panelMode === "transcript" && transcript.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setTranscriptSearchOpen((prev) => !prev);
+                          if (transcriptSearchOpen) {
+                            handleTranscriptSearchClose();
+                          }
+                        }}
+                        className={`p-1 rounded-md transition-colors ${transcriptSearchOpen ? "text-text bg-text/8" : "text-text-secondary/50 hover:text-text-secondary"}`}
+                        title={t("sessions.searchTranscript")}
+                      >
+                        <Search size={12} />
+                      </button>
+                      <button
+                        onClick={handleCopyTranscript}
+                        className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                        title={t("sessions.copyTranscript")}
+                      >
+                        {transcriptCopied ? (
+                          <Check size={12} className="text-text" />
+                        ) : (
+                          <Copy size={12} />
+                        )}
+                      </button>
+                    </>
                   )}
-                </button>
-                {panelMode === "transcript" && transcript.length > 0 && (
-                  <>
+                  {panelMode === "chat" && chat.messages.length > 0 && (
                     <button
-                      onClick={() => {
-                        setTranscriptSearchOpen((prev) => !prev);
-                        if (transcriptSearchOpen) {
+                      onClick={chat.clearMessages}
+                      className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                      title={t("sessions.chat.newChat")}
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setPanelOpen(false)}
+                    className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+
+                {/* Transcript search bar */}
+                {transcriptSearchOpen && panelMode === "transcript" && (
+                  <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-border bg-text/[0.02]">
+                    <Search
+                      size={12}
+                      className="text-text-secondary/50 shrink-0"
+                    />
+                    <input
+                      ref={transcriptSearchInputRef}
+                      type="text"
+                      value={transcriptSearchQuery}
+                      onChange={(e) => setTranscriptSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          if (e.shiftKey) {
+                            handleTranscriptSearchPrev();
+                          } else {
+                            handleTranscriptSearchNext();
+                          }
+                        }
+                        if (e.key === "Escape") {
                           handleTranscriptSearchClose();
                         }
                       }}
-                      className={`p-1 rounded-md transition-colors ${transcriptSearchOpen ? "text-text bg-text/8" : "text-text-secondary/50 hover:text-text-secondary"}`}
-                      title={t("sessions.searchTranscript")}
+                      placeholder={t("sessions.searchTranscript")}
+                      className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary/40 min-w-0"
+                    />
+                    <span className="text-label text-text-secondary/50 tabular-nums shrink-0">
+                      {transcriptSearchQuery
+                        ? totalMatches > 0
+                          ? `${transcriptCurrentMatch + 1} / ${totalMatches}`
+                          : t("sessions.noSearchMatches")
+                        : ""}
+                    </span>
+                    <button
+                      onClick={handleTranscriptSearchPrev}
+                      disabled={totalMatches === 0}
+                      className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors disabled:opacity-30"
                     >
-                      <Search size={12} />
+                      <ChevronUp size={12} />
                     </button>
                     <button
-                      onClick={handleCopyTranscript}
-                      className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
-                      title={t("sessions.copyTranscript")}
+                      onClick={handleTranscriptSearchNext}
+                      disabled={totalMatches === 0}
+                      className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors disabled:opacity-30"
                     >
-                      {transcriptCopied ? (
-                        <Check size={12} className="text-green-500" />
-                      ) : (
-                        <Copy size={12} />
-                      )}
+                      <ChevronDown size={12} />
                     </button>
-                  </>
-                )}
-                {panelMode === "chat" && chat.messages.length > 0 && (
-                  <button
-                    onClick={chat.clearMessages}
-                    className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
-                    title={t("sessions.chat.newChat")}
-                  >
-                    <RotateCcw size={12} />
-                  </button>
-                )}
-                <button
-                  onClick={() => setPanelOpen(false)}
-                  className="ml-auto p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              </div>
-
-              {/* Transcript search bar */}
-              {transcriptSearchOpen && panelMode === "transcript" && (
-                <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-border bg-text/[0.02]">
-                  <Search
-                    size={12}
-                    className="text-text-secondary/50 shrink-0"
-                  />
-                  <input
-                    ref={transcriptSearchInputRef}
-                    type="text"
-                    value={transcriptSearchQuery}
-                    onChange={(e) => setTranscriptSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        if (e.shiftKey) {
-                          handleTranscriptSearchPrev();
-                        } else {
-                          handleTranscriptSearchNext();
-                        }
-                      }
-                      if (e.key === "Escape") {
-                        handleTranscriptSearchClose();
-                      }
-                    }}
-                    placeholder={t("sessions.searchTranscript")}
-                    className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary/40 min-w-0"
-                  />
-                  <span className="text-[10px] text-text-secondary/50 tabular-nums shrink-0">
-                    {transcriptSearchQuery
-                      ? totalMatches > 0
-                        ? `${transcriptCurrentMatch + 1} / ${totalMatches}`
-                        : t("sessions.noSearchMatches")
-                      : ""}
-                  </span>
-                  <button
-                    onClick={handleTranscriptSearchPrev}
-                    disabled={totalMatches === 0}
-                    className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors disabled:opacity-30"
-                  >
-                    <ChevronUp size={12} />
-                  </button>
-                  <button
-                    onClick={handleTranscriptSearchNext}
-                    disabled={totalMatches === 0}
-                    className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors disabled:opacity-30"
-                  >
-                    <ChevronDown size={12} />
-                  </button>
-                  <button
-                    onClick={handleTranscriptSearchClose}
-                    className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              )}
-
-              {/* Panel content */}
-              <div
-                ref={transcriptScrollRef}
-                className="max-h-64 overflow-y-auto px-5 pt-2 pb-2 select-text"
-              >
-                {panelMode === "transcript" ? (
-                  <>
-                    {isSealed ? (
-                      <p
-                        data-ui
-                        className="text-xs text-text-secondary py-2 whitespace-pre-line"
-                      >
-                        {t("sessions.transcriptClearedPlaceholder", {
-                          date: transcriptClearedDate,
-                        })}
-                      </p>
-                    ) : transcript.length === 0 ? (
-                      <p data-ui className="text-xs text-text-secondary py-2">
-                        {t("sessions.noTranscript")}
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {transcript.map((seg, segIdx) => {
-                          // Count matches in prior segments for startIndex
-                          let startIndex = 0;
-                          if (transcriptSearchQuery) {
-                            const q = transcriptSearchQuery.toLowerCase();
-                            for (let i = 0; i < segIdx; i++) {
-                              const txt = transcript[i].text.toLowerCase();
-                              let idx = 0;
-                              while ((idx = txt.indexOf(q, idx)) !== -1) {
-                                startIndex++;
-                                idx += q.length;
-                              }
-                            }
-                          }
-
-                          return (
-                            <div key={seg.id} className="flex gap-3 text-xs">
-                              <span
-                                data-ui
-                                className="text-xs text-text-secondary/50 shrink-0 pt-0.5 w-9 text-right tabular-nums select-none"
-                              >
-                                {formatMs(seg.start_ms)}
-                              </span>
-                              <span
-                                data-ui
-                                className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-blue-500" : "text-text-secondary/50"}`}
-                              >
-                                {seg.source === "mic"
-                                  ? t("sessions.sourceMe")
-                                  : t("sessions.sourceThem")}
-                              </span>
-                              <span className="text-xs leading-relaxed text-text">
-                                {transcriptSearchQuery
-                                  ? highlightSearch(
-                                      seg.text,
-                                      transcriptSearchQuery,
-                                      startIndex,
-                                      transcriptCurrentMatch,
-                                    )
-                                  : userNameRegex && seg.source !== "mic"
-                                    ? highlightName(seg.text, userNameRegex)
-                                    : seg.text}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        <div ref={transcriptEndRef} />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="space-y-2 min-h-[60px]">
-                    {chat.messages.map((msg, i) => (
-                      <MessageBubble key={i} message={msg} />
-                    ))}
-                    {chat.isLoading &&
-                      chat.messages[chat.messages.length - 1]?.role !==
-                        "assistant" && (
-                        <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                          <Loader size={16} className="animate-spin-slow" />
-                          {t("sessions.chat.thinking")}
-                        </div>
-                      )}
-                    {chat.error && (
-                      <div className="text-xs text-red-400 px-1 py-1">
-                        {chat.error}
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
+                    <button
+                      onClick={handleTranscriptSearchClose}
+                      className="p-0.5 rounded text-text-secondary/50 hover:text-text-secondary transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
 
-          {/* Consent warning */}
-          {isRecording && (
-            <div className="px-3 pt-1.5 pb-0">
-              <p className="text-xs text-text-secondary/50 text-center">
-                {t("sessions.consentWarning")}
-              </p>
-            </div>
-          )}
-
-          {/* Bottom bar */}
-          <div data-ui className="flex items-center px-3 h-[50px]">
-            {/* Section 1: Audio controls */}
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => setPanelOpen(!panelOpen)}
-                className={`flex items-center gap-0.5 p-1.5 rounded-md transition-colors hover:bg-text/8 ${isRecording ? "text-green-500" : "text-text-secondary/60"}`}
-              >
-                {!isSealed && (
-                  <WaveformBars
-                    amplitude={amplitude}
-                    isRecording={isRecording}
-                  />
-                )}
-                {panelOpen ? (
-                  <ChevronDown size={16} />
-                ) : (
-                  <ChevronUp size={16} />
-                )}
-              </button>
-              {isRecording ? (
-                <button
-                  onClick={onStopRecording}
-                  className="p-1.5 rounded-md bg-text/8 hover:bg-text/12 transition-colors text-text-secondary/60"
-                  title={t("sessions.stopRecording")}
+                {/* Panel content */}
+                <div
+                  ref={transcriptScrollRef}
+                  className="max-h-[38vh] overflow-y-auto px-5 pt-2 pb-2 select-text"
                 >
-                  <Square size={11} fill="currentColor" />
-                </button>
-              ) : (
-                !isSealed && (
-                  <button
-                    onClick={onStartRecording}
-                    className="text-xs font-medium text-accent hover:text-accent/70 transition-colors whitespace-nowrap"
-                  >
-                    {hasTranscript
-                      ? t("sessions.resumeRecording")
-                      : t("sessions.startRecording")}
-                  </button>
-                )
-              )}
-            </div>
+                  {panelMode === "transcript" ? (
+                    <>
+                      {isSealed ? (
+                        <p
+                          data-ui
+                          className="text-xs text-text-secondary py-2 whitespace-pre-line"
+                        >
+                          {t("sessions.transcriptClearedPlaceholder", {
+                            date: transcriptClearedDate,
+                          })}
+                        </p>
+                      ) : transcript.length === 0 ? (
+                        <p data-ui className="text-xs text-text-secondary py-2">
+                          {t("sessions.noTranscript")}
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {transcript.map((seg, segIdx) => {
+                            // Count matches in prior segments for startIndex
+                            let startIndex = 0;
+                            if (transcriptSearchQuery) {
+                              const q = transcriptSearchQuery.toLowerCase();
+                              for (let i = 0; i < segIdx; i++) {
+                                const txt = transcript[i].text.toLowerCase();
+                                let idx = 0;
+                                while ((idx = txt.indexOf(q, idx)) !== -1) {
+                                  startIndex++;
+                                  idx += q.length;
+                                }
+                              }
+                            }
 
-            <span className="w-px h-3.5 bg-border-strong mx-4 shrink-0" />
-
-            {/* Section 2: Chat */}
-            {session && (
-              <div className="flex-1 flex items-center gap-2 min-w-0">
-                <input
-                  ref={chatInputRef}
-                  type="text"
-                  data-ui
-                  data-chat-input
-                  value={chat.input}
-                  onChange={(e) => chat.setInput(e.target.value)}
-                  onKeyDown={handleChatKeyDown}
-                  onFocus={() => {
-                    chat.handleInputFocus();
-                  }}
-                  placeholder={t("sessions.chat.placeholder")}
-                  className="flex-1 text-xs bg-transparent outline-none placeholder:text-text-secondary min-w-0"
-                />
-                {chat.isLoading ? (
-                  <button
-                    onClick={chat.stop}
-                    className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors shrink-0"
-                  >
-                    <X size={16} />
-                  </button>
-                ) : (
-                  chat.input.trim() && (
-                    <button
-                      onClick={handleChatSubmit}
-                      className="p-1 rounded-md text-accent hover:text-accent/70 transition-colors shrink-0"
-                    >
-                      <Send size={16} />
-                    </button>
-                  )
-                )}
-                {isRecording && hasTranscript && (
-                  <button
-                    onClick={handleWhatDidIMiss}
-                    className="px-2.5 py-1 text-xs font-medium text-accent border border-border-strong rounded-full hover:bg-accent/10 transition-colors whitespace-nowrap shrink-0"
-                  >
-                    {t("sessions.chat.whatDidIMiss")}
-                  </button>
-                )}
+                            return (
+                              <div key={seg.id} className="flex gap-3 text-xs">
+                                <span
+                                  data-ui
+                                  className="font-mono text-label text-mid-gray shrink-0 pt-0.5 w-9 text-right select-none"
+                                >
+                                  {formatMs(seg.start_ms)}
+                                </span>
+                                <span
+                                  data-ui
+                                  className={`text-xs shrink-0 pt-0.5 w-8 select-none ${seg.source === "mic" ? "text-text font-medium" : "text-text-secondary"}`}
+                                >
+                                  {seg.source === "mic"
+                                    ? t("sessions.sourceMe")
+                                    : t("sessions.sourceThem")}
+                                </span>
+                                <span className="text-xs leading-relaxed text-text">
+                                  {transcriptSearchQuery
+                                    ? highlightSearch(
+                                        seg.text,
+                                        transcriptSearchQuery,
+                                        startIndex,
+                                        transcriptCurrentMatch,
+                                      )
+                                    : userNameRegex && seg.source !== "mic"
+                                      ? highlightName(seg.text, userNameRegex)
+                                      : seg.text}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <div ref={transcriptEndRef} />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2 min-h-[60px]">
+                      {chat.messages.map((msg, i) => (
+                        <MessageBubble key={i} message={msg} />
+                      ))}
+                      {chat.isLoading &&
+                        chat.messages[chat.messages.length - 1]?.role !==
+                          "assistant" && (
+                          <div className="flex items-center gap-1.5 text-xs text-text-secondary">
+                            <Loader size={16} className="animate-spin-slow" />
+                            {t("sessions.chat.thinking")}
+                          </div>
+                        )}
+                      {chat.error && (
+                        <div className="text-xs text-red-400 px-1 py-1">
+                          {chat.error}
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+
+            {/* Consent warning */}
+            {isRecording && (
+              <div className="px-3 pt-1.5 pb-0">
+                <p className="text-xs text-text-secondary/50 text-center">
+                  {t("sessions.consentWarning")}
+                </p>
+              </div>
+            )}
+
+            {/* Bottom bar */}
+            <div data-ui className="flex items-center px-3 h-[50px]">
+              {/* Section 1: recording and transcript */}
+              <div className="flex items-center gap-1 shrink-0">
+                {isRecording ? (
+                  <>
+                    <button
+                      onClick={() => setPanelOpen(!panelOpen)}
+                      title={t("sessions.chat.transcriptTab")}
+                      aria-label={t("sessions.chat.transcriptTab")}
+                      className={`flex items-center gap-2 h-8 pl-2 pr-1 rounded-md text-mid-gray transition-colors ${panelOpen ? "bg-accent/8" : "hover:bg-accent/5"}`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-live" />
+                      <span className="font-mono text-xs text-text-secondary">
+                        {elapsedLabel}
+                      </span>
+                      <WaveformBars amplitude={amplitude} isRecording={true} />
+                    </button>
+                    <button
+                      onClick={onStopRecording}
+                      title={t("sessions.stopRecording")}
+                      aria-label={t("sessions.stopRecording")}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+                    >
+                      <Square size={11} fill="currentColor" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {!isSealed && (
+                      <button
+                        onClick={onStartRecording}
+                        className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs text-text hover:border-border-strong transition-colors whitespace-nowrap"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-text-secondary" />
+                        {hasTranscript
+                          ? t("sessions.resumeRecording")
+                          : t("sessions.startRecording")}
+                      </button>
+                    )}
+                    {isSealed ? (
+                      <button
+                        onClick={() => setPanelOpen(!panelOpen)}
+                        title={t("sessions.transcriptClearedPlaceholder", {
+                          date: transcriptClearedDate,
+                        })}
+                        className={`flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-text-secondary whitespace-nowrap transition-colors ${panelOpen ? "bg-accent/8 text-text" : "hover:bg-accent/5 hover:text-text"}`}
+                      >
+                        <Lock size={12} />
+                        {t("sessions.sealedBadge", {
+                          date: transcriptClearedDateShort,
+                        })}
+                      </button>
+                    ) : (
+                      hasTranscript && (
+                        <button
+                          onClick={() => setPanelOpen(!panelOpen)}
+                          title={t("sessions.chat.transcriptTab")}
+                          aria-label={t("sessions.chat.transcriptTab")}
+                          className={`w-8 h-8 flex items-center justify-center rounded-md text-text-secondary transition-colors ${panelOpen ? "bg-accent/8 text-text" : "hover:bg-accent/5 hover:text-text"}`}
+                        >
+                          <AlignLeft size={15} />
+                        </button>
+                      )
+                    )}
+                  </>
+                )}
+              </div>
+
+              <span className="w-px h-4 bg-border mx-3 shrink-0" />
+
+              {/* Section 2: Chat */}
+              {session && (
+                <div className="flex-1 flex items-center gap-2 min-w-0">
+                  <input
+                    ref={chatInputRef}
+                    type="text"
+                    data-ui
+                    data-chat-input
+                    value={chat.input}
+                    onChange={(e) => chat.setInput(e.target.value)}
+                    onKeyDown={handleChatKeyDown}
+                    onFocus={() => {
+                      chat.handleInputFocus();
+                    }}
+                    placeholder={
+                      chatScope === "note"
+                        ? t("sessions.chat.placeholderNote")
+                        : showEnvSelector && currentEnv
+                          ? t("sessions.chat.placeholderAllEnv", {
+                              env: currentEnv.name,
+                            })
+                          : t("sessions.chat.placeholderAll")
+                    }
+                    className="flex-1 text-ui bg-transparent outline-none placeholder:text-mid-gray min-w-0"
+                  />
+                  <div ref={scopeMenuRef} className="relative shrink-0">
+                    <button
+                      onClick={() => setScopeMenuOpen((o) => !o)}
+                      aria-label={t("sessions.chat.scopeMenu")}
+                      className={`flex items-center gap-1.5 h-7 px-2 rounded-md border text-xs text-text-secondary whitespace-nowrap transition-colors ${
+                        scopeMenuOpen
+                          ? "border-border-strong bg-accent/5"
+                          : "border-border hover:border-border-strong"
+                      }`}
+                    >
+                      {chatScope === "all" && showEnvSelector && currentEnv && (
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: currentEnv.color }}
+                        />
+                      )}
+                      <span>{scopeLabel}</span>
+                      <ChevronDown size={11} />
+                    </button>
+                    {scopeMenuOpen && (
+                      <div
+                        className={`absolute bottom-full right-0 mb-2 z-30 p-1 bg-background border border-border-strong rounded-lg shadow-lg ${
+                          showEnvSelector && currentEnv
+                            ? "w-[260px]"
+                            : "w-max min-w-[160px]"
+                        }`}
+                      >
+                        {(["note", "all"] as const).map((scope) => (
+                          <button
+                            key={scope}
+                            onClick={() => chooseScope(scope)}
+                            className={`flex items-center gap-2 w-full h-[30px] px-2.5 rounded-md text-left text-ui text-text ${
+                              chatScope === scope
+                                ? "bg-accent/8"
+                                : "hover:bg-accent/5"
+                            }`}
+                          >
+                            {scope === "all" &&
+                              showEnvSelector &&
+                              currentEnv && (
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full"
+                                  style={{ backgroundColor: currentEnv.color }}
+                                />
+                              )}
+                            <span className="flex-1">
+                              {scope === "note"
+                                ? t("sessions.chat.scopeNote")
+                                : showEnvSelector && currentEnv
+                                  ? t("sessions.chat.scopeAllEnv", {
+                                      env: currentEnv.name,
+                                    })
+                                  : t("sessions.chat.scopeAll")}
+                            </span>
+                            {chatScope === scope && <Check size={13} />}
+                          </button>
+                        ))}
+                        {showEnvSelector && currentEnv && (
+                          <p className="px-2.5 pt-2 pb-1.5 mt-1 border-t border-border text-xs leading-snug text-text-secondary">
+                            {t("sessions.chat.scopeFootnote", {
+                              env: currentEnv.name,
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {chat.isLoading ? (
+                    <button
+                      onClick={chat.stop}
+                      className="p-1 rounded-md text-text-secondary/50 hover:text-text-secondary transition-colors shrink-0"
+                    >
+                      <X size={16} />
+                    </button>
+                  ) : (
+                    <>
+                      {chat.input.trim() ? (
+                        <button
+                          onClick={handleChatSubmit}
+                          aria-label={t("sessions.chat.send")}
+                          className="w-[30px] h-[30px] flex items-center justify-center rounded-md bg-background-ui text-white border border-background-ui dark:border-border-strong shrink-0"
+                        >
+                          <ArrowUp size={15} strokeWidth={2.2} />
+                        </button>
+                      ) : (
+                        canEnhanceFirst && (
+                          <button
+                            onClick={() => {
+                              onDismissEnhancePrompt();
+                              onEnhanceNotes();
+                            }}
+                            className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-background-ui text-white text-xs font-medium border border-background-ui dark:border-border-strong whitespace-nowrap shrink-0"
+                          >
+                            <Sparkles size={13} />
+                            {t("sessions.enhanceNotes")}
+                          </button>
+                        )
+                      )}
+                    </>
+                  )}
+                  {isRecording && hasTranscript && (
+                    <button
+                      onClick={handleWhatDidIMiss}
+                      className="h-7 px-2.5 text-xs text-text border border-border rounded-md hover:border-border-strong transition-colors whitespace-nowrap shrink-0"
+                    >
+                      {t("sessions.chat.whatDidIMiss")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Post-enhancement action cluster. `group-hover/cluster:delay-0` keeps
-            the collapse delay at 0 as long as the cursor is anywhere inside the
-            cluster's bounding box — including the 8px gap between buttons,
-            because in CSS the parent is :hover whenever the cursor is over any
-            part of its box. So mousing between siblings never triggers the
-            delay-150 base; both transitions fire with the same delay-0. The
-            base delay-150 only re-engages when the cursor fully leaves the
-            cluster, preserving the linger-on-exit feel. */}
-        {!isRecording && hasTranscript && !enhanceLoading && !isSealed && (
-          <div className="group/cluster flex gap-2 items-end">
-            {canClearTranscript && (
-              <button
-                onClick={() => setShowClearTranscriptDialog(true)}
-                title={t("sessions.clearTranscript")}
-                aria-label={t("sessions.clearTranscript")}
-                className="group/clear relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-2xl shadow-sm text-xs font-medium shrink-0 bg-background text-text-secondary hover:text-text hover:bg-accent-soft focus:text-text focus:bg-accent-soft border border-border-strong transition-all duration-200"
-              >
-                <Lock size={14} className="shrink-0" />
-                <span className="whitespace-nowrap overflow-hidden max-w-0 mr-0 group-hover/clear:max-w-[200px] group-hover/clear:mr-1.5 group-focus/clear:max-w-[200px] group-focus/clear:mr-1.5 transition-all duration-200 ease-linear delay-150 group-hover/cluster:delay-0 group-focus-within/cluster:delay-0">
-                  {t("sessions.clearTranscript")}
-                </span>
-                {/* Transparent hit-area extender covering the left half of the
-                    gap. Keeps Clear `:hover` until the cursor reaches the
-                    midpoint, where Re-enhance's mirror extender takes over.
-                    Both transitions fire in the same frame at the crossover. */}
-                <span
-                  aria-hidden
-                  className="absolute top-0 bottom-0 left-full w-1"
-                />
-              </button>
-            )}
+        {/* Re-enhance warning dialog */}
+        <ConfirmDialog
+          open={showReenhanceWarning}
+          title={t("sessions.reenhanceWarningTitle")}
+          message={t("sessions.reenhanceWarningMessage")}
+          confirmLabel={t("common.continue")}
+          variant="warning"
+          onConfirm={() => {
+            setShowReenhanceWarning(false);
+            onDismissEnhancePrompt();
+            onEnhanceNotes();
+          }}
+          onCancel={() => setShowReenhanceWarning(false)}
+        />
 
-            <button
-              onClick={() => {
-                if (enhancedNotes && enhancedNotesEdited) {
-                  setShowReenhanceWarning(true);
-                } else {
-                  onDismissEnhancePrompt();
-                  onEnhanceNotes();
-                }
-              }}
-              title={
-                enhancedNotes
-                  ? t("sessions.reenhance")
-                  : t("sessions.enhanceNotes")
+        {/* Clear transcript confirmation dialog */}
+        <ConfirmDialog
+          open={showClearTranscriptDialog}
+          title={t("sessions.clearTranscriptTitle")}
+          message={t("sessions.clearTranscriptMessage")}
+          confirmLabel={t("sessions.clearTranscriptConfirm")}
+          variant="danger"
+          onConfirm={async () => {
+            setShowClearTranscriptDialog(false);
+            if (session) {
+              try {
+                await clearTranscript(session.id);
+              } catch (e) {
+                console.error("Failed to clear transcript:", e);
               }
-              aria-label={
-                enhancedNotes
-                  ? t("sessions.reenhance")
-                  : t("sessions.enhanceNotes")
-              }
-              className={
-                enhancedNotes
-                  ? "group/reenhance relative flex flex-row-reverse items-center px-3.5 h-[50px] rounded-2xl shadow-sm text-xs font-medium shrink-0 bg-background text-accent hover:bg-accent-soft focus:bg-accent-soft border border-border-strong transition-all duration-200"
-                  : "flex items-center gap-1.5 px-4 h-[50px] rounded-2xl shadow-sm transition-colors text-xs font-medium shrink-0 bg-background-ui text-white hover:bg-background-ui/90"
-              }
-            >
-              <Sparkles size={14} className="shrink-0" />
-              {enhancedNotes ? (
-                <span className="whitespace-nowrap overflow-hidden max-w-0 mr-0 group-hover/reenhance:max-w-[200px] group-hover/reenhance:mr-1.5 group-focus/reenhance:max-w-[200px] group-focus/reenhance:mr-1.5 transition-all duration-200 ease-linear delay-150 group-hover/cluster:delay-0 group-focus-within/cluster:delay-0">
-                  {t("sessions.reenhance")}
-                </span>
-              ) : (
-                t("sessions.enhanceNotes")
-              )}
-              {/* Mirror extender on the left, covering the right half of the
-                  gap. See the matching extender on the Clear button above. */}
-              {enhancedNotes && (
-                <span
-                  aria-hidden
-                  className="absolute top-0 bottom-0 right-full w-1"
-                />
-              )}
-            </button>
-          </div>
+            }
+          }}
+          onCancel={() => setShowClearTranscriptDialog(false)}
+        />
+
+        {/* Image lightbox */}
+        {lightboxIndex !== null && (
+          <ImageLightbox
+            images={imageAttachments}
+            initialIndex={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+          />
         )}
       </div>
-
-      {/* Re-enhance warning dialog */}
-      <ConfirmDialog
-        open={showReenhanceWarning}
-        title={t("sessions.reenhanceWarningTitle")}
-        message={t("sessions.reenhanceWarningMessage")}
-        confirmLabel={t("common.continue")}
-        variant="warning"
-        onConfirm={() => {
-          setShowReenhanceWarning(false);
-          onDismissEnhancePrompt();
-          onEnhanceNotes();
-        }}
-        onCancel={() => setShowReenhanceWarning(false)}
-      />
-
-      {/* Clear transcript confirmation dialog */}
-      <ConfirmDialog
-        open={showClearTranscriptDialog}
-        title={t("sessions.clearTranscriptTitle")}
-        message={t("sessions.clearTranscriptMessage")}
-        confirmLabel={t("sessions.clearTranscriptConfirm")}
-        variant="danger"
-        onConfirm={async () => {
-          setShowClearTranscriptDialog(false);
-          if (session) {
-            try {
-              await clearTranscript(session.id);
-            } catch (e) {
-              console.error("Failed to clear transcript:", e);
-            }
-          }
-        }}
-        onCancel={() => setShowClearTranscriptDialog(false)}
-      />
-
-      {/* Image lightbox */}
-      {lightboxIndex !== null && (
-        <ImageLightbox
-          images={imageAttachments}
-          initialIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-        />
-      )}
     </div>
   );
 }
