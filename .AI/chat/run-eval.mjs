@@ -305,7 +305,7 @@ function judgePrompt(input, run) {
     ? "the chat that searches all of the user's notes"
     : 'the chat inside one note, which can only see that note';
   const history = (input.history ?? []).map(t => `[${t.role}] ${t.content}`).join('\n\n');
-  return `Today is ${NOW.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. The question was asked in ${where}.
+  return `Today is ${NOW.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. The question was asked in ${where}. The user is called Alex: the app gives the chat model that name, so "Alex" and "you" in an answer refer to the user.
 
 <notes>
 ${shown.map(noteForJudge).join('\n\n---\n\n') || '(no notes relevant to this question)'}${index}
