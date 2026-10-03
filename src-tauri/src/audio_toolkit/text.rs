@@ -2,7 +2,7 @@ use log::debug;
 use natural::phonetics::soundex;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use strsim::{levenshtein, normalized_levenshtein};
+use strsim::levenshtein;
 
 /// Applies custom word corrections to transcribed text using fuzzy matching
 ///
@@ -265,53 +265,6 @@ pub fn is_hallucination(text: &str) -> bool {
     false
 }
 
-/// Removes overlapping prefix text from a new transcription.
-/// When using audio overlap for context continuity, the beginning of the new
-/// transcription may duplicate the end of the previous transcription.
-///
-/// # Arguments
-/// * `new_text` - The newly transcribed text
-/// * `previous_text` - The previous transcription to check for overlap
-/// * `min_overlap_words` - Minimum words to consider as overlap (typically 2-3)
-///
-/// # Returns
-/// The new text with overlapping prefix removed
-pub fn remove_prefix_overlap(
-    new_text: &str,
-    previous_text: &str,
-    min_overlap_words: usize,
-) -> String {
-    let new_words: Vec<&str> = new_text.split_whitespace().collect();
-    let prev_words: Vec<&str> = previous_text.split_whitespace().collect();
-
-    if new_words.is_empty() || prev_words.is_empty() {
-        return new_text.to_string();
-    }
-
-    // Look for overlap at the end of previous_text matching start of new_text
-    // Check overlaps from longest possible to min_overlap_words
-    let max_overlap = new_words.len().min(prev_words.len()).min(10); // Limit to 10 words
-
-    for overlap_len in (min_overlap_words..=max_overlap).rev() {
-        let prev_suffix: Vec<String> = prev_words[prev_words.len() - overlap_len..]
-            .iter()
-            .map(|w| w.to_lowercase())
-            .collect();
-        let new_prefix: Vec<String> = new_words[..overlap_len]
-            .iter()
-            .map(|w| w.to_lowercase())
-            .collect();
-
-        // Check if they match (allowing for minor differences)
-        if prev_suffix == new_prefix {
-            debug!("Removed prefix overlap: {} words", overlap_len);
-            return new_words[overlap_len..].join(" ");
-        }
-    }
-
-    new_text.to_string()
-}
-
 /// Collapses repeated short words (3+ repetitions) to a single instance.
 /// E.g., "wh wh wh wh" -> "wh", "I I I I" -> "I", "Yeah Yeah Yeah Yeah" -> "Yeah"
 fn collapse_stutters(text: &str) -> String {
@@ -409,67 +362,6 @@ pub fn filter_transcription_output(text: &str) -> String {
     }
 
     trimmed.to_string()
-}
-
-/// Checks if two transcript segments are likely duplicates based on time overlap and text similarity.
-///
-/// This is used to detect when the same audio is transcribed on both mic and speaker channels
-/// (e.g., due to acoustic echo). The speaker channel is considered authoritative, so this
-/// function is called before adding a mic segment to check if a similar speaker segment exists.
-///
-/// # Arguments
-/// * `new_text` - The new transcript text to check
-/// * `new_start_ms` - Start time of the new segment in milliseconds
-/// * `new_end_ms` - End time of the new segment in milliseconds
-/// * `existing_text` - The existing transcript text to compare against
-/// * `existing_start_ms` - Start time of the existing segment
-/// * `existing_end_ms` - End time of the existing segment
-/// * `similarity_threshold` - Minimum text similarity (0.0-1.0) to consider a duplicate (e.g., 0.75)
-/// * `time_overlap_threshold_ms` - Minimum time overlap in ms to consider (e.g., 500)
-///
-/// # Returns
-/// `true` if the segments are likely duplicates (similar text with overlapping time)
-#[allow(clippy::too_many_arguments)]
-pub fn is_duplicate_segment(
-    new_text: &str,
-    new_start_ms: i64,
-    new_end_ms: i64,
-    existing_text: &str,
-    existing_start_ms: i64,
-    existing_end_ms: i64,
-    similarity_threshold: f64,
-    time_overlap_threshold_ms: i64,
-) -> bool {
-    // Check time overlap: max(0, min(end1, end2) - max(start1, start2))
-    let overlap = (new_end_ms.min(existing_end_ms) - new_start_ms.max(existing_start_ms)).max(0);
-    if overlap < time_overlap_threshold_ms {
-        return false;
-    }
-
-    // Normalize text for comparison (lowercase, trimmed)
-    let new_normalized = new_text.trim().to_lowercase();
-    let existing_normalized = existing_text.trim().to_lowercase();
-
-    // Skip if either text is empty
-    if new_normalized.is_empty() || existing_normalized.is_empty() {
-        return false;
-    }
-
-    // Calculate text similarity (0.0 = completely different, 1.0 = identical)
-    let similarity = normalized_levenshtein(&new_normalized, &existing_normalized);
-
-    if similarity >= similarity_threshold {
-        debug!(
-            "Duplicate segment detected: similarity={:.2}, overlap={}ms, new_len={}, existing_len={}",
-            similarity,
-            overlap,
-            new_text.len(),
-            existing_text.len()
-        );
-        true
-    } else {
-        false
-    }
 }
 
 #[cfg(test)]
@@ -615,122 +507,6 @@ mod tests {
         let text = "well well well I think";
         let result = filter_transcription_output(text);
         assert_eq!(result, "well I think");
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_identical() {
-        // Identical text with overlapping time should be duplicate
-        assert!(is_duplicate_segment(
-            "Hello world",
-            1000,
-            2000,
-            "Hello world",
-            1000,
-            2000,
-            0.75,
-            500
-        ));
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_similar() {
-        // Similar text (minor differences) with overlapping time
-        assert!(is_duplicate_segment(
-            "It sounds like we're in a good spot",
-            1000,
-            3000,
-            "It sounds like we're in a good spot, right?",
-            1000,
-            3000,
-            0.75,
-            500
-        ));
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_different_text() {
-        // Different text should not be duplicate
-        assert!(!is_duplicate_segment(
-            "Hello world",
-            1000,
-            2000,
-            "Goodbye everyone",
-            1000,
-            2000,
-            0.75,
-            500
-        ));
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_no_time_overlap() {
-        // Identical text but no time overlap should not be duplicate
-        assert!(!is_duplicate_segment(
-            "Hello world",
-            1000,
-            2000,
-            "Hello world",
-            3000,
-            4000,
-            0.75,
-            500
-        ));
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_partial_overlap() {
-        // Identical text with partial time overlap (>500ms) should be duplicate
-        assert!(is_duplicate_segment(
-            "Hello world",
-            1000,
-            3000,
-            "Hello world",
-            2000,
-            4000,
-            0.75,
-            500
-        ));
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_insufficient_overlap() {
-        // Identical text but overlap < threshold (400ms < 500ms)
-        assert!(!is_duplicate_segment(
-            "Hello world",
-            1000,
-            2000,
-            "Hello world",
-            1600,
-            3000,
-            0.75,
-            500
-        ));
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_empty_text() {
-        // Empty text should not be duplicate
-        assert!(!is_duplicate_segment(
-            "", 1000, 2000, "Hello", 1000, 2000, 0.75, 500
-        ));
-        assert!(!is_duplicate_segment(
-            "Hello", 1000, 2000, "", 1000, 2000, 0.75, 500
-        ));
-    }
-
-    #[test]
-    fn test_is_duplicate_segment_case_insensitive() {
-        // Should match case-insensitively
-        assert!(is_duplicate_segment(
-            "HELLO WORLD",
-            1000,
-            2000,
-            "hello world",
-            1000,
-            2000,
-            0.75,
-            500
-        ));
     }
 
     #[test]

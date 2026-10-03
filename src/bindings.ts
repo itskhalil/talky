@@ -963,6 +963,9 @@ async getSessionSummary(sessionId: string) : Promise<Result<string | null, strin
 /**
  * Force-flush any buffered audio through the transcription pipeline.
  * Called before chat so the transcript is as up-to-date as possible.
+ * 
+ * The live loop owns the audio; this asks it to transcribe what it has
+ * buffered and waits (up to a few seconds) for it to finish.
  */
 async flushPendingAudio(sessionId: string) : Promise<Result<null, string>> {
     try {

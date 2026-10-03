@@ -15,6 +15,8 @@ fn wav_spec() -> WavSpec {
     }
 }
 
+/// Settings of the pipeline that ran before `SessionTranscriber` (metadata
+/// version 1). Kept so older recordings still load.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PipelineConfig {
     pub vad_threshold: f32,
@@ -44,7 +46,12 @@ pub struct RecordingMetadata {
     pub session_id: String,
     pub recorded_at: String,
     pub duration_seconds: f64,
-    pub pipeline_config: PipelineConfig,
+    /// Version 1 recordings only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipeline_config: Option<PipelineConfig>,
+    /// The session transcriber's settings (version 2+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcriber: Option<crate::audio_toolkit::session_transcriber::TranscriberConfig>,
     pub transcript_segments: Vec<RecordingSegment>,
 }
 

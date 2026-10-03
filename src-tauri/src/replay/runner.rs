@@ -1,14 +1,11 @@
 use anyhow::Result;
-use log::{debug, info};
+use log::info;
 use std::path::Path;
 
 use crate::aec::AEC;
-use crate::audio_toolkit::pipeline::{ChannelMode, Pipeline};
-use crate::audio_toolkit::text::{is_duplicate_segment, remove_prefix_overlap};
-use crate::audio_toolkit::vad::SileroVad;
 
 use super::engine::ReplayEngine;
-use super::types::{ReplayConfig, ReplaySegment};
+use super::types::ReplaySegment;
 
 /// Returns true if the chunk's RMS energy is below a quiet threshold.
 fn is_silence(samples: &[f32], threshold: f32) -> bool {
@@ -18,421 +15,6 @@ fn is_silence(samples: &[f32], threshold: f32) -> bool {
     let sum_sq: f32 = samples.iter().map(|x| x * x).sum();
     let rms = (sum_sq / samples.len() as f32).sqrt();
     rms < threshold
-}
-
-pub struct ReplayResult {
-    pub segments: Vec<ReplaySegment>,
-    pub diagnostics: ReplayDiagnostics,
-}
-
-#[derive(Clone, Debug, serde::Serialize)]
-pub struct ReplayDiagnostics {
-    pub mic_segments: usize,
-    pub spk_segments: usize,
-    pub mic_silence_skips: usize,
-    pub spk_silence_skips: usize,
-    pub mic_dedup_skips: usize,
-    pub mic_all_windows_zeroed_skips: usize,
-    pub total_ticks: usize,
-}
-
-pub fn run_replay(
-    config: &ReplayConfig,
-    mic_samples: &[f32],
-    spk_samples: &[f32],
-    mut engine: Option<&mut ReplayEngine>,
-    vad_model_path: &Path,
-) -> Result<ReplayResult> {
-    let dry_run = engine.is_none();
-
-    // Initialize VAD
-    let vad: Option<Box<dyn crate::audio_toolkit::VoiceActivityDetector>> =
-        match SileroVad::new(vad_model_path, config.vad_threshold) {
-            Ok(v) => Some(Box::new(v.with_smoothing(
-                config.vad_onset_frames as usize,
-                config.vad_hangover_frames as usize,
-            ))),
-            Err(e) => {
-                log::warn!("VAD init failed: {}", e);
-                None
-            }
-        };
-
-    // Initialize AEC
-    let aec = if config.aec_enabled {
-        match AEC::new() {
-            Ok(a) => Some(a),
-            Err(e) => {
-                log::warn!("AEC init failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    let mut pipeline = Pipeline::new(16000, 16000, vad, aec, ChannelMode::MicAndSpeaker);
-
-    let samples_per_tick = (config.poll_interval_ms as usize * 16000) / 1000;
-    let total_samples = mic_samples.len().max(spk_samples.len());
-    let total_ticks = total_samples.div_ceil(samples_per_tick);
-
-    let mut segments: Vec<ReplaySegment> = Vec::new();
-    let mut pending_spk_samples: Vec<f32> = Vec::new();
-    let mut spk_silent_polls: u32 = 0;
-    let mut mic_chunk_start_ms: i64 = 0;
-    let mut spk_chunk_start_ms: i64 = 0;
-    let mut mic_has_samples = false;
-    let mut previous_mic_text = String::new();
-
-    let mut diag = ReplayDiagnostics {
-        mic_segments: 0,
-        spk_segments: 0,
-        mic_silence_skips: 0,
-        spk_silence_skips: 0,
-        mic_dedup_skips: 0,
-        mic_all_windows_zeroed_skips: 0,
-        total_ticks,
-    };
-
-    for tick in 0..total_ticks {
-        let offset = tick * samples_per_tick;
-        let current_time_ms = tick as i64 * config.poll_interval_ms as i64;
-
-        // Get mic chunk for this tick
-        let mic_start = offset.min(mic_samples.len());
-        let mic_end = (offset + samples_per_tick).min(mic_samples.len());
-        let mic_chunk = &mic_samples[mic_start..mic_end];
-
-        // Get spk chunk for this tick
-        let spk_start = offset.min(spk_samples.len());
-        let spk_end = (offset + samples_per_tick).min(spk_samples.len());
-        let spk_chunk = &spk_samples[spk_start..spk_end];
-
-        // Push mic into pipeline
-        if !mic_chunk.is_empty() {
-            if !mic_has_samples {
-                mic_chunk_start_ms = current_time_ms;
-            }
-            mic_has_samples = true;
-            pipeline.push_mic(mic_chunk);
-        }
-
-        // Push spk into pipeline and pending buffer
-        if !spk_chunk.is_empty() {
-            if pending_spk_samples.is_empty() {
-                spk_chunk_start_ms = current_time_ms;
-            }
-            pipeline.push_spk(spk_chunk);
-            pending_spk_samples.extend_from_slice(spk_chunk);
-
-            if is_silence(spk_chunk, config.silence_threshold) {
-                spk_silent_polls += 1;
-            } else {
-                spk_silent_polls = 0;
-            }
-        } else {
-            spk_silent_polls += 1;
-        }
-
-        // Poll pipeline
-        let pipeline_event = pipeline.poll_event();
-
-        // Check mic transcription trigger
-        let accumulated = pipeline.accumulated_mic_len();
-        let force_flush = accumulated >= config.max_chunk_samples;
-        let vad_trigger =
-            accumulated >= config.min_chunk_samples && pipeline_event.mic_speech_ended;
-        let mic_should_transcribe = mic_has_samples && (force_flush || vad_trigger);
-
-        if mic_should_transcribe {
-            let trigger_reason = if force_flush {
-                "15s limit"
-            } else {
-                "speech ended"
-            };
-            info!(
-                "[{:.1}s] MIC TRANSCRIBE - {:.1}s of audio (reason: {})",
-                current_time_ms as f32 / 1000.0,
-                accumulated as f32 / 16000.0,
-                trigger_reason
-            );
-
-            // Pre-flush pending speaker audio for dedup
-            if pending_spk_samples.len() >= config.min_chunk_samples / 4 {
-                if !is_silence(&pending_spk_samples, config.silence_threshold) {
-                    if let Some(ref mut eng) = engine {
-                        let spk_audio = std::mem::take(&mut pending_spk_samples);
-                        match eng.transcribe(spk_audio) {
-                            Ok(text) if !text.is_empty() => {
-                                info!("Pre-flushed speaker: '{}'", truncate(&text, 50));
-                                segments.push(ReplaySegment {
-                                    text,
-                                    source: "speaker".to_string(),
-                                    start_ms: spk_chunk_start_ms,
-                                    end_ms: current_time_ms,
-                                });
-                                diag.spk_segments += 1;
-                            }
-                            _ => {}
-                        }
-                    } else {
-                        // dry run — record segment boundary
-                        segments.push(ReplaySegment {
-                            text: String::new(),
-                            source: "speaker".to_string(),
-                            start_ms: spk_chunk_start_ms,
-                            end_ms: current_time_ms,
-                        });
-                        diag.spk_segments += 1;
-                        pending_spk_samples.clear();
-                    }
-                } else {
-                    pending_spk_samples.clear();
-                    diag.spk_silence_skips += 1;
-                }
-                spk_silent_polls = 0;
-                spk_chunk_start_ms = current_time_ms;
-            }
-
-            // Apply AEC
-            pipeline.apply_aec_to_accumulated();
-
-            // Take mic audio with speaker energy filtering
-            let mic_audio = if config.skip_mic_on_speaker_energy {
-                let (filtered_mic, windows_zeroed) = pipeline.take_filtered_mic(
-                    config.speaker_energy_threshold,
-                    config.window_ms,
-                    config.overlap_samples,
-                );
-
-                let total_windows =
-                    (filtered_mic.len().saturating_sub(1) / (config.window_ms * 16) + 1).max(1);
-                if windows_zeroed == total_windows && total_windows > 1 {
-                    info!(
-                        "Skipping mic - all {} windows had speaker activity",
-                        total_windows
-                    );
-                    mic_has_samples = false;
-                    mic_chunk_start_ms = current_time_ms;
-                    diag.mic_all_windows_zeroed_skips += 1;
-                    continue;
-                }
-
-                filtered_mic
-            } else {
-                let (mic, _spk) = pipeline.take_with_overlap(config.overlap_samples);
-                mic
-            };
-
-            // Silence check
-            if is_silence(&mic_audio, config.silence_threshold) {
-                info!("Skipping mic - audio is silent");
-                mic_has_samples = false;
-                mic_chunk_start_ms = current_time_ms;
-                diag.mic_silence_skips += 1;
-                continue;
-            }
-
-            if dry_run {
-                // Record segment boundary only
-                segments.push(ReplaySegment {
-                    text: String::new(),
-                    source: "mic".to_string(),
-                    start_ms: mic_chunk_start_ms,
-                    end_ms: current_time_ms,
-                });
-                diag.mic_segments += 1;
-            } else if let Some(ref mut eng) = engine {
-                match eng.transcribe(mic_audio) {
-                    Ok(text) if !text.is_empty() => {
-                        // Remove prefix overlap
-                        let deduped_text = if !previous_mic_text.is_empty() {
-                            remove_prefix_overlap(
-                                &text,
-                                &previous_mic_text,
-                                config.prefix_overlap_min_words,
-                            )
-                        } else {
-                            text.clone()
-                        };
-
-                        if !deduped_text.is_empty() {
-                            // Check dedup against recent speaker segments
-                            let is_dup = segments
-                                .iter()
-                                .filter(|s| {
-                                    s.source == "speaker" && s.start_ms > mic_chunk_start_ms - 5000
-                                })
-                                .any(|seg| {
-                                    is_duplicate_segment(
-                                        &deduped_text,
-                                        mic_chunk_start_ms,
-                                        current_time_ms,
-                                        &seg.text,
-                                        seg.start_ms,
-                                        seg.end_ms,
-                                        config.dedup_similarity_threshold,
-                                        config.dedup_time_overlap_ms,
-                                    )
-                                });
-
-                            if !is_dup {
-                                info!("Mic segment: '{}'", truncate(&deduped_text, 80));
-                                segments.push(ReplaySegment {
-                                    text: deduped_text.clone(),
-                                    source: "mic".to_string(),
-                                    start_ms: mic_chunk_start_ms,
-                                    end_ms: current_time_ms,
-                                });
-                                diag.mic_segments += 1;
-                                previous_mic_text = text;
-                            } else {
-                                debug!("Skipping duplicate mic segment");
-                                diag.mic_dedup_skips += 1;
-                            }
-                        }
-                    }
-                    Ok(_) => {} // empty
-                    Err(e) => log::error!("Mic transcription error: {}", e),
-                }
-            }
-
-            mic_has_samples = false;
-            mic_chunk_start_ms = current_time_ms;
-        }
-
-        // Check speaker transcription trigger
-        let spk_should_transcribe = pending_spk_samples.len() >= config.max_chunk_samples
-            || (pending_spk_samples.len() >= config.min_chunk_samples
-                && spk_silent_polls >= config.spk_silence_flush_polls);
-
-        if spk_should_transcribe {
-            if is_silence(&pending_spk_samples, config.silence_threshold) {
-                pending_spk_samples.clear();
-                spk_silent_polls = 0;
-                diag.spk_silence_skips += 1;
-                continue;
-            }
-
-            if dry_run {
-                segments.push(ReplaySegment {
-                    text: String::new(),
-                    source: "speaker".to_string(),
-                    start_ms: spk_chunk_start_ms,
-                    end_ms: current_time_ms,
-                });
-                diag.spk_segments += 1;
-                pending_spk_samples.clear();
-            } else if let Some(ref mut eng) = engine {
-                match eng.transcribe(std::mem::take(&mut pending_spk_samples)) {
-                    Ok(text) if !text.is_empty() => {
-                        info!("Speaker segment: '{}'", truncate(&text, 80));
-                        segments.push(ReplaySegment {
-                            text,
-                            source: "speaker".to_string(),
-                            start_ms: spk_chunk_start_ms,
-                            end_ms: current_time_ms,
-                        });
-                        diag.spk_segments += 1;
-                    }
-                    Ok(_) => {}
-                    Err(e) => log::error!("Speaker transcription error: {}", e),
-                }
-            }
-            spk_silent_polls = 0;
-            spk_chunk_start_ms = current_time_ms;
-        }
-    }
-
-    // Final flush: remaining speaker audio
-    if !pending_spk_samples.is_empty()
-        && !is_silence(&pending_spk_samples, config.silence_threshold)
-    {
-        let end_ms = (total_ticks as i64) * config.poll_interval_ms as i64;
-        if dry_run {
-            segments.push(ReplaySegment {
-                text: String::new(),
-                source: "speaker".to_string(),
-                start_ms: spk_chunk_start_ms,
-                end_ms,
-            });
-            diag.spk_segments += 1;
-        } else if let Some(ref mut eng) = engine {
-            match eng.transcribe(std::mem::take(&mut pending_spk_samples)) {
-                Ok(text) if !text.is_empty() => {
-                    segments.push(ReplaySegment {
-                        text,
-                        source: "speaker".to_string(),
-                        start_ms: spk_chunk_start_ms,
-                        end_ms,
-                    });
-                    diag.spk_segments += 1;
-                }
-                _ => {}
-            }
-        }
-    }
-
-    // Final flush: remaining mic audio
-    pipeline.apply_aec_to_accumulated();
-    let (remaining_mic, _remaining_spk) = pipeline.take_all_accumulated();
-    if !remaining_mic.is_empty() && !is_silence(&remaining_mic, config.silence_threshold) {
-        let end_ms = (total_ticks as i64) * config.poll_interval_ms as i64;
-        if dry_run {
-            segments.push(ReplaySegment {
-                text: String::new(),
-                source: "mic".to_string(),
-                start_ms: mic_chunk_start_ms,
-                end_ms,
-            });
-            diag.mic_segments += 1;
-        } else if let Some(ref mut eng) = engine {
-            match eng.transcribe(remaining_mic) {
-                Ok(text) if !text.is_empty() => {
-                    // Dedup against speaker
-                    let is_dup = segments
-                        .iter()
-                        .filter(|s| s.source == "speaker" && s.start_ms > mic_chunk_start_ms - 5000)
-                        .any(|seg| {
-                            is_duplicate_segment(
-                                &text,
-                                mic_chunk_start_ms,
-                                end_ms,
-                                &seg.text,
-                                seg.start_ms,
-                                seg.end_ms,
-                                config.dedup_similarity_threshold,
-                                config.dedup_time_overlap_ms,
-                            )
-                        });
-
-                    if !is_dup {
-                        segments.push(ReplaySegment {
-                            text,
-                            source: "mic".to_string(),
-                            start_ms: mic_chunk_start_ms,
-                            end_ms,
-                        });
-                        diag.mic_segments += 1;
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
-    info!(
-        "Replay complete: {} mic segments, {} spk segments, {} total",
-        diag.mic_segments,
-        diag.spk_segments,
-        segments.len()
-    );
-
-    Ok(ReplayResult {
-        segments,
-        diagnostics: diag,
-    })
 }
 
 /// Apply AEC to the mic channel using the speaker channel as reference.
@@ -505,6 +87,7 @@ pub fn transcribe_raw(
                     source: "speaker".to_string(),
                     start_ms,
                     end_ms,
+                    emitted_ms: None,
                 });
             }
             _ => {}
@@ -545,6 +128,7 @@ pub fn transcribe_raw(
                     source: "mic".to_string(),
                     start_ms,
                     end_ms,
+                    emitted_ms: None,
                 });
             }
             _ => {}
@@ -723,4 +307,83 @@ fn truncate(s: &str, max_len: usize) -> &str {
     } else {
         &s[..s.floor_char_boundary(max_len)]
     }
+}
+
+/// How audio reaches the live loop.
+pub struct LiveTiming {
+    /// The loop polls both channels this often.
+    pub poll_interval_ms: u64,
+    /// Shift of the system-audio stream against the mic. Positive: the far
+    /// end leads (the tap started after the mic, so by sample position the
+    /// reference comes earlier than its echo). Negative: it lags.
+    pub spk_lead_ms: i64,
+    /// System audio is delivered in bursts of this length.
+    pub spk_burst_ms: u64,
+}
+
+/// Replay through `SessionTranscriber`, the pipeline the live app runs.
+/// Audio is fed in `poll_interval_ms` ticks as the live loop does.
+pub fn run_session_replay(
+    config: &crate::audio_toolkit::session_transcriber::TranscriberConfig,
+    mic_samples: &[f32],
+    spk_samples: &[f32],
+    engine: &mut ReplayEngine,
+    vad_model_path: &Path,
+    timing: &LiveTiming,
+) -> Result<(
+    Vec<ReplaySegment>,
+    crate::audio_toolkit::session_transcriber::TranscriberStats,
+)> {
+    use crate::audio_toolkit::session_transcriber::SessionTranscriber;
+
+    let mut transcriber = SessionTranscriber::new(config.clone(), vad_model_path)?;
+    let per_tick = (timing.poll_interval_ms as usize * 16000) / 1000;
+    let shift = (timing.spk_lead_ms.unsigned_abs() as usize * 16000) / 1000;
+    let shifted_spk: Vec<f32> = if timing.spk_lead_ms >= 0 {
+        spk_samples[shift.min(spk_samples.len())..].to_vec()
+    } else {
+        let mut v = vec![0.0f32; shift];
+        v.extend_from_slice(spk_samples);
+        v
+    };
+    let spk_samples = &shifted_spk[..];
+    let burst = ((timing.spk_burst_ms as usize * 16000) / 1000).max(per_tick);
+    let total = mic_samples.len().max(spk_samples.len());
+    let mut segments = Vec::new();
+    let mut spk_sent = 0usize;
+
+    let push = |segs: Vec<crate::audio_toolkit::session_transcriber::Segment>,
+                emitted_ms: i64,
+                segments: &mut Vec<ReplaySegment>| {
+        for s in segs {
+            segments.push(ReplaySegment {
+                text: s.text,
+                source: s.channel.source().to_string(),
+                start_ms: s.start_ms,
+                end_ms: s.end_ms,
+                emitted_ms: Some(emitted_ms),
+            });
+        }
+    };
+
+    let mut offset = 0;
+    while offset < total {
+        let end = offset + per_tick;
+        let mic = &mic_samples[offset.min(mic_samples.len())..end.min(mic_samples.len())];
+        // Far-end audio arrives in bursts of `burst` samples.
+        let spk_ready = (end / burst * burst).min(spk_samples.len());
+        let spk = &spk_samples[spk_sent.min(spk_ready)..spk_ready];
+        spk_sent = spk_sent.max(spk_ready);
+        let segs = transcriber.push(mic, spk, engine)?;
+        push(segs, (end * 1000 / 16000) as i64, &mut segments);
+        offset = end;
+    }
+    if spk_sent < spk_samples.len() {
+        let segs = transcriber.push(&[], &spk_samples[spk_sent..], engine)?;
+        push(segs, (total * 1000 / 16000) as i64, &mut segments);
+    }
+    let segs = transcriber.finish(engine)?;
+    push(segs, (total * 1000 / 16000) as i64, &mut segments);
+
+    Ok((segments, transcriber.stats.clone()))
 }
