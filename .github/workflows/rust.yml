@@ -58,3 +58,27 @@ jobs:
           # Only read by `env!` at compile time; the value is not shipped from here.
           TALKY_SUPPORT_EMAIL: ${{ secrets.TALKY_SUPPORT_EMAIL || 'support@example.com' }}
         run: cargo check --all-targets
+
+  # The release build is the only other place Windows compiles, and it is
+  # workflow_dispatch. Running the unit tests here also exercises the audio
+  # pipeline (echo canceller, chunker, recorder) on Windows at runtime.
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      # The bindings test compares generated output byte for byte.
+      - name: Keep LF line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: cargo test
+        working-directory: src-tauri
+        env:
+          TALKY_SUPPORT_EMAIL: ${{ secrets.TALKY_SUPPORT_EMAIL || 'support@example.com' }}
+        run: cargo test --lib
