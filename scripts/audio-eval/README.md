@@ -44,17 +44,17 @@ directory, so rebuilding mid-run doesn't change what's measured.
 
 ## Metrics
 
-| Column | Meaning |
-| --- | --- |
-| `chanWER` | All errors on both channels over all reference words. Headline number. |
-| `micDel` | My words missing from the mic channel |
-| `micIns` | Extra words on the mic channel (echo, hallucination) |
-| `spkWER` / `spkDel` | The same for everyone else |
-| `meRec(ovl)` | Share of my words transcribed while someone else is talking |
-| `meRec(clr)` | Share of my words transcribed when nobody else is |
-| `leak/100` | Others' words duplicated onto the mic channel, per 100 of their words |
-| `latMic50/90` | Seconds from a word ending to its segment appearing (p50/p90) |
-| `punct/100` | Sentence punctuation per 100 words (readability) |
+| Column              | Meaning                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| `chanWER`           | All errors on both channels over all reference words. Headline number. |
+| `micDel`            | My words missing from the mic channel                                  |
+| `micIns`            | Extra words on the mic channel (echo, hallucination)                   |
+| `spkWER` / `spkDel` | The same for everyone else                                             |
+| `meRec(ovl)`        | Share of my words transcribed while someone else is talking            |
+| `meRec(clr)`        | Share of my words transcribed when nobody else is                      |
+| `leak/100`          | Others' words duplicated onto the mic channel, per 100 of their words  |
+| `latMic50/90`       | Seconds from a word ending to its segment appearing (p50/p90)          |
+| `punct/100`         | Sentence punctuation per 100 words (readability)                       |
 
 Text is normalised with Whisper's English normaliser, fillers are dropped on
 both sides, and AMI's acronym spelling (`T_V_`) is joined.
