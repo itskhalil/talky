@@ -216,21 +216,12 @@ impl ModelManager {
         )
     }
 
-    /// Fast probe: the cache is considered populated when the four expected
+    /// Fast probe: the cache is considered populated when the expected
     /// `.mlmodelc` bundles exist. Cheap enough to run on every
     /// `update_download_status`.
     #[cfg(target_os = "macos")]
     fn coreml_is_downloaded(model_filename: &str) -> bool {
-        let Some(dir) = Self::coreml_cache_path(model_filename) else {
-            return false;
-        };
-        let required = [
-            "Encoder.mlmodelc",
-            "Preprocessor.mlmodelc",
-            "Decoder.mlmodelc",
-            "JointDecision.mlmodelc",
-        ];
-        required.iter().all(|name| dir.join(name).exists())
+        Self::coreml_cache_path(model_filename).is_some_and(|dir| coreml_dir_is_populated(&dir))
     }
 
     fn update_download_status(&self) -> Result<()> {
@@ -931,5 +922,44 @@ impl ModelManager {
 
         info!("Download cancelled for: {}", model_id);
         Ok(())
+    }
+}
+
+/// FluidAudio 0.17+ loads v3-family models (v3, Ultra) with
+/// `JointDecisionv3`; caches written by older sidecars only have
+/// `JointDecision`, and 0.17 fetches the v3 joint (12 MB) on first load.
+/// Either counts as downloaded.
+#[cfg(target_os = "macos")]
+fn coreml_dir_is_populated(dir: &std::path::Path) -> bool {
+    let required = [
+        "Encoder.mlmodelc",
+        "Preprocessor.mlmodelc",
+        "Decoder.mlmodelc",
+    ];
+    let joints = ["JointDecisionv3.mlmodelc", "JointDecision.mlmodelc"];
+    required.iter().all(|name| dir.join(name).exists())
+        && joints.iter().any(|name| dir.join(name).exists())
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coreml_cache_with_either_joint_counts_as_downloaded() {
+        let dir = std::env::temp_dir().join(format!("talky-coreml-probe-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        for name in ["Encoder", "Preprocessor", "Decoder"] {
+            fs::create_dir_all(dir.join(format!("{name}.mlmodelc"))).unwrap();
+        }
+        assert!(!coreml_dir_is_populated(&dir));
+        // Written by FluidAudio 0.17+ (fresh install).
+        fs::create_dir_all(dir.join("JointDecisionv3.mlmodelc")).unwrap();
+        assert!(coreml_dir_is_populated(&dir));
+        // Written by an older sidecar.
+        fs::remove_dir_all(dir.join("JointDecisionv3.mlmodelc")).unwrap();
+        fs::create_dir_all(dir.join("JointDecision.mlmodelc")).unwrap();
+        assert!(coreml_dir_is_populated(&dir));
+        fs::remove_dir_all(&dir).unwrap();
     }
 }
