@@ -1,5 +1,4 @@
 mod actions;
-pub mod aec;
 pub mod audio_toolkit;
 mod commands;
 mod crash_reporter;

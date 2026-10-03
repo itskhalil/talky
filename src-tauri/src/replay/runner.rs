@@ -2,8 +2,6 @@ use anyhow::Result;
 use log::info;
 use std::path::Path;
 
-use crate::aec::AEC;
-
 use super::engine::ReplayEngine;
 use super::types::ReplaySegment;
 
@@ -21,31 +19,10 @@ fn is_silence(samples: &[f32], threshold: f32) -> bool {
 /// Returns a sample-aligned buffer (same length as input mic_samples) so
 /// timestamps over the output align with the original recording.
 pub fn apply_aec_to_mic(mic_samples: &[f32], spk_samples: &[f32]) -> Result<Vec<f32>> {
-    let mut aec = AEC::new().map_err(|e| anyhow::anyhow!("AEC init failed: {}", e))?;
-    let mut cleaned = Vec::with_capacity(mic_samples.len());
-
-    let aec_chunk_size = 16000; // 1s chunks for AEC
-    for chunk_start in (0..mic_samples.len()).step_by(aec_chunk_size) {
-        let chunk_end = (chunk_start + aec_chunk_size).min(mic_samples.len());
-        let mic_chunk = &mic_samples[chunk_start..chunk_end];
-        let spk_start = chunk_start.min(spk_samples.len());
-        let spk_end = chunk_end.min(spk_samples.len());
-
-        if spk_end > spk_start {
-            let spk_chunk = &spk_samples[spk_start..spk_end];
-            let len = mic_chunk.len().min(spk_chunk.len());
-            match aec.process_streaming(&mic_chunk[..len], &spk_chunk[..len]) {
-                Ok(aec_result) => cleaned.extend_from_slice(&aec_result),
-                Err(_) => cleaned.extend_from_slice(&mic_chunk[..len]),
-            }
-            if mic_chunk.len() > len {
-                cleaned.extend_from_slice(&mic_chunk[len..]);
-            }
-        } else {
-            cleaned.extend_from_slice(mic_chunk);
-        }
-    }
-    Ok(cleaned)
+    Ok(crate::audio_toolkit::session_transcriber::cancel_echo(
+        mic_samples,
+        spk_samples,
+    ))
 }
 
 /// Transcribe raw audio for golden generation.

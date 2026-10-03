@@ -70,9 +70,7 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 tar = "0.4.44"
 flate2 = "1.0"
 transcribe-rs = { version = "0.3.11", features = ["onnx", "vad-silero"] }
-ort = { version = "=2.0.0-rc.12", features = ["ndarray"] }
-ndarray = "0.17"
-realfft = "3.5.0"
+sonora = "0.2.0"
 thiserror = "2"
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"

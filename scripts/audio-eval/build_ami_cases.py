@@ -175,24 +175,10 @@ def write_case(out_dir: Path, mic, spk, reference, case_id):
     sf.write(out_dir / "raw_mic.wav", np.clip(mic, -1, 1), SR, subtype="PCM_16")
     sf.write(out_dir / "raw_spk.wav", np.clip(spk, -1, 1), SR, subtype="PCM_16")
     metadata = {
-        "version": 1,
+        "version": 2,
         "session_id": case_id,
         "recorded_at": "2005-01-01T00:00:00+00:00",
         "duration_seconds": len(mic) / SR,
-        # Mirrors the live app's hard-coded pipeline settings.
-        "pipeline_config": {
-            "vad_threshold": 0.15,
-            "vad_onset_frames": 2,
-            "vad_hangover_frames": 25,
-            "aec_enabled": True,
-            "speaker_energy_threshold": 0.04,
-            "mic_energy_threshold": 0.02,
-            "skip_mic_on_speaker_energy": True,
-            "dedup_similarity_threshold": 0.8,
-            "dedup_time_overlap_ms": 300,
-            "min_chunk_samples": 16000,
-            "max_chunk_samples": 240000,
-        },
         "transcript_segments": [],
     }
     (out_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
