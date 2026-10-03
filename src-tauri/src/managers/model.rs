@@ -1,3 +1,4 @@
+use crate::managers::model_files::{self, RemoteFile};
 use crate::settings::{get_settings, write_settings};
 use crate::utils::MutexExt;
 use anyhow::Result;
@@ -20,6 +21,27 @@ pub const CORE_ML_MODEL_ID: &str = "parakeet-tdt-0.6b-v3-coreml";
 /// Parakeet Ultra: a further-trained v3 (same architecture and languages),
 /// Core ML only.
 pub const CORE_ML_ULTRA_MODEL_ID: &str = "parakeet-ultra-coreml";
+
+/// Parakeet Ultra on ONNX, for Windows, Linux, and Macs not using Core ML.
+pub const ONNX_ULTRA_MODEL_ID: &str = "parakeet-ultra";
+
+/// The model new installs start on, and existing v3 users are offered.
+/// Ultra makes about a quarter fewer mistakes than v3 on meeting audio.
+pub fn recommended_model_id() -> &'static str {
+    if cfg!(target_os = "macos") {
+        CORE_ML_ULTRA_MODEL_ID
+    } else {
+        ONNX_ULTRA_MODEL_ID
+    }
+}
+
+/// Models published as separate files rather than one archive.
+fn remote_files(model_id: &str) -> Option<(&'static str, &'static [RemoteFile])> {
+    (model_id == ONNX_ULTRA_MODEL_ID).then_some((
+        model_files::PARAKEET_ULTRA_ONNX_BASE,
+        model_files::PARAKEET_ULTRA_ONNX_FILES,
+    ))
+}
 
 /// The model version the Core ML sidecar loads for a `-coreml` model id.
 pub fn coreml_version(model_id: &str) -> &'static str {
@@ -146,6 +168,26 @@ impl ModelManager {
                 is_directory: true,
                 engine_type: EngineType::Parakeet,
                 accuracy_score: 0.80,
+                speed_score: 0.85,
+            },
+        );
+
+        available_models.insert(
+            ONNX_ULTRA_MODEL_ID.to_string(),
+            ModelInfo {
+                id: ONNX_ULTRA_MODEL_ID.to_string(),
+                name: "Parakeet Ultra".to_string(),
+                description: "Most accurate".to_string(),
+                filename: "parakeet-ultra-int8".to_string(), // Directory name
+                url: None,                                   // Separate files, see `remote_files`
+                size_mb: model_files::total_size(model_files::PARAKEET_ULTRA_ONNX_FILES)
+                    / 1_000_000,
+                is_downloaded: false,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: true,
+                engine_type: EngineType::Parakeet,
+                accuracy_score: 0.85,
                 speed_score: 0.85,
             },
         );
@@ -305,12 +347,13 @@ impl ModelManager {
                     model.id, model_path, exists, is_dir, model.is_downloaded
                 );
 
-                // Get partial file size if it exists (for the .tar.gz being downloaded)
-                if partial_path.exists() {
-                    model.partial_size = partial_path.metadata().map(|m| m.len()).unwrap_or(0);
+                // Bytes so far: the .tar.gz being downloaded, or the staging
+                // dir of a model published as separate files.
+                model.partial_size = if partial_path.is_dir() {
+                    dir_size_bytes(&partial_path)
                 } else {
-                    model.partial_size = 0;
-                }
+                    partial_path.metadata().map(|m| m.len()).unwrap_or(0)
+                };
             } else {
                 // For file-based models (existing logic)
                 let model_path = self.models_dir.join(&model.filename);
@@ -372,6 +415,12 @@ impl ModelManager {
         #[cfg(target_os = "macos")]
         if model_id.ends_with("-coreml") {
             return self.download_coreml_model(&model_info).await;
+        }
+
+        if let Some((base_url, files)) = remote_files(model_id) {
+            return self
+                .download_model_files(&model_info, base_url, files)
+                .await;
         }
 
         let url = model_info
@@ -652,6 +701,80 @@ impl ModelManager {
         Ok(())
     }
 
+    /// Download a model published as separate files. They land in
+    /// `<filename>.partial/`, which becomes the model directory only once
+    /// every file has checked out, so a half-finished download is never
+    /// loaded. Interrupted downloads resume from the staging dir.
+    async fn download_model_files(
+        &self,
+        model_info: &ModelInfo,
+        base_url: &str,
+        files: &[RemoteFile],
+    ) -> Result<()> {
+        let model_id = model_info.id.as_str();
+        let model_dir = self.models_dir.join(&model_info.filename);
+        let staging = self
+            .models_dir
+            .join(format!("{}.partial", model_info.filename));
+
+        if model_dir.exists() {
+            let _ = fs::remove_dir_all(&staging);
+            self.update_download_status()?;
+            return Ok(());
+        }
+
+        self.set_downloading(model_id, true);
+        let app = self.app_handle.clone();
+        let mut last_emit = std::time::Instant::now();
+        let result = model_files::download_files(
+            &reqwest::Client::new(),
+            base_url,
+            files,
+            &staging,
+            |downloaded, total| {
+                if last_emit.elapsed().as_millis() < 100 && downloaded < total {
+                    return;
+                }
+                last_emit = std::time::Instant::now();
+                let _ = app.emit(
+                    "model-download-progress",
+                    &DownloadProgress {
+                        model_id: model_id.to_string(),
+                        downloaded,
+                        total,
+                        percentage: downloaded as f64 / total.max(1) as f64 * 100.0,
+                    },
+                );
+            },
+        )
+        .await
+        .and_then(|()| Ok(fs::rename(&staging, &model_dir)?));
+
+        if let Err(e) = result {
+            self.set_downloading(model_id, false);
+            return Err(e);
+        }
+
+        {
+            let mut models = self.available_models.lock_or_recover();
+            if let Some(model) = models.get_mut(model_id) {
+                model.is_downloading = false;
+                model.is_downloaded = true;
+                model.partial_size = 0;
+            }
+        }
+        let _ = self.app_handle.emit("model-download-complete", model_id);
+        info!("Downloaded model {} to {:?}", model_id, model_dir);
+        Ok(())
+    }
+
+    fn set_downloading(&self, model_id: &str, downloading: bool) {
+        let mut models = self.available_models.lock_or_recover();
+        if let Some(model) = models.get_mut(model_id) {
+            model.is_downloading = downloading;
+        }
+    }
+
     /// Drive the sidecar's `load_streaming` as a one-shot download. Progress
     /// is driven by a Rust-side polling task that measures the FluidAudio
     /// cache directory size every 500ms and emits `model-download-progress`.
@@ -867,8 +990,13 @@ impl ModelManager {
             }
         }
 
-        // Delete partial file if it exists (same for both types)
-        if partial_path.exists() {
+        // Delete partial download if it exists: a file, or the staging dir
+        // of a model published as separate files
+        if partial_path.is_dir() {
+            info!("Deleting partial download at: {:?}", partial_path);
+            fs::remove_dir_all(&partial_path)?;
+            deleted_something = true;
+        } else if partial_path.exists() {
             info!("Deleting partial file at: {:?}", partial_path);
             fs::remove_file(&partial_path)?;
             info!("Partial file deleted successfully");

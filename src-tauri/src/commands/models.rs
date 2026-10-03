@@ -1,8 +1,4 @@
-#[cfg(target_os = "macos")]
-use crate::managers::model::CORE_ML_MODEL_ID;
-#[cfg(not(target_os = "macos"))]
-use crate::managers::model::ONNX_MODEL_ID;
-use crate::managers::model::{ModelInfo, ModelManager};
+use crate::managers::model::{recommended_model_id, ModelInfo, ModelManager};
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{get_settings, write_settings};
 use std::sync::Arc;
@@ -70,9 +66,11 @@ pub async fn set_active_model(
         .load_model(&model_id)
         .map_err(|e| e.to_string())?;
 
-    // Update settings
+    // Update settings. Picking a model by hand also settles any pending
+    // upgrade, so it can't override the choice later.
     let mut settings = get_settings(&app_handle);
     settings.selected_model = model_id.clone();
+    settings.model_upgrade_target = None;
     write_settings(&app_handle, settings);
 
     Ok(())
@@ -135,12 +133,24 @@ pub async fn cancel_download(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_recommended_first_model() -> Result<String, String> {
-    #[cfg(target_os = "macos")]
-    {
-        Ok(CORE_ML_MODEL_ID.to_string())
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Ok(ONNX_MODEL_ID.to_string())
-    }
+    Ok(recommended_model_id().to_string())
+}
+
+/// The more accurate model to offer this user once, if any.
+#[tauri::command]
+#[specta::specta]
+pub fn get_model_upgrade_offer(
+    app_handle: AppHandle,
+    model_manager: State<'_, Arc<ModelManager>>,
+) -> Option<ModelInfo> {
+    crate::model_upgrade::offer(&get_settings(&app_handle))
+        .and_then(|id| model_manager.get_model_info(id))
+}
+
+/// Accepting downloads the model and switches to it when nothing is
+/// recording. Either answer is final.
+#[tauri::command]
+#[specta::specta]
+pub fn answer_model_upgrade_offer(app_handle: AppHandle, accept: bool) {
+    crate::model_upgrade::answer(&app_handle, accept);
 }

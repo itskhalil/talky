@@ -171,6 +171,7 @@ pub async fn run_session_transcription_loop(
 
             debug!("Session transcription loop ended for {}", session_id);
             let _ = app.emit("transcription-flush-complete", &session_id);
+            crate::model_upgrade::apply_pending(&app);
             break;
         }
 

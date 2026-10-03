@@ -497,6 +497,19 @@ async getRecommendedFirstModel() : Promise<Result<string, string>> {
 }
 },
 /**
+ * The more accurate model to offer this user once, if any.
+ */
+async getModelUpgradeOffer() : Promise<ModelInfo | null> {
+    return await TAURI_INVOKE("get_model_upgrade_offer");
+},
+/**
+ * Accepting downloads the model and switches to it when nothing is
+ * recording. Either answer is final.
+ */
+async answerModelUpgradeOffer(accept: boolean) : Promise<void> {
+    await TAURI_INVOKE("answer_model_upgrade_offer", { accept });
+},
+/**
  * List all stored error events, newest first. Drives the Recent Events
  * settings section.
  */
@@ -1206,7 +1219,17 @@ calendar_enabled?: boolean; debug_disable_speaker_capture?: boolean; debug_disab
  * whether to show the promotion banner. Persisted rather than fired as
  * an event to sidestep the emit-before-listener race.
  */
-pending_promotion?: boolean }
+pending_promotion?: boolean; 
+/**
+ * The one-time offer to move from Parakeet v3 to Ultra has been
+ * answered. Reset if an accepted download fails, so it's asked again.
+ */
+model_upgrade_offered?: boolean; 
+/**
+ * Accepted upgrade waiting to be applied: Talky switches to this model
+ * once it's downloaded and nothing is recording.
+ */
+model_upgrade_target?: string | null }
 export type Attachment = { id: string; session_id: string; filename: string; file_path: string; mime_type: string; file_size: number; extracted_text: string | null; created_at: number }
 export type AttendeeRole = "unknown" | "required" | "optional" | "chair" | "non_participant"
 export type AttendeeStatus = "unknown" | "pending" | "accepted" | "declined" | "tentative" | "delegated" | "completed" | "in_process"

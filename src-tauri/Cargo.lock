@@ -5273,6 +5273,7 @@ dependencies = [
  "rustfft",
  "serde",
  "serde_json",
+ "sha2",
  "signal-hook",
  "sonora",
  "specta",
