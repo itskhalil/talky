@@ -151,28 +151,21 @@ const FILLER_WORDS: &[&str] = &[
 
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
 
-/// Common hallucination patterns that Whisper produces on silent/noisy audio
+/// Output that is never speech: punctuation alone, sound-effect captions,
+/// subtitle credits and URLs. Talky's engines are Parakeet models, which
+/// don't hallucinate on silence the way Whisper did (and VAD keeps silence
+/// away from them), so short real answers like "Yes.", "No.", "Thanks." or
+/// "Bye." are kept.
 static HALLUCINATION_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     vec![
         // Single character or punctuation-only output
         Regex::new(r#"^[.!?…,;:'"]+$"#).unwrap(),
-        // "Thank you" spam (common hallucination)
-        Regex::new(r#"(?i)^(thank\s*you[.!,]?\s*)+$"#).unwrap(),
-        // Repeated phrases like "Hello"
-        Regex::new(r#"(?i)^(hello[.!,]?\s*){2,}$"#).unwrap(),
-        Regex::new(r#"(?i)^(okay[.!,]?\s*){3,}$"#).unwrap(),
         // Music/sound descriptions (shouldn't appear in speech transcription)
         Regex::new(r#"(?i)^\[.*\]$"#).unwrap(),
         // Subtitle artifacts
         Regex::new(r#"(?i)^(subtitles|captions|transcribed|translated)\s*(by|:)"#).unwrap(),
         // URL-like patterns
         Regex::new(r#"(?i)^(www\.|https?://|\.com|\.org)"#).unwrap(),
-        // Single "thank you" and multilingual equivalents (common Whisper silence hallucinations)
-        Regex::new(r#"(?i)^(thank\s*you|thanks|gracias|merci|danke|grazie|obrigado|obrigada|спасибо|ありがとう|謝謝|감사합니다)[.!,]?$"#).unwrap(),
-        // Goodbye variants
-        Regex::new(r#"(?i)^(bye|goodbye|bye-bye|adios|ciao|au revoir)[.!,]?$"#).unwrap(),
-        // Common single-word hallucinations
-        Regex::new(r#"(?i)^(yes|no|yeah|yep|nope|hmm|huh|oh|ah)[.!,]?$"#).unwrap(),
     ]
 });
 
@@ -243,8 +236,8 @@ pub fn is_hallucination(text: &str) -> bool {
         return true;
     }
 
-    // Single word that's not meaningful
-    if !trimmed.contains(' ') && trimmed.len() < 3 {
+    // A lone character ("a", "I"): not a meaningful chunk
+    if !trimmed.contains(' ') && trimmed.chars().filter(|c| c.is_alphanumeric()).count() < 2 {
         return true;
     }
 
@@ -471,11 +464,17 @@ mod tests {
 
     #[test]
     fn test_filter_stutter_mixed_case() {
-        // After collapsing 5 repetitions to "No", it's correctly classified as a
-        // single-word hallucination pattern — a lone "No" isn't useful output
+        // Repetitions collapse case-insensitively; the answer itself is kept.
         let text = "No NO no NO no";
         let result = filter_transcription_output(text);
-        assert_eq!(result, "");
+        assert_eq!(result, "No");
+    }
+
+    #[test]
+    fn test_filter_keeps_short_answers() {
+        for answer in ["Yes.", "No.", "Yeah.", "Okay.", "Thanks.", "Thank you.", "Bye."] {
+            assert_eq!(filter_transcription_output(answer), answer);
+        }
     }
 
     #[test]
