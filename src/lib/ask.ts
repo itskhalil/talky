@@ -11,8 +11,8 @@
  * tool returns is checked against the environment the question was asked
  * in, so a model can never see another environment's notes however it asks.
  *
- * This module has no React or Tauri imports. The app passes in its commands
- * (`NoteSource`); tests pass in a fake.
+ * This module has no React or Tauri imports; the app passes in its commands
+ * (`NoteSource`).
  */
 
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -231,9 +231,19 @@ ${note.userNotes || "(none)"}
 ${note.content}`;
 }
 
+/** A note the answer drew on. */
+export interface AskSource {
+  id: string;
+  title: string;
+  date: string;
+}
+
 /**
  * Run one question. Streams the answer through `onText` (the full text so
- * far) and resolves when it's done. Tool errors, such as a malformed call,
+ * far), reports the notes it drew on through `onSources`, and resolves when
+ * it's done. Sources are the notes the model read, plus any searched note
+ * whose title appears in the answer; they come from the tool calls, not
+ * from the model's own formatting. Tool errors, such as a malformed call,
  * go back to the model, which can retry; they never stall the loop.
  */
 export async function ask({
@@ -243,6 +253,7 @@ export async function ask({
   tools,
   signal,
   onText,
+  onSources,
 }: {
   model: LanguageModel;
   system: string;
@@ -250,6 +261,7 @@ export async function ask({
   tools?: ReturnType<typeof noteTools>;
   signal?: AbortSignal;
   onText: (text: string) => void;
+  onSources?: (sources: AskSource[]) => void;
 }): Promise<string> {
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
@@ -265,8 +277,24 @@ export async function ask({
   // Only the final step's text is the answer; earlier steps may narrate.
   let text = "";
   let stepText = "";
+  const read = new Map<string, AskSource>();
+  const seen = new Map<string, AskSource>();
   for await (const part of result.fullStream) {
     switch (part.type) {
+      case "tool-result": {
+        const out = part.output as {
+          title?: string;
+          date?: string;
+          notes?: AskSource[];
+        };
+        if (part.toolName === "read_note" && out.title) {
+          const id = (part.input as { id: string }).id;
+          read.set(id, { id, title: out.title, date: out.date ?? "" });
+        } else if (part.toolName === "search_notes") {
+          for (const n of out.notes ?? []) seen.set(n.id, n);
+        }
+        break;
+      }
       case "start-step":
         stepText = "";
         break;
@@ -283,6 +311,12 @@ export async function ask({
   }
   if (!text.trim()) {
     throw new Error("The model finished without an answer. Try asking again.");
+  }
+  if (onSources) {
+    const named = [...seen.values()].filter(
+      (n) => !read.has(n.id) && n.title && text.includes(n.title),
+    );
+    onSources([...read.values(), ...named]);
   }
   return text;
 }

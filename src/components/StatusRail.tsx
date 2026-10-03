@@ -31,6 +31,11 @@ export function StatusRail({ onOpenSettings }: { onOpenSettings: () => void }) {
     s.recordingSessionId ? s.cache[s.recordingSessionId]?.transcript : null,
   );
   const selectSession = useSessionStore((s) => s.selectSession);
+  // On the recording note its bar already shows the timer; just say REC.
+  const onRecordingNote = useSessionStore(
+    (s) =>
+      !!s.recordingSessionId && s.selectedSessionId === s.recordingSessionId,
+  );
   const downloadProgress = useModelStore((s) => s.downloadProgress);
   const extracting = useModelStore((s) => s.extractingModels.size > 0);
   const { getSetting, updateSetting, audioDevices, refreshAudioDevices } =
@@ -130,7 +135,11 @@ export function StatusRail({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="h-6 shrink-0 flex items-center gap-4 px-3 border-t border-border bg-background-sidebar font-mono text-label uppercase tracking-[0.05em] text-text-secondary select-none">
       <span className="text-text">{t("status.app")}</span>
-      {isRecording && recordingSessionId ? (
+      {isRecording && recordingSessionId && onRecordingNote ? (
+        <span className={item}>
+          <span className="text-text">{t("status.rec")}</span>
+        </span>
+      ) : isRecording && recordingSessionId ? (
         <button
           onClick={() => selectSession(recordingSessionId)}
           title={t("status.goToRecording")}

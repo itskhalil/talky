@@ -16,7 +16,6 @@
     "format:backend": "cd src-tauri && cargo fmt",
     "eval": "cd .AI && npx --yes promptfoo@0.120.25 eval --repeat ${npm_config_repeat:-4} -j 8 --output results.json; node summarize-results.mjs",
     "eval:summary": "node .AI/summarize-results.mjs",
-    "ask:check": "esbuild scripts/ask/check.ts --bundle --platform=node --format=esm --packages=external --outfile=scripts/ask/.check.mjs --alias:@=./src --log-level=error && node --no-warnings scripts/ask/.check.mjs",
     "eval:view": "cd .AI && npx --yes promptfoo@0.120.25 view"
   },
   "dependencies": {
@@ -70,7 +69,6 @@
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",
     "@vitejs/plugin-react": "^4.7.0",
-    "esbuild": "^0.25.12",
     "eslint": "^9.39.1",
     "eslint-plugin-i18next": "^6.1.3",
     "prettier": "^3.6.2",

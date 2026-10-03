@@ -57,10 +57,9 @@ export function RecordingPill() {
       onMouseUp={handleMouseUp}
       className="w-full h-full p-1.5 box-border cursor-pointer"
     >
-      {/* Same language as the note's bar: live dot, grey level bars, expand. */}
-      <div className="w-full h-full flex flex-col items-center justify-between py-3 bg-background border border-border-strong rounded-lg shadow-lg pointer-events-none">
-        <span className="w-2 h-2 rounded-full bg-live" />
-        <span className="text-text-secondary">
+      {/* Orange level bars are the live signal: they move with the audio. */}
+      <div className="w-full h-full flex flex-col items-center pt-2 pb-3 bg-background border border-border-strong rounded-lg shadow-lg pointer-events-none">
+        <span className="flex-1 flex items-center text-live scale-125">
           <WaveformBars amplitude={amplitude} isRecording={true} />
         </span>
         <Maximize2 size={12} className="text-mid-gray" />

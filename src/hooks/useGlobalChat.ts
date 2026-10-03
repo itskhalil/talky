@@ -8,6 +8,7 @@ import {
   buildModel,
   noteTools,
   oneNotePrompt,
+  type AskSource,
   type NoteSource,
   type NoteSummary,
 } from "@/lib/ask";
@@ -16,6 +17,8 @@ import type { Session } from "@/bindings";
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  // The notes an answer drew on (asking across notes only).
+  sources?: AskSource[];
 }
 
 interface UseGlobalChatOptions {
@@ -136,7 +139,13 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
       const setAnswer = (content: string) =>
         setMessages((prev) => {
           const next = [...prev];
-          next[next.length - 1] = { role: "assistant", content };
+          next[next.length - 1] = { ...next[next.length - 1], content };
+          return next;
+        });
+      const setSources = (sources: AskSource[]) =>
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], sources };
           return next;
         });
 
@@ -181,10 +190,11 @@ export function useGlobalChat(options: UseGlobalChatOptions = {}) {
         await ask({
           model: buildModel({ baseUrl, apiKey, model }),
           system,
-          messages: history,
+          messages: history.map(({ role, content }) => ({ role, content })),
           tools,
           signal: controller.signal,
           onText: setAnswer,
+          onSources: setSources,
         });
       } catch (err: unknown) {
         if (controller.signal.aborted) return;

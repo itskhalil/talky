@@ -89,8 +89,6 @@ A few parts of the codebase that might be interesting if you work on models or e
   cd src-tauri && cargo run --release --bin replay -- run --help
   ```
 
-- **Agent checks** ([`scripts/ask/`](scripts/ask)). The ask-across-notes agent has no React or Tauri dependencies, so it runs in Node. `npm run ask:check` tests the environment boundary deterministically, then asks real questions of a demo data directory.
-
 - **Demo data** ([`scripts/demo/`](scripts/demo)). Every screenshot here comes from a separate copy of the app seeded with invented meetings, so no real notes are in the repo.
 
 ## Development

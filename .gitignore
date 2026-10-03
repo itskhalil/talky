@@ -51,5 +51,3 @@ recording_*
 PROMPT CHANGES.md
 .env
 
-# Built by npm run ask:check
-scripts/ask/.check.mjs

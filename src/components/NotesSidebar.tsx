@@ -21,6 +21,7 @@ import {
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { commands } from "@/bindings";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -418,7 +419,10 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
       {/* Home · New · Search */}
       <div className="flex items-center gap-1 h-10 px-2.5 shrink-0">
         <button
-          onClick={deselectSession}
+          onClick={() => {
+            deselectSession();
+            useNavigationStore.getState().goHome();
+          }}
           className={`${iconButton} ${selectedId === null ? "bg-accent/8 text-text" : ""}`}
           aria-label={t("sidebar.home")}
           title={t("sidebar.home")}

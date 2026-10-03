@@ -17,6 +17,7 @@ export function HomeView() {
   const selectSession = useSessionStore((s) => s.selectSession);
   const createNote = useSessionStore((s) => s.createNote);
   const pendingAsk = useNavigationStore((s) => s.pendingAsk);
+  const homeNonce = useNavigationStore((s) => s.homeNonce);
 
   const settings = useSettingsStore((s) => s.settings);
   const environments = settings?.model_environments ?? [];
@@ -37,6 +38,13 @@ export function HomeView() {
     filterEnvironmentId: envId,
   });
   const hasConversation = chat.messages.length > 0;
+
+  // Going Home (the sidebar button, or the header link) starts afresh.
+  useEffect(() => {
+    if (homeNonce === 0) return;
+    chat.clearMessages();
+    setEnvId(defaultEnvId);
+  }, [homeNonce]);
 
   // A question handed over from the palette starts a fresh conversation in
   // the environment it was asked in.
@@ -170,36 +178,39 @@ export function HomeView() {
     <div className="flex flex-col h-full">
       <div data-tauri-drag-region className="h-8 shrink-0" />
       <div className="flex-1 min-h-0 flex flex-col bg-background overflow-hidden">
-        <div className="h-10 shrink-0 flex items-center px-4 border-b border-border">
-          <span className="font-display text-label uppercase text-text-secondary">
-            {t("sidebar.home")}
-          </span>
+        <div className="h-10 shrink-0 flex items-center gap-2 px-4 border-b border-border min-w-0">
+          {hasConversation ? (
+            <>
+              <button
+                onClick={() => useNavigationStore.getState().goHome()}
+                className="font-display text-label uppercase text-text-secondary hover:text-text transition-colors"
+              >
+                {t("sidebar.home")}
+              </button>
+              <span className="font-display text-label text-mid-gray">/</span>
+              <span className="text-xs text-text truncate">
+                {chat.messages[0]?.content}
+              </span>
+            </>
+          ) : (
+            <span className="font-display text-label uppercase text-text-secondary">
+              {t("sidebar.home")}
+            </span>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="w-full max-w-[640px] mx-auto px-6 pt-10 pb-6">
             {hasConversation ? (
               <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-2">
-                  {multiEnv && env && (
-                    <span className="flex items-center gap-1.5 text-xs text-text-secondary">
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: env.color }}
-                      />
-                      {t("home.envNotes", { env: env.name })}
-                    </span>
-                  )}
-                  <span className="flex-1" />
-                  <button
-                    onClick={() => {
-                      chat.clearMessages();
-                      inputRef.current?.focus();
-                    }}
-                    className="text-xs text-text-secondary hover:text-text"
-                  >
-                    {t("home.newQuestion")}
-                  </button>
-                </div>
+                {multiEnv && env && (
+                  <span className="flex items-center gap-1.5 text-xs text-text-secondary">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: env.color }}
+                    />
+                    {t("home.envNotes", { env: env.name })}
+                  </span>
+                )}
                 {chat.messages.map((msg, i) =>
                   msg.role === "user" ? (
                     <div
@@ -214,6 +225,27 @@ export function HomeView() {
                       className="text-sm leading-relaxed text-text select-text [&_ul]:list-disc [&_ul]:ml-5 [&_ol]:list-decimal [&_ol]:ml-5 [&_li]:my-0.5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_strong]:font-semibold [&_code]:font-mono [&_code]:text-[0.9em]"
                     >
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                          <span className="font-display text-label uppercase text-mid-gray mr-1">
+                            {t("home.sources")}
+                          </span>
+                          {msg.sources.map((src) => (
+                            <button
+                              key={src.id}
+                              onClick={() => selectSession(src.id)}
+                              className="h-6 px-2 flex items-center gap-1.5 rounded-sm border border-border text-xs text-text-secondary hover:text-text hover:border-border-strong transition-colors"
+                            >
+                              <span className="truncate max-w-[220px]">
+                                {src.title}
+                              </span>
+                              <span className="font-mono text-label text-mid-gray">
+                                {src.date}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <Loader
