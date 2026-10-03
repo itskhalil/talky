@@ -296,6 +296,9 @@ pub struct LiveTiming {
     pub spk_lead_ms: i64,
     /// System audio is delivered in bursts of this length.
     pub spk_burst_ms: u64,
+    /// The system-audio tap starts this long after the mic. What played
+    /// before then is never captured, as live.
+    pub spk_start_ms: u64,
 }
 
 /// Replay through `SessionTranscriber`, the pipeline the live app runs.
@@ -327,7 +330,7 @@ pub fn run_session_replay(
     let burst = ((timing.spk_burst_ms as usize * 16000) / 1000).max(per_tick);
     let total = mic_samples.len().max(spk_samples.len());
     let mut segments = Vec::new();
-    let mut spk_sent = 0usize;
+    let mut spk_sent = ((timing.spk_start_ms as usize * 16000) / 1000).min(spk_samples.len());
 
     let push = |segs: Vec<crate::audio_toolkit::session_transcriber::Segment>,
                 emitted_ms: i64,

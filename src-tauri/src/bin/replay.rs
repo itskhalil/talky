@@ -90,6 +90,10 @@ enum Command {
         #[arg(long, default_value = "0")]
         spk_burst_ms: u64,
 
+        /// Start system audio this late; what played before is never captured
+        #[arg(long, default_value = "0")]
+        spk_start_ms: u64,
+
         /// Output file path (default: <recording>/replay_output.json)
         #[arg(short, long)]
         output: Option<PathBuf>,
@@ -193,6 +197,7 @@ fn main() -> Result<()> {
             poll_interval_ms,
             spk_lead_ms,
             spk_burst_ms,
+            spk_start_ms,
             compare,
             output,
         } => {
@@ -219,6 +224,7 @@ fn main() -> Result<()> {
                     poll_interval_ms,
                     spk_lead_ms,
                     spk_burst_ms,
+                    spk_start_ms,
                 },
             )?;
             let out_path = output.unwrap_or_else(|| recording.join("replay_output.json"));

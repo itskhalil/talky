@@ -321,6 +321,10 @@ impl EchoCanceller {
     /// rather than holding the mic back indefinitely (system audio capture
     /// can stall or fail).
     const MAX_REFERENCE_LAG: usize = SAMPLE_RATE;
+    /// AEC3 only finds an echo within a few hundred milliseconds of its
+    /// reference (it misses at 600 ms). Streams further apart than this when
+    /// reference arrives are re-anchored.
+    const ANCHOR_TOLERANCE: usize = SAMPLE_RATE * 150 / 1000;
 
     fn new() -> Self {
         let stream = sonora::StreamConfig::new(SAMPLE_RATE as u32, 1);
@@ -342,7 +346,10 @@ impl EchoCanceller {
 
     fn process(&mut self, mic: &[f32], spk: &[f32]) -> Vec<f32> {
         self.mic.extend_from_slice(mic);
-        self.spk.extend(spk.iter().copied());
+        if !spk.is_empty() {
+            self.anchor_reference(spk.len());
+            self.spk.extend(spk.iter().copied());
+        }
         let lag = self.mic.len().saturating_sub(self.spk.len());
         if lag > Self::MAX_REFERENCE_LAG {
             let fill = lag - Self::MAX_REFERENCE_LAG;
@@ -369,6 +376,24 @@ impl EchoCanceller {
         }
         self.mic.drain(..out.len());
         out
+    }
+
+    /// Both streams are live, so the newest reference sample belongs with the
+    /// newest mic sample. Sample counts stop saying so when system audio
+    /// starts after the mic (the tap can take a second to start) or comes
+    /// back after a stall (Windows loopback sends nothing during silence), so
+    /// line the incoming reference up with the end of the mic instead.
+    fn anchor_reference(&mut self, incoming: usize) {
+        let reference_end = self.spk.len() + incoming;
+        if self.mic.len() > reference_end + Self::ANCHOR_TOLERANCE {
+            // Reference was missing: that stretch played as silence.
+            let gap = self.mic.len() - reference_end;
+            self.spk.extend(std::iter::repeat_n(0.0, gap));
+        } else if reference_end > self.mic.len() + Self::ANCHOR_TOLERANCE {
+            // Reference from before the mic started can't echo into it.
+            let surplus = (reference_end - self.mic.len()).min(self.spk.len());
+            self.spk.drain(..surplus);
+        }
     }
 
     /// Mic samples still waiting for reference audio (at the end of a session
@@ -469,6 +494,54 @@ mod tests {
         assert!(ec.process(&second, &[]).is_empty());
         let out = ec.process(&second, &[]);
         assert!(out.len() >= SAMPLE_RATE - WEBRTC_FRAME);
+    }
+
+    /// Deterministic noise standing in for far-end speech.
+    fn far_end(n: usize) -> Vec<f32> {
+        let mut seed = 12345u32;
+        (0..n)
+            .map(|_| {
+                seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                ((seed >> 8) as f32 / (1u32 << 24) as f32 - 0.5) * 0.2
+            })
+            .collect()
+    }
+
+    fn rms(x: &[f32]) -> f32 {
+        (x.iter().map(|v| v * v).sum::<f32>() / x.len() as f32).sqrt()
+    }
+
+    #[test]
+    fn echo_canceller_lines_up_a_reference_that_starts_late() {
+        // Live case: the mic starts first, the system-audio tap 900 ms later,
+        // and the audio played before the tap started is never captured.
+        // Both arrive in 100 ms ticks; the mic hears the far end 40 ms late.
+        let n = SAMPLE_RATE * 10;
+        let far = far_end(n);
+        let echo_delay = SAMPLE_RATE * 40 / 1000;
+        let mut mic = vec![0.0f32; n];
+        for i in echo_delay..n {
+            mic[i] = far[i - echo_delay] * 0.5;
+        }
+        let tick = SAMPLE_RATE / 10;
+        let tap_start = SAMPLE_RATE * 900 / 1000;
+        let mut ec = EchoCanceller::new();
+        let mut out = Vec::new();
+        for start in (0..n).step_by(tick) {
+            let end = start + tick;
+            let spk = if end > tap_start {
+                &far[start.max(tap_start)..end]
+            } else {
+                &[][..]
+            };
+            out.extend(ec.process(&mic[start..end], spk));
+        }
+        let tail = 6 * SAMPLE_RATE..out.len().min(n);
+        let reduction_db = 20.0 * (rms(&mic[tail.clone()]) / rms(&out[tail]).max(1e-9)).log10();
+        assert!(
+            reduction_db > 15.0,
+            "only {reduction_db:.1} dB of echo removed"
+        );
     }
 
     #[test]
