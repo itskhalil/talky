@@ -694,7 +694,13 @@ pub fn spawn_speaker_capture(
         let mut resampler =
             FrameResampler::new(source_rate as usize, 16000, Duration::from_millis(30));
 
-        let mut stream = speaker.stream();
+        let mut stream = match speaker.stream() {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("Failed to start system audio capture: {}", e);
+                return;
+            }
+        };
 
         log::info!("Speaker capture started (source rate={}Hz)", source_rate);
 

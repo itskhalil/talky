@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::task::Poll;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use futures_util::task::AtomicWaker;
 use futures_util::Stream;
 
@@ -23,6 +23,7 @@ pub const TAP_DEVICE_NAME: &str = "talky-audio-tap";
 
 pub struct SpeakerInput {
     tap: ca::TapGuard,
+    asbd: cat::AudioStreamBasicDesc,
     agg_desc: arc::Retained<cf::DictionaryOf<cf::String, cf::Type>>,
 }
 
@@ -58,10 +59,11 @@ impl SpeakerInput {
     pub fn new() -> Result<Self> {
         let tap_desc = ca::TapDesc::with_mono_global_tap_excluding_processes(&ns::Array::new());
         let tap = tap_desc.create_process_tap()?;
+        let asbd = tap.asbd()?;
 
         let sub_tap = cf::DictionaryOf::with_keys_values(
             &[ca::sub_device_keys::uid()],
-            &[tap.uid().unwrap().as_type_ref()],
+            &[tap.uid()?.as_type_ref()],
         );
 
         let agg_desc = cf::DictionaryOf::with_keys_values(
@@ -81,11 +83,15 @@ impl SpeakerInput {
             ],
         );
 
-        Ok(Self { tap, agg_desc })
+        Ok(Self {
+            tap,
+            asbd,
+            agg_desc,
+        })
     }
 
     pub fn sample_rate(&self) -> u32 {
-        self.tap.asbd().unwrap().sample_rate as u32
+        self.asbd.sample_rate as u32
     }
 
     fn start_device(
@@ -152,10 +158,15 @@ impl SpeakerInput {
         Ok(started_device)
     }
 
-    pub fn stream(self) -> SpeakerStream {
-        let asbd = self.tap.asbd().unwrap();
+    /// Starts the tap. Fails rather than panicking when macOS refuses to start
+    /// the device (seen while the system-audio permission prompt is pending):
+    /// release builds abort on panic, which would take the whole app down
+    /// mid-recording instead of carrying on with the mic alone.
+    pub fn stream(self) -> Result<SpeakerStream> {
+        let asbd = self.asbd;
 
-        let format = av::AudioFormat::with_asbd(&asbd).unwrap();
+        let format = av::AudioFormat::with_asbd(&asbd)
+            .ok_or_else(|| anyhow!("unsupported system audio format: {:?}", asbd))?;
 
         let rb = HeapRb::<f32>::new(BUFFER_SIZE);
         let (producer, consumer) = rb.split();
@@ -175,9 +186,9 @@ impl SpeakerInput {
             conversion_buffer: vec![0.0f32; MAX_CONVERSION_SAMPLES],
         });
 
-        let device = self.start_device(&mut ctx).unwrap();
+        let device = self.start_device(&mut ctx)?;
 
-        SpeakerStream {
+        Ok(SpeakerStream {
             consumer,
             _device: device,
             _ctx: ctx,
@@ -186,7 +197,7 @@ impl SpeakerInput {
             current_sample_rate,
             read_buffer: vec![0.0f32; CHUNK_SIZE],
             dropped_samples,
-        }
+        })
     }
 }
 

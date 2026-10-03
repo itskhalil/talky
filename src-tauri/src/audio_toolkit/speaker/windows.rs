@@ -79,8 +79,10 @@ impl SpeakerInput {
         self.sample_rate
     }
 
-    /// Start capturing speaker audio and return a stream of audio samples
-    pub fn stream(self) -> SpeakerStream {
+    /// Start capturing speaker audio and return a stream of audio samples.
+    /// Device errors surface in the capture thread's log, so this doesn't fail;
+    /// it returns `Result` to match the macOS signature.
+    pub fn stream(self) -> Result<SpeakerStream> {
         let rb = HeapRb::<f32>::new(BUFFER_SIZE);
         let (producer, consumer) = rb.split();
 
@@ -112,7 +114,7 @@ impl SpeakerInput {
             log::info!("Speaker capture thread exiting");
         });
 
-        SpeakerStream {
+        Ok(SpeakerStream {
             consumer,
             shutdown,
             _capture_thread: capture_thread,
@@ -120,7 +122,7 @@ impl SpeakerInput {
             current_sample_rate,
             read_buffer: vec![0.0f32; CHUNK_SIZE],
             dropped_samples,
-        }
+        })
     }
 }
 
