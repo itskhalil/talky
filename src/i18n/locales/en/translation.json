@@ -84,6 +84,10 @@
       "parakeet-tdt-0.6b-v3": {
         "name": "Parakeet V3",
         "description": "Fast and accurate"
+      },
+      "parakeet-ultra-coreml": {
+        "name": "Parakeet Ultra — Accelerated",
+        "description": "Most accurate. Mac only."
       }
     },
     "errors": {

@@ -17,6 +17,30 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub const ONNX_MODEL_ID: &str = "parakeet-tdt-0.6b-v3";
 pub const CORE_ML_MODEL_ID: &str = "parakeet-tdt-0.6b-v3-coreml";
+/// Parakeet Ultra: a further-trained v3 (same architecture and languages),
+/// Core ML only.
+pub const CORE_ML_ULTRA_MODEL_ID: &str = "parakeet-ultra-coreml";
+
+/// The model version the Core ML sidecar loads for a `-coreml` model id.
+pub fn coreml_version(model_id: &str) -> &'static str {
+    if model_id.contains("ultra") {
+        "ultra"
+    } else if model_id.contains("v2") {
+        "v2"
+    } else {
+        "v3"
+    }
+}
+
+/// The ONNX model to fall back to when a Core ML model can't load. Ultra
+/// has no ONNX build; v3 covers the same languages.
+pub fn coreml_onnx_fallback(model_id: &str) -> &str {
+    if model_id == CORE_ML_ULTRA_MODEL_ID {
+        ONNX_MODEL_ID
+    } else {
+        model_id.trim_end_matches("-coreml")
+    }
+}
 
 /// Recursively sum the on-disk byte size of `path`. Used for polling
 /// FluidAudio's cache dir to derive Core ML download progress. Returns 0 if
@@ -146,6 +170,26 @@ impl ModelManager {
                 is_directory: true,
                 engine_type: EngineType::Parakeet,
                 accuracy_score: 0.80,
+                speed_score: 1.0,
+            },
+        );
+
+        #[cfg(target_os = "macos")]
+        available_models.insert(
+            CORE_ML_ULTRA_MODEL_ID.to_string(),
+            ModelInfo {
+                id: CORE_ML_ULTRA_MODEL_ID.to_string(),
+                name: "Parakeet Ultra — Accelerated".to_string(),
+                description: "Most accurate".to_string(),
+                filename: "parakeet-ultra".to_string(), // FluidAudio cache subdir
+                url: None,
+                size_mb: 603,
+                is_downloaded: false,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: true,
+                engine_type: EngineType::Parakeet,
+                accuracy_score: 0.85,
                 speed_score: 1.0,
             },
         );
@@ -693,13 +737,14 @@ impl ModelManager {
             }
         });
 
+        let version = coreml_version(&model_info.id);
         let app_for_blocking = app_handle.clone();
         let model_id_for_blocking = model_id_owned.clone();
         let last_fluid_pct_for_blocking = last_fluid_pct.clone();
         let result = tokio::task::spawn_blocking(move || -> Result<()> {
             let bin = find_sidecar_binary()?;
             let mut asr = CoreMlAsr::spawn(&bin, None)?;
-            asr.load_streaming("v3", |p: CoreMlDownloadProgress| {
+            asr.load_streaming(version, |p: CoreMlDownloadProgress| {
                 log::debug!(
                     "[coreml-download] fluid tick: fraction={:.3} phase={} files={:?}/{:?}",
                     p.fraction,
@@ -738,10 +783,13 @@ impl ModelManager {
         result?;
 
         // Mark coreml_model_ready so the migration-promotion check can fire on
-        // next launch without re-probing the FluidAudio cache.
-        let mut settings = get_settings(&self.app_handle);
-        settings.coreml_model_ready = true;
-        write_settings(&self.app_handle, settings);
+        // next launch without re-probing the FluidAudio cache. The migration
+        // promotes to the v3 Core ML model, so only that download counts.
+        if model_info.id == CORE_ML_MODEL_ID {
+            let mut settings = get_settings(&self.app_handle);
+            settings.coreml_model_ready = true;
+            write_settings(&self.app_handle, settings);
+        }
 
         self.update_download_status()?;
 
@@ -783,9 +831,11 @@ impl ModelManager {
                     fs::remove_dir_all(&cache)?;
                 }
             }
-            let mut settings = get_settings(&self.app_handle);
-            settings.coreml_model_ready = false;
-            write_settings(&self.app_handle, settings);
+            if model_id == CORE_ML_MODEL_ID {
+                let mut settings = get_settings(&self.app_handle);
+                settings.coreml_model_ready = false;
+                write_settings(&self.app_handle, settings);
+            }
             self.update_download_status()?;
             return Ok(());
         }
@@ -941,10 +991,20 @@ fn coreml_dir_is_populated(dir: &std::path::Path) -> bool {
         && joints.iter().any(|name| dir.join(name).exists())
 }
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn coreml_ids_map_to_sidecar_versions_and_onnx_fallbacks() {
+        assert_eq!(coreml_version(CORE_ML_MODEL_ID), "v3");
+        assert_eq!(coreml_version(CORE_ML_ULTRA_MODEL_ID), "ultra");
+        assert_eq!(coreml_version("parakeet-tdt-0.6b-v2-coreml"), "v2");
+        assert_eq!(coreml_onnx_fallback(CORE_ML_MODEL_ID), ONNX_MODEL_ID);
+        assert_eq!(coreml_onnx_fallback(CORE_ML_ULTRA_MODEL_ID), ONNX_MODEL_ID);
+    }
+
+    #[cfg(target_os = "macos")]
     #[test]
     fn coreml_cache_with_either_joint_counts_as_downloaded() {
         let dir = std::env::temp_dir().join(format!("talky-coreml-probe-{}", std::process::id()));

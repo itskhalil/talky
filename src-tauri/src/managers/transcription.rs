@@ -261,7 +261,7 @@ impl TranscriptionManager {
                     #[cfg(target_os = "macos")]
                     {
                         use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
-                        let version = if model_id.contains("v2") { "v2" } else { "v3" };
+                        let version = crate::managers::model::coreml_version(model_id);
                         info!("loading {} via Core ML sidecar", model_id);
                         let app_handle = self.app_handle.clone();
                         let model_id_owned = model_id.to_string();
@@ -577,7 +577,7 @@ impl TranscriptionManager {
     #[cfg(target_os = "macos")]
     fn recover_coreml_or_fallback_onnx(&self, model_id: &str) -> bool {
         use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
-        let version = if model_id.contains("v2") { "v2" } else { "v3" };
+        let version = crate::managers::model::coreml_version(model_id);
 
         let respawn = || -> Result<CoreMlAsr> {
             let bin = find_sidecar_binary()?;
@@ -599,7 +599,7 @@ impl TranscriptionManager {
         }
 
         // Fallback routes to the ONNX sibling of the same Parakeet generation.
-        let onnx_id = model_id.trim_end_matches("-coreml");
+        let onnx_id = crate::managers::model::coreml_onnx_fallback(model_id);
         let model_info = match self.model_manager.get_model_info(onnx_id) {
             Some(m) if m.is_downloaded => m,
             _ => {
