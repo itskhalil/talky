@@ -71,6 +71,8 @@ tar = "0.4.44"
 flate2 = "1.0"
 transcribe-rs = { version = "0.3.11", features = ["onnx", "vad-silero"] }
 sonora = "0.2.0"
+# Evaluation only (feature `transcribe-cpp`): GGUF models in the replay tool.
+transcribe-cpp = { version = "0.2.4", optional = true }
 thiserror = "2"
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
@@ -80,6 +82,10 @@ base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.11"
 symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "ogg", "flac", "wav", "pcm"] }
+
+[features]
+# Lets the replay tool run transcribe.cpp (GGUF) models for comparison.
+transcribe-cpp = ["dep:transcribe-cpp"]
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3"

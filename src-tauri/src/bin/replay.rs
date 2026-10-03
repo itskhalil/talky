@@ -35,7 +35,7 @@ enum Command {
         #[arg(short, long)]
         model: PathBuf,
 
-        /// Model engine type: "whisper" or "parakeet"
+        /// Model engine: "parakeet", "parakeet-fp32", "coreml", "coreml-ultra" (macOS), "tcpp", "tcpp-cpu" (feature transcribe-cpp)
         #[arg(short, long, default_value = "parakeet")]
         engine: String,
 
@@ -62,7 +62,7 @@ enum Command {
         #[arg(short, long)]
         model: Option<PathBuf>,
 
-        /// Model engine type: "parakeet" or "coreml"
+        /// Model engine: "parakeet", "parakeet-fp32", "coreml", "coreml-ultra" (macOS), "tcpp", "tcpp-cpu" (feature transcribe-cpp)
         #[arg(short, long, default_value = "parakeet")]
         engine: String,
 
@@ -105,7 +105,7 @@ enum Command {
         #[arg(short, long)]
         model: Option<PathBuf>,
 
-        /// Model engine type: "whisper" or "parakeet"
+        /// Model engine: "parakeet", "parakeet-fp32", "coreml", "coreml-ultra" (macOS), "tcpp", "tcpp-cpu" (feature transcribe-cpp)
         #[arg(short, long, default_value = "parakeet")]
         engine: String,
 

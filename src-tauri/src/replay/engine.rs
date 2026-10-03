@@ -18,13 +18,15 @@ pub fn infer_secs() -> f64 {
 
 pub enum ReplayEngine {
     Parakeet(ParakeetModel),
+    #[cfg(feature = "transcribe-cpp")]
+    TranscribeCpp(transcribe_cpp::Session),
     #[cfg(target_os = "macos")]
     ParakeetCoreML(CoreMlAsr),
 }
 
 impl ReplayEngine {
-    pub fn load_parakeet(model_path: &Path) -> Result<Self> {
-        let engine = ParakeetModel::load(model_path, &Quantization::Int8)
+    pub fn load_parakeet(model_path: &Path, quantization: &Quantization) -> Result<Self> {
+        let engine = ParakeetModel::load(model_path, quantization)
             .map_err(|e| anyhow::anyhow!("Failed to load Parakeet model: {}", e))?;
         Ok(Self::Parakeet(engine))
     }
@@ -42,7 +44,35 @@ impl ReplayEngine {
             "parakeet" => {
                 let path = model_path
                     .ok_or_else(|| anyhow::anyhow!("parakeet engine requires a model path"))?;
-                Self::load_parakeet(path)
+                Self::load_parakeet(path, &Quantization::Int8)
+            }
+            // Full-precision export (`encoder-model.onnx`), for measuring
+            // what int8 quantisation costs.
+            "parakeet-fp32" => {
+                let path = model_path
+                    .ok_or_else(|| anyhow::anyhow!("parakeet engine requires a model path"))?;
+                Self::load_parakeet(path, &Quantization::FP32)
+            }
+            // transcribe.cpp on its automatic backend (Metal on Apple
+            // Silicon, Vulkan/CPU elsewhere) or strictly on the CPU.
+            #[cfg(feature = "transcribe-cpp")]
+            "tcpp" | "tcpp-cpu" => {
+                let path = model_path
+                    .ok_or_else(|| anyhow::anyhow!("tcpp engine requires a .gguf model path"))?;
+                let options = transcribe_cpp::ModelOptions {
+                    backend: if engine_type == "tcpp-cpu" {
+                        transcribe_cpp::Backend::Cpu
+                    } else {
+                        transcribe_cpp::Backend::Auto
+                    },
+                    ..Default::default()
+                };
+                let model = transcribe_cpp::Model::load_with(path, &options)
+                    .map_err(|e| anyhow::anyhow!("transcribe.cpp load failed: {e}"))?;
+                let session = model
+                    .session()
+                    .map_err(|e| anyhow::anyhow!("transcribe.cpp session failed: {e}"))?;
+                Ok(Self::TranscribeCpp(session))
             }
             #[cfg(target_os = "macos")]
             "coreml" | "coreml-v3" => Self::load_parakeet_coreml("v3"),
@@ -51,7 +81,7 @@ impl ReplayEngine {
             #[cfg(target_os = "macos")]
             "coreml-ultra" => Self::load_parakeet_coreml("ultra"),
             other => anyhow::bail!(
-                "Unknown engine type: '{}'. Use 'parakeet' or 'coreml' (macOS only).",
+                "Unknown engine type: '{}'. Use 'parakeet', 'parakeet-fp32', 'coreml', 'coreml-ultra' (macOS) or 'tcpp', 'tcpp-cpu' (feature transcribe-cpp).",
                 other
             ),
         }
@@ -102,6 +132,25 @@ impl ReplayEngine {
                 TranscriptionResult {
                     text: t.text,
                     segments,
+                }
+            }
+            #[cfg(feature = "transcribe-cpp")]
+            Self::TranscribeCpp(session) => {
+                let t = session
+                    .run(audio, &transcribe_cpp::RunOptions::default())
+                    .map_err(|e| anyhow::anyhow!("transcribe.cpp run failed: {e}"))?;
+                let segments = t
+                    .segments
+                    .iter()
+                    .map(|s| transcribe_rs::TranscriptionSegment {
+                        start: s.t0_ms as f32 / 1000.0,
+                        end: s.t1_ms as f32 / 1000.0,
+                        text: s.text.clone(),
+                    })
+                    .collect::<Vec<_>>();
+                TranscriptionResult {
+                    text: t.text,
+                    segments: (!segments.is_empty()).then_some(segments),
                 }
             }
         };
