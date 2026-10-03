@@ -2,8 +2,24 @@ fn main() {
     generate_tray_translations();
     #[cfg(target_os = "macos")]
     build_coreml_sidecar();
+    link_test_manifest();
 
     tauri_build::build()
+}
+
+/// tauri-build embeds the Common Controls v6 manifest in the app binary
+/// only. Without it, a Windows test binary links a comctl32 function that
+/// v5 lacks and won't start (STATUS_ENTRYPOINT_NOT_FOUND).
+fn link_test_manifest() {
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
+        return;
+    }
+    println!("cargo:rustc-link-arg-tests=/MANIFEST:EMBED");
+    println!(
+        "cargo:rustc-link-arg-tests=/MANIFESTDEPENDENCY:type='win32' \
+         name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+         processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'"
+    );
 }
 
 /// Build the Swift `talky-coreml-asr` sidecar (Core ML Parakeet path via FluidAudio).
