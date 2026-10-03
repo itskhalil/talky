@@ -50,3 +50,6 @@ recording_*
 !.AI/traces/query.mjs
 PROMPT CHANGES.md
 .env
+
+# Built by npm run ask:check
+scripts/ask/.check.mjs
