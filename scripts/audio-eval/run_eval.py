@@ -44,7 +44,7 @@ def main():
     ap.add_argument("--bin", default=str(REPO / "src-tauri" / "target" / "release" / "replay"))
     ap.add_argument("--sidecar", default=str(REPO / "src-tauri" / "coreml-asr" / ".build" / "release" / "talky-coreml-asr"))
     ap.add_argument("-j", type=int, default=3)
-    ap.add_argument("--subcommand", default="run")
+    ap.add_argument("--subcommand", default="session")
     args = ap.parse_args(argv)
 
     out_dir = args.root / "runs" / args.name
