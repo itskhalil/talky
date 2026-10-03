@@ -472,7 +472,15 @@ mod tests {
 
     #[test]
     fn test_filter_keeps_short_answers() {
-        for answer in ["Yes.", "No.", "Yeah.", "Okay.", "Thanks.", "Thank you.", "Bye."] {
+        for answer in [
+            "Yes.",
+            "No.",
+            "Yeah.",
+            "Okay.",
+            "Thanks.",
+            "Thank you.",
+            "Bye.",
+        ] {
             assert_eq!(filter_transcription_output(answer), answer);
         }
     }

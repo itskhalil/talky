@@ -494,6 +494,9 @@ mod tests {
         // After a few seconds to converge, most of the echo is gone.
         let tail = 5 * SAMPLE_RATE..out.len();
         let reduction_db = 20.0 * (rms(&mic[tail.clone()]) / rms(&out[tail]).max(1e-9)).log10();
-        assert!(reduction_db > 15.0, "only {reduction_db:.1} dB of echo removed");
+        assert!(
+            reduction_db > 15.0,
+            "only {reduction_db:.1} dB of echo removed"
+        );
     }
 }
