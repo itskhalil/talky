@@ -388,10 +388,18 @@ impl EchoCanceller {
         if self.mic.len() > reference_end + Self::ANCHOR_TOLERANCE {
             // Reference was missing: that stretch played as silence.
             let gap = self.mic.len() - reference_end;
+            info!(
+                "Echo reference was {} ms behind the mic; padding",
+                gap * 1000 / SAMPLE_RATE
+            );
             self.spk.extend(std::iter::repeat_n(0.0, gap));
         } else if reference_end > self.mic.len() + Self::ANCHOR_TOLERANCE {
             // Reference from before the mic started can't echo into it.
             let surplus = (reference_end - self.mic.len()).min(self.spk.len());
+            info!(
+                "Echo reference was {} ms ahead of the mic; dropping",
+                surplus * 1000 / SAMPLE_RATE
+            );
             self.spk.drain(..surplus);
         }
     }
@@ -534,6 +542,35 @@ mod tests {
             } else {
                 &[][..]
             };
+            out.extend(ec.process(&mic[start..end], spk));
+        }
+        let tail = 6 * SAMPLE_RATE..out.len().min(n);
+        let reduction_db = 20.0 * (rms(&mic[tail.clone()]) / rms(&out[tail]).max(1e-9)).log10();
+        assert!(
+            reduction_db > 15.0,
+            "only {reduction_db:.1} dB of echo removed"
+        );
+    }
+
+    #[test]
+    fn echo_canceller_tolerates_steady_reference_latency() {
+        // The re-anchoring assumes reference delivery lags the mic by less
+        // than its tolerance (measured at 20-40 ms on a MacBook). A steady
+        // 100 ms lag must leave alignment alone and still cancel.
+        let n = SAMPLE_RATE * 10;
+        let far = far_end(n);
+        let echo_delay = SAMPLE_RATE * 40 / 1000;
+        let mut mic = vec![0.0f32; n];
+        for i in echo_delay..n {
+            mic[i] = far[i - echo_delay] * 0.5;
+        }
+        let tick = SAMPLE_RATE / 10;
+        let lag = SAMPLE_RATE / 10;
+        let mut ec = EchoCanceller::new();
+        let mut out = Vec::new();
+        for start in (0..n).step_by(tick) {
+            let end = start + tick;
+            let spk = &far[start.saturating_sub(lag)..end.saturating_sub(lag)];
             out.extend(ec.process(&mic[start..end], spk));
         }
         let tail = 6 * SAMPLE_RATE..out.len().min(n);

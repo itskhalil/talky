@@ -53,6 +53,8 @@ Replay a recording through the live pipeline. Audio is fed in 250 ms ticks like 
 ./target/release/replay session ... --config '{"hangover_frames":25,"aec":false}'
 # Simulate live delivery: system audio leading its echo by 150 ms, arriving in 500 ms bursts
 ./target/release/replay session ... --spk-lead-ms 150 --spk-burst-ms 500
+# Simulate the system-audio tap starting 1 s after the mic (what played before is lost)
+./target/release/replay session ... --spk-start-ms 1000
 # Score against golden.json in the recording directory
 ./target/release/replay session ... --compare
 ```
