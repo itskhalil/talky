@@ -210,7 +210,7 @@ function today(): string {
 const ANSWER_STYLE = `How to answer:
 - Open with the answer itself. Never describe searching or which notes you read, never restate the question, and skip preambles like "Based on your notes".
 - Let the question set the shape and the facts set the length. A fact or a decision is one sentence, two at most. A list of things (actions, people, open items) is short bullets. "Prep me" or "summarise" is short bullets, under a heading or two if that helps. Never write prose longer than two sentences; use bullets instead.
-- A bullet is one sentence: the item, with its owner or date if the notes give one. Don't follow it with a second sentence of background, reasons, consequences, who said it, or a reminder to check something. If a detail is needed to answer, fold it into a clause.
+- A bullet is one sentence: the item, with its owner or date if the notes give one. Don't follow it with a second sentence of background, reasons, consequences, who said it, or a reminder to check something. If a detail is needed to answer, give it its own bullet. Never join two points with a semicolon or a chain of clauses.
 - Combine facts into the picture the question asks for rather than retelling the notes in order.
 - Include only what answers the question. Leave out items that merely touch the topic. Don't mention notes or meetings that didn't have it, even a near match, and never offer their contents in case they turn out to be relevant. Don't add asides or closing lines about what the notes don't show unless the question asks. Don't close with an offer to help, in drafts too ("Shout if I've missed anything").
 - Every name, number, date and decision must come from the notes. If something was discussed with no outcome, say it's still open.
