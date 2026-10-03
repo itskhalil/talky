@@ -231,6 +231,11 @@ ${note.userNotes || "(none)"}
 ${note.content}`;
 }
 
+/** "Sat, 3 Oct 2026" → "3 Oct": enough to tell notes apart in a chip. */
+function shortDay(date?: string): string {
+  return (date ?? "").replace(/^\w+, /, "").replace(/ \d{4}$/, "");
+}
+
 /** A note the answer drew on. */
 export interface AskSource {
   id: string;
@@ -241,8 +246,8 @@ export interface AskSource {
 /**
  * Run one question. Streams the answer through `onText` (the full text so
  * far), reports the notes it drew on through `onSources`, and resolves when
- * it's done. Sources are the notes the model read, plus any searched note
- * whose title appears in the answer; they come from the tool calls, not
+ * it's done. Sources are the notes the model read (or, if it read none, the
+ * searched notes named in the answer); they come from the tool calls, not
  * from the model's own formatting. Tool errors, such as a malformed call,
  * go back to the model, which can retry; they never stall the loop.
  */
@@ -289,9 +294,10 @@ export async function ask({
         };
         if (part.toolName === "read_note" && out.title) {
           const id = (part.input as { id: string }).id;
-          read.set(id, { id, title: out.title, date: out.date ?? "" });
+          read.set(id, { id, title: out.title, date: shortDay(out.date) });
         } else if (part.toolName === "search_notes") {
-          for (const n of out.notes ?? []) seen.set(n.id, n);
+          for (const n of out.notes ?? [])
+            seen.set(n.id, { ...n, date: shortDay(n.date) });
         }
         break;
       }
@@ -313,10 +319,11 @@ export async function ask({
     throw new Error("The model finished without an answer. Try asking again.");
   }
   if (onSources) {
-    const named = [...seen.values()].filter(
-      (n) => !read.has(n.id) && n.title && text.includes(n.title),
+    onSources(
+      read.size > 0
+        ? [...read.values()]
+        : [...seen.values()].filter((n) => n.title && text.includes(n.title)),
     );
-    onSources([...read.values(), ...named]);
   }
   return text;
 }
