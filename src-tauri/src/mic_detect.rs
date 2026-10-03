@@ -6,24 +6,24 @@ use std::collections::HashSet;
 
 /// Known meeting app bundle ID patterns
 const MEETING_APPS: &[&str] = &[
-    "us.zoom.xos",                // Zoom
-    "com.microsoft.teams",        // Teams
-    "com.google.Chrome",          // Chrome (Meet)
-    "com.google.Chrome.helper",   // Chrome helper (Meet via WebRTC)
-    "com.brave.Browser",          // Brave (Meet)
-    "com.apple.Safari",           // Safari (Meet)
-    "com.apple.WebKit",           // Safari WebKit processes (Meet/Zoom web via WebRTC)
-    "com.cisco.webexmeetingsapp", // WebEx
-    "com.tinyspeck.slackmacgap",  // Slack
-    "com.hnc.Discord",            // Discord
-    "org.chromium.Chromium",      // Chromium
-    "com.microsoft.edgemac",      // Edge (Meet)
-    "org.mozilla.firefox",        // Firefox
-    "com.operasoftware.Opera",    // Opera
-    "com.apple.FaceTime",         // FaceTime (incl. cellular calls forwarded from iPhone)
-    "net.whatsapp.WhatsApp",      // WhatsApp
+    "us.zoom.xos",                       // Zoom
+    "com.microsoft.teams",               // Teams
+    "com.google.Chrome",                 // Chrome (Meet)
+    "com.google.Chrome.helper",          // Chrome helper (Meet via WebRTC)
+    "com.brave.Browser",                 // Brave (Meet)
+    "com.apple.Safari",                  // Safari (Meet)
+    "com.apple.WebKit",                  // Safari WebKit processes (Meet/Zoom web via WebRTC)
+    "com.cisco.webexmeetingsapp",        // WebEx
+    "com.tinyspeck.slackmacgap",         // Slack
+    "com.hnc.Discord",                   // Discord
+    "org.chromium.Chromium",             // Chromium
+    "com.microsoft.edgemac",             // Edge (Meet)
+    "org.mozilla.firefox",               // Firefox
+    "com.operasoftware.Opera",           // Opera
+    "com.apple.FaceTime",                // FaceTime (incl. cellular calls forwarded from iPhone)
+    "net.whatsapp.WhatsApp",             // WhatsApp
     "org.whispersystems.signal-desktop", // Signal
-    "com.apple.ScreenContinuity", // iPhone Mirroring (Phone app)
+    "com.apple.ScreenContinuity",        // iPhone Mirroring (Phone app)
 ];
 
 /// Get bundle IDs of apps currently using the microphone input

@@ -93,7 +93,7 @@ A few parts of the codebase that might be interesting if you work on models or e
 
 ## Development
 
-Requires [Rust](https://rustup.rs) (stable), [Node.js](https://nodejs.org) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
+Requires [Rust](https://rustup.rs) (stable), [Node.js](https://nodejs.org) (version in `.nvmrc`) with npm, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
 
 ```bash
 git clone https://github.com/itskhalil/talky.git

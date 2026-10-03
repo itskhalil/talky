@@ -53,8 +53,11 @@ jobs:
           echo "Application version from tauri.conf.json: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -68,7 +71,7 @@ jobs:
           key: ${{ inputs.platform }}-${{ inputs.target }}
 
       - name: Install frontend dependencies
-        run: bun install
+        run: npm ci
 
       - name: Add Rust target
         run: rustup target add ${{ inputs.target }}

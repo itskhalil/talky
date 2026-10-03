@@ -38,7 +38,9 @@ if (cmd === "stats") {
     )
     .all();
   for (const r of rows) {
-    console.log(`${fmtTs(r.last)}  n=${r.n}  ${r.model}  ${r.case_id ?? "(no case_id)"}`);
+    console.log(
+      `${fmtTs(r.last)}  n=${r.n}  ${r.model}  ${r.case_id ?? "(no case_id)"}`,
+    );
   }
 } else if (cmd === "recent") {
   const n = Number(process.argv[3] || "20");
@@ -53,7 +55,9 @@ if (cmd === "stats") {
       .update(r.output_text)
       .digest("hex")
       .slice(0, 8);
-    const firstLine = (r.output_text.split("\n").find((l) => l.trim()) || "").slice(0, 60);
+    const firstLine = (
+      r.output_text.split("\n").find((l) => l.trim()) || ""
+    ).slice(0, 60);
     console.log(
       `#${r.id}  ${fmtTs(r.created_at)}  ${r.model}  prompt:${r.prompt_hash.slice(0, 8)}  case:${r.case_id ?? "(none)"}  out-hash:${oh}  ${firstLine}${firstLine.length === 60 ? "…" : ""}`,
     );
@@ -100,7 +104,9 @@ if (cmd === "stats") {
         .update(r.output_text)
         .digest("hex")
         .slice(0, 8);
-      const firstLine = (r.output_text.split("\n").find((l) => l.trim()) || "").slice(0, 70);
+      const firstLine = (
+        r.output_text.split("\n").find((l) => l.trim()) || ""
+      ).slice(0, 70);
       const dup = seenOut.get(oh);
       seenOut.set(oh, (dup || 0) + 1);
       console.log(
@@ -117,7 +123,9 @@ if (cmd === "stats") {
 } else if (cmd === "show") {
   const raw = process.argv[3];
   if (!raw || !/^\d+$/.test(raw)) {
-    console.error(`show: id must be an integer (got ${JSON.stringify(raw)}). Use 'recent' or 'samples' to find an id.`);
+    console.error(
+      `show: id must be an integer (got ${JSON.stringify(raw)}). Use 'recent' or 'samples' to find an id.`,
+    );
     process.exit(1);
   }
   const id = Number(raw);
