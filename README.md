@@ -127,5 +127,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Acknowledgments
 
 - **Handy** by CJ Pais, for inspiration and the core transcription stack
+- **NVIDIA** for [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (CC-BY-4.0)
+- **Moondream** for [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra) (CC-BY-4.0), and **Olicorne** for its [ONNX export](https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx)
+- **FluidAudio** by FluidInference, for running Parakeet on the Apple Neural Engine
 - **Silero** for great lightweight VAD
+- **WebRTC**'s AEC3 echo canceller, via [sonora](https://crates.io/crates/sonora)
 - **Tauri** team for the excellent Rust-based app framework
