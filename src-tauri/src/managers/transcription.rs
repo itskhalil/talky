@@ -13,6 +13,7 @@ use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter};
 use transcribe_rs::onnx::parakeet::{ParakeetModel, ParakeetParams, TimestampGranularity};
 use transcribe_rs::onnx::Quantization;
+use transcribe_rs::{TranscriptionResult, TranscriptionSegment};
 
 /// Returns the current timestamp in milliseconds since UNIX epoch.
 /// Uses `unwrap_or_default()` to avoid panicking if `SystemTime` is before UNIX epoch.
@@ -140,6 +141,14 @@ impl TranscriptionManager {
         Ok(manager)
     }
 
+    /// Counts as activity for the idle-unload watcher. The session loop calls
+    /// this while recording so a long silence mid-meeting doesn't unload the
+    /// model under it.
+    pub fn mark_active(&self) {
+        self.last_activity
+            .store(current_timestamp_ms(), Ordering::Release);
+    }
+
     pub fn is_model_loaded(&self) -> bool {
         let engine = self.engine.lock_or_recover();
         engine.is_some()
@@ -252,7 +261,7 @@ impl TranscriptionManager {
                     #[cfg(target_os = "macos")]
                     {
                         use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
-                        let version = if model_id.contains("v2") { "v2" } else { "v3" };
+                        let version = crate::managers::model::coreml_version(model_id);
                         info!("loading {} via Core ML sidecar", model_id);
                         let app_handle = self.app_handle.clone();
                         let model_id_owned = model_id.to_string();
@@ -385,7 +394,11 @@ impl TranscriptionManager {
         current_model.clone()
     }
 
-    pub fn transcribe_chunk(&self, audio: Vec<f32>) -> Result<String> {
+    /// Transcribe a chunk, keeping whatever timestamps the engine reports
+    /// (relative to the start of `audio`). Text gets the user's word
+    /// corrections and the output filter; if that leaves nothing, so do the
+    /// timestamps.
+    pub fn transcribe_chunk(&self, audio: Vec<f32>) -> Result<TranscriptionResult> {
         info!(
             "transcribe_chunk called with {} samples ({:.2}s)",
             audio.len(),
@@ -398,7 +411,10 @@ impl TranscriptionManager {
 
         if audio.is_empty() {
             debug!("transcribe_chunk: empty audio, returning empty string");
-            return Ok(String::new());
+            return Ok(TranscriptionResult {
+                text: String::new(),
+                segments: None,
+            });
         }
 
         // Wait for any ongoing model loading to complete
@@ -425,7 +441,7 @@ impl TranscriptionManager {
         let result = loop {
             let outcome = self.run_engine_once(current_audio)?;
             match outcome {
-                EngineStep::Done(text) => break text,
+                EngineStep::Done(result) => break result,
                 #[cfg(target_os = "macos")]
                 EngineStep::CoreMlFailed { err, audio } => {
                     if attempts >= 1 {
@@ -451,9 +467,9 @@ impl TranscriptionManager {
             vocab.push(user_name);
         }
         let corrected = if !vocab.is_empty() {
-            apply_custom_words(&result, &vocab, settings.word_correction_threshold)
+            apply_custom_words(&result.text, &vocab, settings.word_correction_threshold)
         } else {
-            result
+            result.text
         };
 
         let text = filter_transcription_output(&corrected);
@@ -462,7 +478,12 @@ impl TranscriptionManager {
             debug!("Chunk transcribed: len={}", text.len());
         }
 
-        Ok(text)
+        let segments = if text.is_empty() {
+            None
+        } else {
+            result.segments
+        };
+        Ok(TranscriptionResult { text, segments })
     }
 
     /// One pass of the engine match. Holds the engine mutex for the duration
@@ -506,26 +527,36 @@ impl TranscriptionManager {
                     },
                     result.text.len()
                 );
-                EngineStep::Done(result.text)
+                EngineStep::Done(result)
             }
             #[cfg(target_os = "macos")]
             LoadedEngine::ParakeetCoreML(asr) => {
                 debug!("Calling coreml-asr.transcribe: {} samples", audio.len());
                 let start = std::time::Instant::now();
-                match asr.transcribe(&audio) {
-                    Ok((text, infer_ms)) => {
+                match asr.transcribe_timed(&audio) {
+                    Ok(t) => {
                         info!(
                             "Core ML Parakeet completed in {:?} (sidecar infer {:.1}ms): '{}' ({} chars)",
                             start.elapsed(),
-                            infer_ms,
-                            if text.len() > 80 {
-                                &text[..text.floor_char_boundary(80)]
+                            t.infer_ms,
+                            if t.text.len() > 80 {
+                                &t.text[..t.text.floor_char_boundary(80)]
                             } else {
-                                &text
+                                &t.text
                             },
-                            text.len()
+                            t.text.len()
                         );
-                        EngineStep::Done(text)
+                        let segments = t.speech_span.map(|(start, end)| {
+                            vec![TranscriptionSegment {
+                                start: start as f32,
+                                end: end as f32,
+                                text: t.text.clone(),
+                            }]
+                        });
+                        EngineStep::Done(TranscriptionResult {
+                            text: t.text,
+                            segments,
+                        })
                     }
                     Err(e) => EngineStep::CoreMlFailed {
                         err: anyhow::anyhow!("Core ML Parakeet transcription failed: {}", e),
@@ -546,7 +577,7 @@ impl TranscriptionManager {
     #[cfg(target_os = "macos")]
     fn recover_coreml_or_fallback_onnx(&self, model_id: &str) -> bool {
         use crate::managers::coreml_asr::{find_sidecar_binary, CoreMlAsr};
-        let version = if model_id.contains("v2") { "v2" } else { "v3" };
+        let version = crate::managers::model::coreml_version(model_id);
 
         let respawn = || -> Result<CoreMlAsr> {
             let bin = find_sidecar_binary()?;
@@ -568,7 +599,7 @@ impl TranscriptionManager {
         }
 
         // Fallback routes to the ONNX sibling of the same Parakeet generation.
-        let onnx_id = model_id.trim_end_matches("-coreml");
+        let onnx_id = crate::managers::model::coreml_onnx_fallback(model_id);
         let model_info = match self.model_manager.get_model_info(onnx_id) {
             Some(m) if m.is_downloaded => m,
             _ => {
@@ -601,7 +632,7 @@ impl TranscriptionManager {
 }
 
 enum EngineStep {
-    Done(String),
+    Done(TranscriptionResult),
     /// Core ML failed. Audio is returned so the retry path can reuse it
     /// without allocating a second copy.
     #[cfg(target_os = "macos")]

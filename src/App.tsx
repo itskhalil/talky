@@ -9,6 +9,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { ErrorEventBanner } from "./components/error-events/ErrorEventBanner";
 import { CoreMlMigrationToast } from "./components/coreml-migration/CoreMlMigrationToast";
 import { CoreMlPromotionBanner } from "./components/coreml-migration/CoreMlPromotionBanner";
+import { ModelUpgradeOffer } from "./components/coreml-migration/ModelUpgradeOffer";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands } from "@/bindings";
@@ -151,6 +152,7 @@ function App() {
         }}
       />
       <CoreMlPromotionBanner />
+      <ModelUpgradeOffer />
       <ErrorEventBanner />
       <div className="flex-1 overflow-hidden">
         {view === "notes" ? (

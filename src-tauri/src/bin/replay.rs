@@ -2,13 +2,15 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
+use talky_app_lib::audio_toolkit::session_transcriber::TranscriberConfig;
 use talky_app_lib::replay::{
     engine::ReplayEngine,
     recording::DebugRecording,
-    runner::{apply_aec_to_mic, decode_audio_file, run_replay, transcribe_file, transcribe_raw},
+    runner::{
+        apply_aec_to_mic, decode_audio_file, run_session_replay, transcribe_file, transcribe_raw,
+        LiveTiming,
+    },
     scoring::{format_score_table, score},
-    sweep::{run_sweep, SweepConfig},
-    types::ReplayConfig,
 };
 
 #[derive(Parser)]
@@ -33,7 +35,7 @@ enum Command {
         #[arg(short, long)]
         model: PathBuf,
 
-        /// Model engine type: "whisper" or "parakeet"
+        /// Model engine: "parakeet", "parakeet-fp32", "coreml", "coreml-ultra" (macOS), "tcpp", "tcpp-cpu" (feature transcribe-cpp)
         #[arg(short, long, default_value = "parakeet")]
         engine: String,
 
@@ -50,17 +52,17 @@ enum Command {
         output: Option<PathBuf>,
     },
 
-    /// Replay a single recording through the pipeline
-    Run {
+    /// Replay a recording through the session transcriber (the live pipeline)
+    Session {
         /// Path to debug recording directory
         #[arg(short, long)]
         recording: PathBuf,
 
-        /// Path to transcription model
+        /// Path to transcription model (ONNX engines)
         #[arg(short, long)]
         model: Option<PathBuf>,
 
-        /// Model engine type: "whisper" or "parakeet"
+        /// Model engine: "parakeet", "parakeet-fp32", "coreml", "coreml-ultra" (macOS), "tcpp", "tcpp-cpu" (feature transcribe-cpp)
         #[arg(short, long, default_value = "parakeet")]
         engine: String,
 
@@ -68,55 +70,33 @@ enum Command {
         #[arg(long)]
         vad_model: PathBuf,
 
-        /// Compare against golden.json
+        /// TranscriberConfig overrides as JSON, e.g. '{"aec":false}'
+        #[arg(long, default_value = "{}")]
+        config: String,
+
+        /// Simulated polling interval
+        #[arg(long, default_value = "250")]
+        poll_interval_ms: u64,
+
+        /// Score against golden.json in the recording directory
         #[arg(long)]
         compare: bool,
 
-        /// Skip transcription, output segment boundaries only
-        #[arg(long)]
-        dry_run: bool,
+        /// Shift system audio against the mic (+: far end leads its echo)
+        #[arg(long, default_value = "0", allow_hyphen_values = true)]
+        spk_lead_ms: i64,
+
+        /// Deliver system audio in bursts of this length
+        #[arg(long, default_value = "0")]
+        spk_burst_ms: u64,
+
+        /// Start system audio this late; what played before is never captured
+        #[arg(long, default_value = "0")]
+        spk_start_ms: u64,
 
         /// Output file path (default: <recording>/replay_output.json)
         #[arg(short, long)]
         output: Option<PathBuf>,
-
-        // Parameter overrides
-        #[arg(long)]
-        vad_threshold: Option<f32>,
-        #[arg(long)]
-        vad_onset_frames: Option<u32>,
-        #[arg(long)]
-        vad_hangover_frames: Option<u32>,
-        #[arg(long)]
-        speaker_energy_threshold: Option<f32>,
-        #[arg(long)]
-        skip_mic_on_speaker_energy: Option<bool>,
-        #[arg(long)]
-        dedup_similarity: Option<f64>,
-        #[arg(long)]
-        dedup_time_overlap_ms: Option<i64>,
-        #[arg(long)]
-        min_chunk_samples: Option<usize>,
-        #[arg(long)]
-        max_chunk_samples: Option<usize>,
-        #[arg(long)]
-        overlap_samples: Option<usize>,
-        #[arg(long)]
-        aec_enabled: Option<bool>,
-        #[arg(long)]
-        window_ms: Option<usize>,
-        #[arg(long)]
-        hpf_cutoff: Option<f32>,
-        #[arg(long)]
-        target_rms: Option<f32>,
-        #[arg(long)]
-        silence_threshold: Option<f32>,
-        #[arg(long)]
-        poll_interval_ms: Option<u64>,
-        #[arg(long)]
-        spk_silence_flush_polls: Option<u32>,
-        #[arg(long)]
-        prefix_overlap_min_words: Option<usize>,
     },
 
     /// Transcribe any audio file (mp3, m4a, wav, flac, ogg)
@@ -129,7 +109,7 @@ enum Command {
         #[arg(short, long)]
         model: Option<PathBuf>,
 
-        /// Model engine type: "whisper" or "parakeet"
+        /// Model engine: "parakeet", "parakeet-fp32", "coreml", "coreml-ultra" (macOS), "tcpp", "tcpp-cpu" (feature transcribe-cpp)
         #[arg(short, long, default_value = "parakeet")]
         engine: String,
 
@@ -149,33 +129,6 @@ enum Command {
         recording: PathBuf,
 
         /// Output WAV file path (default: <recording>/mic_aec.wav)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-    },
-
-    /// Run parameter sweep across multiple configurations
-    Sweep {
-        /// Path to debug recording directory
-        #[arg(short, long)]
-        recording: PathBuf,
-
-        /// Path to transcription model
-        #[arg(short, long)]
-        model: PathBuf,
-
-        /// Model engine type
-        #[arg(short, long, default_value = "parakeet")]
-        engine: String,
-
-        /// Path to silero_vad_v4.onnx
-        #[arg(long)]
-        vad_model: PathBuf,
-
-        /// Path to sweep config JSON file
-        #[arg(long)]
-        config: PathBuf,
-
-        /// Output file path (default: <recording>/sweep_results.json)
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
@@ -235,145 +188,66 @@ fn main() -> Result<()> {
             );
         }
 
-        Command::Run {
+        Command::Session {
             recording,
             model,
             engine,
             vad_model,
-            compare,
-            dry_run,
-            output,
-            vad_threshold,
-            vad_onset_frames,
-            vad_hangover_frames,
-            speaker_energy_threshold,
-            skip_mic_on_speaker_energy,
-            dedup_similarity,
-            dedup_time_overlap_ms,
-            min_chunk_samples,
-            max_chunk_samples,
-            overlap_samples,
-            aec_enabled,
-            window_ms,
-            hpf_cutoff,
-            target_rms,
-            silence_threshold,
+            config,
             poll_interval_ms,
-            spk_silence_flush_polls,
-            prefix_overlap_min_words,
+            spk_lead_ms,
+            spk_burst_ms,
+            spk_start_ms,
+            compare,
+            output,
         } => {
             let rec = DebugRecording::load(&recording)?;
-            let mut config = ReplayConfig::from_pipeline_config(&rec.metadata.pipeline_config);
-
-            // Apply overrides
-            if let Some(v) = vad_threshold {
-                config.vad_threshold = v;
-            }
-            if let Some(v) = vad_onset_frames {
-                config.vad_onset_frames = v;
-            }
-            if let Some(v) = vad_hangover_frames {
-                config.vad_hangover_frames = v;
-            }
-            if let Some(v) = speaker_energy_threshold {
-                config.speaker_energy_threshold = v;
-            }
-            if let Some(v) = skip_mic_on_speaker_energy {
-                config.skip_mic_on_speaker_energy = v;
-            }
-            if let Some(v) = dedup_similarity {
-                config.dedup_similarity_threshold = v;
-            }
-            if let Some(v) = dedup_time_overlap_ms {
-                config.dedup_time_overlap_ms = v;
-            }
-            if let Some(v) = min_chunk_samples {
-                config.min_chunk_samples = v;
-            }
-            if let Some(v) = max_chunk_samples {
-                config.max_chunk_samples = v;
-            }
-            if let Some(v) = overlap_samples {
-                config.overlap_samples = v;
-            }
-            if let Some(v) = aec_enabled {
-                config.aec_enabled = v;
-            }
-            if let Some(v) = window_ms {
-                config.window_ms = v;
-            }
-            if let Some(v) = hpf_cutoff {
-                config.hpf_cutoff = v;
-            }
-            if let Some(v) = target_rms {
-                config.target_rms = v;
-            }
-            if let Some(v) = silence_threshold {
-                config.silence_threshold = v;
-            }
-            if let Some(v) = poll_interval_ms {
-                config.poll_interval_ms = v;
-            }
-            if let Some(v) = spk_silence_flush_polls {
-                config.spk_silence_flush_polls = v;
-            }
-            if let Some(v) = prefix_overlap_min_words {
-                config.prefix_overlap_min_words = v;
-            }
-
-            if dry_run && model.is_some() {
-                eprintln!("Warning: --model is ignored in dry-run mode");
-            }
-
-            let mut engine_instance = if !dry_run {
-                let model_path = if engine.starts_with("coreml") {
-                    None
-                } else {
-                    Some(model.ok_or_else(|| {
-                        anyhow::anyhow!("--model is required when not using --dry-run")
-                    })?)
-                };
-                Some(ReplayEngine::load(&engine, model_path.as_deref())?)
-            } else {
+            let config: TranscriberConfig = serde_json::from_str(&config)?;
+            let model_path = if engine.starts_with("coreml") {
                 None
+            } else {
+                Some(model.unwrap_or_else(|| default_model_path(&engine)))
             };
-
+            let mut eng = ReplayEngine::load(&engine, model_path.as_deref())?;
             eprintln!(
-                "Replaying: {:.1}s of audio, dry_run={}, compare={}",
-                rec.metadata.duration_seconds, dry_run, compare
+                "Session replay: {:.1}s, config {:?}",
+                rec.metadata.duration_seconds, config
             );
-            eprintln!("Config: {:?}", config);
 
-            let result = run_replay(
+            let (segments, stats) = run_session_replay(
                 &config,
                 &rec.mic_samples,
                 &rec.spk_samples,
-                engine_instance.as_mut(),
+                &mut eng,
                 &vad_model,
+                &LiveTiming {
+                    poll_interval_ms,
+                    spk_lead_ms,
+                    spk_burst_ms,
+                    spk_start_ms,
+                },
             )?;
-
-            // Output segments to file
-            let json = serde_json::to_string_pretty(&result.segments)?;
             let out_path = output.unwrap_or_else(|| recording.join("replay_output.json"));
-            std::fs::write(&out_path, &json)?;
+            std::fs::write(&out_path, serde_json::to_string_pretty(&segments)?)?;
             eprintln!(
                 "Written {} segments to {}",
-                result.segments.len(),
+                segments.len(),
                 out_path.display()
             );
-
-            // Output diagnostics to stderr
-            eprintln!("\nDiagnostics: {:?}", result.diagnostics);
-
-            // Compare against golden if requested
+            eprintln!("Stats: {:?}", stats);
             if compare {
-                if let Some(golden) = &rec.golden {
-                    let score_result = score(&result.segments, golden);
-                    eprintln!("\n{}", format_score_table(&score_result));
-                } else {
-                    eprintln!("\nWarning: --compare requested but no golden.json found in recording directory");
+                match &rec.golden {
+                    Some(golden) => {
+                        eprintln!("\n{}", format_score_table(&score(&segments, golden)))
+                    }
+                    None => eprintln!("--compare: no golden.json in {}", recording.display()),
                 }
             }
+            eprintln!(
+                "Engine time: {:.1}s for {:.1}s of audio",
+                talky_app_lib::replay::engine::infer_secs(),
+                rec.metadata.duration_seconds
+            );
         }
 
         Command::Transcribe {
@@ -432,65 +306,6 @@ fn main() -> Result<()> {
                 cleaned.len(),
                 out_path.display()
             );
-        }
-
-        Command::Sweep {
-            recording,
-            model,
-            engine,
-            vad_model,
-            config: config_path,
-            output,
-        } => {
-            let rec = DebugRecording::load(&recording)?;
-            let golden = rec.golden.as_ref().ok_or_else(|| {
-                anyhow::anyhow!("Sweep requires golden.json in the recording directory")
-            })?;
-
-            let base_config = ReplayConfig::from_pipeline_config(&rec.metadata.pipeline_config);
-            let sweep_config = SweepConfig::load(&config_path)?;
-            let mut eng = ReplayEngine::load(&engine, Some(&model))?;
-
-            eprintln!(
-                "Running sweep on {:.1}s recording with {} parameter combinations",
-                rec.metadata.duration_seconds,
-                sweep_config
-                    .parameters
-                    .values()
-                    .map(|v| v.len())
-                    .product::<usize>()
-            );
-
-            let results = run_sweep(
-                &base_config,
-                &sweep_config,
-                &rec.mic_samples,
-                &rec.spk_samples,
-                &mut eng,
-                golden,
-                &vad_model,
-            )?;
-
-            let json = serde_json::to_string_pretty(&results)?;
-            let out_path = output.unwrap_or_else(|| recording.join("sweep_results.json"));
-            std::fs::write(&out_path, &json)?;
-            eprintln!(
-                "Written {} results to {}",
-                results.len(),
-                out_path.display()
-            );
-
-            // Summary table to stderr
-            eprintln!("\n=== Sweep Results (sorted by combined WER) ===");
-            eprintln!("{:<8} {:<8} {:<8}", "Comb%", "Mic%", "Spk%");
-            for r in &results {
-                eprintln!(
-                    "{:<8.1} {:<8.1} {:<8.1}",
-                    r.score.combined_wer * 100.0,
-                    r.score.mic_wer * 100.0,
-                    r.score.spk_wer * 100.0
-                );
-            }
         }
     }
 

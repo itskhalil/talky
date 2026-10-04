@@ -2,7 +2,16 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import { useTauriEvent } from "@/hooks/useTauriEvent";
-import { CORE_ML_MODEL_ID } from "@/lib/constants/modelIds";
+import {
+  CORE_ML_MODEL_ID,
+  CORE_ML_ULTRA_MODEL_ID,
+  ONNX_ULTRA_MODEL_ID,
+} from "@/lib/constants/modelIds";
+
+// Background downloads that have no other progress UI: the v0.13 Core ML
+// migration and an accepted Ultra upgrade.
+const ULTRA_MODEL_IDS = [CORE_ML_ULTRA_MODEL_ID, ONNX_ULTRA_MODEL_ID];
+const TRACKED_MODEL_IDS = [CORE_ML_MODEL_ID, ...ULTRA_MODEL_IDS];
 
 interface DownloadProgress {
   model_id: string;
@@ -12,15 +21,15 @@ interface DownloadProgress {
 }
 
 /// Persistent non-intrusive toast shown while the v0.12 → v0.13 upgrade
-/// migration is pulling the Core ML model in the background. Listens to the
-/// shared `model-download-progress` event and filters on the Core ML model id
-/// so it doesn't light up during unrelated ONNX downloads.
+/// migration, or an accepted Ultra upgrade, downloads in the background.
+/// Listens to the shared `model-download-progress` event and filters on
+/// those model ids so it doesn't light up during unrelated downloads.
 export const CoreMlMigrationToast: React.FC = () => {
   const { t } = useTranslation();
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
 
   useTauriEvent<DownloadProgress>("model-download-progress", (payload) => {
-    if (payload.model_id !== CORE_ML_MODEL_ID) return;
+    if (!TRACKED_MODEL_IDS.includes(payload.model_id)) return;
     setProgress(payload);
     if (payload.percentage >= 100) {
       setTimeout(() => setProgress(null), 2000);
@@ -28,7 +37,7 @@ export const CoreMlMigrationToast: React.FC = () => {
   });
 
   useTauriEvent<{ model_id: string }>("model-download-complete", (payload) => {
-    if (payload.model_id === CORE_ML_MODEL_ID) {
+    if (TRACKED_MODEL_IDS.includes(payload.model_id)) {
       setProgress(null);
     }
   });
@@ -42,7 +51,9 @@ export const CoreMlMigrationToast: React.FC = () => {
       <Download className="h-4 w-4 text-logo-primary shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-text truncate">
-          {t("coremlMigration.toast", { percentage: pct })}
+          {ULTRA_MODEL_IDS.includes(progress.model_id)
+            ? t("modelUpgrade.downloading", { percentage: pct })
+            : t("coremlMigration.toast", { percentage: pct })}
         </p>
         <div className="w-full h-1 bg-mid-gray/20 rounded-full overflow-hidden mt-1.5">
           <div

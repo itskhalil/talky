@@ -1,5 +1,4 @@
 mod actions;
-pub mod aec;
 pub mod audio_toolkit;
 mod commands;
 mod crash_reporter;
@@ -12,6 +11,7 @@ mod meeting_monitor;
 mod menu;
 #[cfg(target_os = "macos")]
 mod mic_detect;
+mod model_upgrade;
 mod platform;
 #[cfg(target_os = "macos")]
 mod power_events;
@@ -517,6 +517,9 @@ pub fn run() {
             let mut settings = get_settings(&app_handle);
             let mut settings_dirty = false;
 
+            if upgrade_state != UpgradeState::NoAction {
+                model_upgrade::suppress_offer_this_launch();
+            }
             match upgrade_state {
                 UpgradeState::V012Upgrade => {
                     log::info!("v0.12.x upgrade detected; scheduling Core ML background migration");
@@ -572,6 +575,8 @@ pub fn run() {
                 // events fired here would race with React mount timing.
                 UpgradeState::PromoteReady | UpgradeState::NoAction => {}
             }
+            // Finish an accepted model upgrade cut off by quitting.
+            model_upgrade::resume(app_handle.clone());
 
             // Set up application menu (macOS uses app-level menu bar)
             let app_menu = menu::create_app_menu(&app_handle);
@@ -742,6 +747,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::models::has_any_models_available,
         commands::models::has_any_models_or_downloads,
         commands::models::get_recommended_first_model,
+        commands::models::get_model_upgrade_offer,
+        commands::models::answer_model_upgrade_offer,
         commands::list_error_events,
         commands::dismiss_error_event,
         commands::clear_error_events,

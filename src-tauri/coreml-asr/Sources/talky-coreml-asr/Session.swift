@@ -1,6 +1,13 @@
 import Foundation
 import FluidAudio
 
+struct Transcript {
+    let text: String
+    /// Seconds from the start of the submitted audio to the first and last
+    /// recognised token, when the model reports token timings.
+    let speechSpan: (start: Double, end: Double)?
+}
+
 actor Session {
     private var asrManager: AsrManager?
 
@@ -11,12 +18,13 @@ actor Session {
 
     func load(
         version: String,
-        progressHandler: DownloadUtils.ProgressHandler? = nil
+        progressHandler: ProgressHandler? = nil
     ) async throws {
         let asrVersion: AsrModelVersion
         switch version.lowercased() {
         case "v2": asrVersion = .v2
         case "v3": asrVersion = .v3
+        case "ultra": asrVersion = .ultra
         default: throw SessionError.unknownVersion(version)
         }
         let models = try await AsrModels.downloadAndLoad(
@@ -28,7 +36,7 @@ actor Session {
         self.asrManager = manager
     }
 
-    func transcribe(samples: [Float]) async throws -> String {
+    func transcribe(samples: [Float]) async throws -> Transcript {
         guard let manager = asrManager else {
             throw SessionError.notLoaded
         }
@@ -36,8 +44,14 @@ actor Session {
         if input.count < Self.minSamples {
             input.append(contentsOf: [Float](repeating: 0, count: Self.minSamples - input.count))
         }
-        let result = try await manager.transcribe(input)
-        return result.text
+        // Each chunk is an independent utterance: start from a fresh decoder.
+        var state = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
+        let result = try await manager.transcribe(input, decoderState: &state)
+        var span: (start: Double, end: Double)? = nil
+        if let timings = result.tokenTimings, let first = timings.first, let last = timings.last {
+            span = (first.startTime, last.endTime)
+        }
+        return Transcript(text: result.text, speechSpan: span)
     }
 }
 

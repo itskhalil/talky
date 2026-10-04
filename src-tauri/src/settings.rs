@@ -289,6 +289,14 @@ pub struct AppSettings {
     /// an event to sidestep the emit-before-listener race.
     #[serde(default)]
     pub pending_promotion: bool,
+    /// The one-time offer to move from Parakeet v3 to Ultra has been
+    /// answered. Reset if an accepted download fails, so it's asked again.
+    #[serde(default)]
+    pub model_upgrade_offered: bool,
+    /// Accepted upgrade waiting to be applied: Talky switches to this model
+    /// once it's downloaded and nothing is recording.
+    #[serde(default)]
+    pub model_upgrade_target: Option<String>,
 }
 
 fn default_meeting_end_action() -> String {
@@ -634,6 +642,10 @@ pub fn get_default_settings() -> AppSettings {
         coreml_model_ready: false,
         last_run_version: None,
         pending_promotion: false,
+        // Fresh installs start on the recommended model, so there's nothing
+        // to offer. Existing settings lack the field and read it as false.
+        model_upgrade_offered: true,
+        model_upgrade_target: None,
     }
 }
 

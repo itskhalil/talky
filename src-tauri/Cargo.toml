@@ -57,9 +57,9 @@ hound = "3.5.1"
 log = "0.4.25"
 env_filter = "0.1.0"
 tokio = "1.43.0"
-vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
 reqwest = { version = "0.12", features = ["json", "stream"] }
 futures-util = "0.3"
+sha2 = "0.10"
 rustfft = "6.4.0"
 ringbuf = "0.4"
 uuid = { version = "1", features = ["v4"] }
@@ -70,10 +70,10 @@ chrono = "0.4"
 rusqlite = { version = "0.37", features = ["bundled"] }
 tar = "0.4.44"
 flate2 = "1.0"
-transcribe-rs = { version = "0.3.11", features = ["onnx"] }
-ort = { version = "=2.0.0-rc.12", features = ["ndarray"] }
-ndarray = "0.17"
-realfft = "3.5.0"
+transcribe-rs = { version = "0.3.11", features = ["onnx", "vad-silero"] }
+sonora = "0.2.0"
+# Evaluation only (feature `transcribe-cpp`): GGUF models in the replay tool.
+transcribe-cpp = { version = "0.2.4", optional = true }
 thiserror = "2"
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
@@ -83,6 +83,10 @@ base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.11"
 symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "ogg", "flac", "wav", "pcm"] }
+
+[features]
+# Lets the replay tool run transcribe.cpp (GGUF) models for comparison.
+transcribe-cpp = ["dep:transcribe-cpp"]
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3"

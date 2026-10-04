@@ -75,7 +75,7 @@ struct Entry {
             case "load":
                 let version = (header["version"] as? String) ?? "v3"
                 let wantsProgress = (header["progress"] as? Bool) ?? false
-                var progressHandler: DownloadUtils.ProgressHandler? = nil
+                var progressHandler: ProgressHandler? = nil
                 if wantsProgress {
                     progressHandler = { [writer] progress in
                         var frame: [String: Any] = [
@@ -120,11 +120,16 @@ struct Entry {
                 do {
                     let clock = ContinuousClock()
                     let start = clock.now
-                    let text = try await session.transcribe(samples: samples)
+                    let result = try await session.transcribe(samples: samples)
                     let elapsed = clock.now - start
                     let inferMs = Double(elapsed.components.seconds) * 1000.0
                         + Double(elapsed.components.attoseconds) / 1e15
-                    writer.write(["ok": true, "text": text, "infer_ms": inferMs])
+                    var frame: [String: Any] = ["ok": true, "text": result.text, "infer_ms": inferMs]
+                    if let span = result.speechSpan {
+                        frame["speech_start_s"] = span.start
+                        frame["speech_end_s"] = span.end
+                    }
+                    writer.write(frame)
                 } catch {
                     writer.write(["ok": false, "error": "transcribe_failed: \(error)"])
                 }

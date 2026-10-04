@@ -98,6 +98,14 @@
       "parakeet-tdt-0.6b-v3": {
         "name": "Parakeet V3",
         "description": "Fast and accurate"
+      },
+      "parakeet-ultra": {
+        "name": "Parakeet Ultra",
+        "description": "Most accurate"
+      },
+      "parakeet-ultra-coreml": {
+        "name": "Parakeet Ultra — Accelerated",
+        "description": "Most accurate. Mac only."
       }
     },
     "errors": {
@@ -160,6 +168,15 @@
     "promotionBody": "Talky now transcribes via the Apple Neural Engine. You can switch back in Settings at any time.",
     "promotionRevert": "Revert",
     "promotionDismiss": "Got it"
+  },
+  "modelUpgrade": {
+    "offerTitle": "A more accurate model is available",
+    "offerBody": "{{name}} makes about a quarter fewer transcription mistakes. It's a {{size}} MB download, and Talky switches over when you're not recording.",
+    "download": "Download",
+    "decline": "No thanks",
+    "downloading": "Downloading the more accurate model... {{percentage}}%",
+    "appliedTitle": "Now using {{name}}",
+    "appliedBody": "You can change models in Settings."
   },
   "errorBanner": {
     "sendLogs": "Send logs",

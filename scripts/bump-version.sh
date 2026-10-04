@@ -8,8 +8,19 @@ set -euo pipefail
 #   ./scripts/bump-version.sh minor   # 0.11.2 -> 0.12.0
 #   ./scripts/bump-version.sh major   # 0.11.2 -> 1.0.0
 #   ./scripts/bump-version.sh 1.2.3   # set exact version
+#   ./scripts/bump-version.sh minor --windows   # also build fresh Windows binaries
+#
+# Without --windows the release copies the Windows installers from the last
+# release that has them, so Windows users get no code changes.
 
 cd "$(git rev-parse --show-toplevel)"
+
+release_args=()
+if [[ "${2:-}" == "--windows" ]]; then
+  release_args=(-f include_windows=true)
+elif [[ -n "${2:-}" ]]; then
+  echo "Unknown option: $2"; exit 1
+fi
 
 current=$(grep -o '"version": "[^"]*"' package.json | head -1 | cut -d'"' -f4)
 IFS='.' read -r major minor patch <<< "$current"
@@ -19,7 +30,7 @@ case "${1:-}" in
   minor) new="$major.$((minor + 1)).0" ;;
   major) new="$((major + 1)).0.0" ;;
   [0-9]*) new="$1" ;;
-  *) echo "Usage: $0 <patch|minor|major|X.Y.Z>"; exit 1 ;;
+  *) echo "Usage: $0 <patch|minor|major|X.Y.Z> [--windows]"; exit 1 ;;
 esac
 
 echo "$current -> $new"
@@ -59,7 +70,8 @@ git push
 
 # Trigger release workflow
 echo "Triggering release workflow..."
-gh workflow run release.yml
+# The guard keeps an empty array legal under `set -u` in macOS bash 3.2.
+gh workflow run release.yml ${release_args[@]+"${release_args[@]}"}
 echo "Release triggered — check https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions"
 
 cat <<NOTE

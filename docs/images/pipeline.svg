@@ -35,7 +35,7 @@
   <text x="52" y="80" class="ink">Mic</text>
   <rect x="154" y="56" width="112" height="40" rx="3" class="box"/>
   <text x="166" y="74" class="ink">Echo cancel</text>
-  <text x="166" y="88" class="muted" font-size="10">DTLN-aec · ONNX</text>
+  <text x="166" y="88" class="muted" font-size="10">WebRTC AEC3</text>
   <rect x="292" y="56" width="92" height="40" rx="3" class="box"/>
   <text x="304" y="74" class="ink">VAD</text>
   <text x="304" y="88" class="muted" font-size="10">Silero</text>
@@ -50,7 +50,7 @@
 
   <!-- ASR -->
   <rect x="410" y="92" width="176" height="62" rx="3" class="box"/>
-  <text x="422" y="112" class="ink">Parakeet TDT 0.6B v3</text>
+  <text x="422" y="112" class="ink">Parakeet Ultra</text>
   <text x="422" y="129" class="muted" font-size="10">Core ML sidecar (macOS)</text>
   <text x="422" y="144" class="muted" font-size="10">ONNX int8 (Windows)</text>
 

@@ -56,9 +56,9 @@ Or download a build from [Releases](https://github.com/itskhalil/talky/releases/
   <img src="docs/images/pipeline.svg" alt="Mic audio goes through echo cancellation and voice activity detection; system audio through voice activity detection; both into Parakeet; transcripts are stored with the note. AI calls go to one environment at a time." width="100%">
 </p>
 
-**Two streams, not one.** The microphone and system audio are recorded separately: a Core Audio process tap on macOS, WASAPI loopback on Windows. The mic stream runs through a neural echo canceller (DTLN-aec, two small ONNX models) using the system audio as its reference, so the other side's voice coming out of your speakers isn't transcribed twice. Each stream is segmented with Silero VAD and transcribed separately, which gives "Me" and "Them" labels without speaker diarisation.
+**Two streams, not one.** The microphone and system audio are recorded separately: a Core Audio process tap on macOS, WASAPI loopback on Windows. The mic stream runs through WebRTC's AEC3 echo canceller, using the system audio as its reference, so the other side's voice coming out of your speakers isn't transcribed twice. Each stream is segmented with Silero VAD and transcribed separately, which gives "Me" and "Them" labels without speaker diarisation.
 
-**On-device ASR.** Parakeet TDT 0.6B v3. On macOS it runs in a small Swift sidecar on Core ML (via FluidAudio), so inference can run on the Neural Engine. The sidecar talks to the Rust app over stdio with a length-prefixed binary protocol. On Windows the same model runs as int8 ONNX.
+**On-device ASR.** Parakeet Ultra, a further-trained Parakeet TDT 0.6B v3 that makes about a quarter fewer mistakes on meeting audio; v3 stays selectable. On macOS it runs in a small Swift sidecar on Core ML (via FluidAudio), so inference can run on the Neural Engine. The sidecar talks to the Rust app over stdio with a length-prefixed binary protocol. On Windows the same model runs as int8 ONNX.
 
 **Environments.** An environment is an endpoint, an API key and a pair of models: one for enhancing notes and one for chat. Anything that speaks the Anthropic or OpenAI APIs works, including Ollama and on-prem servers. A note belongs to exactly one environment. Asking across notes uses two tools, `search_notes` and `read_note`, and both check every note against the environment the question was asked in. The boundary is enforced in code, not in the prompt.
 
@@ -96,16 +96,18 @@ npm run tauri dev
 
 On macOS, if CMake complains, prefix with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. `Cmd+Shift+D` (or `Ctrl+Shift+D`) opens the debug pane.
 
-|        |                                                               |
-| ------ | ------------------------------------------------------------- |
-| App    | Tauri 2, Rust backend, React + TypeScript + Tailwind frontend |
-| Audio  | cpal, rubato, Core Audio process taps / WASAPI loopback       |
-| Speech | Parakeet TDT 0.6B v3 (Core ML or ONNX), Silero VAD, DTLN-aec  |
-| AI     | Vercel AI SDK, any Anthropic- or OpenAI-compatible endpoint   |
-| Data   | SQLite with FTS5                                              |
+|        |                                                                  |
+| ------ | ---------------------------------------------------------------- |
+| App    | Tauri 2, Rust backend, React + TypeScript + Tailwind frontend    |
+| Audio  | cpal, rubato, Core Audio process taps / WASAPI loopback          |
+| Speech | Parakeet Ultra and v3 (Core ML or ONNX), Silero VAD, WebRTC AEC3 |
+| AI     | Vercel AI SDK, any Anthropic- or OpenAI-compatible endpoint      |
+| Data   | SQLite with FTS5                                                 |
 
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
 
 Talky started from [Handy](https://github.com/cjpais/Handy) by CJ Pais, which supplied the original transcription stack. Thanks to the Silero, NVIDIA NeMo, FluidAudio and Tauri teams.
+
+The speech models are CC-BY-4.0: [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA, and [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra) by Moondream, with its [ONNX export](https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx) by Olicorne. Echo cancellation is WebRTC's AEC3, via [sonora](https://crates.io/crates/sonora).

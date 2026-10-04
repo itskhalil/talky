@@ -1,3 +1,4 @@
+use crate::managers::model_files::{self, RemoteFile};
 use crate::settings::{get_settings, write_settings};
 use crate::utils::MutexExt;
 use anyhow::Result;
@@ -17,6 +18,52 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub const ONNX_MODEL_ID: &str = "parakeet-tdt-0.6b-v3";
 pub const CORE_ML_MODEL_ID: &str = "parakeet-tdt-0.6b-v3-coreml";
+/// Parakeet Ultra: a further-trained v3 (same architecture and languages),
+/// Core ML only.
+pub const CORE_ML_ULTRA_MODEL_ID: &str = "parakeet-ultra-coreml";
+
+/// Parakeet Ultra on ONNX, for Windows, Linux, and Macs not using Core ML.
+pub const ONNX_ULTRA_MODEL_ID: &str = "parakeet-ultra";
+
+/// The model new installs start on, and existing v3 users are offered.
+/// Ultra makes about a quarter fewer mistakes than v3 on meeting audio.
+pub fn recommended_model_id() -> &'static str {
+    if cfg!(target_os = "macos") {
+        CORE_ML_ULTRA_MODEL_ID
+    } else {
+        ONNX_ULTRA_MODEL_ID
+    }
+}
+
+/// Models published as separate files rather than one archive.
+fn remote_files(model_id: &str) -> Option<(&'static str, &'static [RemoteFile])> {
+    (model_id == ONNX_ULTRA_MODEL_ID).then_some((
+        model_files::PARAKEET_ULTRA_ONNX_BASE,
+        model_files::PARAKEET_ULTRA_ONNX_FILES,
+    ))
+}
+
+/// The model version the Core ML sidecar loads for a `-coreml` model id.
+pub fn coreml_version(model_id: &str) -> &'static str {
+    if model_id.contains("ultra") {
+        "ultra"
+    } else if model_id.contains("v2") {
+        "v2"
+    } else {
+        "v3"
+    }
+}
+
+/// The ONNX model to fall back to when a Core ML model can't load. Ultra
+/// falls back to v3, which covers the same languages and which Macs that
+/// started on ONNX already have; almost none will have the ONNX Ultra files.
+pub fn coreml_onnx_fallback(model_id: &str) -> &str {
+    if model_id == CORE_ML_ULTRA_MODEL_ID {
+        ONNX_MODEL_ID
+    } else {
+        model_id.trim_end_matches("-coreml")
+    }
+}
 
 /// Recursively sum the on-disk byte size of `path`. Used for polling
 /// FluidAudio's cache dir to derive Core ML download progress. Returns 0 if
@@ -126,6 +173,26 @@ impl ModelManager {
             },
         );
 
+        available_models.insert(
+            ONNX_ULTRA_MODEL_ID.to_string(),
+            ModelInfo {
+                id: ONNX_ULTRA_MODEL_ID.to_string(),
+                name: "Parakeet Ultra".to_string(),
+                description: "Most accurate".to_string(),
+                filename: "parakeet-ultra-int8".to_string(), // Directory name
+                url: None,                                   // Separate files, see `remote_files`
+                size_mb: model_files::total_size(model_files::PARAKEET_ULTRA_ONNX_FILES)
+                    / 1_000_000,
+                is_downloaded: false,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: true,
+                engine_type: EngineType::Parakeet,
+                accuracy_score: 0.85,
+                speed_score: 0.85,
+            },
+        );
+
         // Core ML sibling of Parakeet v3. Storage lives in FluidAudio's cache
         // dir (~/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3/),
         // not Talky's models dir. download/is_downloaded/delete/get_model_path
@@ -146,6 +213,26 @@ impl ModelManager {
                 is_directory: true,
                 engine_type: EngineType::Parakeet,
                 accuracy_score: 0.80,
+                speed_score: 1.0,
+            },
+        );
+
+        #[cfg(target_os = "macos")]
+        available_models.insert(
+            CORE_ML_ULTRA_MODEL_ID.to_string(),
+            ModelInfo {
+                id: CORE_ML_ULTRA_MODEL_ID.to_string(),
+                name: "Parakeet Ultra — Accelerated".to_string(),
+                description: "Most accurate".to_string(),
+                filename: "parakeet-ultra".to_string(), // FluidAudio cache subdir
+                url: None,
+                size_mb: 603,
+                is_downloaded: false,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: true,
+                engine_type: EngineType::Parakeet,
+                accuracy_score: 0.85,
                 speed_score: 1.0,
             },
         );
@@ -216,21 +303,12 @@ impl ModelManager {
         )
     }
 
-    /// Fast probe: the cache is considered populated when the four expected
+    /// Fast probe: the cache is considered populated when the expected
     /// `.mlmodelc` bundles exist. Cheap enough to run on every
     /// `update_download_status`.
     #[cfg(target_os = "macos")]
     fn coreml_is_downloaded(model_filename: &str) -> bool {
-        let Some(dir) = Self::coreml_cache_path(model_filename) else {
-            return false;
-        };
-        let required = [
-            "Encoder.mlmodelc",
-            "Preprocessor.mlmodelc",
-            "Decoder.mlmodelc",
-            "JointDecision.mlmodelc",
-        ];
-        required.iter().all(|name| dir.join(name).exists())
+        Self::coreml_cache_path(model_filename).is_some_and(|dir| coreml_dir_is_populated(&dir))
     }
 
     fn update_download_status(&self) -> Result<()> {
@@ -270,12 +348,13 @@ impl ModelManager {
                     model.id, model_path, exists, is_dir, model.is_downloaded
                 );
 
-                // Get partial file size if it exists (for the .tar.gz being downloaded)
-                if partial_path.exists() {
-                    model.partial_size = partial_path.metadata().map(|m| m.len()).unwrap_or(0);
+                // Bytes so far: the .tar.gz being downloaded, or the staging
+                // dir of a model published as separate files.
+                model.partial_size = if partial_path.is_dir() {
+                    dir_size_bytes(&partial_path)
                 } else {
-                    model.partial_size = 0;
-                }
+                    partial_path.metadata().map(|m| m.len()).unwrap_or(0)
+                };
             } else {
                 // For file-based models (existing logic)
                 let model_path = self.models_dir.join(&model.filename);
@@ -302,9 +381,18 @@ impl ModelManager {
 
         // If no model is selected or selected model is empty
         if settings.selected_model.is_empty() {
-            // Find the first available (downloaded) model
+            // Prefer the recommended model, so a reinstall that still has
+            // Ultra in the shared Core ML cache starts on it; otherwise the
+            // most accurate downloaded model. Map order is arbitrary.
             let models = self.available_models.lock_or_recover();
-            if let Some(available_model) = models.values().find(|model| model.is_downloaded) {
+            let recommended = models
+                .get(recommended_model_id())
+                .filter(|model| model.is_downloaded);
+            let most_accurate = models
+                .values()
+                .filter(|model| model.is_downloaded)
+                .max_by(|a, b| a.accuracy_score.total_cmp(&b.accuracy_score));
+            if let Some(available_model) = recommended.or(most_accurate) {
                 info!(
                     "Auto-selecting model: {} ({})",
                     available_model.id, available_model.name
@@ -337,6 +425,12 @@ impl ModelManager {
         #[cfg(target_os = "macos")]
         if model_id.ends_with("-coreml") {
             return self.download_coreml_model(&model_info).await;
+        }
+
+        if let Some((base_url, files)) = remote_files(model_id) {
+            return self
+                .download_model_files(&model_info, base_url, files)
+                .await;
         }
 
         let url = model_info
@@ -617,6 +711,80 @@ impl ModelManager {
         Ok(())
     }
 
+    /// Download a model published as separate files. They land in
+    /// `<filename>.partial/`, which becomes the model directory only once
+    /// every file has checked out, so a half-finished download is never
+    /// loaded. Interrupted downloads resume from the staging dir.
+    async fn download_model_files(
+        &self,
+        model_info: &ModelInfo,
+        base_url: &str,
+        files: &[RemoteFile],
+    ) -> Result<()> {
+        let model_id = model_info.id.as_str();
+        let model_dir = self.models_dir.join(&model_info.filename);
+        let staging = self
+            .models_dir
+            .join(format!("{}.partial", model_info.filename));
+
+        if model_dir.exists() {
+            let _ = fs::remove_dir_all(&staging);
+            self.update_download_status()?;
+            return Ok(());
+        }
+
+        self.set_downloading(model_id, true);
+        let app = self.app_handle.clone();
+        let mut last_emit = std::time::Instant::now();
+        let result = model_files::download_files(
+            &reqwest::Client::new(),
+            base_url,
+            files,
+            &staging,
+            |downloaded, total| {
+                if last_emit.elapsed().as_millis() < 100 && downloaded < total {
+                    return;
+                }
+                last_emit = std::time::Instant::now();
+                let _ = app.emit(
+                    "model-download-progress",
+                    &DownloadProgress {
+                        model_id: model_id.to_string(),
+                        downloaded,
+                        total,
+                        percentage: downloaded as f64 / total.max(1) as f64 * 100.0,
+                    },
+                );
+            },
+        )
+        .await
+        .and_then(|()| Ok(fs::rename(&staging, &model_dir)?));
+
+        if let Err(e) = result {
+            self.set_downloading(model_id, false);
+            return Err(e);
+        }
+
+        {
+            let mut models = self.available_models.lock_or_recover();
+            if let Some(model) = models.get_mut(model_id) {
+                model.is_downloading = false;
+                model.is_downloaded = true;
+                model.partial_size = 0;
+            }
+        }
+        let _ = self.app_handle.emit("model-download-complete", model_id);
+        info!("Downloaded model {} to {:?}", model_id, model_dir);
+        Ok(())
+    }
+
+    fn set_downloading(&self, model_id: &str, downloading: bool) {
+        let mut models = self.available_models.lock_or_recover();
+        if let Some(model) = models.get_mut(model_id) {
+            model.is_downloading = downloading;
+        }
+    }
+
     /// Drive the sidecar's `load_streaming` as a one-shot download. Progress
     /// is driven by a Rust-side polling task that measures the FluidAudio
     /// cache directory size every 500ms and emits `model-download-progress`.
@@ -702,13 +870,14 @@ impl ModelManager {
             }
         });
 
+        let version = coreml_version(&model_info.id);
         let app_for_blocking = app_handle.clone();
         let model_id_for_blocking = model_id_owned.clone();
         let last_fluid_pct_for_blocking = last_fluid_pct.clone();
         let result = tokio::task::spawn_blocking(move || -> Result<()> {
             let bin = find_sidecar_binary()?;
             let mut asr = CoreMlAsr::spawn(&bin, None)?;
-            asr.load_streaming("v3", |p: CoreMlDownloadProgress| {
+            asr.load_streaming(version, |p: CoreMlDownloadProgress| {
                 log::debug!(
                     "[coreml-download] fluid tick: fraction={:.3} phase={} files={:?}/{:?}",
                     p.fraction,
@@ -747,10 +916,13 @@ impl ModelManager {
         result?;
 
         // Mark coreml_model_ready so the migration-promotion check can fire on
-        // next launch without re-probing the FluidAudio cache.
-        let mut settings = get_settings(&self.app_handle);
-        settings.coreml_model_ready = true;
-        write_settings(&self.app_handle, settings);
+        // next launch without re-probing the FluidAudio cache. The migration
+        // promotes to the v3 Core ML model, so only that download counts.
+        if model_info.id == CORE_ML_MODEL_ID {
+            let mut settings = get_settings(&self.app_handle);
+            settings.coreml_model_ready = true;
+            write_settings(&self.app_handle, settings);
+        }
 
         self.update_download_status()?;
 
@@ -792,9 +964,11 @@ impl ModelManager {
                     fs::remove_dir_all(&cache)?;
                 }
             }
-            let mut settings = get_settings(&self.app_handle);
-            settings.coreml_model_ready = false;
-            write_settings(&self.app_handle, settings);
+            if model_id == CORE_ML_MODEL_ID {
+                let mut settings = get_settings(&self.app_handle);
+                settings.coreml_model_ready = false;
+                write_settings(&self.app_handle, settings);
+            }
             self.update_download_status()?;
             return Ok(());
         }
@@ -826,8 +1000,13 @@ impl ModelManager {
             }
         }
 
-        // Delete partial file if it exists (same for both types)
-        if partial_path.exists() {
+        // Delete partial download if it exists: a file, or the staging dir
+        // of a model published as separate files
+        if partial_path.is_dir() {
+            info!("Deleting partial download at: {:?}", partial_path);
+            fs::remove_dir_all(&partial_path)?;
+            deleted_something = true;
+        } else if partial_path.exists() {
             info!("Deleting partial file at: {:?}", partial_path);
             fs::remove_file(&partial_path)?;
             info!("Partial file deleted successfully");
@@ -931,5 +1110,54 @@ impl ModelManager {
 
         info!("Download cancelled for: {}", model_id);
         Ok(())
+    }
+}
+
+/// FluidAudio 0.17+ loads v3-family models (v3, Ultra) with
+/// `JointDecisionv3`; caches written by older sidecars only have
+/// `JointDecision`, and 0.17 fetches the v3 joint (12 MB) on first load.
+/// Either counts as downloaded.
+#[cfg(target_os = "macos")]
+fn coreml_dir_is_populated(dir: &std::path::Path) -> bool {
+    let required = [
+        "Encoder.mlmodelc",
+        "Preprocessor.mlmodelc",
+        "Decoder.mlmodelc",
+    ];
+    let joints = ["JointDecisionv3.mlmodelc", "JointDecision.mlmodelc"];
+    required.iter().all(|name| dir.join(name).exists())
+        && joints.iter().any(|name| dir.join(name).exists())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coreml_ids_map_to_sidecar_versions_and_onnx_fallbacks() {
+        assert_eq!(coreml_version(CORE_ML_MODEL_ID), "v3");
+        assert_eq!(coreml_version(CORE_ML_ULTRA_MODEL_ID), "ultra");
+        assert_eq!(coreml_version("parakeet-tdt-0.6b-v2-coreml"), "v2");
+        assert_eq!(coreml_onnx_fallback(CORE_ML_MODEL_ID), ONNX_MODEL_ID);
+        assert_eq!(coreml_onnx_fallback(CORE_ML_ULTRA_MODEL_ID), ONNX_MODEL_ID);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn coreml_cache_with_either_joint_counts_as_downloaded() {
+        let dir = std::env::temp_dir().join(format!("talky-coreml-probe-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        for name in ["Encoder", "Preprocessor", "Decoder"] {
+            fs::create_dir_all(dir.join(format!("{name}.mlmodelc"))).unwrap();
+        }
+        assert!(!coreml_dir_is_populated(&dir));
+        // Written by FluidAudio 0.17+ (fresh install).
+        fs::create_dir_all(dir.join("JointDecisionv3.mlmodelc")).unwrap();
+        assert!(coreml_dir_is_populated(&dir));
+        // Written by an older sidecar.
+        fs::remove_dir_all(dir.join("JointDecisionv3.mlmodelc")).unwrap();
+        fs::create_dir_all(dir.join("JointDecision.mlmodelc")).unwrap();
+        assert!(coreml_dir_is_populated(&dir));
+        fs::remove_dir_all(&dir).unwrap();
     }
 }

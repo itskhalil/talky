@@ -40,6 +40,14 @@ pub struct CoreMlDownloadProgress {
     pub model_name: Option<String>,
 }
 
+pub struct CoreMlTranscript {
+    pub text: String,
+    pub infer_ms: f64,
+    /// Seconds from the clip start to the first and last token. Sidecars
+    /// built before token timings were reported leave this empty.
+    pub speech_span: Option<(f64, f64)>,
+}
+
 pub struct CoreMlAsr {
     child: Arc<Mutex<Option<Child>>>,
     stdin: ChildStdin,
@@ -162,6 +170,13 @@ impl CoreMlAsr {
     /// Transcribe 16 kHz mono f32 samples. Returns `(text, infer_ms)` where
     /// `infer_ms` is the sidecar's own wall-clock measurement of the call.
     pub fn transcribe(&mut self, samples: &[f32]) -> Result<(String, f64)> {
+        let t = self.transcribe_timed(samples)?;
+        Ok((t.text, t.infer_ms))
+    }
+
+    /// Like [`transcribe`](Self::transcribe), plus where the speech sits in
+    /// the clip when the model reports token timings.
+    pub fn transcribe_timed(&mut self, samples: &[f32]) -> Result<CoreMlTranscript> {
         if self.is_dead() {
             bail!("sidecar_dead");
         }
@@ -194,7 +209,18 @@ impl CoreMlAsr {
             .unwrap_or_default()
             .to_string();
         let infer_ms = resp.get("infer_ms").and_then(Value::as_f64).unwrap_or(0.0);
-        Ok((text, infer_ms))
+        let speech_span = match (
+            resp.get("speech_start_s").and_then(Value::as_f64),
+            resp.get("speech_end_s").and_then(Value::as_f64),
+        ) {
+            (Some(start), Some(end)) if end >= start => Some((start, end)),
+            _ => None,
+        };
+        Ok(CoreMlTranscript {
+            text,
+            infer_ms,
+            speech_span,
+        })
     }
 
     fn send_header(&mut self, header: &Value, body: Option<&[u8]>) -> Result<()> {

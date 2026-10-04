@@ -130,7 +130,9 @@ pub fn request_system_audio_permission() -> Result<(), String> {
         let speaker =
             SpeakerInput::new().map_err(|e| format!("Failed to create audio tap: {}", e))?;
         // Calling stream() starts the device which triggers the permission dialog
-        let _stream = speaker.stream();
+        let _stream = speaker
+            .stream()
+            .map_err(|e| format!("Failed to start audio tap: {}", e))?;
         // The stream is dropped immediately, we just needed to trigger the permission
     }
     // On Windows, WASAPI loopback doesn't require special permissions
