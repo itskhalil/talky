@@ -34,6 +34,8 @@ Transcription runs locally with NVIDIA's Parakeet model. None of your meeting co
 
 **Keep confidential meetings separate.** Each note belongs to one environment, and every AI call goes to that environment's endpoint with that environment's notes only.
 
+<img src="docs/images/pipeline.svg" alt="Mic audio goes through echo cancellation and voice activity detection; system audio through voice activity detection; both into Parakeet; transcripts are stored with the note. AI calls go to one environment at a time." width="100%">
+
 ## Install
 
 **macOS** (Apple Silicon)
@@ -51,10 +53,6 @@ irm https://raw.githubusercontent.com/itskhalil/talky/main/scripts/install.ps1 |
 Or download a build from [Releases](https://github.com/itskhalil/talky/releases/latest).
 
 ## How it works
-
-<p align="center">
-  <img src="docs/images/pipeline.svg" alt="Mic audio goes through echo cancellation and voice activity detection; system audio through voice activity detection; both into Parakeet; transcripts are stored with the note. AI calls go to one environment at a time." width="100%">
-</p>
 
 **Two streams, not one.** The microphone and system audio are recorded separately: a Core Audio process tap on macOS, WASAPI loopback on Windows. The mic stream runs through WebRTC's AEC3 echo canceller, using the system audio as its reference, so the other side's voice coming out of your speakers isn't transcribed twice. Each stream is segmented with Silero VAD and transcribed separately, which gives "Me" and "Them" labels without speaker diarisation.
 
