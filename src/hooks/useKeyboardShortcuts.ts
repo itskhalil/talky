@@ -37,8 +37,8 @@ export function useKeyboardShortcuts({
       }
 
       if (mod && e.key === "k") {
-        // In editors/inputs, Cmd+K belongs to the editor (link insertion).
-        if (isTextInput(document.activeElement)) return;
+        // The notes editor takes Cmd+K for links when text is selected.
+        if (e.defaultPrevented) return;
         e.preventDefault();
         useCommandPaletteStore.getState().toggle();
         return;

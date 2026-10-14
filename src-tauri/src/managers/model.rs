@@ -311,6 +311,15 @@ impl ModelManager {
         Self::coreml_cache_path(model_filename).is_some_and(|dir| coreml_dir_is_populated(&dir))
     }
 
+    /// A Core ML v3 cache from before FluidAudio 0.17, which still has to
+    /// fetch `JointDecisionv3` (12 MB) on its next load.
+    #[cfg(target_os = "macos")]
+    pub fn coreml_v3_lacks_joint() -> bool {
+        Self::coreml_cache_path(ONNX_MODEL_ID).is_some_and(|dir| {
+            coreml_dir_is_populated(&dir) && !dir.join("JointDecisionv3.mlmodelc").exists()
+        })
+    }
+
     fn update_download_status(&self) -> Result<()> {
         let mut models = self.available_models.lock_or_recover();
 

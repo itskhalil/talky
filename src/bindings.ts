@@ -1229,7 +1229,12 @@ model_upgrade_offered?: boolean;
  * Accepted upgrade waiting to be applied: Talky switches to this model
  * once it's downloaded and nothing is recording.
  */
-model_upgrade_target?: string | null }
+model_upgrade_target?: string | null; 
+/**
+ * The model an applied upgrade replaced, removed once the new one has
+ * loaded, so a failed first load leaves the old one to go back to.
+ */
+model_upgrade_replaced?: string | null }
 export type Attachment = { id: string; session_id: string; filename: string; file_path: string; mime_type: string; file_size: number; extracted_text: string | null; created_at: number }
 export type AttendeeRole = "unknown" | "required" | "optional" | "chair" | "non_participant"
 export type AttendeeStatus = "unknown" | "pending" | "accepted" | "declined" | "tentative" | "delegated" | "completed" | "in_process"

@@ -249,6 +249,10 @@ impl TranscriptionManager {
             return Err(anyhow::anyhow!(error_msg));
         }
 
+        // Set when a Core ML model couldn't load and ONNX stands in for it.
+        #[allow(unused_mut)]
+        let mut fell_back = false;
+
         // Create appropriate engine based on model type
         let loaded_engine = match model_info.engine_type {
             EngineType::Parakeet => {
@@ -283,23 +287,33 @@ impl TranscriptionManager {
                                 msg,
                             );
                         };
-                        let bin = find_sidecar_binary().map_err(|e| {
-                            let msg = format!("Core ML sidecar lookup failed: {}", e);
-                            emit_failure(msg.clone());
-                            anyhow::anyhow!(msg)
-                        })?;
-                        let mut asr = CoreMlAsr::spawn(&bin, Some(self.app_handle.clone()))
-                            .map_err(|e| {
-                                let msg = format!("Core ML sidecar spawn failed: {}", e);
-                                emit_failure(msg.clone());
-                                anyhow::anyhow!(msg)
-                            })?;
-                        asr.load(version).map_err(|e| {
-                            let msg = format!("Core ML sidecar load failed: {}", e);
-                            emit_failure(msg.clone());
-                            anyhow::anyhow!(msg)
-                        })?;
-                        LoadedEngine::ParakeetCoreML(asr)
+                        let coreml = || -> Result<CoreMlAsr> {
+                            let bin = find_sidecar_binary()
+                                .map_err(|e| anyhow::anyhow!("sidecar lookup failed: {}", e))?;
+                            let mut asr = CoreMlAsr::spawn(&bin, Some(self.app_handle.clone()))
+                                .map_err(|e| anyhow::anyhow!("sidecar spawn failed: {}", e))?;
+                            asr.load(version)
+                                .map_err(|e| anyhow::anyhow!("sidecar load failed: {}", e))?;
+                            Ok(asr)
+                        };
+                        match coreml() {
+                            Ok(asr) => LoadedEngine::ParakeetCoreML(asr),
+                            // A load can fail where a transcription wouldn't:
+                            // offline, FluidAudio fetches files it's missing.
+                            // Record on ONNX rather than not at all.
+                            Err(e) => match self.load_onnx_fallback(model_id) {
+                                Some(engine) => {
+                                    warn!("Core ML load failed ({}); using ONNX", e);
+                                    fell_back = true;
+                                    LoadedEngine::Parakeet(engine)
+                                }
+                                None => {
+                                    let msg = format!("Core ML {}", e);
+                                    emit_failure(msg.clone());
+                                    return Err(anyhow::anyhow!(msg));
+                                }
+                            },
+                        }
                     }
                     #[cfg(not(target_os = "macos"))]
                     unreachable!()
@@ -351,6 +365,12 @@ impl TranscriptionManager {
                 error: None,
             },
         );
+
+        // Only once the new model has actually loaded is the one it replaced
+        // safe to remove.
+        if !fell_back {
+            crate::model_upgrade::remove_replaced_model(&self.app_handle, model_id);
+        }
 
         let load_duration = load_start.elapsed();
         debug!(
@@ -598,7 +618,17 @@ impl TranscriptionManager {
             }
         }
 
-        // Fallback routes to the ONNX sibling of the same Parakeet generation.
+        let Some(engine) = self.load_onnx_fallback(model_id) else {
+            return false;
+        };
+        let mut engine_guard = self.engine.lock_or_recover();
+        *engine_guard = Some(LoadedEngine::Parakeet(engine));
+        true
+    }
+
+    /// Load the ONNX sibling of a Core ML model, if it's on disk.
+    #[cfg(target_os = "macos")]
+    fn load_onnx_fallback(&self, model_id: &str) -> Option<ParakeetModel> {
         let onnx_id = crate::managers::model::coreml_onnx_fallback(model_id);
         let model_info = match self.model_manager.get_model_info(onnx_id) {
             Some(m) if m.is_downloaded => m,
@@ -607,27 +637,26 @@ impl TranscriptionManager {
                     "ONNX fallback unavailable: {} not downloaded (user likely picked Accelerated-only)",
                     onnx_id
                 );
-                return false;
+                return None;
             }
         };
         let model_path = match self.model_manager.get_model_path(onnx_id) {
             Ok(p) => p,
             Err(e) => {
                 warn!("ONNX fallback unavailable: {}", e);
-                return false;
+                return None;
             }
         };
-        let engine = match ParakeetModel::load(&model_path, &Quantization::Int8) {
-            Ok(engine) => engine,
+        match ParakeetModel::load(&model_path, &Quantization::Int8) {
+            Ok(engine) => {
+                info!("Fell back to ONNX Parakeet ({})", model_info.name);
+                Some(engine)
+            }
             Err(e) => {
                 warn!("ONNX fallback load failed: {}", e);
-                return false;
+                None
             }
-        };
-        info!("Fell back to ONNX Parakeet ({})", model_info.name);
-        let mut engine_guard = self.engine.lock_or_recover();
-        *engine_guard = Some(LoadedEngine::Parakeet(engine));
-        true
+        }
     }
 }
 
