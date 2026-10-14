@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "talky": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/src/index.js"]
+    }
+  }
+}
