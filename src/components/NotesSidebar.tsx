@@ -227,14 +227,16 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   }, [isAddingFolder]);
 
   // ---- current view ----
-  const selectedTag = tags.find((tag) => tag.id === selectedTagIds[0]);
+  // A folder and any number of tags combine: notes in the folder that carry
+  // every selected tag.
   const selectedFolder = folders.find((f) => f.id === selectedFolderId);
-  const viewLabel = selectedFolder
-    ? selectedFolder.name
-    : selectedTag
-      ? `#${selectedTag.name}`
-      : t("sidebar.allNotes");
-  const isAllNotes = !selectedFolder && !selectedTag;
+  const selectedTagNames = tags
+    .filter((tag) => selectedTagIds.includes(tag.id))
+    .map((tag) => `#${tag.name}`);
+  const isAllNotes = !selectedFolder && selectedTagNames.length === 0;
+  const viewLabel = isAllNotes
+    ? t("sidebar.allNotes")
+    : [selectedFolder?.name, ...selectedTagNames].filter(Boolean).join(" · ");
 
   const showAll = useCallback(() => {
     selectFolder(null);
@@ -242,16 +244,13 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
   }, [selectFolder, clearTagFilters]);
 
   const chooseFolder = (id: string) => {
-    clearTagFilters();
     selectFolder(id);
     setMenuOpen(false);
   };
 
+  // Tags toggle and leave the menu open, so several can be picked.
   const chooseTag = (id: string) => {
-    selectFolder(null);
-    clearTagFilters();
     toggleTagFilter(id);
-    setMenuOpen(false);
   };
 
   const handleAddFolder = async () => {
@@ -529,9 +528,13 @@ export const NotesSidebar: React.FC<NotesSidebarProps> = ({
               menuRow(
                 tag.id,
                 tag.name,
-                <Hash size={12} />,
+                selectedTagIds.includes(tag.id) ? (
+                  <Check size={12} />
+                ) : (
+                  <Hash size={12} />
+                ),
                 null,
-                selectedTagIds[0] === tag.id,
+                selectedTagIds.includes(tag.id),
                 () => chooseTag(tag.id),
               ),
             )}
