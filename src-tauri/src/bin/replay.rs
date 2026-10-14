@@ -82,9 +82,11 @@ enum Command {
         #[arg(long)]
         compare: bool,
 
-        /// Shift system audio against the mic (+: far end leads its echo)
-        #[arg(long, default_value = "0", allow_hyphen_values = true)]
-        spk_lead_ms: i64,
+        /// Shift system audio against the mic (+: far end leads its echo).
+        /// Without it, a recording whose system audio is misaligned with its
+        /// echo is lined up automatically.
+        #[arg(long, allow_hyphen_values = true)]
+        spk_lead_ms: Option<i64>,
 
         /// Deliver system audio in bursts of this length
         #[arg(long, default_value = "0")]
@@ -159,7 +161,8 @@ fn main() -> Result<()> {
             no_aec,
             output,
         } => {
-            let rec = DebugRecording::load(&recording)?;
+            let mut rec = DebugRecording::load(&recording)?;
+            report_alignment(rec.align_echo_reference());
             let mut eng = ReplayEngine::load(&engine, Some(&model))?;
 
             eprintln!(
@@ -201,7 +204,10 @@ fn main() -> Result<()> {
             compare,
             output,
         } => {
-            let rec = DebugRecording::load(&recording)?;
+            let mut rec = DebugRecording::load(&recording)?;
+            if spk_lead_ms.is_none() {
+                report_alignment(rec.align_echo_reference());
+            }
             let config: TranscriberConfig = serde_json::from_str(&config)?;
             let model_path = if engine.starts_with("coreml") {
                 None
@@ -222,7 +228,7 @@ fn main() -> Result<()> {
                 &vad_model,
                 &LiveTiming {
                     poll_interval_ms,
-                    spk_lead_ms,
+                    spk_lead_ms: spk_lead_ms.unwrap_or(0),
                     spk_burst_ms,
                     spk_start_ms,
                 },
@@ -279,7 +285,8 @@ fn main() -> Result<()> {
         }
 
         Command::AecMic { recording, output } => {
-            let rec = DebugRecording::load(&recording)?;
+            let mut rec = DebugRecording::load(&recording)?;
+            report_alignment(rec.align_echo_reference());
             eprintln!(
                 "Applying AEC to mic: {:.1}s ({} samples)",
                 rec.mic_samples.len() as f64 / 16000.0,
@@ -310,4 +317,10 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn report_alignment(shift_ms: i64) {
+    if shift_ms != 0 {
+        eprintln!("System audio was misaligned with its echo; shifted it {shift_ms:+} ms");
+    }
 }
