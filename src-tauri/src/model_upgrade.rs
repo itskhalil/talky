@@ -113,7 +113,10 @@ pub fn apply_pending(app: &AppHandle) {
     // this can't race a recording that starts during a long first load
     // (Core ML compiles Ultra on first use).
     let mut settings = get_settings(app);
-    settings.selected_model = target.clone();
+    settings.model_upgrade_replaced = Some(std::mem::replace(
+        &mut settings.selected_model,
+        target.clone(),
+    ));
     settings.model_upgrade_target = None;
     write_settings(app, settings);
     let transcription = app.state::<Arc<TranscriptionManager>>();
@@ -124,6 +127,31 @@ pub fn apply_pending(app: &AppHandle) {
     }
     info!("Switched to {}", target);
     let _ = app.emit("model-upgrade-applied", &target);
+}
+
+/// Delete the model an upgrade replaced (about 600 MB), once the model it
+/// switched to has loaded. Called after every successful load; a no-op
+/// unless an upgrade is waiting on its first load.
+pub fn remove_replaced_model(app: &AppHandle, loaded: &str) {
+    let mut settings = get_settings(app);
+    let Some(replaced) = settings.model_upgrade_replaced.clone() else {
+        return;
+    };
+    if settings.selected_model != loaded {
+        return;
+    }
+    settings.model_upgrade_replaced = None;
+    write_settings(app, settings);
+    // The user may have picked another model by hand since; keep the old
+    // one unless it's the upgrade itself that loaded.
+    if upgrade_for(&replaced) != Some(loaded) {
+        return;
+    }
+    let manager = app.state::<Arc<ModelManager>>();
+    match manager.delete_model(&replaced) {
+        Ok(()) => info!("Removed {}, replaced by {}", replaced, loaded),
+        Err(e) => warn!("Couldn't remove {}: {}", replaced, e),
+    }
 }
 
 #[cfg(test)]

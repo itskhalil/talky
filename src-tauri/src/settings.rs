@@ -297,6 +297,10 @@ pub struct AppSettings {
     /// once it's downloaded and nothing is recording.
     #[serde(default)]
     pub model_upgrade_target: Option<String>,
+    /// The model an applied upgrade replaced, removed once the new one has
+    /// loaded, so a failed first load leaves the old one to go back to.
+    #[serde(default)]
+    pub model_upgrade_replaced: Option<String>,
 }
 
 fn default_meeting_end_action() -> String {
@@ -646,6 +650,7 @@ pub fn get_default_settings() -> AppSettings {
         // to offer. Existing settings lack the field and read it as false.
         model_upgrade_offered: true,
         model_upgrade_target: None,
+        model_upgrade_replaced: None,
     }
 }
 

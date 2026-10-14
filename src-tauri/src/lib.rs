@@ -578,6 +578,20 @@ pub fn run() {
             // Finish an accepted model upgrade cut off by quitting.
             model_upgrade::resume(app_handle.clone());
 
+            // Caches written before FluidAudio 0.17 lack the v3 joint
+            // network, which it fetches on first load. Load now, while
+            // the user is online from downloading the update, rather than
+            // at their first recording, which may be offline.
+            #[cfg(target_os = "macos")]
+            if get_settings(&app_handle).selected_model == CORE_ML_MODEL_ID
+                && managers::model::ModelManager::coreml_v3_lacks_joint()
+            {
+                log::info!("Core ML v3 cache lacks the v3 joint; loading to fetch it");
+                app_handle
+                    .state::<Arc<TranscriptionManager>>()
+                    .initiate_model_load();
+            }
+
             // Set up application menu (macOS uses app-level menu bar)
             let app_menu = menu::create_app_menu(&app_handle);
             if let Err(e) = app_handle.set_menu(app_menu) {

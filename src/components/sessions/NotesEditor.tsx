@@ -147,7 +147,11 @@ export function NotesEditor({
     name: "markdownShortcuts",
     addKeyboardShortcuts() {
       return {
+        // Cmd+K links selected text or edits a link; otherwise it falls
+        // through to the command palette, as in Notion and Slack.
         "Mod-k": ({ editor }) => {
+          if (editor.state.selection.empty && !editor.isActive("link"))
+            return false;
           openLinkPromptRef.current(editor);
           return true;
         },
