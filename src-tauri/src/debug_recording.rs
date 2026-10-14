@@ -60,6 +60,7 @@ pub struct DebugRecordingWriter {
     mic_writer: WavWriter<BufWriter<File>>,
     spk_writer: WavWriter<BufWriter<File>>,
     mic_sample_count: usize,
+    spk_sample_count: usize,
 }
 
 impl DebugRecordingWriter {
@@ -80,6 +81,7 @@ impl DebugRecordingWriter {
             mic_writer,
             spk_writer,
             mic_sample_count: 0,
+            spk_sample_count: 0,
         })
     }
 
@@ -91,7 +93,21 @@ impl DebugRecordingWriter {
         self.mic_sample_count += samples.len();
     }
 
+    /// System audio can start after the mic (the tap takes a second to
+    /// start) or stall. Write the missing stretch as silence, as the echo
+    /// canceller treats it, so the two files stay aligned by sample position.
+    /// Call after `write_mic` for the same tick.
     pub fn write_spk(&mut self, samples: &[f32]) {
+        const TOLERANCE: usize = 16000 * 150 / 1000;
+        let reference_end = self.spk_sample_count + samples.len();
+        if !samples.is_empty() && self.mic_sample_count > reference_end + TOLERANCE {
+            let gap = self.mic_sample_count - reference_end;
+            for _ in 0..gap {
+                let _ = self.spk_writer.write_sample(0i16);
+            }
+            self.spk_sample_count += gap;
+        }
+        self.spk_sample_count += samples.len();
         for &sample in samples {
             let s = (sample * i16::MAX as f32).clamp(i16::MIN as f32, i16::MAX as f32) as i16;
             let _ = self.spk_writer.write_sample(s);
@@ -168,4 +184,32 @@ pub fn delete_session_recording(recordings_dir: &Path, session_id: &str) -> Resu
             .with_context(|| format!("Failed to delete debug recording dir: {session_dir:?}"))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn late_system_audio_is_padded_to_the_mic() {
+        let dir = std::env::temp_dir().join(format!("talky-debug-rec-{}", std::process::id()));
+        let mut w = DebugRecordingWriter::create(dir.clone()).unwrap();
+        let tick = vec![0.0f32; 4000];
+        // The tap delivers nothing for the first second, then keeps pace.
+        for _ in 0..4 {
+            w.write_mic(&tick);
+            w.write_spk(&[]);
+        }
+        for _ in 0..4 {
+            w.write_mic(&tick);
+            w.write_spk(&tick);
+        }
+        assert_eq!(w.spk_sample_count, w.mic_sample_count);
+        // A steady small lag is left alone.
+        w.write_mic(&tick);
+        w.write_spk(&tick[..2000]);
+        assert_eq!(w.spk_sample_count + 2000, w.mic_sample_count);
+        drop(w);
+        let _ = fs::remove_dir_all(dir);
+    }
 }

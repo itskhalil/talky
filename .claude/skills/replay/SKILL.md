@@ -59,6 +59,11 @@ Replay a recording through the live pipeline. Audio is fed in 250 ms ticks like 
 ./target/release/replay session ... --compare
 ```
 
+Recordings whose system audio is out of line with its echo in the mic are lined up automatically on load
+(`session` without `--spk-lead-ms`, `transcribe-raw`, `aec-mic`): replay prints the shift it applied. Debug
+recordings made before Oct 2026 start the system audio 1.2-1.5 s early because the recorder didn't pad the
+tap's late start; replaying them unaligned shows echo the live app never had.
+
 Output segments carry `emitted_ms` (when the segment was produced) alongside `start_ms`/`end_ms` (where the
 speech is).
 
