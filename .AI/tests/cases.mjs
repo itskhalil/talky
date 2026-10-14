@@ -38,7 +38,9 @@ export default function () {
 
     const golden = readFileSync(join(exDir, enhancedFile), "utf-8");
     if (isPlaceholderGolden(golden)) {
-      console.warn(`[cases] skipping ${dir}: golden reference is a placeholder`);
+      console.warn(
+        `[cases] skipping ${dir}: golden reference is a placeholder`,
+      );
       continue;
     }
 
