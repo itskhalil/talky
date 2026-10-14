@@ -174,7 +174,7 @@
     "offerBody": "{{name}} makes about a quarter fewer transcription mistakes. It's a {{size}} MB download, and Talky switches over when you're not recording.",
     "download": "Download",
     "decline": "No thanks",
-    "downloading": "Downloading the more accurate model... {{percentage}}%",
+    "downloading": "Downloading Parakeet Ultra... {{percentage}}%",
     "appliedTitle": "Now using {{name}}",
     "appliedBody": "You can change models in Settings."
   },
