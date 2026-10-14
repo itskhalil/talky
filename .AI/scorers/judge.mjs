@@ -167,12 +167,22 @@ export default async function (output, context) {
 
   let raw;
   try {
+    // JUDGE_ENDPOINT routes the judge off the Talky settings store (e.g. to
+    // OpenRouter), so the same rubric can be run by a non-Anthropic judge and
+    // the two scored side by side. Self-preference bias is a real effect; the
+    // check is whether the ranking survives changing the judge.
     [raw] = await cached(
       [
         { role: "system", content: JUDGE_SYSTEM },
         { role: "user", content: judgeMsg },
       ],
       process.env.JUDGE_MODEL,
+      process.env.JUDGE_ENDPOINT
+        ? {
+            endpoint: process.env.JUDGE_ENDPOINT,
+            model: process.env.JUDGE_MODEL,
+          }
+        : {},
     );
   } catch (err) {
     return {
