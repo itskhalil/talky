@@ -24,10 +24,12 @@ export const ModelUpgradeOffer: React.FC = () => {
         toast.dismiss(id);
       };
       // Custom layout: the shared toast style puts both buttons beside the
-      // text, which squeezes a two-sentence offer into a narrow column.
+      // text, which squeezes a two-sentence offer into a narrow column. The
+      // Toaster's toast class still draws the panel around this, so only lay
+      // out the contents here.
       toast.custom(
         (id) => (
-          <div className="bg-background border border-border rounded-xl shadow-lg px-5 py-4 w-[420px] text-sm">
+          <div className="w-[380px]">
             <p className="font-semibold text-text">
               {t("modelUpgrade.offerTitle")}
             </p>
