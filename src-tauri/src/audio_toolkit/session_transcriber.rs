@@ -5,7 +5,9 @@
 //! transcribe-rs's `VadChunked`, so chunks end in pauses rather than mid-word
 //! and silence never reaches the model. Before segmentation the mic runs
 //! through WebRTC's echo canceller (AEC3) with the system audio as reference,
-//! so on laptop speakers the others' voices don't come back as "me".
+//! so on laptop speakers the others' voices don't come back as "me", then
+//! through WebRTC's adaptive digital gain (AGC2), so a quiet mic still reaches
+//! the level gate and the model at speaking level.
 //!
 //! The same code drives the live app (`actions.rs`) and the offline replay
 //! tool, so what replay measures is what ships.
@@ -53,6 +55,11 @@ pub struct TranscriberConfig {
     /// delay between the two streams itself, which the live capture needs:
     /// the system-audio tap starts after the mic and delivers in bursts.
     pub aec: bool,
+    /// Bring mic speech to a steady level (WebRTC AGC2 adaptive digital)
+    /// before the level gate and the model. Raw input level depends on the
+    /// device and the system input volume, which call apps' own AGC moves:
+    /// built-in mics at half input volume put speech near -55 dBFS.
+    pub agc: bool,
 }
 
 impl Default for TranscriberConfig {
@@ -68,6 +75,7 @@ impl Default for TranscriberConfig {
             smart_split_secs: 3.0,
             padding_secs: 0.0,
             aec: true,
+            agc: true,
         }
     }
 }
@@ -306,7 +314,7 @@ fn to_segment(channel: Channel, r: TranscriptionResult, base_ms: i64) -> Option<
 }
 
 /// Streams the mic through WebRTC AEC3 with the system audio as reference,
-/// keeping both streams in step by sample position.
+/// keeping both streams in step by sample position, and optionally AGC2.
 struct EchoCanceller {
     apm: Box<sonora::AudioProcessing>,
     /// Mic samples waiting for their reference.
@@ -314,6 +322,9 @@ struct EchoCanceller {
     /// Reference samples not yet consumed.
     spk: VecDeque<f32>,
     render_out: Vec<f32>,
+    /// Without echo cancellation the reference is ignored, so the mic
+    /// shouldn't wait for it.
+    needs_reference: bool,
 }
 
 impl EchoCanceller {
@@ -327,10 +338,18 @@ impl EchoCanceller {
     const ANCHOR_TOLERANCE: usize = SAMPLE_RATE * 150 / 1000;
 
     fn new() -> Self {
+        Self::with(true, false)
+    }
+
+    fn with(aec: bool, agc: bool) -> Self {
         let stream = sonora::StreamConfig::new(SAMPLE_RATE as u32, 1);
         let apm = sonora::AudioProcessing::builder()
             .config(sonora::Config {
-                echo_canceller: Some(sonora::config::EchoCanceller::default()),
+                echo_canceller: aec.then(sonora::config::EchoCanceller::default),
+                gain_controller2: agc.then(|| sonora::config::GainController2 {
+                    adaptive_digital: Some(sonora::config::AdaptiveDigital::default()),
+                    ..Default::default()
+                }),
                 ..Default::default()
             })
             .capture_config(stream)
@@ -341,12 +360,15 @@ impl EchoCanceller {
             mic: Vec::new(),
             spk: VecDeque::new(),
             render_out: vec![0.0; WEBRTC_FRAME],
+            needs_reference: aec,
         }
     }
 
     fn process(&mut self, mic: &[f32], spk: &[f32]) -> Vec<f32> {
         self.mic.extend_from_slice(mic);
-        if !spk.is_empty() {
+        if !self.needs_reference {
+            self.spk.extend(std::iter::repeat_n(0.0, mic.len()));
+        } else if !spk.is_empty() {
             self.anchor_reference(spk.len());
             self.spk.extend(spk.iter().copied());
         }
@@ -439,7 +461,7 @@ impl SessionTranscriber {
         Ok(Self {
             mic: ChannelPipeline::new(Channel::Mic, &config, vad_model)?,
             spk: ChannelPipeline::new(Channel::Speaker, &config, vad_model)?,
-            aec: config.aec.then(EchoCanceller::new),
+            aec: (config.aec || config.agc).then(|| EchoCanceller::with(config.aec, config.agc)),
             stats: TranscriberStats::default(),
         })
     }
@@ -502,6 +524,14 @@ mod tests {
         assert!(ec.process(&second, &[]).is_empty());
         let out = ec.process(&second, &[]);
         assert!(out.len() >= SAMPLE_RATE - WEBRTC_FRAME);
+    }
+
+    #[test]
+    fn gain_only_processing_does_not_wait_for_reference() {
+        // No system audio capture: AGC alone must pass the mic straight on.
+        let mut ec = EchoCanceller::with(false, true);
+        let tick = vec![0.01f32; SAMPLE_RATE / 10];
+        assert_eq!(ec.process(&tick, &[]).len(), tick.len());
     }
 
     /// Deterministic noise standing in for far-end speech.
