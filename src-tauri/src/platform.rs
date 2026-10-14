@@ -16,8 +16,6 @@ pub struct PlatformCapabilities {
     pub meeting_detection: bool,
     /// Whether system sleep event handling is available
     pub system_sleep_events: bool,
-    /// Whether the system calendar can be read (EventKit; macOS only)
-    pub calendar: bool,
     /// The current operating system
     pub os: String,
 }
@@ -31,7 +29,6 @@ impl PlatformCapabilities {
                 speaker_capture: true,
                 meeting_detection: true,
                 system_sleep_events: true,
-                calendar: true,
                 os: "macos".to_string(),
             }
         }
@@ -42,7 +39,6 @@ impl PlatformCapabilities {
                 speaker_capture: true,
                 meeting_detection: false,   // Not yet implemented on Windows
                 system_sleep_events: false, // Not yet implemented on Windows
-                calendar: false,            // EventKit is macOS-only
                 os: "windows".to_string(),
             }
         }
@@ -53,7 +49,6 @@ impl PlatformCapabilities {
                 speaker_capture: false, // Not yet implemented on Linux
                 meeting_detection: false,
                 system_sleep_events: false,
-                calendar: false,
                 os: "linux".to_string(),
             }
         }
@@ -64,7 +59,6 @@ impl PlatformCapabilities {
                 speaker_capture: false,
                 meeting_detection: false,
                 system_sleep_events: false,
-                calendar: false,
                 os: "unknown".to_string(),
             }
         }

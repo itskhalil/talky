@@ -1,5 +1,4 @@
 pub mod audio;
-pub mod calendar;
 pub mod export;
 pub mod history;
 pub mod models;
