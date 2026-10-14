@@ -325,6 +325,9 @@ struct EchoCanceller {
     /// Without echo cancellation the reference is ignored, so the mic
     /// shouldn't wait for it.
     needs_reference: bool,
+    /// Live streams are re-anchored by arrival; whole recordings that are
+    /// already aligned by sample position are not.
+    anchor: bool,
 }
 
 impl EchoCanceller {
@@ -332,10 +335,14 @@ impl EchoCanceller {
     /// rather than holding the mic back indefinitely (system audio capture
     /// can stall or fail).
     const MAX_REFERENCE_LAG: usize = SAMPLE_RATE;
-    /// AEC3 only finds an echo within a few hundred milliseconds of its
-    /// reference (it misses at 600 ms). Streams further apart than this when
-    /// reference arrives are re-anchored.
-    const ANCHOR_TOLERANCE: usize = SAMPLE_RATE * 150 / 1000;
+    /// AEC3 finds an echo that trails its reference by up to ~450 ms, but
+    /// not one that comes even slightly before it: on a real call, reference
+    /// 30 ms late let a third of the far end through as garbled text. So the
+    /// reference is anchored well ahead of its echo, in the middle of that
+    /// window, and re-anchored when it drifts towards either edge.
+    const REFERENCE_LEAD: isize = (SAMPLE_RATE * 150 / 1000) as isize;
+    const MIN_LEAD: isize = (SAMPLE_RATE * 50 / 1000) as isize;
+    const MAX_LEAD: isize = (SAMPLE_RATE * 400 / 1000) as isize;
 
     fn new() -> Self {
         Self::with(true, false)
@@ -361,6 +368,7 @@ impl EchoCanceller {
             spk: VecDeque::new(),
             render_out: vec![0.0; WEBRTC_FRAME],
             needs_reference: aec,
+            anchor: true,
         }
     }
 
@@ -369,8 +377,12 @@ impl EchoCanceller {
         if !self.needs_reference {
             self.spk.extend(std::iter::repeat_n(0.0, mic.len()));
         } else if !spk.is_empty() {
-            self.anchor_reference(spk.len());
-            self.spk.extend(spk.iter().copied());
+            let skip = if self.anchor {
+                self.anchor_reference(spk.len())
+            } else {
+                0
+            };
+            self.spk.extend(spk[skip.min(spk.len())..].iter().copied());
         }
         let lag = self.mic.len().saturating_sub(self.spk.len());
         if lag > Self::MAX_REFERENCE_LAG {
@@ -400,29 +412,40 @@ impl EchoCanceller {
         out
     }
 
-    /// Both streams are live, so the newest reference sample belongs with the
-    /// newest mic sample. Sample counts stop saying so when system audio
-    /// starts after the mic (the tap can take a second to start) or comes
-    /// back after a stall (Windows loopback sends nothing during silence), so
-    /// line the incoming reference up with the end of the mic instead.
-    fn anchor_reference(&mut self, incoming: usize) {
-        let reference_end = self.spk.len() + incoming;
-        if self.mic.len() > reference_end + Self::ANCHOR_TOLERANCE {
+    /// Both streams are live, so the newest reference sample was just played
+    /// and its echo is in the newest mic audio. Sample counts stop saying so
+    /// when system audio starts after the mic (the tap can take a second to
+    /// start) or comes back after a stall (Windows loopback sends nothing
+    /// during silence), so line the incoming reference up against the end of
+    /// the mic instead, `REFERENCE_LEAD` ahead of it. Returns how many leading
+    /// samples of the incoming reference to discard.
+    fn anchor_reference(&mut self, incoming: usize) -> usize {
+        let reference_end = (self.spk.len() + incoming) as isize;
+        // How far the newest reference sample sits ahead of the newest mic
+        // sample, by the pairing AEC3 will see.
+        let lead = self.mic.len() as isize - reference_end;
+        if (Self::MIN_LEAD..=Self::MAX_LEAD).contains(&lead) {
+            return 0;
+        }
+        let shift = lead - Self::REFERENCE_LEAD;
+        if shift > 0 {
             // Reference was missing: that stretch played as silence.
-            let gap = self.mic.len() - reference_end;
             info!(
                 "Echo reference was {} ms behind the mic; padding",
-                gap * 1000 / SAMPLE_RATE
+                shift * 1000 / SAMPLE_RATE as isize
             );
-            self.spk.extend(std::iter::repeat_n(0.0, gap));
-        } else if reference_end > self.mic.len() + Self::ANCHOR_TOLERANCE {
-            // Reference from before the mic started can't echo into it.
-            let surplus = (reference_end - self.mic.len()).min(self.spk.len());
+            self.spk.extend(std::iter::repeat_n(0.0, shift as usize));
+            0
+        } else {
+            // Reference too close to (or past) its echo: drop the oldest.
+            let surplus = shift.unsigned_abs();
             info!(
-                "Echo reference was {} ms ahead of the mic; dropping",
+                "Echo reference was {} ms too late for the mic; dropping",
                 surplus * 1000 / SAMPLE_RATE
             );
-            self.spk.drain(..surplus);
+            let queued = surplus.min(self.spk.len());
+            self.spk.drain(..queued);
+            surplus - queued
         }
     }
 
@@ -437,6 +460,7 @@ impl EchoCanceller {
 /// Echo-cancel a whole recording's mic channel (offline tools).
 pub fn cancel_echo(mic: &[f32], spk: &[f32]) -> Vec<f32> {
     let mut ec = EchoCanceller::new();
+    ec.anchor = false;
     let mut out = ec.process(mic, spk);
     out.extend(ec.drain());
     out
@@ -563,6 +587,40 @@ mod tests {
         }
         let tick = SAMPLE_RATE / 10;
         let tap_start = SAMPLE_RATE * 900 / 1000;
+        let mut ec = EchoCanceller::new();
+        let mut out = Vec::new();
+        for start in (0..n).step_by(tick) {
+            let end = start + tick;
+            let spk = if end > tap_start {
+                &far[start.max(tap_start)..end]
+            } else {
+                &[][..]
+            };
+            out.extend(ec.process(&mic[start..end], spk));
+        }
+        let tail = 6 * SAMPLE_RATE..out.len().min(n);
+        let reduction_db = 20.0 * (rms(&mic[tail.clone()]) / rms(&out[tail]).max(1e-9)).log10();
+        assert!(
+            reduction_db > 15.0,
+            "only {reduction_db:.1} dB of echo removed"
+        );
+    }
+
+    #[test]
+    fn echo_canceller_keeps_the_reference_ahead_of_its_echo() {
+        // Live on a MacBook the tap delivered each stretch of system audio
+        // just as its echo reached the mic, so anchoring the newest reference
+        // to the newest mic sample put the echo 10-30 ms before its
+        // reference, where AEC3 cancels almost nothing.
+        let n = SAMPLE_RATE * 10;
+        let far = far_end(n);
+        let echo_early = SAMPLE_RATE * 20 / 1000;
+        let mut mic = vec![0.0f32; n];
+        for i in 0..n - echo_early {
+            mic[i] = far[i + echo_early] * 0.5;
+        }
+        let tick = SAMPLE_RATE / 10;
+        let tap_start = SAMPLE_RATE;
         let mut ec = EchoCanceller::new();
         let mut out = Vec::new();
         for start in (0..n).step_by(tick) {
