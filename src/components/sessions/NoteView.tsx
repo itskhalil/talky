@@ -33,7 +33,6 @@ import {
   type AttachmentsRowHandle,
 } from "./AttachmentsRow";
 import { MetaPicker } from "./MetaPicker";
-import { MeetingChip } from "./MeetingChip";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { WaveformBars } from "@/components/ui/WaveformBars";
 import { useAttachments } from "@/stores/sessionStore";
@@ -73,7 +72,6 @@ interface Session {
   status: string;
   folder_id: string | null;
   environment_id: string | null;
-  calendar_event_id: string | null;
   transcript_wiped_at: number | null;
 }
 
@@ -1749,13 +1747,6 @@ export function NoteView({
                     />
                   )}
                 </div>
-
-                {/* Who was in the meeting, from the calendar */}
-                <MeetingChip
-                  sessionId={session.id}
-                  startedAt={session.started_at}
-                  calendarEventId={session.calendar_event_id}
-                />
               </div>
             )}
           </div>

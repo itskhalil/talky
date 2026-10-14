@@ -121,6 +121,8 @@ static SESSION_MIGRATIONS: &[M] = &[
     // the occurrence. `calendar_snapshot` is the full event as JSON, captured
     // at link time: the attendee list has to outlive the calendar entry, which
     // gets edited, cancelled, or ages out of the local store.
+    //
+    // The calendar integration was removed again; migration 17 drops these.
     M::up(
         "ALTER TABLE sessions ADD COLUMN calendar_event_id TEXT;
          ALTER TABLE sessions ADD COLUMN calendar_event_start INTEGER;
@@ -214,6 +216,15 @@ static SESSION_MIGRATIONS: &[M] = &[
              SELECT text, session_id, 'transcript', id FROM transcript_segments
              WHERE COALESCE(text, '') <> '';",
     ),
+    // Migration 17: drop the calendar link added in migration 15. The feature
+    // is gone, and a snapshot holds the attendee list of a real meeting —
+    // nothing reads it any more, so it shouldn't stay on disk.
+    M::up(
+        "DROP INDEX IF EXISTS idx_sessions_calendar_event;
+         ALTER TABLE sessions DROP COLUMN calendar_event_id;
+         ALTER TABLE sessions DROP COLUMN calendar_event_start;
+         ALTER TABLE sessions DROP COLUMN calendar_snapshot;",
+    ),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -225,10 +236,6 @@ pub struct Session {
     pub status: String,
     pub folder_id: Option<String>,
     pub environment_id: Option<String>,
-    /// External identifier of the calendar meeting this note covers, when it
-    /// is linked to one. The event itself is fetched separately — see
-    /// `get_session_calendar_event` — so note lists stay cheap.
-    pub calendar_event_id: Option<String>,
     /// Epoch seconds when the raw transcript was cleared. When set, the note is
     /// sealed: recording is locked and the transcript panel shows a placeholder.
     pub transcript_wiped_at: Option<i64>,
@@ -413,7 +420,6 @@ impl SessionManager {
             ended_at: None,
             status: "active".to_string(),
             folder_id: None,
-            calendar_event_id: None,
             environment_id: default_environment_id,
             transcript_wiped_at: None,
         };
@@ -527,7 +533,7 @@ fn run_search(conn: &Connection, query: &str, filters: &SearchFilters) -> Result
             params_vec.push(Box::new(fts.clone()));
             String::from(
                 "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, \
-                        s.environment_id, s.calendar_event_id, s.transcript_wiped_at, \
+                        s.environment_id, s.transcript_wiped_at, \
                         si.field AS field, \
                         snippet(search_index, 0, '', '', '…', 14) AS snip \
                  FROM search_index si \
@@ -537,7 +543,7 @@ fn run_search(conn: &Connection, query: &str, filters: &SearchFilters) -> Result
         } else {
             String::from(
                 "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, \
-                        s.environment_id, s.calendar_event_id, s.transcript_wiped_at, \
+                        s.environment_id, s.transcript_wiped_at, \
                         'title' AS field, '' AS snip \
                  FROM sessions s",
             )
@@ -607,7 +613,6 @@ fn run_search(conn: &Connection, query: &str, filters: &SearchFilters) -> Result
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
-                calendar_event_id: row.get("calendar_event_id")?,
                 transcript_wiped_at: row.get("transcript_wiped_at")?,
             };
             let field: String = row.get("field")?;
@@ -656,7 +661,7 @@ impl SessionManager {
     pub fn get_sessions(&self) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
-            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, calendar_event_id, transcript_wiped_at FROM sessions ORDER BY started_at DESC",
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at FROM sessions ORDER BY started_at DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -668,7 +673,6 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
-                calendar_event_id: row.get("calendar_event_id")?,
                 transcript_wiped_at: row.get("transcript_wiped_at")?,
             })
         })?;
@@ -684,7 +688,7 @@ impl SessionManager {
         let conn = self.get_connection()?;
         let session = conn
             .query_row(
-                "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, calendar_event_id, transcript_wiped_at FROM sessions WHERE id = ?1",
+                "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at FROM sessions WHERE id = ?1",
                 params![session_id],
                 |row| {
                     Ok(Session {
@@ -695,7 +699,6 @@ impl SessionManager {
                         status: row.get("status")?,
                         folder_id: row.get("folder_id")?,
                         environment_id: row.get("environment_id")?,
-                        calendar_event_id: row.get("calendar_event_id")?,
                         transcript_wiped_at: row.get("transcript_wiped_at")?,
                     })
                 },
@@ -847,99 +850,6 @@ impl SessionManager {
         info!("Transcript cleared for session: {}", session_id);
 
         Ok(updated)
-    }
-
-    /// Link a note to the calendar meeting it covers.
-    ///
-    /// The whole event is snapshotted as JSON rather than re-fetched on read.
-    /// Calendar entries get edited after the fact, cancelled, or fall out of
-    /// the local store when they age past what the provider syncs — and the
-    /// attendee list is the input to speaker naming and to the people index,
-    /// so it has to be durable independently of the calendar.
-    pub fn link_session_to_calendar_event(
-        &self,
-        session_id: &str,
-        event: &crate::managers::calendar::CalendarEvent,
-    ) -> Result<()> {
-        let snapshot = serde_json::to_string(event)?;
-        let external_id = event
-            .external_id
-            .clone()
-            .unwrap_or_else(|| event.id.clone());
-        let conn = self.get_connection()?;
-        conn.execute(
-            "UPDATE sessions SET calendar_event_id = ?1, calendar_event_start = ?2, calendar_snapshot = ?3 WHERE id = ?4",
-            params![external_id, event.start_ms, snapshot, session_id],
-        )?;
-        info!(
-            "Linked session {} to calendar event starting {}",
-            session_id, event.start_ms
-        );
-        if let Ok(Some(session)) = self.get_session(session_id) {
-            let _ = self.app_handle.emit("session-updated", &session);
-        }
-        Ok(())
-    }
-
-    pub fn unlink_session_calendar_event(&self, session_id: &str) -> Result<()> {
-        let conn = self.get_connection()?;
-        conn.execute(
-            "UPDATE sessions SET calendar_event_id = NULL, calendar_event_start = NULL, calendar_snapshot = NULL WHERE id = ?1",
-            params![session_id],
-        )?;
-        if let Ok(Some(session)) = self.get_session(session_id) {
-            let _ = self.app_handle.emit("session-updated", &session);
-        }
-        Ok(())
-    }
-
-    /// The snapshotted meeting for a note, if it is linked to one.
-    pub fn get_session_calendar_event(
-        &self,
-        session_id: &str,
-    ) -> Result<Option<crate::managers::calendar::CalendarEvent>> {
-        let conn = self.get_connection()?;
-        let snapshot: Option<String> = conn
-            .query_row(
-                "SELECT calendar_snapshot FROM sessions WHERE id = ?1",
-                params![session_id],
-                |row| row.get(0),
-            )
-            .optional()?
-            .flatten();
-
-        let Some(snapshot) = snapshot else {
-            return Ok(None);
-        };
-        match serde_json::from_str(&snapshot) {
-            Ok(event) => Ok(Some(event)),
-            Err(e) => {
-                // A snapshot written by an older shape shouldn't break the note.
-                warn!(
-                    "Discarding unreadable calendar snapshot for session {}: {}",
-                    session_id, e
-                );
-                Ok(None)
-            }
-        }
-    }
-
-    /// The note already covering this meeting occurrence, if there is one.
-    /// Guards against a second note being created for a meeting the user is
-    /// already taking notes in.
-    pub fn find_session_for_calendar_event(
-        &self,
-        external_id: &str,
-        start_ms: i64,
-    ) -> Result<Option<String>> {
-        let conn = self.get_connection()?;
-        Ok(conn
-            .query_row(
-                "SELECT id FROM sessions WHERE calendar_event_id = ?1 AND calendar_event_start = ?2 ORDER BY started_at DESC LIMIT 1",
-                params![external_id, start_ms],
-                |row| row.get(0),
-            )
-            .optional()?)
     }
 
     pub fn update_session_environment(
@@ -1211,10 +1121,10 @@ impl SessionManager {
         let conn = self.get_connection()?;
 
         let query = if folder_id.is_some() {
-            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, calendar_event_id, transcript_wiped_at
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at
              FROM sessions WHERE folder_id = ?1 ORDER BY started_at DESC"
         } else {
-            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, calendar_event_id, transcript_wiped_at
+            "SELECT id, title, started_at, ended_at, status, folder_id, environment_id, transcript_wiped_at
              FROM sessions WHERE folder_id IS NULL ORDER BY started_at DESC"
         };
 
@@ -1230,7 +1140,6 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
-                calendar_event_id: row.get("calendar_event_id")?,
                 transcript_wiped_at: row.get("transcript_wiped_at")?,
             })
         };
@@ -1366,7 +1275,7 @@ impl SessionManager {
     pub fn get_sessions_by_tag(&self, tag_id: &str) -> Result<Vec<Session>> {
         let conn = self.get_connection()?;
         let mut stmt = conn.prepare(
-            "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, s.calendar_event_id, s.transcript_wiped_at
+            "SELECT s.id, s.title, s.started_at, s.ended_at, s.status, s.folder_id, s.environment_id, s.transcript_wiped_at
              FROM sessions s
              INNER JOIN session_tags st ON st.session_id = s.id
              WHERE st.tag_id = ?1
@@ -1382,7 +1291,6 @@ impl SessionManager {
                 status: row.get("status")?,
                 folder_id: row.get("folder_id")?,
                 environment_id: row.get("environment_id")?,
-                calendar_event_id: row.get("calendar_event_id")?,
                 transcript_wiped_at: row.get("transcript_wiped_at")?,
             })
         })?;
@@ -1737,6 +1645,47 @@ mod search_index_tests {
             )
             .unwrap();
         assert_eq!(n, 8, "expected every search trigger to be created");
+    }
+
+    #[test]
+    fn dropping_the_calendar_link_keeps_the_note() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        let migrations = Migrations::new(SESSION_MIGRATIONS.to_vec());
+        // Everything up to, but not including, the migration that drops it.
+        migrations
+            .to_version(&mut conn, SESSION_MIGRATIONS.len() - 1)
+            .unwrap();
+        conn.execute(
+            "INSERT INTO sessions (id, title, started_at, status, calendar_event_id, calendar_event_start, calendar_snapshot)
+             VALUES ('s1', 'Weekly sync', 0, 'completed', 'evt', 0, '{}')",
+            [],
+        )
+        .unwrap();
+
+        migrations.to_latest(&mut conn).unwrap();
+
+        let calendar_columns: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('sessions') WHERE name LIKE 'calendar_%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(calendar_columns, 0);
+        let title: String = conn
+            .query_row("SELECT title FROM sessions WHERE id = 's1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(title, "Weekly sync");
+        let indexed: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM search_index WHERE session_id = 's1' AND field = 'title'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(indexed, 1);
     }
 
     #[test]

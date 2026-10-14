@@ -9,7 +9,6 @@ const defaultCapabilities: PlatformCapabilities = {
   speakerCapture: true,
   meetingDetection: true,
   systemSleepEvents: true,
-  calendar: true,
   os: "macos",
 };
 
