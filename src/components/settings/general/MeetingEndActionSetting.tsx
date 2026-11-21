@@ -19,16 +19,16 @@ const MEETING_END_OPTIONS = [
 
 const MEETING_END_ALERT_OPTIONS = [
   {
+    value: "none",
+    labelKey: "settings.recording.meetingEndAction.alert.none",
+  },
+  {
     value: "os_notification",
     labelKey: "settings.recording.meetingEndAction.alert.osNotification",
   },
   {
     value: "focus_window",
     labelKey: "settings.recording.meetingEndAction.alert.focusWindow",
-  },
-  {
-    value: "none",
-    labelKey: "settings.recording.meetingEndAction.alert.none",
   },
 ];
 
@@ -71,6 +71,9 @@ export const MeetingEndActionSetting: React.FC = React.memo(() => {
           onSelect={(value) => updateSetting("meeting_end_action", value)}
           disabled={isUpdating("meeting_end_action")}
         />
+        <span className="text-sm text-text-secondary">
+          {t("settings.recording.meetingEndAction.and")}
+        </span>
         <Dropdown
           options={alertOptions}
           selectedValue={alert}
