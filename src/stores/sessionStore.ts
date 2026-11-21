@@ -750,10 +750,9 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         const settings = useSettingsStore.getState().settings;
         const meetingEndAction =
           settings?.meeting_end_action ?? "stop_recording";
-        const meetingEndAlert =
-          settings?.meeting_end_alert ?? "os_notification";
+        const meetingAlert = settings?.meeting_alert ?? "os_notification";
 
-        if (meetingEndAlert === "focus_window") {
+        if (meetingAlert === "focus_window") {
           // Show and focus the window (wrapped in try-catch so toast still shows)
           try {
             const win = getCurrentWindow();

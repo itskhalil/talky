@@ -507,9 +507,9 @@
         "stopRecording": "Stop recording",
         "notify": "Notify me"
       },
-      "meetingEndAlert": {
-        "title": "Meeting end alert",
-        "description": "How to alert you when a meeting ends while recording. A system notification doesn't take focus away from the app you're typing in.",
+      "meetingAlert": {
+        "title": "Meeting alerts",
+        "description": "How Talky alerts you about detected meetings. A system notification doesn't take focus away from the app you're typing in.",
         "osNotification": "System notification",
         "focusWindow": "Bring Talky to front"
       }

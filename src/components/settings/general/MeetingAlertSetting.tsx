@@ -5,39 +5,39 @@ import { SettingContainer } from "../../ui/SettingContainer";
 import { useSettings } from "@/hooks/useSettings";
 import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
 
-const MEETING_END_ALERT_OPTIONS = [
+const MEETING_ALERT_OPTIONS = [
   {
     value: "os_notification",
-    labelKey: "settings.recording.meetingEndAlert.osNotification",
+    labelKey: "settings.recording.meetingAlert.osNotification",
   },
   {
     value: "focus_window",
-    labelKey: "settings.recording.meetingEndAlert.focusWindow",
+    labelKey: "settings.recording.meetingAlert.focusWindow",
   },
 ];
 
-export const MeetingEndAlertSetting: React.FC = React.memo(() => {
+export const MeetingAlertSetting: React.FC = React.memo(() => {
   const { t } = useTranslation();
   const { getSetting, updateSetting, isUpdating } = useSettings();
   const capabilities = usePlatformCapabilities();
 
   if (!capabilities.meetingDetection) return null;
 
-  const currentValue = getSetting("meeting_end_alert") ?? "os_notification";
+  const currentValue = getSetting("meeting_alert") ?? "os_notification";
 
-  const options = MEETING_END_ALERT_OPTIONS.map((option) => ({
+  const options = MEETING_ALERT_OPTIONS.map((option) => ({
     value: option.value,
     label: t(option.labelKey),
   }));
 
   const handleChange = (value: string) => {
-    updateSetting("meeting_end_alert", value);
+    updateSetting("meeting_alert", value);
   };
 
   return (
     <SettingContainer
-      title={t("settings.recording.meetingEndAlert.title")}
-      description={t("settings.recording.meetingEndAlert.description")}
+      title={t("settings.recording.meetingAlert.title")}
+      description={t("settings.recording.meetingAlert.description")}
       descriptionMode="tooltip"
       grouped
     >
@@ -45,10 +45,10 @@ export const MeetingEndAlertSetting: React.FC = React.memo(() => {
         options={options}
         selectedValue={currentValue}
         onSelect={handleChange}
-        disabled={isUpdating("meeting_end_alert")}
+        disabled={isUpdating("meeting_alert")}
       />
     </SettingContainer>
   );
 });
 
-MeetingEndAlertSetting.displayName = "MeetingEndAlertSetting";
+MeetingAlertSetting.displayName = "MeetingAlertSetting";

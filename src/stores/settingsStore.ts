@@ -122,8 +122,7 @@ const settingUpdaters: {
     ),
   meeting_end_action: (value) =>
     commands.changeMeetingEndActionSetting(value as string),
-  meeting_end_alert: (value) =>
-    commands.changeMeetingEndAlertSetting(value as string),
+  meeting_alert: (value) => commands.changeMeetingAlertSetting(value as string),
   meeting_start_action: (value) =>
     commands.changeMeetingStartActionSetting(value as string),
   save_debug_recordings: (value) =>
