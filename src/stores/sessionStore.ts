@@ -2,6 +2,11 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { toast } from "sonner";
 import i18n from "@/i18n";
 import { commands, type MeetingNotes, type Attachment } from "@/bindings";
@@ -319,6 +324,24 @@ function stripBlankLines(text: string): string {
       return true;
     })
     .join("\n");
+}
+
+/**
+ * Show a native OS notification without touching window focus.
+ * Failures (e.g. permission denied) are logged and otherwise ignored.
+ */
+async function notifyNative(title: string, body: string): Promise<void> {
+  try {
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      granted = (await requestPermission()) === "granted";
+    }
+    if (granted) {
+      sendNotification({ title, body });
+    }
+  } catch (e) {
+    console.warn("[notifyNative] Failed to send notification", e);
+  }
 }
 
 const MAX_CACHE_SIZE = 20;
@@ -719,18 +742,27 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     unlisteners.push(
       await listen<string>("meeting-ended", async (event) => {
         const appName = event.payload;
+        const { isRecording } = get();
+
+        // Nothing to stop if we weren't recording
+        if (!isRecording) return;
+
         const meetingEndAction =
           useSettingsStore.getState().settings?.meeting_end_action ??
           "stop_recording";
 
-        // Show and focus the window (wrapped in try-catch so toast still shows)
-        try {
-          const win = getCurrentWindow();
-          await win.show();
-          await win.setFocus();
-        } catch {
-          // Window operations may fail if permissions not granted
-        }
+        // Notify via a native OS notification instead of showing/focusing the
+        // window: stealing focus would redirect whatever the user is typing
+        // in another app into the note. Clicking the notification brings
+        // Talky forward, where the toast below is waiting.
+        void notifyNative(
+          `${appName} ended`,
+          i18n.t(
+            meetingEndAction === "stop_recording"
+              ? "sessions.meetingEndedStopped"
+              : "sessions.meetingEndedNotifyNative",
+          ),
+        );
 
         if (meetingEndAction === "stop_recording") {
           const { stopRecording } = get();

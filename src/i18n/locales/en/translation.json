@@ -663,6 +663,7 @@
     "startRecordingAction": "Start Recording",
     "meetingEndedStopped": "Recording stopped",
     "meetingEndedNotify": "Still recording - stop now?",
+    "meetingEndedNotifyNative": "Talky is still recording. Open Talky to stop.",
     "consentWarning": "Ask for consent before transcribing conversations",
     "toolbar": {
       "bold": "Bold",
