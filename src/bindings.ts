@@ -219,6 +219,14 @@ async changeMeetingEndActionSetting(action: string) : Promise<Result<null, strin
     else return { status: "error", error: e  as any };
 }
 },
+async changeMeetingEndAlertSetting(alert: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_meeting_end_alert_setting", { alert }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeMeetingStartActionSetting(action: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_meeting_start_action_setting", { action }) };
@@ -1107,7 +1115,7 @@ export type AppSettings = {
  * When None, uses the default app data directory.
  * This allows storing data in iCloud Drive or other backup-friendly locations.
  */
-user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; transcript_clearing_enabled?: boolean; coreml_model_ready?: boolean; last_run_version?: string | null; 
+user_name?: string; data_directory?: string | null; font_size?: FontSize; autostart_enabled?: boolean; update_checks_enabled?: boolean; selected_model?: string; selected_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; post_process_enabled?: boolean; post_process_providers?: PostProcessProvider[]; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; app_language?: string; experimental_enabled?: boolean; copy_as_bullets_enabled?: boolean; word_suggestions?: WordSuggestion[]; dismissed_suggestions?: string[]; word_suggestions_enabled?: boolean; speaker_energy_threshold?: number; mic_energy_threshold?: number; skip_mic_on_speaker_energy?: boolean; model_environments?: ModelEnvironment[]; default_environment_id?: string | null; new_recording_shortcut?: string | null; meeting_end_action?: string; meeting_end_alert?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; transcript_clearing_enabled?: boolean; coreml_model_ready?: boolean; last_run_version?: string | null; 
 /**
  * Set to true when `setup()` promotes `selected_model` from the ONNX id
  * to the `-coreml` id. Frontend reads + clears this on mount to decide

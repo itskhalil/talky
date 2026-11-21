@@ -747,22 +747,34 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         // Nothing to stop if we weren't recording
         if (!isRecording) return;
 
+        const settings = useSettingsStore.getState().settings;
         const meetingEndAction =
-          useSettingsStore.getState().settings?.meeting_end_action ??
-          "stop_recording";
+          settings?.meeting_end_action ?? "stop_recording";
+        const meetingEndAlert =
+          settings?.meeting_end_alert ?? "os_notification";
 
-        // Notify via a native OS notification instead of showing/focusing the
-        // window: stealing focus would redirect whatever the user is typing
-        // in another app into the note. Clicking the notification brings
-        // Talky forward, where the toast below is waiting.
-        void notifyNative(
-          `${appName} ended`,
-          i18n.t(
-            meetingEndAction === "stop_recording"
-              ? "sessions.meetingEndedStopped"
-              : "sessions.meetingEndedNotifyNative",
-          ),
-        );
+        if (meetingEndAlert === "focus_window") {
+          // Show and focus the window (wrapped in try-catch so toast still shows)
+          try {
+            const win = getCurrentWindow();
+            await win.show();
+            await win.setFocus();
+          } catch {
+            // Window operations may fail if permissions not granted
+          }
+        } else {
+          // Native notification leaves focus where it is, so whatever the
+          // user is typing in another app doesn't land in the note. Clicking
+          // it brings Talky forward, where the toast below is waiting.
+          void notifyNative(
+            `${appName} ended`,
+            i18n.t(
+              meetingEndAction === "stop_recording"
+                ? "sessions.meetingEndedStoppedNative"
+                : "sessions.meetingEndedNotifyNative",
+            ),
+          );
+        }
 
         if (meetingEndAction === "stop_recording") {
           const { stopRecording } = get();

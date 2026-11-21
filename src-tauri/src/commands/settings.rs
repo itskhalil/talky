@@ -359,6 +359,15 @@ pub fn change_meeting_end_action_setting(app: AppHandle, action: String) -> Resu
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_meeting_end_alert_setting(app: AppHandle, alert: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.meeting_end_alert = alert;
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_meeting_start_action_setting(app: AppHandle, action: String) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.meeting_start_action = action;

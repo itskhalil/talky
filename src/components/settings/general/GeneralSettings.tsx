@@ -9,6 +9,7 @@ import { UserNameSetting } from "./UserNameSetting";
 import { EnvironmentsSection } from "../environments/EnvironmentsSection";
 import { UpdateBanner } from "../../update-checker";
 import { MeetingEndActionSetting } from "./MeetingEndActionSetting";
+import { MeetingEndAlertSetting } from "./MeetingEndAlertSetting";
 import { MeetingStartActionSetting } from "./MeetingStartActionSetting";
 
 export const GeneralSettings: React.FC = () => {
@@ -30,6 +31,7 @@ export const GeneralSettings: React.FC = () => {
       <SettingsGroup title={t("settings.recording.title")}>
         <MeetingStartActionSetting />
         <MeetingEndActionSetting />
+        <MeetingEndAlertSetting />
       </SettingsGroup>
       <EnvironmentsSection />
     </div>
