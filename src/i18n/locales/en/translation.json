@@ -503,15 +503,14 @@
       },
       "meetingEndAction": {
         "title": "When meeting ends",
-        "description": "What to do when a meeting app stops using the microphone",
+        "description": "What to do when a meeting app stops using the microphone while Talky is recording, and how to tell you. A system notification doesn't take focus away from the app you're typing in.",
         "stopRecording": "Stop recording",
-        "notify": "Notify me"
-      },
-      "meetingAlert": {
-        "title": "Meeting alerts",
-        "description": "How Talky alerts you about detected meetings. A system notification doesn't take focus away from the app you're typing in.",
-        "osNotification": "System notification",
-        "focusWindow": "Bring Talky to front"
+        "notify": "Keep recording",
+        "alert": {
+          "osNotification": "System notification",
+          "focusWindow": "Bring Talky to front",
+          "none": "No alert"
+        }
       }
     },
     "appearance": {

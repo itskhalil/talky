@@ -727,7 +727,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::settings::change_copy_as_bullets_setting,
         commands::settings::change_new_recording_shortcut_setting,
         commands::settings::change_meeting_end_action_setting,
-        commands::settings::change_meeting_alert_setting,
+        commands::settings::change_meeting_end_alert_setting,
         commands::settings::change_meeting_start_action_setting,
         commands::settings::get_environments,
         commands::settings::create_environment,

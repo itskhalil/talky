@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import i18n from "@/i18n";
 import { commands, type MeetingNotes, type Attachment } from "@/bindings";
 import { useSettingsStore } from "./settingsStore";
+import { effectiveMeetingEndAlert } from "@/utils/meetingAlert";
 
 export interface Session {
   id: string;
@@ -750,7 +751,10 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         const settings = useSettingsStore.getState().settings;
         const meetingEndAction =
           settings?.meeting_end_action ?? "stop_recording";
-        const meetingAlert = settings?.meeting_alert ?? "os_notification";
+        const meetingAlert = effectiveMeetingEndAlert(
+          meetingEndAction,
+          settings?.meeting_end_alert ?? "os_notification",
+        );
 
         if (meetingAlert === "focus_window") {
           // Show and focus the window (wrapped in try-catch so toast still shows)
@@ -761,7 +765,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           } catch {
             // Window operations may fail if permissions not granted
           }
-        } else {
+        } else if (meetingAlert === "os_notification") {
           // Native notification leaves focus where it is, so whatever the
           // user is typing in another app doesn't land in the note. Clicking
           // it brings Talky forward, where the toast below is waiting.
