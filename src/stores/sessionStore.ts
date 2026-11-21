@@ -345,6 +345,17 @@ async function notifyNative(title: string, body: string): Promise<void> {
   }
 }
 
+/**
+ * Title for meeting-ended alerts, e.g. "Chrome meeting ended".
+ * `appName` comes from the backend's bundle-ID mapping (mic_detect.rs).
+ */
+function meetingEndedTitle(appName: string): string {
+  if (appName === "iPhone") return i18n.t("sessions.meetingEndedTitleIphone");
+  if (appName === "Meeting app")
+    return i18n.t("sessions.meetingEndedTitleGeneric");
+  return i18n.t("sessions.meetingEndedTitle", { app: appName });
+}
+
 const MAX_CACHE_SIZE = 20;
 
 interface SaveTimers {
@@ -770,7 +781,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           // user is typing in another app doesn't land in the note. Clicking
           // it brings Talky forward, where the toast below is waiting.
           void notifyNative(
-            `${appName} ended`,
+            meetingEndedTitle(appName),
             i18n.t(
               meetingEndAction === "stop_recording"
                 ? "sessions.meetingEndedStoppedNative"
@@ -782,13 +793,13 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         if (meetingEndAction === "stop_recording") {
           const { stopRecording } = get();
           stopRecording();
-          toast(`${appName} ended`, {
+          toast(meetingEndedTitle(appName), {
             description: i18n.t("sessions.meetingEndedStopped"),
             duration: 4000,
           });
         } else {
           // "notify" - show persistent toast with Stop/Dismiss buttons
-          toast(`${appName} ended`, {
+          toast(meetingEndedTitle(appName), {
             description: i18n.t("sessions.meetingEndedNotify"),
             action: {
               label: i18n.t("sessions.stopRecording"),
