@@ -356,6 +356,13 @@ function meetingEndedTitle(appName: string): string {
   return i18n.t("sessions.meetingEndedTitle", { app: appName });
 }
 
+/** Payload of the backend `meeting-started` event. */
+interface MeetingStartedPayload {
+  app_name: string;
+  /** Meeting name read from the app's window title, if detected. */
+  title: string | null;
+}
+
 const MAX_CACHE_SIZE = 20;
 
 interface SaveTimers {
@@ -412,7 +419,9 @@ interface SessionStore {
   selectSession: (id: string) => void;
   loadSessions: () => Promise<void>;
   initialize: () => Promise<void>;
-  createNote: () => Promise<void>;
+  /** Create a note and start recording. `title` defaults to the detected
+   * meeting name (backend), then "New Note". */
+  createNote: (title?: string | null) => Promise<void>;
   startRecording: (sessionId: string) => Promise<void>;
   stopRecording: () => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -821,34 +830,49 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     // Listen for meeting started notification (when meeting app starts using mic)
     // Behavior depends on meeting_start_action setting: "disabled" or "notify"
     unlisteners.push(
-      await listen<string>("meeting-started", async (event) => {
-        const appName = event.payload;
+      await listen<MeetingStartedPayload>("meeting-started", async (event) => {
+        const { app_name: appName, title } = event.payload;
         const { isRecording, createNote } = get();
 
         if (isRecording) return; // already recording, nothing to do
 
-        const meetingStartAction =
-          useSettingsStore.getState().settings?.meeting_start_action ??
-          "disabled";
+        const settings = useSettingsStore.getState().settings;
+        const meetingStartAction = settings?.meeting_start_action ?? "disabled";
 
         if (meetingStartAction === "disabled") return;
 
-        // Show and focus the window
-        try {
-          const win = getCurrentWindow();
-          await win.show();
-          await win.setFocus();
-        } catch {
-          // Window operations may fail if permissions not granted
+        const heading = title ?? `${appName} started`;
+
+        if (
+          (settings?.meeting_start_alert ?? "os_notification") ===
+          "focus_window"
+        ) {
+          // Show and focus the window
+          try {
+            const win = getCurrentWindow();
+            await win.show();
+            await win.setFocus();
+          } catch {
+            // Window operations may fail if permissions not granted
+          }
+        } else {
+          // Native notification leaves focus where it is. Clicking it brings
+          // Talky forward, where the toast below is waiting.
+          void notifyNative(
+            heading,
+            i18n.t("sessions.meetingStartedNative", { app: appName }),
+          );
         }
 
         // "notify" - show persistent toast with Start Recording / Close buttons
-        toast(`${appName} started`, {
-          description: i18n.t("sessions.meetingStartedNotify"),
+        toast(heading, {
+          description: title
+            ? i18n.t("sessions.meetingStartedTitled", { app: appName })
+            : i18n.t("sessions.meetingStartedNotify"),
           action: {
             label: i18n.t("sessions.startRecordingAction"),
             onClick: () => {
-              createNote();
+              createNote(title);
             },
           },
           cancel: {
@@ -982,8 +1006,10 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     set({ _unlisteners: unlisteners });
   },
 
-  createNote: async () => {
+  createNote: async (title?: string | null) => {
     const state = get();
+    // Guard against being used directly as an event handler.
+    const noteTitle = typeof title === "string" && title ? title : null;
     try {
       if (state.isRecording && state.recordingSessionId) {
         await invoke("stop_session_recording", {
@@ -997,7 +1023,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }
 
       const result = await invoke<Session>("start_session", {
-        title: null,
+        title: noteTitle,
       });
 
       set((s) => ({

@@ -8,6 +8,7 @@ mod llm_client;
 mod managers;
 #[cfg(target_os = "macos")]
 mod meeting_monitor;
+mod meeting_title;
 mod menu;
 #[cfg(target_os = "macos")]
 mod mic_detect;
@@ -729,6 +730,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::settings::change_meeting_end_action_setting,
         commands::settings::change_meeting_end_alert_setting,
         commands::settings::change_meeting_start_action_setting,
+        commands::settings::change_meeting_start_alert_setting,
+        commands::settings::change_meeting_name_detection_setting,
         commands::settings::get_environments,
         commands::settings::create_environment,
         commands::settings::update_environment,

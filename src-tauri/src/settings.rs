@@ -256,6 +256,16 @@ pub struct AppSettings {
     #[serde(default = "default_meeting_start_action")]
     pub meeting_start_action: String,
 
+    /// How to prompt the user when a meeting starts (with the "notify"
+    /// start action): "os_notification" or "focus_window".
+    #[serde(default = "default_meeting_start_alert")]
+    pub meeting_start_alert: String,
+
+    /// Read meeting window titles (via the Accessibility API on macOS) to
+    /// name notes after the meeting. Off by default: needs a permission.
+    #[serde(default)]
+    pub meeting_name_detection: bool,
+
     // Debug flags for Windows crash diagnosis
     #[serde(default)]
     pub debug_disable_speaker_capture: bool,
@@ -308,6 +318,10 @@ fn default_meeting_end_action() -> String {
 }
 
 fn default_meeting_end_alert() -> String {
+    "os_notification".to_string()
+}
+
+fn default_meeting_start_alert() -> String {
     "os_notification".to_string()
 }
 
@@ -641,6 +655,8 @@ pub fn get_default_settings() -> AppSettings {
         meeting_end_action: default_meeting_end_action(),
         meeting_end_alert: default_meeting_end_alert(),
         meeting_start_action: default_meeting_start_action(),
+        meeting_start_alert: default_meeting_start_alert(),
+        meeting_name_detection: false,
         debug_disable_speaker_capture: false,
         debug_disable_model_loading: false,
         debug_disable_pill_window: default_debug_disable_pill_window(),

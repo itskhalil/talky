@@ -16,6 +16,17 @@ const MEETING_START_OPTIONS = [
   },
 ];
 
+const MEETING_START_ALERT_OPTIONS = [
+  {
+    value: "os_notification",
+    labelKey: "settings.recording.meetingStartAction.alert.osNotification",
+  },
+  {
+    value: "focus_window",
+    labelKey: "settings.recording.meetingStartAction.alert.focusWindow",
+  },
+];
+
 export const MeetingStartActionSetting: React.FC = React.memo(() => {
   const { t } = useTranslation();
   const { getSetting, updateSetting, isUpdating } = useSettings();
@@ -23,16 +34,11 @@ export const MeetingStartActionSetting: React.FC = React.memo(() => {
 
   if (!capabilities.meetingDetection) return null;
 
-  const currentValue = getSetting("meeting_start_action") ?? "disabled";
+  const action = getSetting("meeting_start_action") ?? "disabled";
+  const alert = getSetting("meeting_start_alert") ?? "os_notification";
 
-  const options = MEETING_START_OPTIONS.map((option) => ({
-    value: option.value,
-    label: t(option.labelKey),
-  }));
-
-  const handleChange = (value: string) => {
-    updateSetting("meeting_start_action", value);
-  };
+  const toOptions = (opts: { value: string; labelKey: string }[]) =>
+    opts.map((option) => ({ value: option.value, label: t(option.labelKey) }));
 
   return (
     <SettingContainer
@@ -41,12 +47,28 @@ export const MeetingStartActionSetting: React.FC = React.memo(() => {
       descriptionMode="tooltip"
       grouped
     >
-      <Dropdown
-        options={options}
-        selectedValue={currentValue}
-        onSelect={handleChange}
-        disabled={isUpdating("meeting_start_action")}
-      />
+      <div className="flex items-center gap-2">
+        <Dropdown
+          options={toOptions(MEETING_START_OPTIONS)}
+          selectedValue={action}
+          onSelect={(value) => updateSetting("meeting_start_action", value)}
+          disabled={isUpdating("meeting_start_action")}
+        />
+        {/* The alert only matters when we actually prompt. */}
+        {action !== "disabled" && (
+          <>
+            <span className="text-sm text-text-secondary">
+              {t("settings.recording.meetingStartAction.and")}
+            </span>
+            <Dropdown
+              options={toOptions(MEETING_START_ALERT_OPTIONS)}
+              selectedValue={alert}
+              onSelect={(value) => updateSetting("meeting_start_alert", value)}
+              disabled={isUpdating("meeting_start_alert")}
+            />
+          </>
+        )}
+      </div>
     </SettingContainer>
   );
 });

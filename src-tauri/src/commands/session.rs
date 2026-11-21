@@ -577,6 +577,10 @@ pub fn start_session(app: AppHandle, title: Option<String>) -> Result<Session, S
     let settings = crate::settings::get_settings(&app);
     let default_env_id = settings.default_environment_id.clone();
 
+    // Name the note after the meeting in progress, if we can tell.
+    #[cfg(target_os = "macos")]
+    let title = title.or_else(|| crate::meeting_monitor::current_meeting_title(&app));
+
     let session = sm
         .start_session(title, default_env_id)
         .map_err(|e| e.to_string())?;
