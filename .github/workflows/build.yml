@@ -59,9 +59,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      # Pinned below 1.100: Cargo 1.100 changed the build-dir layout, and
+      # ort-sys 2.0.0-rc.12 (via transcribe-rs) then fails to copy the
+      # onnxruntime DLLs on Windows. ort-sys rc.14+ fixes it, but
+      # transcribe-rs 0.3.12 does not build against it yet.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.99.0"
           targets: ${{ inputs.target }}
 
       - name: Rust cache
