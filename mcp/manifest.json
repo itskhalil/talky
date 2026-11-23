@@ -1,0 +1,56 @@
+{
+  "manifest_version": "0.3",
+  "name": "talky",
+  "display_name": "Talky",
+  "version": "0.1.0",
+  "description": "Read your Talky meeting notes and transcripts. Everything stays on your machine.",
+  "author": {
+    "name": "Talky",
+    "url": "https://github.com/itskhalil/talky"
+  },
+  "homepage": "https://github.com/itskhalil/talky",
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "src/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/src/index.js"],
+      "env": {
+        "TALKY_DB_PATH": "${user_config.database_path}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "search_notes",
+      "description": "Search meeting notes by text across titles, your notes, and enhanced notes"
+    },
+    {
+      "name": "list_notes",
+      "description": "List meeting notes newest first, filtered by folder, tags, or date"
+    },
+    {
+      "name": "get_note",
+      "description": "Read one note in full, optionally with its transcript"
+    },
+    {
+      "name": "list_folders_and_tags",
+      "description": "List folders and tags with their ids, for use as filters"
+    }
+  ],
+  "user_config": {
+    "database_path": {
+      "type": "file",
+      "title": "Talky database",
+      "description": "Leave empty unless you moved Talky's data directory. Points at sessions.db.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=22.5.0"
+    }
+  }
+}
