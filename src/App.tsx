@@ -137,6 +137,9 @@ function App() {
       <Toaster
         theme="system"
         position="bottom-left"
+        // Sit above the note's bottom bar so toasts don't cover the
+        // Enhance / recording controls.
+        offset={{ bottom: 96 }}
         toastOptions={{
           unstyled: true,
           classNames: {

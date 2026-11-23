@@ -16,6 +16,7 @@
     "core:window:allow-scale-factor",
     "opener:default",
     "dialog:default",
+    "notification:default",
     "store:default",
     "updater:default",
     "process:default",

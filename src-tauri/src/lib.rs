@@ -483,6 +483,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(
             tauri_plugin_window_state::Builder::new()
@@ -726,6 +727,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::settings::change_copy_as_bullets_setting,
         commands::settings::change_new_recording_shortcut_setting,
         commands::settings::change_meeting_end_action_setting,
+        commands::settings::change_meeting_end_alert_setting,
         commands::settings::change_meeting_start_action_setting,
         commands::settings::get_environments,
         commands::settings::create_environment,

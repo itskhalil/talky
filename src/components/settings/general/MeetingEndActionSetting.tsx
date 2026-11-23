@@ -4,6 +4,7 @@ import { Dropdown } from "../../ui/Dropdown";
 import { SettingContainer } from "../../ui/SettingContainer";
 import { useSettings } from "@/hooks/useSettings";
 import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
+import { effectiveMeetingEndAlert } from "@/utils/meetingAlert";
 
 const MEETING_END_OPTIONS = [
   {
@@ -16,6 +17,21 @@ const MEETING_END_OPTIONS = [
   },
 ];
 
+const MEETING_END_ALERT_OPTIONS = [
+  {
+    value: "none",
+    labelKey: "settings.recording.meetingEndAction.alert.none",
+  },
+  {
+    value: "os_notification",
+    labelKey: "settings.recording.meetingEndAction.alert.osNotification",
+  },
+  {
+    value: "focus_window",
+    labelKey: "settings.recording.meetingEndAction.alert.focusWindow",
+  },
+];
+
 export const MeetingEndActionSetting: React.FC = React.memo(() => {
   const { t } = useTranslation();
   const { getSetting, updateSetting, isUpdating } = useSettings();
@@ -23,16 +39,23 @@ export const MeetingEndActionSetting: React.FC = React.memo(() => {
 
   if (!capabilities.meetingDetection) return null;
 
-  const currentValue = getSetting("meeting_end_action") ?? "stop_recording";
+  const action = getSetting("meeting_end_action") ?? "stop_recording";
+  const alert = effectiveMeetingEndAlert(
+    action,
+    getSetting("meeting_end_alert") ?? "os_notification",
+  );
 
-  const options = MEETING_END_OPTIONS.map((option) => ({
+  const actionOptions = MEETING_END_OPTIONS.map((option) => ({
     value: option.value,
     label: t(option.labelKey),
   }));
 
-  const handleChange = (value: string) => {
-    updateSetting("meeting_end_action", value);
-  };
+  const alertOptions = MEETING_END_ALERT_OPTIONS.filter(
+    (option) => !(action === "notify" && option.value === "none"),
+  ).map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
 
   return (
     <SettingContainer
@@ -41,12 +64,23 @@ export const MeetingEndActionSetting: React.FC = React.memo(() => {
       descriptionMode="tooltip"
       grouped
     >
-      <Dropdown
-        options={options}
-        selectedValue={currentValue}
-        onSelect={handleChange}
-        disabled={isUpdating("meeting_end_action")}
-      />
+      <div className="flex items-center gap-2">
+        <Dropdown
+          options={actionOptions}
+          selectedValue={action}
+          onSelect={(value) => updateSetting("meeting_end_action", value)}
+          disabled={isUpdating("meeting_end_action")}
+        />
+        <span className="text-sm text-text-secondary">
+          {t("settings.recording.meetingEndAction.and")}
+        </span>
+        <Dropdown
+          options={alertOptions}
+          selectedValue={alert}
+          onSelect={(value) => updateSetting("meeting_end_alert", value)}
+          disabled={isUpdating("meeting_end_alert")}
+        />
+      </div>
     </SettingContainer>
   );
 });

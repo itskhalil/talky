@@ -2,10 +2,16 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { toast } from "sonner";
 import i18n from "@/i18n";
 import { commands, type MeetingNotes, type Attachment } from "@/bindings";
 import { useSettingsStore } from "./settingsStore";
+import { effectiveMeetingEndAlert } from "@/utils/meetingAlert";
 
 export interface Session {
   id: string;
@@ -319,6 +325,35 @@ function stripBlankLines(text: string): string {
       return true;
     })
     .join("\n");
+}
+
+/**
+ * Show a native OS notification without touching window focus.
+ * Failures (e.g. permission denied) are logged and otherwise ignored.
+ */
+async function notifyNative(title: string, body: string): Promise<void> {
+  try {
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      granted = (await requestPermission()) === "granted";
+    }
+    if (granted) {
+      sendNotification({ title, body });
+    }
+  } catch (e) {
+    console.warn("[notifyNative] Failed to send notification", e);
+  }
+}
+
+/**
+ * Title for meeting-ended alerts, e.g. "Chrome meeting ended".
+ * `appName` comes from the backend's bundle-ID mapping (mic_detect.rs).
+ */
+function meetingEndedTitle(appName: string): string {
+  if (appName === "iPhone") return i18n.t("sessions.meetingEndedTitleIphone");
+  if (appName === "Meeting app")
+    return i18n.t("sessions.meetingEndedTitleGeneric");
+  return i18n.t("sessions.meetingEndedTitle", { app: appName });
 }
 
 const MAX_CACHE_SIZE = 20;
@@ -719,29 +754,52 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     unlisteners.push(
       await listen<string>("meeting-ended", async (event) => {
         const appName = event.payload;
-        const meetingEndAction =
-          useSettingsStore.getState().settings?.meeting_end_action ??
-          "stop_recording";
+        const { isRecording } = get();
 
-        // Show and focus the window (wrapped in try-catch so toast still shows)
-        try {
-          const win = getCurrentWindow();
-          await win.show();
-          await win.setFocus();
-        } catch {
-          // Window operations may fail if permissions not granted
+        // Nothing to stop if we weren't recording
+        if (!isRecording) return;
+
+        const settings = useSettingsStore.getState().settings;
+        const meetingEndAction =
+          settings?.meeting_end_action ?? "stop_recording";
+        const meetingAlert = effectiveMeetingEndAlert(
+          meetingEndAction,
+          settings?.meeting_end_alert ?? "os_notification",
+        );
+
+        if (meetingAlert === "focus_window") {
+          // Show and focus the window (wrapped in try-catch so toast still shows)
+          try {
+            const win = getCurrentWindow();
+            await win.show();
+            await win.setFocus();
+          } catch {
+            // Window operations may fail if permissions not granted
+          }
+        } else if (meetingAlert === "os_notification") {
+          // Native notification leaves focus where it is, so whatever the
+          // user is typing in another app doesn't land in the note. Clicking
+          // it brings Talky forward, where the toast below is waiting.
+          void notifyNative(
+            meetingEndedTitle(appName),
+            i18n.t(
+              meetingEndAction === "stop_recording"
+                ? "sessions.meetingEndedStoppedNative"
+                : "sessions.meetingEndedNotifyNative",
+            ),
+          );
         }
 
         if (meetingEndAction === "stop_recording") {
           const { stopRecording } = get();
           stopRecording();
-          toast(`${appName} ended`, {
+          toast(meetingEndedTitle(appName), {
             description: i18n.t("sessions.meetingEndedStopped"),
             duration: 4000,
           });
         } else {
           // "notify" - show persistent toast with Stop/Dismiss buttons
-          toast(`${appName} ended`, {
+          toast(meetingEndedTitle(appName), {
             description: i18n.t("sessions.meetingEndedNotify"),
             action: {
               label: i18n.t("sessions.stopRecording"),

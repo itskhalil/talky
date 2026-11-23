@@ -247,6 +247,12 @@ pub struct AppSettings {
     #[serde(default = "default_meeting_end_action")]
     pub meeting_end_action: String,
 
+    /// How to alert the user when a meeting ends while recording:
+    /// "os_notification" (native notification, keeps focus where it is),
+    /// "focus_window" (show and focus the Talky window) or "none".
+    #[serde(default = "default_meeting_end_alert")]
+    pub meeting_end_alert: String,
+
     #[serde(default = "default_meeting_start_action")]
     pub meeting_start_action: String,
 
@@ -299,6 +305,10 @@ pub struct AppSettings {
 
 fn default_meeting_end_action() -> String {
     "stop_recording".to_string()
+}
+
+fn default_meeting_end_alert() -> String {
+    "os_notification".to_string()
 }
 
 fn default_meeting_start_action() -> String {
@@ -629,6 +639,7 @@ pub fn get_default_settings() -> AppSettings {
         default_environment_id: None,
         new_recording_shortcut: None,
         meeting_end_action: default_meeting_end_action(),
+        meeting_end_alert: default_meeting_end_alert(),
         meeting_start_action: default_meeting_start_action(),
         debug_disable_speaker_capture: false,
         debug_disable_model_loading: false,
