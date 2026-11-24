@@ -577,14 +577,34 @@ pub fn start_session(app: AppHandle, title: Option<String>) -> Result<Session, S
     let settings = crate::settings::get_settings(&app);
     let default_env_id = settings.default_environment_id.clone();
 
-    // Name the note after the meeting in progress, if we can tell.
-    #[cfg(target_os = "macos")]
-    let title = title.or_else(|| crate::meeting_monitor::current_meeting_title(&app));
-
     let session = sm
         .start_session(title, default_env_id)
         .map_err(|e| e.to_string())?;
     Ok(session)
+}
+
+/// Name of the meeting in progress, offered as a title for a new note.
+/// `None` when name detection is off, the platform is unsupported, or no
+/// meeting window is found.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_meeting_title_suggestion(app: AppHandle) -> Option<String> {
+    // Accessibility calls block (up to a timeout per app), so keep them off
+    // the async runtime's worker threads.
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::meeting_monitor::current_meeting_title(&app)
+        })
+        .await
+        .ok()
+        .flatten()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        None
+    }
 }
 
 /// Start recording within an existing session.

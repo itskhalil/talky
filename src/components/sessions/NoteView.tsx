@@ -603,6 +603,12 @@ export function NoteView({
   const attachments = useAttachments();
   const refreshAttachments = useSessionStore((s) => s.refreshAttachments);
   const clearTranscript = useSessionStore((s) => s.clearTranscript);
+  const titleSuggestion = useSessionStore((s) =>
+    session ? s.titleSuggestions[session.id] : undefined,
+  );
+  const dismissTitleSuggestion = useSessionStore(
+    (s) => s.dismissTitleSuggestion,
+  );
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const imageAttachments = useMemo(
     () => attachments.filter((a) => a.mime_type.startsWith("image/")),
@@ -1070,14 +1076,31 @@ export function NoteView({
     });
   }, [adjustTextareaHeight]);
 
+  // The detected meeting name shows as the placeholder of an empty title
+  // until the user accepts it (Tab or the button) or types their own.
+  const showTitleSuggestion = !!titleSuggestion && titleValue === "";
+
+  const acceptTitleSuggestion = () => {
+    if (!titleSuggestion || !session) return;
+    setTitleValue(titleSuggestion);
+    onTitleChange(titleSuggestion);
+    dismissTitleSuggestion(session.id);
+  };
+
   const handleTitleBlur = () => {
     const trimmed = titleValue.trim();
     if (trimmed && trimmed !== session?.title) {
       onTitleChange(trimmed);
+      if (session) dismissTitleSuggestion(session.id);
     }
   };
 
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Tab" && !e.shiftKey && showTitleSuggestion) {
+      e.preventDefault();
+      acceptTitleSuggestion();
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       (e.target as HTMLTextAreaElement).blur();
@@ -1568,7 +1591,7 @@ export function NoteView({
           className="flex-1 overflow-y-scroll overflow-x-hidden px-6 md:px-12 pt-6 pb-10 w-full cursor-text select-text"
         >
           {/* Editable title */}
-          <div className="max-w-3xl mx-auto mb-4">
+          <div className="relative max-w-3xl mx-auto mb-4">
             <textarea
               ref={textareaRef}
               rows={1}
@@ -1579,9 +1602,26 @@ export function NoteView({
               }}
               onBlur={handleTitleBlur}
               onKeyDown={handleTitleKeyDown}
-              placeholder={t("sessions.newNote")}
-              className="w-full text-title leading-tight font-normal tracking-[-0.03em] bg-transparent border-none outline-none placeholder:text-mid-gray/30 pr-16 resize-none overflow-hidden p-0"
+              placeholder={
+                showTitleSuggestion ? titleSuggestion : t("sessions.newNote")
+              }
+              className={`w-full text-title leading-tight font-normal tracking-[-0.03em] bg-transparent border-none outline-none placeholder:text-mid-gray/30 resize-none overflow-hidden p-0 ${showTitleSuggestion ? "pr-44" : "pr-16"}`}
             />
+            {showTitleSuggestion && (
+              <button
+                type="button"
+                // Keep focus in the title so Tab still works after a miss-click.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={acceptTitleSuggestion}
+                title={t("sessions.useMeetingNameHint")}
+                className="absolute right-0 top-2 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:bg-accent/8 hover:text-text transition-colors"
+              >
+                {t("sessions.useMeetingName")}
+                <kbd className="px-1 rounded border border-mid-gray/30 font-sans text-[10px] leading-4">
+                  {t("sessions.useMeetingNameKey")}
+                </kbd>
+              </button>
+            )}
 
             {/* Filing line: environment, folder and tags. Facts (date,
                 length) live in the header stamp; files sit at the end. */}

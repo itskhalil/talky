@@ -296,6 +296,17 @@ pub fn detect(bundle_id: &str) -> Option<String> {
     title_from_windows(bundle_id, &window_titles(bundle_id))
 }
 
+/// Why `detect` found no name for `bundle_id`, for logs. Window titles can
+/// hold private meeting names, so they are only logged at debug level.
+pub fn explain_miss(bundle_id: &str) -> String {
+    if !is_trusted() {
+        return "Accessibility permission not granted".to_string();
+    }
+    let titles = window_titles(bundle_id);
+    log::debug!("{bundle_id} window titles: {titles:?}");
+    format!("{} window(s), none looked like a meeting", titles.len())
+}
+
 /// Detect a meeting name across several apps, in priority order.
 /// Returns `(bundle_id, title)` for the first match.
 pub fn detect_any<'a, I>(bundle_ids: I) -> Option<(String, String)>

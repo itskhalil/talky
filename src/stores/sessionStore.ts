@@ -396,6 +396,8 @@ interface SessionStore {
   enhanceError: Record<string, string | null>;
   showEnhancePrompt: Record<string, boolean>;
   viewMode: "notes" | "enhanced";
+  /** Detected meeting name offered as the title of a new note, by session. */
+  titleSuggestions: Record<string, string>;
 
   // Streaming state
   streamingEnhancedNotes: Record<string, string>;
@@ -419,9 +421,11 @@ interface SessionStore {
   selectSession: (id: string) => void;
   loadSessions: () => Promise<void>;
   initialize: () => Promise<void>;
-  /** Create a note and start recording. `title` defaults to the detected
-   * meeting name (backend), then "New Note". */
-  createNote: (title?: string | null) => Promise<void>;
+  /** Create a note and start recording. `suggestedTitle` (or else the
+   * meeting name the backend detects) is offered as the title; the user
+   * accepts it in the note. */
+  createNote: (suggestedTitle?: string | null) => Promise<void>;
+  dismissTitleSuggestion: (sessionId: string) => void;
   startRecording: (sessionId: string) => Promise<void>;
   stopRecording: () => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -462,6 +466,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   cache: {},
   loading: {},
   notesLoaded: false,
+  titleSuggestions: {},
 
   summaryLoading: false,
   summaryError: null,
@@ -1006,10 +1011,13 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     set({ _unlisteners: unlisteners });
   },
 
-  createNote: async (title?: string | null) => {
+  createNote: async (suggestedTitle?: string | null) => {
     const state = get();
     // Guard against being used directly as an event handler.
-    const noteTitle = typeof title === "string" && title ? title : null;
+    const suggestion =
+      typeof suggestedTitle === "string" && suggestedTitle
+        ? suggestedTitle
+        : null;
     try {
       if (state.isRecording && state.recordingSessionId) {
         await invoke("stop_session_recording", {
@@ -1023,7 +1031,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
       }
 
       const result = await invoke<Session>("start_session", {
-        title: noteTitle,
+        title: null,
       });
 
       set((s) => ({
@@ -1049,6 +1057,20 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
       localStorage.setItem("lastSelectedSessionId", result.id);
 
+      // Look up the meeting name without delaying the recording start.
+      void (async () => {
+        const name =
+          suggestion ??
+          (await invoke<string | null>("get_meeting_title_suggestion").catch(
+            () => null,
+          ));
+        if (name) {
+          set((s) => ({
+            titleSuggestions: { ...s.titleSuggestions, [result.id]: name },
+          }));
+        }
+      })();
+
       try {
         await invoke("start_session_recording", { sessionId: result.id });
         set({ isRecording: true });
@@ -1058,6 +1080,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     } catch (e) {
       console.error("Failed to create note:", e);
     }
+  },
+
+  dismissTitleSuggestion: (sessionId: string) => {
+    set((s) => {
+      if (!(sessionId in s.titleSuggestions)) return s;
+      const { [sessionId]: _, ...rest } = s.titleSuggestions;
+      return { titleSuggestions: rest };
+    });
   },
 
   startRecording: async (sessionId: string) => {

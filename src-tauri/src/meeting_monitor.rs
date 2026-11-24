@@ -66,15 +66,17 @@ fn emit_meeting_started(app: &AppHandle, bundle_id: &str) {
             }
         }
         let app_name = mic_detect::app_name(&bundle_id).to_string();
-        log::info!(
-            "{} meeting started (title {})",
-            app_name,
-            if title.is_some() {
-                "found"
-            } else {
-                "not found"
-            }
-        );
+        let outcome = if title.is_some() {
+            "title found".to_string()
+        } else if !name_detection_enabled(&app) {
+            "name detection off".to_string()
+        } else {
+            format!(
+                "title not found: {}",
+                meeting_title::explain_miss(&bundle_id)
+            )
+        };
+        log::info!("{app_name} meeting started ({outcome})");
         let _ = app.emit("meeting-started", MeetingStartedPayload { app_name, title });
     });
 }

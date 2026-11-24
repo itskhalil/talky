@@ -711,6 +711,14 @@ async startSession(title: string | null) : Promise<Result<Session, string>> {
 }
 },
 /**
+ * Name of the meeting in progress, offered as a title for a new note.
+ * `None` when name detection is off, the platform is unsupported, or no
+ * meeting window is found.
+ */
+async getMeetingTitleSuggestion() : Promise<string | null> {
+    return await TAURI_INVOKE("get_meeting_title_suggestion");
+},
+/**
  * Start recording within an existing session.
  */
 async startSessionRecording(sessionId: string) : Promise<Result<null, string>> {

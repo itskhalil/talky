@@ -519,8 +519,12 @@
         }
       },
       "meetingNameDetection": {
-        "label": "Name notes after meetings",
-        "description": "Read the meeting app's window title (Teams, Slack huddles, Google Meet) to name new notes after the meeting. Needs the Accessibility permission."
+        "label": "Suggest note titles from meeting names",
+        "description": "Read the meeting app's window title (Teams, Slack huddles, Google Meet) and suggest it as the title of new notes. Needs the Accessibility permission.",
+        "granted": "Access allowed",
+        "grantedHint": "Talky has the Accessibility permission.",
+        "missing": "Allow access",
+        "missingHint": "Talky needs the Accessibility permission to read meeting names. Click to ask macOS for it."
       }
     },
     "appearance": {
@@ -620,6 +624,9 @@
     "title": "Notes",
     "environment": "Environment",
     "newNote": "New Note",
+    "useMeetingName": "Use meeting name",
+    "useMeetingNameHint": "Use the meeting name as the title (Tab)",
+    "useMeetingNameKey": "Tab",
     "endNote": "Close Note",
     "noSessions": "No notes yet. Create a note to start writing or recording.",
     "active": "Active",

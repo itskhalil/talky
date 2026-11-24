@@ -790,6 +790,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::history::update_history_limit,
         commands::history::update_recording_retention_period,
         commands::session::start_session,
+        commands::session::get_meeting_title_suggestion,
         commands::session::start_session_recording,
         commands::session::stop_session_recording,
         commands::session::reactivate_session,
