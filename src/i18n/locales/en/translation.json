@@ -685,6 +685,7 @@
     "meetingStartedTitled": "{{app}} meeting started. Start recording?",
     "meetingStartedNative": "{{app}} meeting started. Open Talky to start recording.",
     "startRecordingAction": "Start Recording",
+    "meetingStartedTitle": "{{app}} meeting started",
     "meetingEndedTitle": "{{app}} meeting ended",
     "meetingEndedTitleIphone": "iPhone call ended",
     "meetingEndedTitleGeneric": "Meeting ended",

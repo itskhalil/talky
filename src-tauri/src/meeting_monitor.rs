@@ -30,21 +30,20 @@ fn name_detection_enabled(app: &AppHandle) -> bool {
     settings::get_settings(app).meeting_name_detection
 }
 
-/// Best-effort meeting name for a new note: apps using the mic first, then
-/// any running meeting app with a recognisable meeting window.
+/// Best-effort meeting name for a new note, from the meeting apps that are
+/// using the mic right now. Apps that are only open are not checked: their
+/// windows (e.g. a Teams pop-out chat titled with a contact's name) would
+/// give wrong suggestions when no call is in progress.
 pub fn current_meeting_title(app: &AppHandle) -> Option<String> {
     if !name_detection_enabled(app) {
         return None;
     }
-    let mut ids: Vec<String> = mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps())
-        .into_iter()
-        .collect();
-    for id in meeting_title::running_bundle_ids() {
-        if mic_detect::is_meeting_app(&id) && !ids.contains(&id) {
-            ids.push(id);
-        }
-    }
+    let ids = mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
     meeting_title::detect_any(ids.iter().map(String::as_str)).map(|(_, title)| title)
+}
+
+fn still_using_mic(bundle_id: &str) -> bool {
+    mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps()).contains(bundle_id)
 }
 
 /// Emit `meeting-started` for `bundle_id`, looking up the meeting name first
@@ -77,6 +76,13 @@ fn emit_meeting_started(app: &AppHandle, bundle_id: &str) {
             )
         };
         log::info!("{app_name} meeting started ({outcome})");
+        // The title lookup can take a few seconds. If the call ended in the
+        // meantime, the monitor has already sent (or will send) a
+        // meeting-ended; don't prompt for a meeting that is over.
+        if !still_using_mic(&bundle_id) {
+            log::info!("{app_name} stopped using the mic before the prompt; not sending it");
+            return;
+        }
         let _ = app.emit("meeting-started", MeetingStartedPayload { app_name, title });
     });
 }
@@ -98,7 +104,7 @@ pub fn start_monitoring(app: AppHandle) {
 
             let current = mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
 
-            // New apps: emit meeting-started immediately
+            // New apps: emit meeting-started (after a short title lookup)
             for id in current.difference(&known) {
                 pending.remove(id); // cancel any pending disappearance
                 log::info!("{} started using microphone", mic_detect::app_name(id));

@@ -846,7 +846,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
         if (meetingStartAction === "disabled") return;
 
-        const heading = title ?? `${appName} started`;
+        const heading =
+          title ?? i18n.t("sessions.meetingStartedTitle", { app: appName });
 
         if (
           (settings?.meeting_start_alert ?? "os_notification") ===
@@ -1064,11 +1065,15 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
           (await invoke<string | null>("get_meeting_title_suggestion").catch(
             () => null,
           ));
-        if (name) {
-          set((s) => ({
+        if (!name) return;
+        set((s) => {
+          // The user may have titled the note while the lookup ran.
+          const current = s.sessions.find((x) => x.id === result.id);
+          if (current && current.title !== "New Note") return s;
+          return {
             titleSuggestions: { ...s.titleSuggestions, [result.id]: name },
-          }));
-        }
+          };
+        });
       })();
 
       try {
@@ -1129,6 +1134,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
       set((s) => {
         const { [sessionId]: _, ...restCache } = s.cache;
+        const { [sessionId]: _suggestion, ...restSuggestions } =
+          s.titleSuggestions;
         const deletedIndex = s.sessions.findIndex(
           (sess) => sess.id === sessionId,
         );
@@ -1136,6 +1143,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         const updates: Partial<SessionStore> = {
           cache: restCache,
           sessions: newSessions,
+          titleSuggestions: restSuggestions,
         };
         if (s.selectedSessionId === sessionId) {
           const nextSession =

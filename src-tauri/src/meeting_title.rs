@@ -170,7 +170,16 @@ fn app_kind(bundle_id: &str) -> AppKind {
     } else if id.contains("signal") {
         AppKind::Signal
     } else if [
-        "chrome", "chromium", "safari", "webkit", "edgemac", "brave", "firefox", "opera", "arc",
+        "chrome",
+        "chromium",
+        "safari",
+        "webkit",
+        "edgemac",
+        "brave",
+        "firefox",
+        "opera",
+        // Arc: company.thebrowser.Browser
+        "thebrowser",
     ]
     .iter()
     .any(|b| id.contains(b))
@@ -202,10 +211,12 @@ pub fn title_from_windows<S: AsRef<str>>(bundle_id: &str, titles: &[S]) -> Optio
 mod platform {
     use cidre::{ax, cf};
     use objc2_app_kit::NSWorkspace;
-    use std::time::Duration;
 
-    /// Per-call timeout so an unresponsive app can't stall the caller.
-    const AX_TIMEOUT: Duration = Duration::from_millis(250);
+    /// Per-call timeout (seconds) so an unresponsive app can't stall the
+    /// caller. Set through `set_messaging_timeout_secs`: cidre's
+    /// `Duration` variant truncates to whole seconds, and 0 means "use the
+    /// system default" (about 6 s). Each element needs its own timeout.
+    const AX_TIMEOUT_SECS: f32 = 0.25;
 
     pub fn is_trusted() -> bool {
         ax::is_process_trusted()
@@ -218,16 +229,6 @@ mod platform {
             return app_bundle == "com.apple.Safari";
         }
         mic_bundle == app_bundle || mic_bundle.starts_with(&format!("{app_bundle}."))
-    }
-
-    /// Bundle IDs of all running apps.
-    pub fn running_bundle_ids() -> Vec<String> {
-        NSWorkspace::sharedWorkspace()
-            .runningApplications()
-            .iter()
-            .filter(|app| !app.isTerminated())
-            .filter_map(|app| app.bundleIdentifier().map(|b| b.to_string()))
-            .collect()
     }
 
     /// PIDs of running apps that own `bundle_id`.
@@ -245,7 +246,7 @@ mod platform {
 
     fn window_titles_for_pid(pid: i32) -> Vec<String> {
         let app = ax::UiElement::with_app_pid(pid);
-        let _ = app.set_messaging_timeout(AX_TIMEOUT);
+        let _ = app.set_messaging_timeout_secs(AX_TIMEOUT_SECS);
         let Ok(value) = app.attr_value(ax::attr::windows()) else {
             return Vec::new();
         };
@@ -258,6 +259,7 @@ mod platform {
         windows
             .iter()
             .filter_map(|w| {
+                let _ = w.set_messaging_timeout_secs(AX_TIMEOUT_SECS);
                 let t = w.attr_value(ax::attr::title()).ok()?;
                 t.try_as_string().map(|s| s.to_string())
             })
@@ -277,15 +279,12 @@ mod platform {
     pub fn is_trusted() -> bool {
         false
     }
-    pub fn running_bundle_ids() -> Vec<String> {
-        Vec::new()
-    }
     pub fn window_titles(_bundle_id: &str) -> Vec<String> {
         Vec::new()
     }
 }
 
-pub use platform::{is_trusted, running_bundle_ids, window_titles};
+pub use platform::{is_trusted, window_titles};
 
 /// Detect the meeting name for an app (by bundle ID). `None` when the
 /// permission is missing or no window title looks like a meeting.
@@ -324,6 +323,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browser_kinds() {
+        assert_eq!(app_kind("company.thebrowser.Browser"), AppKind::Browser);
+        assert_eq!(app_kind("com.google.Chrome.helper"), AppKind::Browser);
+        // "arc" inside an unrelated ID must not count as a browser.
+        assert_eq!(app_kind("com.example.research"), AppKind::Other);
+    }
 
     #[test]
     fn teams_mac_call_window() {
