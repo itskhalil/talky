@@ -235,6 +235,22 @@ async changeMeetingStartActionSetting(action: string) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+async changeMeetingStartAlertSetting(alert: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_meeting_start_alert_setting", { alert }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeMeetingNameDetectionSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_meeting_name_detection_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getEnvironments() : Promise<ModelEnvironment[]> {
     return await TAURI_INVOKE("get_environments");
 },
@@ -695,6 +711,14 @@ async startSession(title: string | null) : Promise<Result<Session, string>> {
 }
 },
 /**
+ * Name of the meeting in progress, offered as a title for a new note.
+ * `None` when name detection is off, the platform is unsupported, or no
+ * meeting window is found.
+ */
+async getMeetingTitleSuggestion() : Promise<string | null> {
+    return await TAURI_INVOKE("get_meeting_title_suggestion");
+},
+/**
  * Start recording within an existing session.
  */
 async startSessionRecording(sessionId: string) : Promise<Result<null, string>> {
@@ -1121,7 +1145,17 @@ user_name?: string; data_directory?: string | null; font_size?: FontSize; autost
  * "os_notification" (native notification, keeps focus where it is),
  * "focus_window" (show and focus the Talky window) or "none".
  */
-meeting_end_alert?: string; meeting_start_action?: string; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; transcript_clearing_enabled?: boolean; coreml_model_ready?: boolean; last_run_version?: string | null; 
+meeting_end_alert?: string; meeting_start_action?: string; 
+/**
+ * How to prompt the user when a meeting starts (with the "notify"
+ * start action): "os_notification" or "focus_window".
+ */
+meeting_start_alert?: string; 
+/**
+ * Read meeting window titles (via the Accessibility API on macOS) to
+ * name notes after the meeting. Off by default: needs a permission.
+ */
+meeting_name_detection?: boolean; debug_disable_speaker_capture?: boolean; debug_disable_model_loading?: boolean; debug_disable_pill_window?: boolean; save_debug_recordings?: boolean; debug_recordings_max_count?: number; transcript_clearing_enabled?: boolean; coreml_model_ready?: boolean; last_run_version?: string | null; 
 /**
  * Set to true when `setup()` promotes `selected_model` from the ONNX id
  * to the `-coreml` id. Frontend reads + clears this on mount to decide

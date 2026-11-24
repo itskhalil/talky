@@ -2,14 +2,90 @@
 //! Polls CoreAudio every 2 seconds to detect when known meeting apps start or
 //! stop using the microphone, emitting `"meeting-started"` / `"meeting-ended"`.
 
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
-use crate::mic_detect;
+use crate::{meeting_title, mic_detect, settings};
 
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const GRACE_PERIOD: Duration = Duration::from_secs(2);
+
+/// The call window can show up a moment after the mic starts; retry the
+/// title lookup a few times before giving up.
+const TITLE_ATTEMPTS: u32 = 3;
+const TITLE_RETRY_DELAY: Duration = Duration::from_millis(1500);
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MeetingStartedPayload {
+    /// Friendly app name, e.g. "Teams".
+    pub app_name: String,
+    /// Meeting name read from the app's windows, if detection is enabled
+    /// and a meeting window was found.
+    pub title: Option<String>,
+}
+
+fn name_detection_enabled(app: &AppHandle) -> bool {
+    settings::get_settings(app).meeting_name_detection
+}
+
+/// Best-effort meeting name for a new note, from the meeting apps that are
+/// using the mic right now. Apps that are only open are not checked: their
+/// windows (e.g. a Teams pop-out chat titled with a contact's name) would
+/// give wrong suggestions when no call is in progress.
+pub fn current_meeting_title(app: &AppHandle) -> Option<String> {
+    if !name_detection_enabled(app) {
+        return None;
+    }
+    let ids = mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
+    meeting_title::detect_any(ids.iter().map(String::as_str)).map(|(_, title)| title)
+}
+
+fn still_using_mic(bundle_id: &str) -> bool {
+    mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps()).contains(bundle_id)
+}
+
+/// Emit `meeting-started` for `bundle_id`, looking up the meeting name first
+/// (off the monitor thread, since it may wait for the call window).
+fn emit_meeting_started(app: &AppHandle, bundle_id: &str) {
+    let app = app.clone();
+    let bundle_id = bundle_id.to_string();
+    std::thread::spawn(move || {
+        let mut title = None;
+        if name_detection_enabled(&app) {
+            for attempt in 0..TITLE_ATTEMPTS {
+                if attempt > 0 {
+                    std::thread::sleep(TITLE_RETRY_DELAY);
+                }
+                title = meeting_title::detect(&bundle_id);
+                if title.is_some() {
+                    break;
+                }
+            }
+        }
+        let app_name = mic_detect::app_name(&bundle_id).to_string();
+        let outcome = if title.is_some() {
+            "title found".to_string()
+        } else if !name_detection_enabled(&app) {
+            "name detection off".to_string()
+        } else {
+            format!(
+                "title not found: {}",
+                meeting_title::explain_miss(&bundle_id)
+            )
+        };
+        log::info!("{app_name} meeting started ({outcome})");
+        // The title lookup can take a few seconds. If the call ended in the
+        // meantime, the monitor has already sent (or will send) a
+        // meeting-ended; don't prompt for a meeting that is over.
+        if !still_using_mic(&bundle_id) {
+            log::info!("{app_name} stopped using the mic before the prompt; not sending it");
+            return;
+        }
+        let _ = app.emit("meeting-started", MeetingStartedPayload { app_name, title });
+    });
+}
 
 pub fn start_monitoring(app: AppHandle) {
     std::thread::spawn(move || {
@@ -28,12 +104,11 @@ pub fn start_monitoring(app: AppHandle) {
 
             let current = mic_detect::filter_meeting_apps(&mic_detect::get_mic_using_apps());
 
-            // New apps: emit meeting-started immediately
+            // New apps: emit meeting-started (after a short title lookup)
             for id in current.difference(&known) {
                 pending.remove(id); // cancel any pending disappearance
-                let name = mic_detect::app_name(id);
-                log::info!("{} started using microphone", name);
-                let _ = app.emit("meeting-started", name);
+                log::info!("{} started using microphone", mic_detect::app_name(id));
+                emit_meeting_started(&app, id);
             }
             known.extend(current.iter().cloned());
 

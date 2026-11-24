@@ -356,6 +356,13 @@ function meetingEndedTitle(appName: string): string {
   return i18n.t("sessions.meetingEndedTitle", { app: appName });
 }
 
+/** Payload of the backend `meeting-started` event. */
+interface MeetingStartedPayload {
+  app_name: string;
+  /** Meeting name read from the app's window title, if detected. */
+  title: string | null;
+}
+
 const MAX_CACHE_SIZE = 20;
 
 interface SaveTimers {
@@ -389,6 +396,8 @@ interface SessionStore {
   enhanceError: Record<string, string | null>;
   showEnhancePrompt: Record<string, boolean>;
   viewMode: "notes" | "enhanced";
+  /** Detected meeting name offered as the title of a new note, by session. */
+  titleSuggestions: Record<string, string>;
 
   // Streaming state
   streamingEnhancedNotes: Record<string, string>;
@@ -412,7 +421,11 @@ interface SessionStore {
   selectSession: (id: string) => void;
   loadSessions: () => Promise<void>;
   initialize: () => Promise<void>;
-  createNote: () => Promise<void>;
+  /** Create a note and start recording. `suggestedTitle` (or else the
+   * meeting name the backend detects) is offered as the title; the user
+   * accepts it in the note. */
+  createNote: (suggestedTitle?: string | null) => Promise<void>;
+  dismissTitleSuggestion: (sessionId: string) => void;
   startRecording: (sessionId: string) => Promise<void>;
   stopRecording: () => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -453,6 +466,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   cache: {},
   loading: {},
   notesLoaded: false,
+  titleSuggestions: {},
 
   summaryLoading: false,
   summaryError: null,
@@ -821,34 +835,50 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     // Listen for meeting started notification (when meeting app starts using mic)
     // Behavior depends on meeting_start_action setting: "disabled" or "notify"
     unlisteners.push(
-      await listen<string>("meeting-started", async (event) => {
-        const appName = event.payload;
+      await listen<MeetingStartedPayload>("meeting-started", async (event) => {
+        const { app_name: appName, title } = event.payload;
         const { isRecording, createNote } = get();
 
         if (isRecording) return; // already recording, nothing to do
 
-        const meetingStartAction =
-          useSettingsStore.getState().settings?.meeting_start_action ??
-          "disabled";
+        const settings = useSettingsStore.getState().settings;
+        const meetingStartAction = settings?.meeting_start_action ?? "disabled";
 
         if (meetingStartAction === "disabled") return;
 
-        // Show and focus the window
-        try {
-          const win = getCurrentWindow();
-          await win.show();
-          await win.setFocus();
-        } catch {
-          // Window operations may fail if permissions not granted
+        const heading =
+          title ?? i18n.t("sessions.meetingStartedTitle", { app: appName });
+
+        if (
+          (settings?.meeting_start_alert ?? "os_notification") ===
+          "focus_window"
+        ) {
+          // Show and focus the window
+          try {
+            const win = getCurrentWindow();
+            await win.show();
+            await win.setFocus();
+          } catch {
+            // Window operations may fail if permissions not granted
+          }
+        } else {
+          // Native notification leaves focus where it is. Clicking it brings
+          // Talky forward, where the toast below is waiting.
+          void notifyNative(
+            heading,
+            i18n.t("sessions.meetingStartedNative", { app: appName }),
+          );
         }
 
         // "notify" - show persistent toast with Start Recording / Close buttons
-        toast(`${appName} started`, {
-          description: i18n.t("sessions.meetingStartedNotify"),
+        toast(heading, {
+          description: title
+            ? i18n.t("sessions.meetingStartedTitled", { app: appName })
+            : i18n.t("sessions.meetingStartedNotify"),
           action: {
             label: i18n.t("sessions.startRecordingAction"),
             onClick: () => {
-              createNote();
+              createNote(title);
             },
           },
           cancel: {
@@ -982,8 +1012,13 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     set({ _unlisteners: unlisteners });
   },
 
-  createNote: async () => {
+  createNote: async (suggestedTitle?: string | null) => {
     const state = get();
+    // Guard against being used directly as an event handler.
+    const suggestion =
+      typeof suggestedTitle === "string" && suggestedTitle
+        ? suggestedTitle
+        : null;
     try {
       if (state.isRecording && state.recordingSessionId) {
         await invoke("stop_session_recording", {
@@ -1023,6 +1058,24 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
       localStorage.setItem("lastSelectedSessionId", result.id);
 
+      // Look up the meeting name without delaying the recording start.
+      void (async () => {
+        const name =
+          suggestion ??
+          (await invoke<string | null>("get_meeting_title_suggestion").catch(
+            () => null,
+          ));
+        if (!name) return;
+        set((s) => {
+          // The user may have titled the note while the lookup ran.
+          const current = s.sessions.find((x) => x.id === result.id);
+          if (current && current.title !== "New Note") return s;
+          return {
+            titleSuggestions: { ...s.titleSuggestions, [result.id]: name },
+          };
+        });
+      })();
+
       try {
         await invoke("start_session_recording", { sessionId: result.id });
         set({ isRecording: true });
@@ -1032,6 +1085,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     } catch (e) {
       console.error("Failed to create note:", e);
     }
+  },
+
+  dismissTitleSuggestion: (sessionId: string) => {
+    set((s) => {
+      if (!(sessionId in s.titleSuggestions)) return s;
+      const { [sessionId]: _, ...rest } = s.titleSuggestions;
+      return { titleSuggestions: rest };
+    });
   },
 
   startRecording: async (sessionId: string) => {
@@ -1073,6 +1134,8 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
       set((s) => {
         const { [sessionId]: _, ...restCache } = s.cache;
+        const { [sessionId]: _suggestion, ...restSuggestions } =
+          s.titleSuggestions;
         const deletedIndex = s.sessions.findIndex(
           (sess) => sess.id === sessionId,
         );
@@ -1080,6 +1143,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         const updates: Partial<SessionStore> = {
           cache: restCache,
           sessions: newSessions,
+          titleSuggestions: restSuggestions,
         };
         if (s.selectedSessionId === sessionId) {
           const nextSession =

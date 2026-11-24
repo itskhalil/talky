@@ -583,6 +583,30 @@ pub fn start_session(app: AppHandle, title: Option<String>) -> Result<Session, S
     Ok(session)
 }
 
+/// Name of the meeting in progress, offered as a title for a new note.
+/// `None` when name detection is off, the platform is unsupported, or no
+/// meeting window is found.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_meeting_title_suggestion(app: AppHandle) -> Option<String> {
+    // Accessibility calls block (up to a timeout per app), so keep them off
+    // the async runtime's worker threads.
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::meeting_monitor::current_meeting_title(&app)
+        })
+        .await
+        .ok()
+        .flatten()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        None
+    }
+}
+
 /// Start recording within an existing session.
 #[tauri::command]
 #[specta::specta]

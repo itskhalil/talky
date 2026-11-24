@@ -375,6 +375,24 @@ pub fn change_meeting_start_action_setting(app: AppHandle, action: String) -> Re
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn change_meeting_start_alert_setting(app: AppHandle, alert: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.meeting_start_alert = alert;
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_meeting_name_detection_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.meeting_name_detection = enabled;
+    write_settings(&app, settings);
+    Ok(())
+}
+
 // Model Environment Commands
 #[tauri::command]
 #[specta::specta]

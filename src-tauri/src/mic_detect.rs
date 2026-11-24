@@ -40,10 +40,15 @@ pub fn get_mic_using_apps() -> HashSet<String> {
         .collect()
 }
 
+/// Whether a bundle ID belongs to a known meeting app
+pub fn is_meeting_app(bundle_id: &str) -> bool {
+    MEETING_APPS.iter().any(|m| bundle_id.contains(m))
+}
+
 /// Filter a set of bundle IDs to only include known meeting apps
 pub fn filter_meeting_apps(apps: &HashSet<String>) -> HashSet<String> {
     apps.iter()
-        .filter(|id| MEETING_APPS.iter().any(|m| id.contains(m)))
+        .filter(|id| is_meeting_app(id))
         .cloned()
         .collect()
 }
